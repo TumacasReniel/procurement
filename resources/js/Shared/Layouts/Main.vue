@@ -1,29 +1,3 @@
-<script>
-import { layoutComputed } from "@/Shared/State/helpers";
-import Vertical from "./Vertical.vue";
-import Horizontal from "./Horizontal.vue";
-import TwoColumns from "./Twocolumn.vue";
-export default {
-    components: {
-        Vertical,
-        Horizontal,
-        TwoColumns
-    },
-    computed: {
-        ...layoutComputed,
-        message() {
-            return (this.$page.props.flash.message) ?  true : false;
-        }
-    },
-    methods: {
-        check(){
-            this.$page.props.flash = {};
-            this.message = false;
-        },
-    }
-};
-</script>
-
 <template>
     <div>
         <Vertical v-if="layoutType === 'vertical' || layoutType === 'semibox'" :layout="layoutType">
@@ -60,4 +34,60 @@ export default {
             </p>
         </div>
     </b-modal>
+    <Survey v-if="showSurveyModal" v-model="surveyRequired" :questions="surveyQuestions" @success="handleSurveySubmit" />
+    <Update v-if="showUpdateModal" v-model="updateRequired" @success="handleUpdateSubmit"/>
 </template>
+<script>
+import { layoutComputed } from "@/Shared/State/helpers";
+import Vertical from "./Vertical.vue";
+import Horizontal from "./Horizontal.vue";
+import TwoColumns from "./Twocolumn.vue";
+import Survey from './Components/Survey.vue';
+import Update from './Components/Update.vue';
+export default {
+    components: {
+        Vertical,
+        Horizontal,
+        TwoColumns,
+        Survey,
+        Update
+    },
+    props: { 
+        surveyQuestions: Array
+    },
+    data() {
+        return {
+            surveyRequired: false,
+            updateRequired: false
+        };
+    },
+    created() {
+        this.updateRequired = this.$page.props.updateRequired;
+        this.surveyRequired = this.$page.props.surveyRequired;
+    },
+    computed: {
+        ...layoutComputed,
+        message() {
+            return (this.$page.props.flash.message) ?  true : false;
+        },
+        showUpdateModal() {
+            return this.updateRequired === true;
+        },
+        showSurveyModal() {
+            return this.updateRequired === false && this.surveyRequired === true;
+        }
+    },
+    methods: {
+        check(){
+            this.$page.props.flash = {};
+            this.message = false;
+        },
+        handleUpdateSubmit() {
+            this.updateRequired = false;
+        },
+        handleSurveySubmit() {
+            this.surveyRequired = false;
+        }
+    }
+};
+</script>

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/search', [App\Http\Controllers\SearchController::class, 'search']);
+Route::get('/dropdowns', [App\Http\Controllers\SearchController::class, 'dropdowns']);
 Route::get('/attendance', [App\Http\Controllers\Public\AttendanceController::class, 'index']);
 Route::post('/attendance', [App\Http\Controllers\Public\AttendanceController::class, 'store']);
 Route::post('/recognize', [App\Http\Controllers\Public\AttendanceController::class, 'recognize']);

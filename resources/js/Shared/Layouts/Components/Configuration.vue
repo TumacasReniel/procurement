@@ -670,7 +670,7 @@ export default {
 </script>
 
 <template>
-  <div>
+  <!-- <div>
     <div id="preloader">
       <div id="status">
         <div class="spinner-border text-primary avatar-sm" role="status">
@@ -1720,7 +1720,8 @@ export default {
         </BRow>
       </template>
     </BOffcanvas>
-  </div>
+  </div> -->
+  <div></div>
 </template>
 
 <style lang="scss">

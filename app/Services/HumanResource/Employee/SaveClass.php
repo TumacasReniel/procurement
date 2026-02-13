@@ -181,22 +181,6 @@ class SaveClass
         ];
 
         $contacts = [
-            "home_address" => [
-                "region" => null,
-                "province" => null,
-                "municipality" => null,
-                "barangay" => null,
-                "street" => null,
-                "zip_code" => null
-            ],
-            "permanent_address" => [
-                "region" => null,
-                "province" => null,
-                "municipality" => null,
-                "barangay" => null,
-                "street" => null,
-                "zip_code" => null
-            ],
             "emergency_contact" => [
                 "name" => null,
                 "relationship" => null,

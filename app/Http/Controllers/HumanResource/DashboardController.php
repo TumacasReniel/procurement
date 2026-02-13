@@ -30,7 +30,8 @@ class DashboardController extends Controller
             break;
             case 'top':
                 return [
-                    'absences' => $this->top->absences($request)
+                    'absences' => $this->top->absences($request),
+                    'lates' => $this->top->lates($request)
                 ];
             break;
             default:

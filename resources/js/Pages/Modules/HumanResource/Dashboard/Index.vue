@@ -27,24 +27,29 @@
         <BCol xl="4" class="mt-n1">
             <Absent :absences="absences"/>
         </BCol>
+        <BCol xl="4" class="mt-n1">
+            <Late :lates="lates"/>
+        </BCol>
     </BRow>
 
 </template>
 <script>
 import Bar from './Components/Bar.vue';
 import Employee from './Components/Employee.vue';
+import Late from './Components/Late.vue';
 import Absent from './Components/Absent.vue';
 import Multiselect from "@vueform/multiselect";
 import PageHeader from '@/Shared/Components/PageHeader.vue';
 export default {
     props: ['employee','counts','divisions','years'],
-    components: { PageHeader, Multiselect, Employee, Bar, Absent },
+    components: { PageHeader, Multiselect, Employee, Bar, Absent, Late },
     data(){
         return {
             months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
             quarters: ['1st Quater','2nd Quarter','3rd Quarter','4th Quarter'],
             semesters: ['1st Semester','2nd Semester'],
             absences: [],
+            lates: [],
             semester: null,
             quarter: null,
             month: null,
@@ -89,6 +94,7 @@ export default {
             })
             .then(response => {
                 this.absences = response.data.absences; 
+                this.lates = response.data.lates;
             })
             .catch(err => console.log(err));
         }

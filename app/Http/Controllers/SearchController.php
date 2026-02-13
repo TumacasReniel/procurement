@@ -15,6 +15,25 @@ class SearchController extends Controller
         $this->dropdown = $dropdown;
     }
 
+    public function dropdowns(){
+        return [
+            'dropdowns' => [
+                'sexes' => $this->dropdown->datas('Sex'),
+                'suffixes' => $this->dropdown->datas('Suffix'),
+                'bloods' => $this->dropdown->datas('Blood Type'),
+                'religions' => $this->dropdown->datas('Religion'),
+                'maritals' => $this->dropdown->datas('Marital Status'),
+                'divisions' => $this->dropdown->dropdowns('Division'),
+                'stations' => $this->dropdown->stations(),
+                'positions' => $this->dropdown->positions(),
+                'salaries' => $this->dropdown->salaries(),
+                'statuses' => $this->dropdown->statuses('Status'),
+                'employment_statuses' => $this->dropdown->datas('Employment Status'),
+                'regions' => $this->dropdown->regions()
+            ],
+        ];
+    }
+
     public function search(Request $request){
         $option = $request->option;
         switch($option){

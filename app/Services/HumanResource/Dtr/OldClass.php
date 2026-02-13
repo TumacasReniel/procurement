@@ -113,7 +113,7 @@ class OldClass
                     $failed[] = $dtr->user->username;
                 }
             }else{
-                $failed[] = $dtr->user->username;
+                $failed[] = $dtr->id;
             }
         }
         return [$success,array_unique($failed)];

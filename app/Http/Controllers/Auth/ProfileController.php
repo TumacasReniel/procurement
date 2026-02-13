@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Models\User;
+use App\Models\UserAddress;
 use App\Traits\HandlesTransaction;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\Profile\ViewClass;
 use App\Services\Profile\SaveClass;
-use App\Http\Requests\ProfileRequest;
+use App\Http\Requests\Auth\ProfileRequest;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
@@ -37,7 +38,9 @@ class ProfileController extends Controller
                 return $this->view->sessions($request);
             break;
             default: 
-            return inertia('Auth/Profile/Index');
+            return inertia('Auth/Profile/Index',[
+                'addresses' => UserAddress::with('region','province','municipality','barangay')->where('user_id',\Auth::user()->id)->get()
+            ]);
         }
     }
 
@@ -63,7 +66,7 @@ class ProfileController extends Controller
         ]);
     }
 
-    public function update(ProfileRequest $request){
+    public function update( ProfileRequest $request){
         $result = $this->handleTransaction(function () use ($request) {
             return $this->save->update($request);
         });

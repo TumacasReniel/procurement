@@ -204,24 +204,8 @@
     "file": "assets/logo-sm-BMbbSDmV.png",
     "src": "public/images/logo-sm.png"
   },
-  "public/images/sidebar/img-1.jpg": {
-    "file": "assets/img-1-C6VsSbnm.jpg",
-    "src": "public/images/sidebar/img-1.jpg"
-  },
-  "public/images/sidebar/img-2.jpg": {
-    "file": "assets/img-2-B0ULeiCa.jpg",
-    "src": "public/images/sidebar/img-2.jpg"
-  },
-  "public/images/sidebar/img-3.jpg": {
-    "file": "assets/img-3-h1U1KdmN.jpg",
-    "src": "public/images/sidebar/img-3.jpg"
-  },
-  "public/images/sidebar/img-4.jpg": {
-    "file": "assets/img-4-iSVl4_tu.jpg",
-    "src": "public/images/sidebar/img-4.jpg"
-  },
   "resources/js/app.js": {
-    "file": "assets/app-BkqnUxx3.js",
+    "file": "assets/app-Bjub01Eq.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -238,7 +222,7 @@
       "node_modules/leaflet/dist/leaflet-src.esm.js"
     ],
     "css": [
-      "assets/app-D4QYo2tV.css"
+      "assets/app-DnKgiZoi.css"
     ],
     "assets": [
       "assets/logo-sm-BMbbSDmV.png",
@@ -249,10 +233,6 @@
       "assets/customer-BnSpBMSv.png",
       "assets/calendar-yfM8ZpJt.png",
       "assets/dribbble-CYfSis_k.png",
-      "assets/img-1-C6VsSbnm.jpg",
-      "assets/img-2-B0ULeiCa.jpg",
-      "assets/img-3-h1U1KdmN.jpg",
-      "assets/img-4-iSVl4_tu.jpg",
       "assets/hkgrotesk-light-CFOlwwJU.eot",
       "assets/hkgrotesk-light-Bch7Jc8H.woff",
       "assets/hkgrotesk-regular-C5FQFgYW.eot",

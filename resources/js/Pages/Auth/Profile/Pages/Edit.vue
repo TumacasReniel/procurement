@@ -123,7 +123,7 @@
                                 </div>
                                 <div class="flex-grow-1">
                                     <p class="text-muted mb-0 fs-12">Sex :</p>
-                                    <h5 class="mb-0 fs-12">{{ form.sex }}</h5>
+                                    <h5 class="mb-0 fs-12">{{ form.sex.name }}</h5>
                                 </div>
                             </div>
                         </div>
@@ -135,20 +135,7 @@
         <div class="card bg-light-subtle border-1 rounded-bottom shadow-none mb-0 p-3">
             <form class="customform">
                 <div class="row g-2 mt-0 mb-1">
-                    <div class="col-sm-6">
-                        <div class="p-1 border border-dashed bg-white rounded">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-sm me-2">
-                                    <div class="avatar-title rounded bg-transparent text-primary fs-20"><i class="ri-road-map-fill"></i></div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <p class="text-muted mb-0 fs-12">Home Address :</p>
-                                    <h5 class="mb-0 fs-12">{{form.firstname}}</h5>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-6">
+                    <div class="col-sm-12" v-if="permanent">
                         <div class="p-1 border border-dashed bg-white rounded">
                             <div class="d-flex align-items-center">
                                 <div class="avatar-sm me-2">
@@ -156,7 +143,32 @@
                                 </div>
                                 <div class="flex-grow-1">
                                     <p class="text-muted mb-0 fs-12">Permanent Address :</p>
-                                    <h5 class="mb-0 fs-12">{{form.middlename}}</h5>
+                                    <h5 class="mb-0 fs-12">
+                                        {{permanent.address}}
+                                        , {{permanent.barangay.name}}
+                                        , {{permanent.municipality.name}}
+                                        , {{permanent.province.name}}
+                                        , {{permanent.region.region}}
+                                    </h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12" v-if="home">
+                        <div class="p-1 border border-dashed bg-white rounded">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm me-2">
+                                    <div class="avatar-title rounded bg-transparent text-primary fs-20"><i class="ri-road-map-fill"></i></div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="text-muted mb-0 fs-12">Home Address :</p>
+                                     <h5 class="mb-0 fs-12">
+                                        {{home.address}}
+                                        , {{home.barangay.name}}
+                                        , {{home.municipality.name}}
+                                        , {{home.province.name}}
+                                        , {{home.region.region}}
+                                    </h5>
                                 </div>
                             </div>
                         </div>
@@ -185,6 +197,7 @@ import { useForm } from '@inertiajs/vue3';
 import TextInput from '@/Shared/Components/Forms/TextInput.vue';
 import InputLabel from '@/Shared/Components/Forms/InputLabel.vue';
 export default {
+    props: ['addresses'],
     components: { InputLabel, TextInput },
     data(){
         return {
@@ -198,6 +211,14 @@ export default {
                 sex: this.$page.props.user.data.sex,
                 mobile: this.$page.props.user.data.mobile,
             }),
+        }
+    },
+    computed: {
+        permanent() {
+            return this.addresses.find(a => a.is_permanent == 1) || null;
+        },
+        home() {
+            return this.addresses.find(a => a.is_permanent == 0) || null;
         }
     },
     methods: {
