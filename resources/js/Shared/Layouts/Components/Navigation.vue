@@ -60,6 +60,18 @@
                                     </BLink>
                                 </BCol>
                                 <BCol>
+                                    <BLink class="dropdown-icon-item" @click="openInNewTab('/bac-committee')">
+                                        <img src="@assets/images/apps/customer.png" alt="invent" />
+                                        <span>BAC Committee</span>
+                                    </BLink>
+                                </BCol>
+                                <BCol>
+                                    <BLink class="dropdown-icon-item" @click="openInNewTab('/iar-committee')">
+                                        <img src="@assets/images/apps/customer.png" alt="invent" />
+                                        <span>IAR Committee</span>
+                                    </BLink>
+                                </BCol>
+                                <BCol>
                                     <BLink class="dropdown-icon-item" @click="openInNewTab('/schedules')">
                                         <img src="@assets/images/apps/calendar.png" alt="chatbox" />
                                         <span>Calendar</span>

@@ -1,0 +1,2 @@
+- [x] Modify the createNOA method in ProcurementBACClass.php to group quotations by supplier_id and create one NOA per supplier
+- [ ] Test the changes to ensure only one NOA is created per supplier
