@@ -18,7 +18,7 @@
                 <span class="text-body">Responsibily Centers</span>
               </h5>
               <p class="text-muted text-truncate-two-lines fs-12">
-                A comprehensive list of all BAC resolutions across all procurements.
+                A comprehensive list of all Units Responsibility Center.
               </p>
             </div>
           </div>
@@ -33,19 +33,11 @@
                 <input
                   type="text"
                   v-model="filter.keyword"
-                  placeholder="Search Procurement Request"
+                  placeholder="Search Unit Responsibility Center... "
                   class="form-control"
                   style="width: 40%"
                 />
-                <Multiselect
-                  class="white"
-                  style="width: 15%"
-                  :options="dropdowns.statuses"
-                  v-model="filter.status"
-                  label="name"
-                  :searchable="true"
-                  placeholder="Select Status"
-                />
+
 
                 <span
                   @click="refresh()"
@@ -55,6 +47,18 @@
                   style="cursor: pointer"
                 >
                   <i class="bx bx-refresh search-icon"></i>
+                </span>
+
+                <span>
+                 <b-button
+                  type="button"
+                  variant="primary"
+                  @click="openCreate()"
+                  class="flex-fill"
+                  style=" box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3)"
+                >
+                  <i class="ri-add-circle-fill align-bottom me-2"></i> Create
+                </b-button>
                 </span>
               </div>
             </b-col>
@@ -70,12 +74,8 @@
                 <thead class="table-light thead-fixed">
                   <tr class="fs-12 fw-semibold">
                     <th style="width: 4%" class="text-center">#</th>
-                    <th style="width: 15%">BAC Resolution No.</th>
-                    <th style="width: 15%">Procurement Code</th>
-                    <th style="width: 18%">Purpose</th>
-                    <th style="width: 12%">Type</th>
-                    <th style="width: 12%">Date Created</th>
-                    <th style="width: 10%">Status</th>
+                    <th style="width: 15%">Unit</th>
+                    <th style="width: 15%">Code</th>
                     <th style="width: 10%" class="text-center">Actions</th>
                   </tr>
                 </thead>
@@ -89,57 +89,32 @@
                     class="cursor-pointer"
                   >
                     <td class="text-center fw-semibold">{{ index + 1 }}</td>
-                    <td>
-                      <div class="d-flex align-items-center">
-                        <div>
-                          <h6 class="mb-0 fs-14 fw-semibold text-success">{{ list.code }}</h6>
-                        </div>
-                      </div>
-                    </td>
+
                     <td>
                       <span class="badge bg-soft-primary text-primary px-2 py-1 fs-12 fw-medium rounded-pill">
-                        {{ list.procurement?.code }}
+                        {{ list.unit?.name }}
                       </span>
                     </td>
+
                     <td>
-                      <div class="text-truncate" style="max-width: 200px;" v-b-tooltip.hover :title="list.procurement?.purpose">
-                        {{ list.procurement?.purpose }}
-                      </div>
+                      {{ list?.code }}
                     </td>
-                    <td>
-                      <b-badge :class="getTypeBadgeClass(list.type)" class="fs-11">
-                        {{ list.type }}
-                      </b-badge>
-                    </td>
-                    <td>{{ formatDate(list.created_at) }}</td>
-                    <td>
-                      <b-badge :class="list.status.bg" class="fs-11">{{ list.status?.name }}</b-badge>
-                    </td>
+               
                     <td>
                       <div class="d-flex justify-content-center gap-1">
                         <b-button
-                          @click="viewProcurement(list)"
+                          @click="editCreate(list)"
                           size="sm"
                           variant="info"
                           class="btn-icon"
                           v-b-tooltip.hover
-                          title="View Procurement"
+                          title="Edit"
                           style="border-radius: 8px;"
                         >
-                          <i class="ri-eye-line"></i>
+                          <i class="ri-pencil-line"></i>
                         </b-button>
 
-                        <b-button
-                          @click="printBACResolution(list)"
-                          size="sm"
-                          variant="dark"
-                          class="btn-icon"
-                          v-b-tooltip.hover
-                          title="Print"
-                          style="border-radius: 8px;"
-                        >
-                          <i class="ri-printer-line"></i>
-                        </b-button>
+
                       </div>
                     </td>
                   </tr>
@@ -161,6 +136,8 @@
       </div>
     </div>
   </BRow>
+
+    <Create :dropdowns="dropdowns" @update="fetch()" ref="create" />
 </template>
 <script>
 import _ from "lodash";
@@ -168,10 +145,11 @@ import _ from "lodash";
 import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
+import Create from "../Modals/ResponsibilityCenter.vue";
 import { router } from "@inertiajs/vue3";
 
 export default {
-  components: { PageHeader, Pagination, Multiselect },
+  components: { PageHeader, Pagination, Multiselect, Create },
   props: ["dropdowns"],
   data() {
     return {
@@ -202,7 +180,7 @@ export default {
       this.fetch();
     }, 300),
     fetch(page_url) {
-      page_url = page_url || "/faims/bac-resolutions";
+      page_url = page_url || "/faims/responsibility-centers";
       axios
         .get(page_url, {
           params: {
@@ -220,34 +198,16 @@ export default {
         })
         .catch((err) => console.log(err));
     },
-    formatDate(date) {
-      return new Date(date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
+
+    openCreate(){
+      this.$refs.create.show();
     },
-    getTypeBadgeClass(type) {
-      switch (type) {
-        case 'Award':
-          return 'bg-primary';
-        case 'Rebid':
-          return 'bg-warning';
-        case 'Re-award':
-          return 'bg-info';
-        default:
-          return 'bg-secondary';
-      }
+
+    editCreate(data){
+        this.$refs.create.show(data);
     },
-    viewProcurement(list) {
-      router.visit(`/faims/procurements/${list.procurement.id}`, {
-        method: 'get',
-        data: { option: 'view', tab: 1 },
-      });
-    },
-    printBACResolution(list) {
-      window.open(`/faims/bac-resolutions/${list.id}?option=print&type=bac_resolution`);
-    },
+
+
     selectRow(index) {
       this.selectedRow = this.selectedRow == index ? null : index;
     },

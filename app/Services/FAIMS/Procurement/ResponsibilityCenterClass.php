@@ -8,13 +8,23 @@ use Illuminate\Support\Facades\Auth;
 
 class ResponsibilityCenterClass
 {
+    public function show($id){
+        $data = new ResponsibilityCenterResource(
+            ResponsibilityCenter::with('unit')->findOrFail($id)
+        );
+        return $data;
+    }
+
     public function lists($request){
         $data = ResponsibilityCenterResource::collection(
             ResponsibilityCenter::query()
-            ->with('unit',)
+            ->with('unit')
             ->when($request->keyword, function ($query, $keyword) {
                 $query->where('code', 'LIKE', "%{$keyword}%")
-                        ->orWhere('code', 'LIKE', "%{$keyword}%");
+                        ->orWhere('code', 'LIKE', "%{$keyword}%")
+                        ->orWhereHas('unit', function ($q) use ($keyword) {
+                            $q->where('name', 'LIKE', "%{$keyword}%");
+                        });
             })
             ->orderBy('created_at','DESC')
             ->paginate($request->count)
@@ -24,62 +34,46 @@ class ResponsibilityCenterClass
 
     public function save($request)
     {
-        // Create the PAP Code with the correct syntax
-        $procurement_code = ResponsibilityCenterResource::create($request->only(
-                'title', 
-                'code', 
-                'year', 
-                'allocated_budget',
-                'app_type_id',
-                'mode_of_procurement_id'
-            )
-        );
+        $responsibility_center = ResponsibilityCenter::create([
+            'list_unit_id' => $request->list_unit_id,
+            'code' => $request->code,
+        ]);
 
-        // Loop through end_user_ids and save them
-        foreach ($request->end_user_ids as $end_user_id) {
-            ResponsibilityCenter::create([
-                'procurement_code_id' => $procurement_code->id,
-                'end_user_id' => $end_user_id,
-            ]);
-        }
-
-        // Wrap the newly created PAPCode in a Resource
         return [
-            'data' => new ResponsibilityCenterResource($procurement_code),
-            'message' => 'PAP Code created successfully!',
-            'info' => "You've successfully added new PAP Code.",
+            'data' => new ResponsibilityCenterResource($responsibility_center),
+            'message' => 'Responsibility Center created successfully!',
+            'info' => "You've successfully added new Responsibility Center.",
+            'status' => 'success',
         ];
     }
 
-    public function update($request, $id)
+    public function update($request)
     {
-        $procurement_code = ResponsibilityCenter::findOrFail($id);
+        $responsibility_center = ResponsibilityCenter::findOrFail($request->id);
 
-        // Update the PAP Code with the correct syntax
-        $procurement_code->update($request->only(
-                'title', 
-                'code', 
-                'year', 
-                'allocated_budget',
-                'app_type_id',
-                'mode_of_procurement_id'
-            )
-        );
+        $responsibility_center->update([
+            'list_unit_id' => $request->list_unit_id,
+            'code' => $request->code,
+        ]);
 
-        // Sync end_user_ids
-        $procurement_code->end_users()->delete(); // Remove existing associations
-        foreach ($request->end_user_ids as $end_user_id) {
-            ResponsibilityCenter::create([
-                'procurement_code_id' => $procurement_code->id,
-                'end_user_id' => $end_user_id,
-            ]);
-        }
-
-        // Wrap the updated PAPCode in a Resource
         return [
-            'data' => new ResponsibilityCenterResource($procurement_code),
-            'message' => 'PAP Code updated successfully!',
-            'info' => "You've successfully updated the PAP Code.",
+            'data' => new ResponsibilityCenterResource($responsibility_center),
+            'message' => 'Responsibility Center updated successfully!',
+            'info' => "You've successfully updated the Responsibility Center.",
+            'status' => 'success',
+        ];
+    }
+
+    public function destroy($id)
+    {
+        $responsibility_center = ResponsibilityCenter::findOrFail($id);
+        $responsibility_center->delete();
+
+        return [
+            'data' => null,
+            'message' => 'Responsibility Center deleted successfully!',
+            'info' => "You've successfully deleted the Responsibility Center.",
+            'status' => 'success',
         ];
     }
 

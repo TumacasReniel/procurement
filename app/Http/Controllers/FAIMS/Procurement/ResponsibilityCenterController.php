@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\FAIMs\Procurement;
+namespace App\Http\Controllers\FAIMS\Procurement;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -9,7 +9,7 @@ use App\Services\FAIMS\Procurement\ViewClass;
 use App\Services\DropdownClass;
 use App\Traits\HandlesTransaction;
 
-class BACResolutionController extends Controller
+class ResponsibilityCenterController extends Controller
 {
      use HandlesTransaction;
 
@@ -21,7 +21,6 @@ class BACResolutionController extends Controller
         DropdownClass $dropdown
     ){
         $this->responsibility_center = $responsibility_center;
-        $this->print = $print;
         $this->dropdown = $dropdown;
         $this->view = $view;
     }
@@ -33,9 +32,9 @@ class BACResolutionController extends Controller
             break;
 
             default:
-                return inertia('Modules/FAIMS/Procurement/ResponsibilityCenter/Index', [
+                return inertia('Modules/FAIMS/Procurement/ResponsibilityCenters/Index', [
                     'dropdowns' => [
-                        'statuses' => $this->dropdown->statuses('BAC Resolution'),
+                        'units' => $this->dropdown->list_units(),
                     ],
                 ]);
             break;
@@ -56,9 +55,10 @@ class BACResolutionController extends Controller
         
     }
 
-    public function update($id, Request $request) {
-        $result = $this->handleTransaction(function () use ($id, $request) {
-             return $this->responsibility_center->update($id , $request);
+    public function update(Request $request) {
+   
+        $result = $this->handleTransaction(function () use ($request) {
+             return $this->responsibility_center->update($request);
         });
 
         return back()->with([
@@ -71,7 +71,19 @@ class BACResolutionController extends Controller
     }
 
     public function show($id, Request $request){
-        return $this->view->show($id, $request);
-        
+        return $this->responsibility_center->show($id);
+    }
+
+    public function destroy($id, Request $request){
+        $result = $this->handleTransaction(function () use ($id) {
+            return $this->responsibility_center->destroy($id);
+        });
+
+        return back()->with([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
+        ]);
     }
 }

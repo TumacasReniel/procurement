@@ -17,6 +17,7 @@ class ResponsibilityCenterResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'list_unit_id' => $this->list_unit_id,
             'code' =>  $this->code,
             'unit' =>  $this->unit,
         ];
