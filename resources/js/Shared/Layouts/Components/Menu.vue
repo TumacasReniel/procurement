@@ -76,12 +76,18 @@
                 <Link
                 href="/faims/procurement-codes"
                 class="nav-link menu-link"
-                :class="{
-                    active: $page.component.startsWith('Modules/HumanResource/Employees'),
-                }"
                 >
                 <i class="ri-code-box-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">PAP Codes</span>
+                </Link>
+                
+
+                <Link
+                href="/faims/responsibility-centers"
+                class="nav-link menu-link"
+                >
+                <i class="ri-code-box-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Responsibility Centers</span>
                 </Link>
             </li>
 

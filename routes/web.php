@@ -80,6 +80,7 @@ Route::middleware(['role:Administrator'])->group(function () {
     Route::resource('/notice-of-awards', App\Http\Controllers\FAIMS\Procurement\NOAController::class);
     Route::resource('/purchase-orders', App\Http\Controllers\FAIMS\Procurement\POController::class);
     Route::resource('/suppliers', App\Http\Controllers\FAIMS\Procurement\SupplierController::class);
+    Route::resource('/responsibility-centers', App\Http\Controllers\FAIMS\Procurement\ResponsibilityCenterController::class);
     Route::patch('/suppliers/{supplier}/status', [App\Http\Controllers\FAIMS\Procurement\SupplierController::class, 'status']);
 
 });
