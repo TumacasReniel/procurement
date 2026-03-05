@@ -65,12 +65,6 @@
                                         <span>Calendar</span>
                                     </BLink>
                                 </BCol>
-                                <BCol>
-                                    <BLink class="dropdown-icon-item" href="#!">
-                                        <img src="@assets/images/brands/dribbble.png" alt="dribbble" />
-                                        <span>Dribbble</span>
-                                    </BLink>
-                                </BCol>
                             </BRow>
 
                             <!-- <BRow class="g-0">

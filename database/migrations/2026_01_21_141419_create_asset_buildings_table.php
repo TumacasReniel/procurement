@@ -26,7 +26,8 @@ return new class extends Migration
             $table->foreign('province_code')->references('code')->on('location_provinces')->onDelete('cascade');
             $table->string('region_code')->nullable()->constrained();
             $table->foreign('region_code')->references('code')->on('location_regions')->onDelete('cascade');
-            $table->boolean('is_regional');
+            $table->unsignedTinyInteger('station_id');
+            $table->foreign('station_id')->references('id')->on('list_dropdowns')->onDelete('cascade');
             $table->timestamps();
         });
     }

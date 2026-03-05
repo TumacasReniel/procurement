@@ -20,6 +20,10 @@ Route::get('/attendance', [App\Http\Controllers\Public\AttendanceController::cla
 Route::post('/attendance', [App\Http\Controllers\Public\AttendanceController::class, 'store']);
 Route::post('/recognize', [App\Http\Controllers\Public\AttendanceController::class, 'recognize']);
 
+Route::get('/attendance/{station}', [App\Http\Controllers\Public\AttendanceController::class, 'show'])
+->middleware('attendance') // Middleware to restrict access
+->name('attendance.station');
+
 Route::middleware(['auth','verified'])->group(function () {
     Route::get('/', [App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
     
