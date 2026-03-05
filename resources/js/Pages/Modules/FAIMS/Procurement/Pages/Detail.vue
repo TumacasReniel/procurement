@@ -46,8 +46,7 @@
       </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="container-fluid">
+
       <!-- Basic Information Cards Row -->
       <div class="row g-4 mb-4">
         <div class="col-lg-3 col-md-6">
@@ -310,7 +309,8 @@
         </div>
       </div>
     </div>
-  </div>
+ 
+  
 </template>
 <script>
 export default {
@@ -345,8 +345,8 @@ export default {
         59: "Re-award",
         60: "Rebid",
         61: "Not Conformed",
-        62: "PO Pending",
-        63: "Partially PO Pending",
+        62: "PO Created",
+        63: "Partially PO Created",
         64: "PO Partially Issued",
         65: "PO Partially Conformed",
         66: "Partially Delivered/For Inspection",

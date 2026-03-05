@@ -2,6 +2,89 @@
   <Head title="Profile" />
   <PageHeader title="Procurement Overview" pageTitle="User" />
 
+  <!-- Status Flow Banner - Pretty Version -->
+  <div class="status-flow-banner mb-3">
+    <div class="status-flow-banner-header" @click="toggleStatusFlow" style="cursor: pointer;">
+      <div class="d-flex align-items-center flex-wrap gap-2">
+        <i class="ri-flow-chart"></i>
+        <span class="fw-bold">Procurement Progress</span>
+        <b-badge :class="procurement.status.bg + ' ms-2'" style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">{{ procurement.status?.name }}</b-badge>
+        <b-badge v-if="procurement.sub_status" :class="procurement.sub_status.bg + ' ms-1'" style="font-size: 0.7rem; padding: 0.3rem 0.6rem;">{{ procurement.sub_status?.name }}</b-badge>
+      </div>
+      <i :class="isStatusFlowCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'" style="font-size: 1.2rem;"></i>
+    </div>
+    <div v-show="!isStatusFlowCollapsed" class="status-flow-banner-content">
+      <!-- Main Status Flow -->
+      <div class="status-flow-section">
+        <div class="status-flow-section-label">
+          <i class="ri-route-line me-1"></i>Main Status
+        </div>
+        <div class="status-flow-banner-track">
+          <div 
+            v-for="(status, index) in statusFlowNav" 
+            :key="status.name"
+            class="status-flow-banner-step-wrapper"
+          >
+            <!-- Connecting line before the step (except for first) -->
+            <div v-if="index > 0" 
+                 class="status-flow-banner-line"
+                 :class="{ 
+                   'connected': statusFlowNav[index - 1].isPast,
+                   'active': statusFlowNav[index - 1].isPast && status.isCurrent
+                 }">
+              <i class="ri-arrow-right-s-line"></i>
+            </div>
+            <div 
+              class="status-flow-banner-step"
+              :class="{ 'completed': status.isPast, 'active': status.isCurrent, 'pending': !status.isPast && !status.isCurrent }"
+            >
+              <div class="status-flow-banner-dot">
+                <i v-if="status.isPast" class="ri-check-line"></i>
+                <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
+                <i v-else class="ri-circle-line"></i>
+              </div>
+              <div class="status-flow-banner-label">{{ status.name }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Sub Status Flow -->
+      <div v-if="procurement.sub_status" class="status-flow-section mt-2">
+        <div class="status-flow-section-label">
+          <i class="ri-git-branch-line me-1"></i>Sub Status
+        </div>
+        <div class="status-flow-banner-track">
+          <div 
+            v-for="(status, index) in subStatusFlowNav" 
+            :key="status.name"
+            class="status-flow-banner-step-wrapper"
+          >
+            <!-- Connecting line before the step (except for first) -->
+            <div v-if="index > 0" 
+                 class="status-flow-banner-line"
+                 :class="{ 
+                   'connected': subStatusFlowNav[index - 1].isPast,
+                   'active': subStatusFlowNav[index - 1].isPast && status.isCurrent
+                 }">
+              <i class="ri-arrow-right-s-line"></i>
+            </div>
+            <div 
+              class="status-flow-banner-step"
+              :class="{ 'completed': status.isPast, 'active': status.isCurrent, 'pending': !status.isPast && !status.isCurrent }"
+            >
+              <div class="status-flow-banner-dot">
+                <i v-if="status.isPast" class="ri-check-line"></i>
+                <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
+                <i v-else class="ri-circle-line"></i>
+              </div>
+              <div class="status-flow-banner-label">{{ status.name }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <div class="row">
     <div
@@ -369,10 +452,98 @@ export default {
       selectedNoa: null,
       showCreatePOFlag: false,
       showOverview: true,
+      isStatusFlowCollapsed: false,
     };
   },
 
   computed: {
+    statusFlowNav() {
+      const currentStatus = this.procurement.status?.name;
+      let statusFlow = [
+        { name: 'Pending', isCurrent: currentStatus === 'Pending' },
+        { name: 'Reviewed', isCurrent: currentStatus === 'Reviewed' },
+        { name: 'Approved', isCurrent: currentStatus === 'Approved' },
+        { name: 'For RFQ', isCurrent: currentStatus === 'For Quotations' },
+        { name: 'For Bids', isCurrent: currentStatus === 'For Bids' },
+        { name: 'For BAC', isCurrent: currentStatus === 'For BAC Resolution' },
+        { name: 'For Approval', isCurrent: currentStatus === 'For Approval of BAC Resolution' },
+        { name: 'For NOA', isCurrent: currentStatus === 'For NOA' },
+        { name: 'NOA Served', isCurrent: currentStatus === 'NOA Served to Supplier' },
+        { name: 'NOA Conformed', isCurrent: currentStatus === 'NOA Conformed' },
+        { name: 'PO Created', isCurrent: currentStatus === 'PO Created' },
+        { name: 'PO Issued', isCurrent: currentStatus === 'PO Issued' },
+        { name: 'PO Conformed', isCurrent: currentStatus === 'PO Conformed' },
+        { name: 'Delivered', isCurrent: currentStatus === 'PO Delivered/For Inspection' },
+        { name: 'Completed', isCurrent: currentStatus === 'Completed' },
+      ];
+
+      if (currentStatus === 'Re-award') {
+        statusFlow.splice(-1, 0, { name: 'Re-award', isCurrent: true });
+      } else if (currentStatus === 'Rebid') {
+        statusFlow.splice(-1, 0, { name: 'Rebid', isCurrent: true });
+      }
+
+      const currentIndex = statusFlow.findIndex(s => s.isCurrent);
+      statusFlow.forEach((status, index) => {
+        status.isPast = index < currentIndex;
+      });
+      return statusFlow;
+    },
+    subStatusFlowNav() {
+      const currentStatus = this.procurement.status?.name;
+      const currentSubStatus = this.procurement.sub_status?.name;
+      let subStatusFlow = [];
+
+      if (currentStatus === 'Rebid') {
+        subStatusFlow = [
+          { name: 'For RFQ', isCurrent: currentSubStatus === 'For Quotations' },
+          { name: 'For Bids', isCurrent: currentSubStatus === 'For Bids' },
+          { name: 'For BAC', isCurrent: currentSubStatus === 'For BAC Resolution' },
+          { name: 'For Approval', isCurrent: currentSubStatus === 'For Approval of BAC Resolution' },
+          { name: 'For Failure', isCurrent: currentSubStatus === 'For Approval of Failure BAC Resolution' },
+          { name: 'For NOA', isCurrent: currentSubStatus === 'For NOA' },
+          { name: 'NOA Served', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
+          { name: 'NOA Confirmed', isCurrent: currentSubStatus === 'NOA Conformed' },
+          { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
+          { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
+          { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
+          { name: 'Delivered', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' },
+          { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
+        ];
+      } else if (currentStatus === 'Re-award') {
+        subStatusFlow = [
+          { name: 'For NOA', isCurrent: currentSubStatus === 'For NOA' },
+          { name: 'NOA Served', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
+          { name: 'NOA Confirmed', isCurrent: currentSubStatus === 'NOA Conformed' },
+          { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
+          { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
+          { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
+          { name: 'Delivered', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' },
+          { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
+        ];
+      } else {
+        subStatusFlow = [
+          { name: 'For RFQ', isCurrent: currentSubStatus === 'For Quotations' },
+          { name: 'For Bids', isCurrent: currentSubStatus === 'For Bids' },
+          { name: 'For BAC', isCurrent: currentSubStatus === 'For BAC Resolution' },
+          { name: 'For Approval', isCurrent: currentSubStatus === 'For Approval of BAC Resolution' },
+          { name: 'For NOA', isCurrent: currentSubStatus === 'For NOA' },
+          { name: 'NOA Served', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
+          { name: 'NOA Confirmed', isCurrent: currentSubStatus === 'NOA Conformed' },
+          { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
+          { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
+          { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
+          { name: 'Delivered', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' },
+          { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
+        ];
+      }
+
+      const currentIndex = subStatusFlow.findIndex(s => s.isCurrent);
+      subStatusFlow.forEach((status, index) => {
+        status.isPast = index < currentIndex;
+      });
+      return subStatusFlow;
+    },
     quotationsCount() {
       return this.procurement.quotations ? this.procurement.quotations.length : 0;
     },
@@ -397,7 +568,7 @@ export default {
 
       // If there are multiple different statuses, it's partially completed
       return uniqueStatuses.length > 1 && uniqueStatuses.some(status =>
-        ['Completed', 'Delivered/For Inspection', 'PO Conformed', 'PO Issued', 'PO Pending'].includes(status)
+        ['Completed', 'Delivered/For Inspection', 'PO Conformed', 'PO Issued', 'PO Created'].includes(status)
       );
     },
   },
@@ -436,6 +607,10 @@ export default {
     handleShowCreatePO(data) {
       this.selectedNoa = data;
       this.showCreatePOFlag = true;
+    },
+
+    toggleStatusFlow() {
+      this.isStatusFlowCollapsed = !this.isStatusFlowCollapsed;
     },
   },
 };
@@ -1199,6 +1374,243 @@ export default {
 
   .empty-state-message {
     font-size: 0.85rem;
+  }
+}
+
+/* Status Flow Banner Styles - Pretty Version */
+.status-flow-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  border: none;
+}
+
+.status-flow-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-flow-banner-header .ri-flow-chart {
+  font-size: 1.4rem;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem;
+  border-radius: 10px;
+}
+
+.status-flow-banner-header .fw-bold {
+  font-size: 1.1rem;
+  letter-spacing: 0.3px;
+}
+
+.status-flow-banner-content {
+  padding-top: 0.5rem;
+}
+
+.status-flow-section {
+  margin-bottom: 0.75rem;
+}
+
+.status-flow-section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  width: fit-content;
+}
+
+.status-flow-section-label i {
+  margin-right: 0.5rem;
+}
+
+.status-flow-banner-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.3) transparent;
+}
+
+.status-flow-banner-track::-webkit-scrollbar {
+  height: 6px;
+}
+
+.status-flow-banner-track::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.status-flow-banner-track::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.status-flow-banner-step-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.status-flow-banner-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.15rem;
+  flex-shrink: 0;
+  min-width: 15px;
+}
+
+.status-flow-banner-line i {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.25);
+  transition: all 0.3s ease;
+}
+
+/* Line styling based on connection status */
+.status-flow-banner-line.connected i {
+  color: #4ade80;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+}
+
+.status-flow-banner-line.active i {
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+  animation: linePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes linePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.status-flow-banner-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 65px;
+  padding: 0.6rem 0.4rem;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.status-flow-banner-step:hover {
+  transform: translateY(-2px);
+}
+
+.status-flow-banner-step.completed {
+  background: rgba(74, 222, 128, 0.2);
+}
+
+.status-flow-banner-step.active {
+  background: rgba(251, 191, 36, 0.25);
+  box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+}
+
+.status-flow-banner-step.pending {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.status-flow-banner-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.status-flow-banner-step.completed .status-flow-banner-dot {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  box-shadow: 0 3px 10px rgba(34, 197, 94, 0.4);
+}
+
+.status-flow-banner-step.active .status-flow-banner-dot {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.6);
+  animation: pulseBannerDot 1.5s ease-in-out infinite;
+}
+
+.status-flow-banner-step.pending .status-flow-banner-dot {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.status-flow-banner-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.status-flow-banner-step.completed .status-flow-banner-label {
+  color: #bbf7d0;
+}
+
+.status-flow-banner-step.active .status-flow-banner-label {
+  color: #fef3c7;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
+
+.status-flow-banner-step.pending .status-flow-banner-label {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+@keyframes pulseBannerDot {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.8);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .status-flow-banner {
+    padding: 1rem;
+  }
+  
+  .status-flow-banner-step {
+    min-width: 55px;
+    padding: 0.4rem 0.3rem;
+  }
+  
+  .status-flow-banner-dot {
+    width: 26px;
+    height: 26px;
+    font-size: 0.7rem;
+  }
+  
+  .status-flow-banner-label {
+    font-size: 0.55rem;
   }
 }
 </style>

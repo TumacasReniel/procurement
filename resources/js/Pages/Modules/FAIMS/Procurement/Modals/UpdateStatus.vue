@@ -48,9 +48,9 @@
 
         <span
           v-if="
-          form.status?.name === 'PO Issued' || (form.status?.name === 'Pending'  && (type == 'NOA' || type == 'PO')) &&
+          (form.status?.name === 'PO Issued' || ((form.status?.name === 'Pending' || form.status?.name === 'Created')  && (type == 'NOA' || type == 'PO')) &&
             type != 'NOA Not Conformed' &&
-            type != 'PO Not Conformed'
+            type != 'PO Not Conformed')
           "
         >
           Update status from
