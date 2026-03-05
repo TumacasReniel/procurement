@@ -66,6 +66,7 @@
         "vue3-count-to": "^1.1.2",
         "vue3-echarts": "^1.1.0",
         "vue3-google-map": "^0.21.1",
+        "vuedraggable": "^4.1.0",
         "vuex": "^4.1.0"
     }
 }
