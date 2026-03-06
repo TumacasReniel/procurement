@@ -71,9 +71,8 @@ class SaveClass
         $time = Carbon::now();
         $type = $request->type;
 
-
-        // $cutoff = Carbon::createFromTimeString('12:30:00');
-        // $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
+        $cutoff = Carbon::createFromTimeString('12:30:00');
+        $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
         $minutes = 0;
         $is_completed = 0;
 
@@ -200,7 +199,7 @@ class SaveClass
                 }
             }
 
-            $name = $user->profile->fullname;
+            $name = $user->profile->firstname.' '.$user->profile->lastname;
             $subtype = str_contains(strtolower($type), 'out') ? 'out' : 'in';
             $data = [
                 'username' => $user->username,

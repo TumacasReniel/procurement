@@ -2,11 +2,9 @@
 
 namespace App\Http\Controllers\Public;
 
-use Hashids\Hashids;
 use App\Traits\HandlesTransaction;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Crypt;
 use App\Services\Public\Dtr\SaveClass;
 use App\Services\Public\Dtr\ViewClass;
 
@@ -28,7 +26,7 @@ class AttendanceController extends Controller
                 return $this->view->list($request);
             break;
             default:
-               abort(403, 'Downloading 100 TB of files.');
+               return inertia('Public/Dtr/Index');
         }   
     }
 
@@ -42,15 +40,5 @@ class AttendanceController extends Controller
     public function recognize(Request $request) //AWS REKOGNITION
     {
         return $this->save->recognize($request);
-    }
-
-    public function show(Request $request)
-    {
-        $decrypted = Crypt::decryptString($request->station);
-        $code = explode('/', $decrypted)[0];
-
-        return inertia('Public/Dtr/Index',[
-            'code' => $code
-        ]);
     }
 }

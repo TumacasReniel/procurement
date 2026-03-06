@@ -13,4 +13,9 @@ class ListDropdown extends Model
     {
         return $this->morphOne('App\Models\Signatory', 'designationable');
     }
+
+    public static function getID($designation , $classification){
+        $status = self::where('name', $designation)->where('classification', $classification)->first();
+        return $status ? $status->id : null;
+    }
 }

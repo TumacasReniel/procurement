@@ -20,10 +20,6 @@ Route::get('/attendance', [App\Http\Controllers\Public\AttendanceController::cla
 Route::post('/attendance', [App\Http\Controllers\Public\AttendanceController::class, 'store']);
 Route::post('/recognize', [App\Http\Controllers\Public\AttendanceController::class, 'recognize']);
 
-Route::get('/attendance/{station}', [App\Http\Controllers\Public\AttendanceController::class, 'show'])
-->middleware('attendance') // Middleware to restrict access
-->name('attendance.station');
-
 Route::middleware(['auth','verified'])->group(function () {
     Route::get('/', [App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
     
@@ -70,6 +66,27 @@ Route::middleware(['role:Administrator'])->group(function () {
     Route::get('/rekognition/collection/{id}/face/{faceId}', [App\Http\Controllers\Executive\RekognitionController::class, 'deleteFace']);
 });
 
+ Route::prefix('faims')->group(function () {
+    Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
+    Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'dashboard'])->name('procurement.dashboard');
+    Route::resource('/procurements', App\Http\Controllers\FAIMS\Procurement\ProcurementController::class)->names([
+        'index' => 'procurement.index',
+    ]);
+    Route::get('/procurements/create', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'create_index']);
+    Route::post('/procurements/{id}/comments', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'addComment']);
+    Route::resource('/quotations', App\Http\Controllers\FAIMS\Procurement\QuotationController::class);
+    Route::resource('/offers', App\Http\Controllers\FAIMS\Procurement\OfferController::class);
+    Route::resource('/bac-resolutions', App\Http\Controllers\FAIMS\Procurement\BACResolutionController::class);
+    Route::resource('/notice-of-awards', App\Http\Controllers\FAIMS\Procurement\NOAController::class);
+    Route::resource('/purchase-orders', App\Http\Controllers\FAIMS\Procurement\POController::class);
+    Route::resource('/suppliers', App\Http\Controllers\FAIMS\Procurement\SupplierController::class);
+    Route::resource('/responsibility-centers', App\Http\Controllers\FAIMS\Procurement\ResponsibilityCenterController::class);
+    Route::patch('/suppliers/{supplier}/status', [App\Http\Controllers\FAIMS\Procurement\SupplierController::class, 'status']);
+
+});
+
 Route::get('/key-officials', [App\Http\Controllers\Public\InfoController::class, 'keyofficials']);
+Route::get('/bac-committee', [App\Http\Controllers\Public\InfoController::class, 'baccommittee']);
+Route::get('/iar-committee', [App\Http\Controllers\Public\InfoController::class, 'iarcommittee']);
 Route::get('/mailing', [App\Http\Controllers\Public\InfoController::class, 'mailing']);
 require __DIR__.'/auth.php';
