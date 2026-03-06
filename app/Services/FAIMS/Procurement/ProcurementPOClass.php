@@ -69,16 +69,46 @@ class ProcurementPOClass
             'place_of_delivery_id' => $request->place_of_delivery_id,
             'date_of_delivery' => $request->date_of_delivery,
             'created_by_id' => $user->id,
-            'status_id' => ListStatus::getID('Created','Procurement'), // set to "Pending"
+            'status_id' => ListStatus::getID('Created','Procurement'), // set to "Created"
         ]);
 
         $noa = ProcurementBacNoa::with('procurement_bac.procurement')->findOrFail($request->noa_id);
+        $procurement = $noa->procurement_bac->procurement;
+        $current_pr_status = $procurement->status_id;
         
         if($noa){
              // update PR status to "PO Created" 
              $noa->status_id = ListStatus::getID('PO Created','Procurement');
              $noa->update();
+
+            // update PR status to "PO Created" 
+            $procurement =  $noa->procurement_bac->procurement;
+            if( $procurement->status_id == ListStatus::getID('Rebid','Procurement') || $procurement->status_id == ListStatus::getID('Re-award','Procurement')){
+                $updated_pr_substatus = $noa->procurement_bac->overall_substatus($current_pr_status);
+                // update Procurement Request SubStatus (only if we get a valid status)
+                if($updated_pr_substatus !== null && is_numeric($updated_pr_substatus)){
+                    $procurement->update([
+                        'sub_status_id' =>  $updated_pr_substatus,
+                    ]);
+                }
+            }
+            else{
+                $updated_pr_status = $noa->procurement_bac->overall_status($current_pr_status);
+                // update Procurement Request Status (only if we get a valid status)
+                if($updated_pr_status !== null && is_numeric($updated_pr_status)){
+                    $procurement->update([
+                        'status_id' =>  $updated_pr_status,
+                        'sub_status_id'=>null,
+                    ]);
+                }
+            }
+   
+          
+  
         }
+
+      
+
 
 
         return [
@@ -107,6 +137,7 @@ class ProcurementPOClass
     }
 
        
+       
     public function updateStatus($id, $request)
     { 
  
@@ -115,35 +146,18 @@ class ProcurementPOClass
         $current_pr_status = $po->noa->procurement_bac->procurement->status_id;
         $procurement =  $po->noa->procurement_bac->procurement;
 
-           // if current_pr_status "Re-award" or "Rebid"
-        if($current_pr_status == ListStatus::getID('Re-award','Procurement') || $current_pr_status == ListStatus::getID('Rebid','Procurement')){
-            $updated_pr_substatus = $po->noa->procurement_bac->overall_substatus($current_pr_status);
-
-            // update Procurement Request SubStatus
-            $procurement->update([
-                'sub_status_id' =>  $updated_pr_substatus,
-            ]);
-
-        }
-        else{
-            $updated_pr_status = $po->noa->procurement_bac->overall_status($current_pr_status);
-            // update Procurement Request Status
-            $procurement->update([
-                'status_id' =>  $updated_pr_status,
-                'sub_status_id'=>null,
-            ]);
-        }
-
-        if($request->status['name'] == "Pending"){
+        // Update PO/NOA status FIRST based on the requested status
+        if($request->status['name'] == "Created"){
 
              $po->update([
-                'status_id' => ListStatus::getID('Served to Supplier','Procurement'), // set status to "Served to Supplier"
+                'status_id' => ListStatus::getID('Issued','Procurement'), // set status to "Issued"
             ]);
             $po->noa->update([
                 'status_id' => ListStatus::getID('PO Issued','Procurement'), // set noa status to "PO Issued"
             ]);
         }
-        else if($request->status['name'] == "Served to Supplier"){
+        else if($request->status['name'] == "Issued"){
+        
        
             $po->update([
                 'status_id' => ListStatus::getID('Conformed','Procurement'), // set status to "Conformed"  
@@ -176,7 +190,6 @@ class ProcurementPOClass
             ]);
 
 
-
            // update Quotation items status to "Completed" only items which is related to the noa
            $noa_items = ProcurementBacNoaItem::where('procurement_bac_noa_id', $po->noa->id)->get();
            foreach ($noa_items as $noa_item) {
@@ -204,28 +217,68 @@ class ProcurementPOClass
 
             // check Procurement Items if all items are Completed else Partially Completed
             if ($procurement->items->every(fn($item) => $item->status_id == ListStatus::getID('Completed','Procurement'))) {
-                $procurement->update([
-                    'status_id' => ListStatus::getID('Completed','Procurement'),
-                    'sub_status_id' => null,
-                ]);
+                // If PR is currently Rebid or Re-award, set both status and sub_status to Completed
+                if($current_pr_status == ListStatus::getID('Re-award','Procurement') || $current_pr_status == ListStatus::getID('Rebid','Procurement')){
+                    $procurement->update([
+                        'status_id' => ListStatus::getID('Completed','Procurement'),
+                        'sub_status_id' => ListStatus::getID('Completed','Procurement'),
+                    ]);
+                }
+                else{
+                    $procurement->update([
+                        'status_id' => ListStatus::getID('Completed','Procurement'),
+                        'sub_status_id' => null,
+                    ]);
+                }
             }
             else{
-                // update Procurement Request SubStatus
-                $procurement->update([
-                    'status_id' => ListStatus::getID('Partially Completed','Procurement'),
-                    'sub_status_id'=> null,
-                ]);
+                // If PR is currently Rebid or Re-award, set both status and sub_status to Partially Completed
+                if($current_pr_status == ListStatus::getID('Re-award','Procurement') || $current_pr_status == ListStatus::getID('Rebid','Procurement')){
+                    $procurement->update([
+                        'status_id' => ListStatus::getID('Partially Completed','Procurement'),
+                        'sub_status_id' => ListStatus::getID('Partially Completed','Procurement'),
+                    ]);
+                }
+                else{
+                    // update Procurement Request SubStatus
+                    $procurement->update([
+                        'status_id' => ListStatus::getID('Partially Completed','Procurement'),
+                        'sub_status_id'=> null,
+                    ]);
+                }
             
                 
             }
         }
 
-
- 
-
+        // Update PR status AFTER PO/NOA status has been updated
+        // Refresh the NOA to get the updated status
+        $po->refresh();
+        $po->noa->refresh();
         
-       
+        // Use the NEW NOA status to determine PR status
+        $new_noa_status = $po->noa->status->name;
+        
+        // Skip PR status update if NOA status is "Completed" (already handled above)
+        if($new_noa_status != 'Completed'){
+            // if current_pr_status "Re-award" or "Rebid"
+            if($current_pr_status == ListStatus::getID('Re-award','Procurement') || $current_pr_status == ListStatus::getID('Rebid','Procurement')){
+                $updated_pr_substatus = $po->noa->procurement_bac->overall_substatus($current_pr_status);
+                // update Procurement Request SubStatus
+                $procurement->update([
+                    'sub_status_id' =>  $updated_pr_substatus,
+                ]);
 
+            }
+            else{
+                $updated_pr_status = $po->noa->procurement_bac->overall_status($current_pr_status);
+                // update Procurement Request Status
+                $procurement->update([
+                    'status_id' =>  $updated_pr_status,
+                    'sub_status_id'=>null,
+                ]);
+            }
+        }
 
         return [
             'data' =>new ProcurementNoaPoResource($po),

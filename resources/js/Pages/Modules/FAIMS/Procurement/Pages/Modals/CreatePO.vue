@@ -48,7 +48,7 @@
         <BCol lg="6" class="mt-2">
           <InputLabel value="Supplier Address" />
           <TextInput
-            v-model="form.supplier_address"
+            v-model="form.supplier_address.address"
             type="text"
             class="form-control"
             :light="true"

@@ -166,6 +166,25 @@
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Purchase Orders</span>
                 </Link>
             </li>
+            <li
+                class="nav-item"
+                v-if="
+                $page.props.roles.includes('Procurement Staff') ||
+                $page.props.roles.includes('Procurement Officer') ||
+                $page.props.roles.includes('Administrator')
+                "
+            >
+                <Link
+                href="/faims/procurement-followers"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Followers'),
+                }"
+                >
+                <i class="ri-user-follow-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Status Assignee</span>
+                </Link>
+            </li>
             <tempalte v-if="$page.props.roles.includes('Document Management Officer')">
                 <li class="menu-title">
                     <i class="ri-more-fill" aria-expanded="false"></i>

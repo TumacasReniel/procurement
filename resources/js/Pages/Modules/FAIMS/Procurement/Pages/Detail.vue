@@ -46,8 +46,7 @@
       </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="container-fluid">
+
       <!-- Basic Information Cards Row -->
       <div class="row g-4 mb-4">
         <div class="col-lg-3 col-md-6">
@@ -310,7 +309,8 @@
         </div>
       </div>
     </div>
-  </div>
+ 
+  
 </template>
 <script>
 export default {
