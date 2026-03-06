@@ -12,13 +12,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\ListStatus;
+use App\Models\ListData;
 
 class ProcurementClass
 {
     public function save($request){
         $data = Request::create([
             'code' => $this->generateCode(),
-            'type_id' => 175,
+            'type_id' => ListData::getID('Procurement'),
             'status_id' => ListStatus::getID('Pending','Procurement'),
             'user_id' => \Auth::user()->id
         ]);
@@ -47,13 +48,16 @@ class ProcurementClass
 
         if (!empty($request->procurement_code_ids) && is_array($request->procurement_code_ids)) {
             // Save PAP codes
-            foreach ($request->procurement_code_ids as $procurement_code_id) {
+            foreach ($request->procurement_code_ids as $procurement_code_id) {              
                 $procurement_code_group = new ProcurementCodeGroup();
                 $procurement_code_group->procurement_code_id = $procurement_code_id;
                 $procurement_code_group->procurement_id = $procurement->id;
                 $procurement_code_group->save();
             }
+          
         }
+
+      
         return $procurement;
     }
     

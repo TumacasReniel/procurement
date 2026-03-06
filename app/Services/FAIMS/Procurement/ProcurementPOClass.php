@@ -56,7 +56,6 @@ class ProcurementPOClass
 
     public function save($request)
     { 
-        //dd($request->all());
         $user = Auth::user();
         $code = ProcurementNoaPo::generatePONumber();
 
@@ -70,15 +69,14 @@ class ProcurementPOClass
             'place_of_delivery_id' => $request->place_of_delivery_id,
             'date_of_delivery' => $request->date_of_delivery,
             'created_by_id' => $user->id,
-            'status_id' => ListStatus::getID('Pending','Procurement'), // set to "Pending"
+            'status_id' => ListStatus::getID('Created','Procurement'), // set to "Pending"
         ]);
-
 
         $noa = ProcurementBacNoa::with('procurement_bac.procurement')->findOrFail($request->noa_id);
         
         if($noa){
-             // update PR status to "PO Pending" 
-             $noa->status_id = ListStatus::getID('PO Pending','Procurement');
+             // update PR status to "PO Created" 
+             $noa->status_id = ListStatus::getID('PO Created','Procurement');
              $noa->update();
         }
 

@@ -397,7 +397,7 @@ export default {
 
       // If there are multiple different statuses, it's partially completed
       return uniqueStatuses.length > 1 && uniqueStatuses.some(status =>
-        ['Completed', 'Delivered/For Inspection', 'PO Conformed', 'PO Issued', 'PO Pending'].includes(status)
+        ['Completed', 'Delivered/For Inspection', 'PO Conformed', 'PO Issued', 'PO Created'].includes(status)
       );
     },
   },

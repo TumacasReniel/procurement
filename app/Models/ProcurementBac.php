@@ -77,7 +77,7 @@ class ProcurementBac extends Model
             'PO Delivered/For Inspection' => ['full' => 'PO Delivered/For Inspection', 'partial' => 'PO Partially Delivered/For Inspection'],
             'PO Conformed' => ['full' => 'PO Conformed', 'partial' => 'PO Partially Conformed'],
             'PO Issued' => ['full' => 'PO Issued', 'partial' => 'PO Partially Issued'],
-            'PO Pending' => ['full' => 'PO Pending', 'partial' => 'Partially PO Pending'],
+            'PO Created' => ['full' => 'PO Created', 'partial' => 'Partially PO Created'],
             'Conformed' => ['full' => 'Conformed', 'partial' => 'Partially NOA Conformed'],
             'Served to Supplier' => ['full' => 'Awarded', 'partial' => 'Partially Awarded'],
         ];
@@ -165,7 +165,7 @@ class ProcurementBac extends Model
             'PO Delivered/For Inspection' => 'PO Partially Delivered/For Inspection',
             'PO Conformed' => 'PO Partially Conformed',
             'PO Issued' => 'PO Partially Issued',
-            'PO Pending' => 'PO Pending',
+            'PO Created' => 'PO Created',
             'Conformed' => 'Partially NOA Conformed',
             'Served to Supplier' => 'Partially Awarded',
         ];

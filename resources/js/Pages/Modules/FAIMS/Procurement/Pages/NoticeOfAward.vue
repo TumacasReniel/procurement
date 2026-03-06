@@ -90,7 +90,7 @@
                   (list.status.name == 'Conformed' || list.status.name == 'Not Co nformed'||
                   list.status.name == 'PO Conformed' ||
                   list.status.name == 'PO Issued' ||
-                  list.status.name == 'PO Pending' ||
+                  list.status.name == 'PO Created' ||
                   list.status.name == 'PO Conformed' ||
                   list.status.name == 'Delivered/For Inspection' || list.status.name == 'PO Delivered/For Inspection' ||
                   list.status.name == 'Completed') &&

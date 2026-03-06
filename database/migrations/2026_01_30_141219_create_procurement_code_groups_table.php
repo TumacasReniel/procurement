@@ -16,8 +16,8 @@ return new class extends Migration
             $table->increments('id');
             $table->integer('procurement_code_id')->unsigned()->index();
             $table->foreign('procurement_code_id')->references('id')->on('procurement_codes')->onDelete('cascade');;
-            $table->tinyInteger('procurement_id')->unsigned()->index();
-            $table->foreign('procurement_id')->references('id')->on('list_dropdowns')->onDelete('cascade');;
+            $table->integer('procurement_id')->unsigned()->index();
+            $table->foreign('procurement_id')->references('id')->on('procurements')->onDelete('cascade');;
             $table->timestamps();
         });
     }
