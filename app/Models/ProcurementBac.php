@@ -72,6 +72,11 @@ class ProcurementBac extends Model
       
         $noas = $this->notice_of_awards;
 
+        // If there are no NOAs, return current status
+        if ($noas->isEmpty()) {
+            return $current_status;
+        }
+
         // Define status hierarchy from highest to lowest
         $status_hierarchy = [
             'Delivered/For Inspection' => ['full' => 'Delivered/For Inspection', 'partial' => 'Partially Delivered/For Inspection'],
@@ -84,28 +89,31 @@ class ProcurementBac extends Model
             'Created' => ['full' => 'PO Created', 'partial' => 'PO Partially Created'],
         ];
 
-        //  // Handle special cases for Not Conformed and PO Not Conformed
-        // if ($noas->contains(fn($noa) => $noa->status->name == 'Not Conformed')) {
-        //     //$this->update_items_for_re_award($not_conformed_noa);
-        //     return $this->determine_re_award_or_rebid();
-        // }
-
-        // if ($noas->contains(fn($noa) => $noa->status->name == 'PO Not Conformed')) {
-        //     //$this->update_items_for_not_conformed();
-        //     return $this->determine_re_award_or_rebid();
-        // }
-
         foreach ($status_hierarchy as $noa_status => $procurement_statuses) {
             if ($noas->contains(fn($noa) => $noa->status->name === $noa_status)) {
-                return $noas->every(fn($noa) => $noa->status->name === $noa_status)
+                $status_id = $noas->every(fn($noa) => $noa->status->name === $noa_status)
                     ? ListStatus::getID($procurement_statuses['full'], 'Procurement')
                     : ListStatus::getID($procurement_statuses['partial'], 'Procurement');
+                
+                // Return the status ID only if it's valid, otherwise return current status
+                return $status_id ?? $current_status;
             }
-
-         
         }
 
+        // Fallback: If no NOA matches the hierarchy but we have NOAs, 
+        // return the lowest status (Pending or Created)
+        if ($noas->contains(fn($noa) => $noa->status->name === 'Pending')) {
+            $status_id = ListStatus::getID('NOA Pending', 'Procurement');
+            return $status_id ?? $current_status;
+        }
         
+        if ($noas->contains(fn($noa) => $noa->status->name === 'Created')) {
+            $status_id = ListStatus::getID('NOA Created', 'Procurement');
+            return $status_id ?? $current_status;
+        }
+
+        // If still no match, return the current status to avoid null
+        return $current_status;
     
     }
 
@@ -162,6 +170,11 @@ class ProcurementBac extends Model
     {
         $noas = $this->notice_of_awards;
 
+        // If there are no NOAs, return current status
+        if ($noas->isEmpty()) {
+            return $current_status;
+        }
+
         // Define status hierarchy from highest to lowest
         $status_hierarchy = [
             'Delivered/For Inspection' => 'Delivered/For Inspection',
@@ -176,22 +189,37 @@ class ProcurementBac extends Model
 
         foreach ($status_hierarchy as $noa_status => $procurement_status) {
             if ($noas->contains(fn($noa) => $noa->status->name === $noa_status)) {
-                return ListStatus::getID($procurement_status, 'Procurement');
+                $status_id = ListStatus::getID($procurement_status, 'Procurement');
+                return $status_id ?? $current_status;
             }
         }
 
         // Handle special cases for Not Conformed and PO Not Conformed
         if ($noas->contains(fn($noa) => $noa->status->name == 'Not Conformed')) {
-            //$this->update_items_for_re_award();
-            return $this->determine_re_award_or_rebid();
+            $status_id = $this->determine_re_award_or_rebid();
+            return $status_id ?? $current_status;
         }
 
         if ($noas->contains(fn($noa) => $noa->status->name == 'PO Not Conformed')) {
             $this->update_items_for_not_conformed();
-            return $this->determine_re_award_or_rebid();
+            $status_id = $this->determine_re_award_or_rebid();
+            return $status_id ?? $current_status;
         }
 
-        return null;
+        // Fallback: If no NOA matches the hierarchy but we have NOAs, 
+        // return the lowest status
+        if ($noas->contains(fn($noa) => $noa->status->name === 'Pending')) {
+            $status_id = ListStatus::getID('NOA Pending', 'Procurement');
+            return $status_id ?? $current_status;
+        }
+        
+        if ($noas->contains(fn($noa) => $noa->status->name === 'Created')) {
+            $status_id = ListStatus::getID('NOA Created', 'Procurement');
+            return $status_id ?? $current_status;
+        }
+
+        // If still no match, return the current status to avoid null
+        return $current_status;
     }
 
     public function getActivitylogOptions(): LogOptions {

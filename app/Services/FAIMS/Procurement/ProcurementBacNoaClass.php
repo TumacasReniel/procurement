@@ -90,19 +90,39 @@ class ProcurementBacNoaClass
             
             $updated_pr_substatus = $noa->procurement_bac->overall_substatus($current_sub_status);
        
-            // update Procurement Request Status
-            $procurement->update([
-                'sub_status_id' =>  $updated_pr_substatus,
-            ]);
+            // update Procurement Request Status (only if we get a valid status)
+            if($updated_pr_substatus !== null && is_numeric($updated_pr_substatus)){
+                $procurement->update([
+                    'sub_status_id' =>  $updated_pr_substatus,
+                ]);
+            } else {
+                // Log the error but don't fail - keep the current status
+                \Log::warning('Invalid sub_status returned from overall_substatus', [
+                    'updated_pr_substatus' => $updated_pr_substatus,
+                    'current_sub_status' => $current_sub_status,
+                    'procurement_id' => $procurement->id,
+                    'noa_id' => $noa->id
+                ]);
+            }
 
         }
         else{
             $updated_pr_status = $noa->procurement_bac->overall_status($current_pr_status);
      
-            // update Procurement Request Status
-            $procurement->update([
-                'status_id' =>  $updated_pr_status,
-            ]);
+            // update Procurement Request Status (only if we get a valid status)
+            if($updated_pr_status !== null && is_numeric($updated_pr_status)){
+                $procurement->update([
+                    'status_id' =>  $updated_pr_status,
+                ]);
+            } else {
+                // Log the error but don't fail - keep the current status
+                \Log::warning('Invalid status returned from overall_status', [
+                    'updated_pr_status' => $updated_pr_status,
+                    'current_pr_status' => $current_pr_status,
+                    'procurement_id' => $procurement->id,
+                    'noa_id' => $noa->id
+                ]);
+            }
         }
 
       

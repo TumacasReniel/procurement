@@ -87,19 +87,22 @@ class ProcurementPOClass
             $procurement =  $noa->procurement_bac->procurement;
             if( $procurement->status_id == ListStatus::getID('Rebid','Procurement') || $procurement->status_id == ListStatus::getID('Re-award','Procurement')){
                 $updated_pr_substatus = $noa->procurement_bac->overall_substatus($current_pr_status);
-                // update Procurement Request SubStatus
-                $procurement->update([
-                    'sub_status_id' =>  $updated_pr_substatus,
-                ]);
+                // update Procurement Request SubStatus (only if we get a valid status)
+                if($updated_pr_substatus !== null && is_numeric($updated_pr_substatus)){
+                    $procurement->update([
+                        'sub_status_id' =>  $updated_pr_substatus,
+                    ]);
+                }
             }
             else{
                 $updated_pr_status = $noa->procurement_bac->overall_status($current_pr_status);
-                // update Procurement Request Status
-                $procurement->update([
-                    'status_id' =>  $updated_pr_status,
-                    'sub_status_id'=>null,
-                ]);
-
+                // update Procurement Request Status (only if we get a valid status)
+                if($updated_pr_status !== null && is_numeric($updated_pr_status)){
+                    $procurement->update([
+                        'status_id' =>  $updated_pr_status,
+                        'sub_status_id'=>null,
+                    ]);
+                }
             }
    
           
