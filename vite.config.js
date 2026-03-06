@@ -6,7 +6,6 @@ export default defineConfig({
     build: {
         chunkSizeWarningLimit: 4000,
     },
-
     plugins: [
         laravel({
             input: 'resources/js/app.js',
@@ -21,12 +20,11 @@ export default defineConfig({
             },
         }),
     ],
-
     resolve: {
         alias: {
-            '@assets': '/public/',
-            '~@assets': '/public',
-            '@favicon': '/public/images/',
+            '@assets': '/public/', // Update this with the correct path to your images
+            '~@assets': '/public', 
+            '@favicon': '/public/images/', // Update this with the correct path to your images
         },
     },
 });

@@ -105,7 +105,7 @@
                                     </div>
 
                                     <div class="col-md-8"> 
-                                         <h1 class="fw-bold text-primary text-center mt-n3 mb-n1" style="font-size: 125px;">
+                                         <h1 class="fw-bold text-primary text-center mt-n3 mb-n1" style="font-size: 110px;">
                                             {{ currentTime }}
                                         </h1>
                                         <div v-if="status == 'New'" class="d-flex w-100 justify-content-center align-items-center mb-2">
@@ -147,27 +147,21 @@
                                             </div>
                                         </div>
                                         <div v-else-if="status == 'Duplicate'" class="d-flex w-100 justify-content-center align-items-center mb-2">
-                                            <div class="p-4 w-100 border rounded bg-warning text-center">
-                                                <p class="mb-0 text-white fw-bold fs-12">Duplicate attendance detected for <b v-if="employee" class="text-danger text-uppercase">{{ employee.name }}</b>.</p>
-                                                <p class="mb-0 text-white fs-11">The system has already logged this employee's time-in/time-out. No additional entry is needed.</p>
+                                            <div class="p-4 w-100 border rounded bg-warning-subtle text-center">
+                                                <p class="mb-0 text-dark fs-12">Duplicate attendance detected for <b v-if="employee" class="text-danger text-uppercase">{{ employee.name }}</b>.</p>
+                                                <p class="mb-0 text-muted fs-11">The system has already logged this employee's time-in/time-out. No additional entry is needed.</p>
                                             </div>
                                         </div>
                                         <div v-else-if="status == 'Error'" class="d-flex w-100 justify-content-center align-items-center mb-2">
-                                            <div class="p-4 w-100 border rounded bg-danger text-center">
-                                                <p class="mb-0 text-white fw-bold fs-12">Employee not found in the system.</p>
-                                                <p class="mb-0 text-white fs-11">No matching employee was found based on the face data. Please contact Admnistrator.</p>
+                                            <div class="p-4 w-100 border rounded bg-danger-subtle text-center">
+                                                <p class="mb-0 text-dark fs-12">Employee not found in the system.</p>
+                                                <p class="mb-0 text-muted fs-11">No matching employee was found based on the face data. Please contact Admnistrator.</p>
                                             </div>
                                         </div>
                                         <div v-else-if="status == 'Disabled Overlap'" class="d-flex w-100 justify-content-center align-items-center mb-2">
                                             <div class="p-4 w-100 border rounded bg-danger-subtle text-center">
                                                 <p class="mb-0 text-dark fs-12">Attendance action is restricted for <b v-if="employee" class="text-danger text-uppercase">{{ employee.name }}</b>.</p>
                                                 <p class="mb-0 text-muted fs-11">You cannot time in because you have already timed out for this period.</p>
-                                            </div>
-                                        </div>
-                                         <div v-else-if="status == 'Disabled AM'" class="d-flex w-100 justify-content-center align-items-center mb-2">
-                                            <div class="p-4 w-100 border rounded bg-danger-subtle text-center">
-                                                <p class="mb-0 text-dark fs-12">Attendance action is restricted.</p>
-                                                <p class="mb-0 text-muted fs-11">You cannot time in because it is already PM period.</p>
                                             </div>
                                         </div>
                                         <div v-else class="d-flex w-100 justify-content-center align-items-center mb-2">
@@ -239,9 +233,7 @@
             </BContainer>
         </div>
     </div>
-    <div :class="flashClass" class="flash-overlay"></div>
-    <audio ref="successBeep" src="/sounds/success.mp3"></audio>
-    <audio ref="errorBuzz" src="/sounds/error.mp3"></audio>
+    
 </template>
 <script>
 const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'  };
@@ -252,7 +244,6 @@ const one = new Date("2022-03-25 15:00:00").toLocaleTimeString("en-US",options1)
 import { useForm } from '@inertiajs/vue3';
 export default {
     layout: null,
-    props: ['code'],
     data() {
         return {
             currentUrl: window.location.origin,
@@ -270,7 +261,6 @@ export default {
                 type:'Time In (am)',
                 option: 'dtr'
             }),
-            flashClass:'',
             type: null,
             lists: [],
             isScanning: false,
@@ -305,27 +295,12 @@ export default {
         this.fetch();
     },
     methods: {
-        flashSuccess(){
-            this.$refs.successBeep.currentTime = 0
-            this.$refs.successBeep.play()
-            this.flashClass = "flash-overlay flash-success"
-            setTimeout(()=>{
-                this.flashClass = "flash-overlay"
-            },400)
-        },
-        flashError(){
-            this.$refs.errorBuzz.currentTime = 0
-            this.$refs.errorBuzz.play()
-            this.flashClass = "flash-overlay flash-error"
-            setTimeout(()=>{
-                this.flashClass = "flash-overlay"
-            },400)
-        },
         resetStatusTimer() {
             // Clear previous timer if exists
             if (this.statusTimeout) {
                 clearTimeout(this.statusTimeout);
             }
+
             this.statusTimeout = setTimeout(() => {
                 this.status = null;
                 this.employee = null;
@@ -340,7 +315,7 @@ export default {
 
                 if (this.tableHeightLocked && !force) return
 
-                const offset = 180
+                const offset = 65
                 table.style.height = `${left.offsetHeight - offset}px`
 
                 this.tableHeightLocked = true
@@ -354,7 +329,6 @@ export default {
             return axios.get(page_url,{
                 params : {
                     option: 'list',
-                    code: this.code,
                     count: 20,
                 }
             })
@@ -419,43 +393,18 @@ export default {
                 this.status = data.info;
 
                 // Update employee only if not an error
-                if (data.info === 'New' || data.info === 'Success' || data.info === 'Duplicate' || data.info === 'Disabled Overlap' || data.info === 'Disabled AM') {
+                if (data.info === 'New' || data.info === 'Success' || data.info === 'Duplicate' || data.info === 'Disabled Overlap') {
                     this.employee = data.data ? { ...data.data } : null;
                     this.user = this.employee;
 
-                    if(data.info == 'Duplicate'){
-                        this.$refs.errorBuzz.play()
-                        setTimeout(() => {
-                            this.speak("Duplicate attendance detected ")
-                        }, 600)
-                    };
-                    if(data.info == 'Disabled Overlap'){
-                        this.$refs.errorBuzz.play()
-                        setTimeout(() => {
-                            this.speak("You cannot time in because you have already timed out for this period.") 
-                        }, 600)
-                    }
-                    if(data.info == 'Disabled AM'){
-                        this.$refs.errorBuzz.play()
-                        setTimeout(() => {
-                            this.speak("You cannot time in because its already PM period.") 
-                        }, 600)
-                    }
                     if (data.info === 'New' || data.info === 'Success') {
                         // Add to the list only for new/success entries
-                        this.$refs.successBeep.play();
-                        setTimeout(() => {
-                            this.speak("Your attendance has been recorded successfully.")
-                        }, 600)
                         this.lists = [this.employee, ...this.lists];
                     }
                 }
                 this.resetStatusTimer();
             }catch (e) {
-                this.$refs.errorBuzz.play()
-                setTimeout(() => {
-                    this.speak("Employee not found.")
-                }, 600)
+                console.error(e);
                 this.status = 'Error';
                 this.type = null;
                 this.resetStatusTimer();
@@ -469,11 +418,6 @@ export default {
                 }, 2000);
             }
 
-        },
-        speak(text) {
-            const message = new SpeechSynthesisUtterance(text)
-            message.lang = "en-US"
-            speechSynthesis.speak(message)
         }
     }
 }
