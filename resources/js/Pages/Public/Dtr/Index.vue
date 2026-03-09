@@ -235,7 +235,6 @@
 
                     </div>
                 </BRow>
-
             </BContainer>
         </div>
     </div>
@@ -406,6 +405,7 @@ export default {
             const formData = new FormData();
             formData.append('image', blob, 'capture.jpg');
             formData.append('type', type); 
+            formData.append('code', this.code); 
             formData.append('option', 'dtr'); 
 
             try {

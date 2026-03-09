@@ -2,11 +2,13 @@
 
 namespace App\Services\Public\Dtr;
 
+use Hashids\Hashids;
 use Carbon\Carbon;
 use App\Models\Dtr;
 use App\Models\User;
 use App\Models\Visitor;
 use App\Models\VisitorLogs;
+use App\Models\ListDropdown;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
@@ -109,6 +111,9 @@ class SaveClass
             break;
         }
 
+        $hashids = new Hashids('krad',10);
+        $id = $hashids->decode($request->code);
+
         $info = [
             'ip' => \Request::ip(), 
             'pcname' => gethostname(),
@@ -118,6 +123,7 @@ class SaveClass
             'minutes' => $minutes,
             'image' => $this->image($request),
             'is_updated' => false,
+            'station' => ListDropdown::where('id',$id)->value('name'),
             'changes' => []
         ];
 
@@ -269,6 +275,9 @@ class SaveClass
             break;
         }
 
+        $hashids = new Hashids('krad',10);
+        $id = $hashids->decode($request->code);
+
         $info = [
             'ip' => \Request::ip(), 
             'pcname' => gethostname(),
@@ -277,6 +286,7 @@ class SaveClass
             'date' => $date,
             'minutes' => $minutes,
             'image' => $this->image($request),
+            'station' => ListDropdown::where('id',$id)->value('name'),
             'is_updated' => false,
             'changes' => []
         ];
