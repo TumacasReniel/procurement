@@ -3,6 +3,7 @@
 namespace App\Services\Public\Dtr;
 
 use DateTime;
+use Hashids\Hashids;
 use App\Models\Dtr;
 use App\Models\User;
 
@@ -10,8 +11,12 @@ class ViewClass
 {
     public function list($request)
     {    
+        $hashids = new Hashids('krad', 10);
+        $station_id = $hashids->decode($request->code)[0] ?? null;
+        
         $dtrs = Dtr::with('user.profile','user.organization.division')
             ->whereDate('date', now())
+            ->where('station_id',$station_id)
             ->orderBy('created_at', 'desc')
             ->get();
 
