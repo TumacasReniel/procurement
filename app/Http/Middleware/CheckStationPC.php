@@ -21,6 +21,7 @@ class CheckStationPC
     {
         $station = $request->route('station');
         $ip = $request->ip();
+        dd($ip);
         try {
             $decrypted = Crypt::decryptString($station);
         } catch (DecryptException $e) {
