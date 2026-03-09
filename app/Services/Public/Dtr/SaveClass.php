@@ -74,7 +74,7 @@ class SaveClass
         $type = $request->type;
         $device = $request->device;
         
-        if (!in_array($device, ['8406219db45495250f070f0793e14c4c'])) {
+        if (!in_array($device, ['8406219db45495250f070f0793e14c4c','dc0e2c906ae83c88f35a720c9d1938d5','2659013f6df7ae7105a46eff32b33619'])) {
             return ['data' => null,'message' => null,'info' => 'Unauthorized'];
         }
          
