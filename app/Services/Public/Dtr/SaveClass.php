@@ -78,7 +78,7 @@ class SaveClass
         $station_id = $hashids->decode($request->code)[0] ?? null;
 
         
-        if (!in_array($device, ['8406219db45495250f070f0793e14c4c','dc0e2c906ae83c88f35a720c9d1938d5','2659013f6df7ae7105a46eff32b33619'])) {
+        if (!in_array($device, ['8406219db45495250f070f0793e14c4c','dc0e2c906ae83c88f35a720c9d1938d5','2659013f6df7ae7105a46eff32b33619','0ab4102b1a43fe95bab7fb0fbfafb137'])) {
             return ['data' => null,'message' => null,'info' => 'Unauthorized'];
         }
          
