@@ -72,8 +72,12 @@ class SaveClass
         $date = Carbon::now();
         $time = Carbon::now();
         $type = $request->type;
-
-
+        $device = $request->device;
+        
+        if (!in_array($device, ['8406219db45495250f070f0793e14c4cs'])) {
+            return ['data' => null,'message' => null,'info' => 'Unauthorized'];
+        }
+         
         // $cutoff = Carbon::createFromTimeString('12:30:00');
         // $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
         $minutes = 0;

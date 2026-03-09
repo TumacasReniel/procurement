@@ -146,6 +146,12 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        <div v-else-if="status == 'Unauthorized'" class="d-flex w-100 justify-content-center align-items-center mb-2">
+                                            <div class="p-4 w-100 border rounded bg-dark text-center">
+                                                <p class="mb-0 text-white fw-bold fs-12">Access Restricted</p>
+                                                <p class="mb-0 text-white fs-11">DTR submission blocked. Your device or location is not authorized.</p>
+                                            </div>
+                                        </div>
                                         <div v-else-if="status == 'Duplicate'" class="d-flex w-100 justify-content-center align-items-center mb-2">
                                             <div class="p-4 w-100 border rounded bg-warning text-center">
                                                 <p class="mb-0 text-white fw-bold fs-12">Duplicate attendance detected for <b v-if="employee" class="text-danger text-uppercase">{{ employee.name }}</b>.</p>
@@ -164,7 +170,7 @@
                                                 <p class="mb-0 text-muted fs-11">You cannot time in because you have already timed out for this period.</p>
                                             </div>
                                         </div>
-                                         <div v-else-if="status == 'Disabled AM'" class="d-flex w-100 justify-content-center align-items-center mb-2">
+                                        <div v-else-if="status == 'Disabled AM'" class="d-flex w-100 justify-content-center align-items-center mb-2">
                                             <div class="p-4 w-100 border rounded bg-danger-subtle text-center">
                                                 <p class="mb-0 text-dark fs-12">Attendance action is restricted.</p>
                                                 <p class="mb-0 text-muted fs-11">You cannot time in because it is already PM period.</p>
@@ -249,7 +255,7 @@ const twelve = new Date("2022-03-25 11:00:00").toLocaleTimeString("en-US",option
 const twelvethirty = new Date("2022-03-25 12:30:00").toLocaleTimeString("en-US",options1);
 const one = new Date("2022-03-25 15:00:00").toLocaleTimeString("en-US",options1);
 import { useForm } from '@inertiajs/vue3';
-import FingerprintJS from '@fingerprintjs/fingerprintjs';
+import FingerprintJS from '@fingerprintjs/fingerprintjs'
 export default {
     layout: null,
     props: ['code'],
@@ -277,10 +283,11 @@ export default {
             statusTimeout: null,
             tableHeightLocked: false,
             cameraStream: null,
-            deviceId: null,
+            deviceId: null
         };
     },
     mounted() {
+        this.initDeviceId();
         this.clockInterval = setInterval(() => {
             this.currentTime = new Date().toLocaleTimeString("en-US");
             this.currentDate = new Date().toLocaleDateString("en-US", options);
@@ -293,19 +300,6 @@ export default {
 
         this.onResize = () => this.syncTableHeight(true)
         window.addEventListener('resize', this.onResize)
-
-        this.clockInterval = setInterval(() => {
-            this.currentTime = new Date().toLocaleTimeString("en-US");
-            this.currentDate = new Date().toLocaleDateString("en-US", options);
-        }, 1000);
-
-        this.initCamera();
-        this.syncTableHeight(true)
-
-        this.onResize = () => this.syncTableHeight(true)
-        window.addEventListener('resize', this.onResize)
-
-        this.loadDeviceId()   // 👈 ADD THIS
     },
     beforeUnmount() {
         window.removeEventListener('resize', this.syncTableHeight)
@@ -319,14 +313,15 @@ export default {
         this.fetch();
     },
     methods: {
-        async loadDeviceId() {
-            const fp = await FingerprintJS.load()
-            const result = await fp.get()
-
-            this.deviceId = result.visitorId
-
-            console.log("DEVICE ID:", this.deviceId)
-        },
+        async initDeviceId() {
+            try {
+                const fp = await FingerprintJS.load()
+                const result = await fp.get()
+                this.deviceId = result.visitorId
+                console.log(this.deviceId);
+            } catch (e) {
+                console.error("Failed to load FingerprintJS:", e)
+            }},
         flashSuccess(){
             this.$refs.successBeep.currentTime = 0
             this.$refs.successBeep.play()
@@ -428,6 +423,7 @@ export default {
             const formData = new FormData();
             formData.append('image', blob, 'capture.jpg');
             formData.append('type', type); 
+            formData.append('device', this.deviceId); 
             formData.append('code', this.code); 
             formData.append('option', 'dtr'); 
 
