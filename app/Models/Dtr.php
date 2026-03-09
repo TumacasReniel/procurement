@@ -18,6 +18,7 @@ class Dtr extends Model
         'pm_out_at',
         'is_updated',
         'is_completed',
+        'station_id',
         'tardiness',
         'undertime',
         'remarks',

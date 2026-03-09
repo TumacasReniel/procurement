@@ -21,6 +21,11 @@ class CheckStationPC
     {
         $station = $request->route('station');
         $ip = $request->ip();
+        
+        // $hashids = new Hashids('krad', 10);     
+        //  $a = $hashids->encode(8);
+        //  $decrypted = Crypt::encryptString($a);
+        //  dd($decrypted);
 
         try {
             $decrypted = Crypt::decryptString($station);
@@ -32,14 +37,17 @@ class CheckStationPC
         $id = $hashids->decode($code)[0] ?? null;
         
         switch($id){
-            case 2: //n6QXrVXyVN
-                $allowedPcs = ['127.0.0.1','136.239.177.3','113.19.124.130']; //eyJpdiI6ImhTTElCTW9FSUpvK0swUDN0dlVmR0E9PSIsInZhbHVlIjoiQ0NMUGs2d001WXErM1gycEV1SU1lQ1hVa3lja2NLRmJ1aDk3R1FQeG9mZz0iLCJtYWMiOiJjMzRjMmU5YTQxMTk0ODE0NWJlNWE0NDg0YjY0OWU3N2ViYzA3ODliMGJhZDU5MGJiNWU3NTE4ZmI0ZjA0YWMwIiwidGFnIjoiIn0=
+            case 5: //n6QXrVXyVN //n8LX7Aow79
+                $allowedPcs = ['127.0.0.1','136.239.177.3','113.19.124.130']; //eyJpdiI6Im5ROGtmK0RkNWYvcm5OWXZMNW44Mnc9PSIsInZhbHVlIjoib1RVMVhzOUltSjhZNjlyeXZ0d1gzQT09IiwibWFjIjoiODUzNzE3YmMwMGFmNGY2NjhkODczYzViNjY0OThmNTE5NWRiZTM3YmVjNzBmZDdlMDczNjdhZWRiZjc2NDJkNCIsInRhZyI6IiJ9
             break;
-            case 3: //d21XyMXgDE
-                $allowedPcs = []; //eyJpdiI6Inp6OG9TZmN1N282WHRIeFZFaEVlQ3c9PSIsInZhbHVlIjoiNEFsN1FXZERuZlNzd1Z4eWIvY3phMmRVTE1nY05vQmlIS3I4Mmc2aUxmMD0iLCJtYWMiOiI3ZGZhY2ZkMjU2NDM2NGYxMmJmMzc3NTcwNDU2ZGU3NmFiOTNiZWE1ZjJjMDYxMGQ1YWFlZDZlMWUwOTZjMzA0IiwidGFnIjoiIn0=
+            case 6: //d21XyMXgDE //kO5xGJXyn2
+                $allowedPcs = ['127.0.0.1']; //eyJpdiI6IjBrT2xMNVREVHpqNGtCbkFXc2F4bkE9PSIsInZhbHVlIjoibiszOXIrVUxGT2d4Mzh2QkNXT2ZuUT09IiwibWFjIjoiNWM1NGYwODQwZTA1YzkwNDg2ZmY0ODQ0YTMwMzZiMDBhZjdkZjJkOTZlZmVlNGEwZmM2Nzc2NzcyNjY3NDRkNSIsInRhZyI6IiJ9
             break;
-            case 4: //lO8oBMxrvK
-               $allowedPcs = []; //eyJpdiI6IlZZb3lVVCtzNDNFdXorTjBHTk1nSVE9PSIsInZhbHVlIjoiTU5kS3RsTDlGa1JZSHdEbGp3VGVHbTdibnFqejdwRTUzb2Z4ejk3SGhmVT0iLCJtYWMiOiIwNGQ5ZThhM2YxNTA5NDJhYjU1YTBkNzMxNjFhODRiNzJhODc2NWE2OGZkMzM3MTljODhjOTIyMGFjMTc3OGJhIiwidGFnIjoiIn0=
+            case 7: //lO8oBMxrvK //3EnxJ3ojD1
+               $allowedPcs = ['127.0.0.1']; //eyJpdiI6ImxRRmR3bldoaEpvNGZBV2xtY2UybkE9PSIsInZhbHVlIjoibHFESVl5SmplbHlTUFhsRzd1TUx4QT09IiwibWFjIjoiMzA3Y2FkZTQxZThmM2IzZGRkMTY2YzdjN2I5OGExMmZmOGFjYzJjMzdkNDEwNWFjMGVmZTcxMWYwMDVjMWI0ZCIsInRhZyI6IiJ9
+            break;
+            case 8: //lO8oBMxrvK //pl4aO0XZ5D
+               $allowedPcs = ['127.0.0.1']; //eyJpdiI6Im90S1Yza2VyWHNjTXhiTGtrWnFEWnc9PSIsInZhbHVlIjoieWxkVW5ESFoyK0I4TWlJRkVLRlZtQT09IiwibWFjIjoiZTA5M2MxOTgxZTdkMzRjMjFlZTcyYTA0NTkzZmE3ZmM0MWUzYjUzNzE2MzdlZGYxZjU2MDE5ZjAwYTgxNmMzMyIsInRhZyI6IiJ9
             break;
             default: 
             $allowedPcs = [];
