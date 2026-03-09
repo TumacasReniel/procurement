@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Illuminate\Support\Facades\Storage;
 
 class UserProfile extends Model
 {
@@ -100,6 +101,15 @@ class UserProfile extends Model
                 $model->mobile_hash = hash('sha256', $normalized);
             }
         });
+    }
+
+    public function getAvatarAttribute($value)
+    {
+        if (Storage::disk('s3')->exists($value)) {
+            return Storage::disk('s3')->url($value);
+        }
+
+        return asset('images/avatars/' . $value);
     }
 
     protected static $recordEvents = ['updated'];
