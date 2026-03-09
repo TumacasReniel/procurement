@@ -1,5 +1,5 @@
 <template>
-    <Head title="Log in"/>
+    <Head title="Unauthorized Access"/>
     <div id="layout-wrapper" class="auth-page-wrapper pt-5 d-flex justify-content-center align-items-center min-vh-100">
         <div class="auth-page-content">
             <BContainer>
