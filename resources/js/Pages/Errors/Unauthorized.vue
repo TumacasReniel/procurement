@@ -53,16 +53,34 @@
     </div>
 </template>
 <script setup>
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick, onMounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import Checkbox from '@/Shared/Components/Forms/Checkbox.vue';
 import InputError from '@/Shared/Components/Forms/InputError.vue';
 import InputLabel from '@/Shared/Components/Forms/InputLabel.vue';
 import TextInput from '@/Shared/Components/Forms/TextInput.vue';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 defineProps({
     canResetPassword: Boolean,
     status: String
 });
+const deviceId = ref(null);
+
+const initDeviceId = async () => {
+    try { 
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        deviceId.value = result.visitorId;
+        console.log('Device ID:', deviceId.value);
+    } catch (e) {
+        console.error("Failed to load FingerprintJS:", e);
+    }
+};
+
+onMounted(() => {
+    initDeviceId();
+});
+
 const type = ref('Login');
 const togglePassword = ref(false);
 const digits = ref(Array(6).fill(''));
