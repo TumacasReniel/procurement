@@ -249,6 +249,7 @@ const twelve = new Date("2022-03-25 11:00:00").toLocaleTimeString("en-US",option
 const twelvethirty = new Date("2022-03-25 12:30:00").toLocaleTimeString("en-US",options1);
 const one = new Date("2022-03-25 15:00:00").toLocaleTimeString("en-US",options1);
 import { useForm } from '@inertiajs/vue3';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 export default {
     layout: null,
     props: ['code'],
@@ -276,6 +277,7 @@ export default {
             statusTimeout: null,
             tableHeightLocked: false,
             cameraStream: null,
+            deviceId: null,
         };
     },
     mounted() {
@@ -291,6 +293,19 @@ export default {
 
         this.onResize = () => this.syncTableHeight(true)
         window.addEventListener('resize', this.onResize)
+
+        this.clockInterval = setInterval(() => {
+            this.currentTime = new Date().toLocaleTimeString("en-US");
+            this.currentDate = new Date().toLocaleDateString("en-US", options);
+        }, 1000);
+
+        this.initCamera();
+        this.syncTableHeight(true)
+
+        this.onResize = () => this.syncTableHeight(true)
+        window.addEventListener('resize', this.onResize)
+
+        this.loadDeviceId()   // 👈 ADD THIS
     },
     beforeUnmount() {
         window.removeEventListener('resize', this.syncTableHeight)
@@ -304,6 +319,14 @@ export default {
         this.fetch();
     },
     methods: {
+        async loadDeviceId() {
+            const fp = await FingerprintJS.load()
+            const result = await fp.get()
+
+            this.deviceId = result.visitorId
+
+            console.log("DEVICE ID:", this.deviceId)
+        },
         flashSuccess(){
             this.$refs.successBeep.currentTime = 0
             this.$refs.successBeep.play()

@@ -19,6 +19,7 @@
     "dependencies": {
         "@amcharts/amcharts5": "^5.9.4",
         "@amcharts/amcharts5-geodata": "^5.1.5",
+        "@fingerprintjs/fingerprintjs-pro": "^3.12.8",
         "@fullcalendar/bootstrap": "^6.1.11",
         "@fullcalendar/core": "^6.1.11",
         "@fullcalendar/daygrid": "^6.1.11",
