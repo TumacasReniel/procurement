@@ -21,7 +21,7 @@ class CheckStationPC
     {
         $station = $request->route('station');
         $ip = $request->ip();
-        dd($ip);
+  
         // $hashids = new Hashids('krad', 10);     
         //  $a = $hashids->encode(8);
         //  $decrypted = Crypt::encryptString($a);
