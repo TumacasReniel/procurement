@@ -21,7 +21,7 @@
                                     </div>
                                     <div class="flex-shrink-0 ms-auto text-end">
                                     
-                                        <h5 class="mb-0 mt-2 fs-14 fw-semibold text-uppercase text-white" style="font-size: 10.7px">{{ currentTime }}</h5>
+                                        <h5 class="mb-0 mt-2 fs-14 fw-semibold text-uppercase text-white" style="font-size: 10.7px">{{ station }}</h5>
                                         <p class="text-white fs-11">{{ currentDate}}</p>
                                     </div>
                                 </div>
@@ -258,7 +258,7 @@ import { useForm } from '@inertiajs/vue3';
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 export default {
     layout: null,
-    props: ['code'],
+    props: ['code','station'],
     data() {
         return {
             currentUrl: window.location.origin,
