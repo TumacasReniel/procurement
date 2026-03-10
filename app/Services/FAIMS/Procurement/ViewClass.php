@@ -136,20 +136,24 @@ class ViewClass
         // Total procurements
         $total_procurements = $query->count();
 
-        // Division distribution
-        $division_distribution = (clone $query)
-            ->join('list_dropdowns as divisions', function ($join) {
-                $join->on('procurements.division_id', '=', 'divisions.id')
-                    ->where('divisions.classification', '=', 'Division');
-            })
-            ->select('divisions.name as division_name')
+        // Unit distribution (include units with zero procurements)
+        $unit_counts = (clone $query)
+            ->select('unit_id')
             ->selectRaw('COUNT(*) as count')
-            ->groupBy('divisions.name')
+            ->groupBy('unit_id');
+
+        $division_distribution = \App\Models\ListUnit::query()
+            ->leftJoinSub($unit_counts, 'unit_counts', function ($join) {
+                $join->on('list_units.id', '=', 'unit_counts.unit_id');
+            })
+            ->selectRaw("list_units.name as unit_name")
+            ->selectRaw('COALESCE(unit_counts.count, 0) as count')
+            ->orderByDesc('count')
             ->get()
             ->map(function ($item) {
                 return [
-                    'division' => $item->division_name,
-                    'count' => $item->count,
+                    'division' => $item->unit_name,
+                    'count' => (int) $item->count,
                 ];
             });
 
