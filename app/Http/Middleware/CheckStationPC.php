@@ -21,7 +21,7 @@ class CheckStationPC
     {
         $station = $request->route('station');
         $ip = $request->ip();
-  dd($ip);
+  
         // $hashids = new Hashids('krad', 10);     
         //  $a = $hashids->encode(8);
         //  $decrypted = Crypt::encryptString($a);
@@ -44,10 +44,10 @@ class CheckStationPC
                 $allowedPcs = ['127.0.0.1','119.92.71.96']; //eyJpdiI6IjBrT2xMNVREVHpqNGtCbkFXc2F4bkE9PSIsInZhbHVlIjoibiszOXIrVUxGT2d4Mzh2QkNXT2ZuUT09IiwibWFjIjoiNWM1NGYwODQwZTA1YzkwNDg2ZmY0ODQ0YTMwMzZiMDBhZjdkZjJkOTZlZmVlNGEwZmM2Nzc2NzcyNjY3NDRkNSIsInRhZyI6IiJ9
             break;
             case 7: //lO8oBMxrvK //3EnxJ3ojD1
-               $allowedPcs = ['127.0.0.1']; //eyJpdiI6ImxRRmR3bldoaEpvNGZBV2xtY2UybkE9PSIsInZhbHVlIjoibHFESVl5SmplbHlTUFhsRzd1TUx4QT09IiwibWFjIjoiMzA3Y2FkZTQxZThmM2IzZGRkMTY2YzdjN2I5OGExMmZmOGFjYzJjMzdkNDEwNWFjMGVmZTcxMWYwMDVjMWI0ZCIsInRhZyI6IiJ9
+               $allowedPcs = ['127.0.0.1','119.93.167.200']; //eyJpdiI6ImxRRmR3bldoaEpvNGZBV2xtY2UybkE9PSIsInZhbHVlIjoibHFESVl5SmplbHlTUFhsRzd1TUx4QT09IiwibWFjIjoiMzA3Y2FkZTQxZThmM2IzZGRkMTY2YzdjN2I5OGExMmZmOGFjYzJjMzdkNDEwNWFjMGVmZTcxMWYwMDVjMWI0ZCIsInRhZyI6IiJ9
             break;
             case 8: //lO8oBMxrvK //pl4aO0XZ5D
-               $allowedPcs = ['127.0.0.1']; //eyJpdiI6Im90S1Yza2VyWHNjTXhiTGtrWnFEWnc9PSIsInZhbHVlIjoieWxkVW5ESFoyK0I4TWlJRkVLRlZtQT09IiwibWFjIjoiZTA5M2MxOTgxZTdkMzRjMjFlZTcyYTA0NTkzZmE3ZmM0MWUzYjUzNzE2MzdlZGYxZjU2MDE5ZjAwYTgxNmMzMyIsInRhZyI6IiJ9
+               $allowedPcs = ['127.0.0.1','119.92.230.203']; //eyJpdiI6Im90S1Yza2VyWHNjTXhiTGtrWnFEWnc9PSIsInZhbHVlIjoieWxkVW5ESFoyK0I4TWlJRkVLRlZtQT09IiwibWFjIjoiZTA5M2MxOTgxZTdkMzRjMjFlZTcyYTA0NTkzZmE3ZmM0MWUzYjUzNzE2MzdlZGYxZjU2MDE5ZjAwYTgxNmMzMyIsInRhZyI6IiJ9
             break;
             default: 
             $allowedPcs = [];
