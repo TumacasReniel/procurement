@@ -78,9 +78,9 @@ class SaveClass
         $station_id = $hashids->decode($request->code)[0] ?? null;
 
         
-        if (!in_array($device, ['8406219db45495250f070f0793e14c4c','dc0e2c906ae83c88f35a720c9d1938d5','2659013f6df7ae7105a46eff32b33619','0ab4102b1a43fe95bab7fb0fbfafb137','9c58fd2c474deb0995b1d600ea20fd08','a00fd023ff65406fa4bbeadb209a95cd','e53622f1ee56be0ad4925f66c5414bc'])) {
-            return ['data' => null,'message' => null,'info' => 'Unauthorized'];
-        }
+        // if (!in_array($device, ['8406219db45495250f070f0793e14c4c','dc0e2c906ae83c88f35a720c9d1938d5','2659013f6df7ae7105a46eff32b33619','0ab4102b1a43fe95bab7fb0fbfafb137','9c58fd2c474deb0995b1d600ea20fd08','a00fd023ff65406fa4bbeadb209a95cd','e53622f1ee56be0ad4925f66c5414bc'])) {
+        //     return ['data' => null,'message' => null,'info' => 'Unauthorized'];
+        // }
          
         // $cutoff = Carbon::createFromTimeString('12:30:00');
         // $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
