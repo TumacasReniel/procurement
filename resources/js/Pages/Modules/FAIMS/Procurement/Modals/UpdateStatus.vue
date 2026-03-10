@@ -48,7 +48,7 @@
 
         <span
           v-if="
-          (form.status?.name === 'PO Issued' || ((form.status?.name === 'Pending' || form.status?.name === 'Created')  && (type == 'NOA' || type == 'PO')) &&
+          ((form.status?.name === 'PO Issued')|| ((form.status?.name === 'Pending' || form.status?.name === 'Created')  && (type == 'NOA' || type == 'PO')) &&
             type != 'NOA Not Conformed' &&
             type != 'PO Not Conformed')
           "
@@ -56,13 +56,14 @@
           Update status from
           <span :class="form.status?.color">"{{ form.status?.name }}"</span>
           to
-          <span class="text-primary">"Served to Supplier"</span>
+          <span class="text-primary" v-if="type == 'PO'">"Served to Supplier"</span>
+          
           ?
-        </span>
+        </span> 
 
         <span
           v-if="
-            form.status?.name === 'Served to Supplier' &&
+            (form.status?.name === 'Served to Supplier' || form.status?.name === 'Issued') &&
             type != 'NOA Not Conformed' &&
             type != 'PO Not Conformed'
           "
