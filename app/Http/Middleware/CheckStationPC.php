@@ -38,7 +38,7 @@ class CheckStationPC
         
         switch($id){
             case 5: //n6QXrVXyVN //n8LX7Aow79
-                $allowedPcs = ['127.0.0.1','136.239.177.3','113.19.124.130']; //eyJpdiI6Im5ROGtmK0RkNWYvcm5OWXZMNW44Mnc9PSIsInZhbHVlIjoib1RVMVhzOUltSjhZNjlyeXZ0d1gzQT09IiwibWFjIjoiODUzNzE3YmMwMGFmNGY2NjhkODczYzViNjY0OThmNTE5NWRiZTM3YmVjNzBmZDdlMDczNjdhZWRiZjc2NDJkNCIsInRhZyI6IiJ9
+                $allowedPcs = ['127.0.0.1','136.239.177.3','113.19.124.130','119.93.144.180']; //eyJpdiI6Im5ROGtmK0RkNWYvcm5OWXZMNW44Mnc9PSIsInZhbHVlIjoib1RVMVhzOUltSjhZNjlyeXZ0d1gzQT09IiwibWFjIjoiODUzNzE3YmMwMGFmNGY2NjhkODczYzViNjY0OThmNTE5NWRiZTM3YmVjNzBmZDdlMDczNjdhZWRiZjc2NDJkNCIsInRhZyI6IiJ9
             break;
             case 6: //d21XyMXgDE //kO5xGJXyn2
                 $allowedPcs = ['127.0.0.1','119.92.71.96']; //eyJpdiI6IjBrT2xMNVREVHpqNGtCbkFXc2F4bkE9PSIsInZhbHVlIjoibiszOXIrVUxGT2d4Mzh2QkNXT2ZuUT09IiwibWFjIjoiNWM1NGYwODQwZTA1YzkwNDg2ZmY0ODQ0YTMwMzZiMDBhZjdkZjJkOTZlZmVlNGEwZmM2Nzc2NzcyNjY3NDRkNSIsInRhZyI6IiJ9
