@@ -367,7 +367,7 @@ export default {
             this.type = value
         },
         fetch(page_url){
-            page_url = page_url || '/attendance';
+            page_url = page_url || '/';
             return axios.get(page_url,{
                 params : {
                     option: 'list',
@@ -383,7 +383,7 @@ export default {
             this.user = ''; 
             this.inactive = false;
             this.capturePhoto();
-            this.form.post('/attendance',{
+            this.form.post('/',{
                 preserveScroll: true,
                 onSuccess: (response) => {
                     if(response.props.flash.info == 'Error'){
