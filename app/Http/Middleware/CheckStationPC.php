@@ -21,7 +21,7 @@ class CheckStationPC
     {
         $station = $request->route('station');
         $ip = $request->ip();
-  dd($ip);
+//   dd($ip);
         // $hashids = new Hashids('krad', 10);     
         //  $a = $hashids->encode(8);
         //  $decrypted = Crypt::encryptString($a);
@@ -53,9 +53,9 @@ class CheckStationPC
             $allowedPcs = [];
         }
 
-        if (!in_array($ip, $allowedPcs)) {
-            abort(403, 'Unauthorized access attempt detected. This activity is prohibited and may be prosecuted under RA 10175 (Cybercrime Prevention Act of 2012). Please contact your administrator.');
-        }
+        // if (!in_array($ip, $allowedPcs)) {
+        //     abort(403, 'Unauthorized access attempt detected. This activity is prohibited and may be prosecuted under RA 10175 (Cybercrime Prevention Act of 2012). Please contact your administrator.');
+        // }
         return $next($request);
     }
 }
