@@ -144,13 +144,14 @@ class SaveClass
                 'undertime' => null
             ]; 
             if($dtr){
+                
                 switch($type){
                     case 'Time In (am)':
                         if($dtr->am_out_at) {
                             $status = 'Disabled Overlap';
                             break;
                         }
-                        if($date->isAfternoon()) {
+                        if($date->hour >= 12) {
                             $status = 'Disabled AM';
                             break;
                         }
@@ -200,6 +201,15 @@ class SaveClass
                     break;
                 }
             }else{
+                if($date->hour >= 12){
+                    return [
+                        'data' => null,
+                        'message' => null,
+                        'info' => 'Disabled AM'
+                    ];
+                }
+
+
                 $dtr = new Dtr;
                 $dtr->date = Carbon::today();
                 $dtr->am_in_at = ($type == 'Time In (am)') ? json_encode($info) : null;
