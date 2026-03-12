@@ -201,12 +201,14 @@ class SaveClass
                     break;
                 }
             }else{
-                if($date->hour >= 12){
-                    return [
-                        'data' => null,
-                        'message' => null,
-                        'info' => 'Disabled AM'
-                    ];
+                if($type == 'Time In (am)'){
+                    if($date->hour >= 12){
+                        return [
+                            'data' => null,
+                            'message' => null,
+                            'info' => 'Disabled AM'
+                        ];
+                    }
                 }
 
 
