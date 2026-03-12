@@ -14,15 +14,17 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+Route::domain('attendance.' . config('app.app_host'))->as('attendance.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Public\AttendanceController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\Public\AttendanceController::class, 'store']);
+    Route::post('/recognize', [App\Http\Controllers\Public\AttendanceController::class, 'recognize']);
+    Route::get('/{station}', [App\Http\Controllers\Public\AttendanceController::class, 'show'])
+    ->middleware('attendance') // Middleware to restrict access
+    ->name('attendance.station');
+});
+
 Route::get('/search', [App\Http\Controllers\SearchController::class, 'search']);
 Route::get('/dropdowns', [App\Http\Controllers\SearchController::class, 'dropdowns']);
-Route::get('/attendance', [App\Http\Controllers\Public\AttendanceController::class, 'index']);
-Route::post('/attendance', [App\Http\Controllers\Public\AttendanceController::class, 'store']);
-Route::post('/recognize', [App\Http\Controllers\Public\AttendanceController::class, 'recognize']);
-
-Route::get('/attendance/{station}', [App\Http\Controllers\Public\AttendanceController::class, 'show'])
-->middleware('attendance') // Middleware to restrict access
-->name('attendance.station');
 
 Route::middleware(['auth','verified'])->group(function () {
     Route::get('/', [App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
