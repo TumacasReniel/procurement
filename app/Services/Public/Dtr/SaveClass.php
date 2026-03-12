@@ -150,7 +150,7 @@ class SaveClass
                             $status = 'Disabled Overlap';
                             break;
                         }
-                        if($date->hour >= 12) {
+                        if($date->format('H:i:s') >= '12:00:00') {
                             $status = 'Disabled AM';
                             break;
                         }
