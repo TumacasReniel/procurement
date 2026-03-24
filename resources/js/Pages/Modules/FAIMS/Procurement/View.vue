@@ -2,16 +2,16 @@
   <Head title="Profile" />
   <PageHeader title="Procurement Overview" pageTitle="User" />
 
-  <!-- Status Flow Banner - Pretty Version -->
-  <div class="status-flow-banner mb-3">
+  <!-- Status Flow Banner -->
+  <div class="bg-primary mb-3 p-3">
     <div class="status-flow-banner-header" @click="toggleStatusFlow" style="cursor: pointer;">
       <div class="d-flex align-items-center flex-wrap gap-2">
-        <i class="ri-flow-chart"></i>
-        <span class="fw-bold">Procurement Progress</span>
-        <b-badge :class="procurement.status.bg + ' ms-2'" style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">{{ procurement.status?.name }}</b-badge>
-        <b-badge v-if="procurement.sub_status" :class="procurement.sub_status.bg + ' ms-1'" style="font-size: 0.7rem; padding: 0.3rem 0.6rem;">{{ procurement.sub_status?.name }}</b-badge>
+        <i class="ri-flow-chart text-white"></i>
+        <span class="fw-bold text-white">Procurement Progress</span>
+        <b-badge class="bg-white text-primary ms-2" style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">{{ procurement.status?.name || 'N/A' }}</b-badge>
+        <b-badge v-if="procurement.sub_status" class="bg-white text-primary ms-1" style="font-size: 0.7rem; padding: 0.3rem 0.6rem;">{{ procurement.sub_status?.name }}</b-badge>
       </div>
-      <i :class="isStatusFlowCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'" style="font-size: 1.2rem;"></i>
+      <i :class="isStatusFlowCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'" class="text-white" style="font-size: 1.2rem;"></i>
     </div>
     <div v-show="!isStatusFlowCollapsed" class="status-flow-banner-content">
       <!-- Main Status Flow -->
@@ -110,25 +110,6 @@
               <span class="fw-bold">{{ procurement?.code }}</span>
             </span>
             <p class="card-title mb-0 fs-10">
-              <span>Status:</span>
-              <div>
-              <b-badge
-                :class="procurement.status.bg + ' ms-1'"
-                style="font-size: 0.75rem; text-align: center"
-                >{{ procurement.status?.name }}</b-badge
-              >
-              <b-badge
-                v-if="isPartiallyCompleted"
-                class="bg-warning text-dark ms-1"
-                style="font-size: 0.65rem; text-align: center"
-                v-b-tooltip.hover
-                title="This procurement has partially completed items"
-              >
-                <i class="ri-information-line me-1"></i>Partial
-              </b-badge>
-              </div>
-            </p>
-            <p class="card-title mb-0 fs-10">
               <span v-if="procurement.sub_status">Substatus:</span>
              <div>
               <b-badge
@@ -174,6 +155,18 @@
               >
                 <i class="ri-information-line align-middle me-3 fs-5"></i>Procurement
                 Details
+              </button>
+              <button
+                :class="[
+                  'nav-link text-start mb-2 rounded-pill border-0 transition-all',
+                  activeTab === 7
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-white text-dark hover-bg-light',
+                ]"
+                @click="show(7)"
+                style="transition: all 0.3s ease"
+              >
+                <i class="ri-route-line align-middle me-3 fs-5"></i>Process
               </button>
               <button
                 :class="[
@@ -268,6 +261,20 @@
               title="Procurement Details"
             >
               <i class="ri-information-line fs-5"></i>
+            </button>
+            <button
+              :class="[
+                'nav-link mb-2 rounded-pill border-0 transition-all p-2',
+                activeTab === 7
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-white text-dark hover-bg-light',
+              ]"
+              @click="show(7)"
+              style="transition: all 0.3s ease; width: 50px; height: 50px"
+              v-b-tooltip.hover
+              title="Process"
+            >
+              <i class="ri-route-line fs-5"></i>
             </button>
             <button
               :class="[
@@ -379,6 +386,61 @@
             <div v-if="activeTab === 1">
                <Overview :procurement="procurement" />
             </div>
+            <div v-if="activeTab === 7">
+              <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+                  <h6 class="mb-0 fs-13">Process</h6>
+                  <b-badge :class="procurement.status?.bg || 'bg-white text-primary'">
+                    {{ procurement.status?.name || 'N/A' }}
+                  </b-badge>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                      <thead class="table-light">
+                        <tr class="fs-12">
+                          <th style="width: 45%">Step</th>
+                          <th style="width: 20%">State</th>
+                          <th style="width: 25%">Assigned Personnel</th>
+                          <th style="width: 20%">Indicator</th>
+                          <th style="width: 10%">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="step in statusFlowNav" :key="step.name">
+                          <td class="fw-semibold">{{ step.name }}</td>
+                          <td>
+                            <span v-if="step.isCurrent" class="badge bg-primary">Current</span>
+                            <span v-else-if="step.isPast" class="badge bg-success">Completed</span>
+                            <span v-else class="badge bg-secondary">Pending</span>
+                          </td>
+                          <td>
+                            <div class="d-flex flex-wrap gap-1">
+                              <span v-for="person in procAssigneeMap[step.name] || []" :key="person" class="badge rounded-pill bg-primary-subtle text-primary">
+                                {{ person }}
+                              </span>
+                              <span v-if="(procAssigneeMap[step.name] || []).length === 0" class="text-muted">-</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="d-flex align-items-center gap-2">
+                              <div class="process-dot" :class="{ done: step.isPast, current: step.isCurrent }"></div>
+                              <span class="text-muted fs-12">{{ step.isCurrent ? 'Active' : (step.isPast ? 'Done' : 'Waiting') }}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <button class="btn btn-sm btn-primary" @click="openProcAssign(step)">Assign</button>
+                          </td>
+                        </tr>
+                        <tr v-if="!statusFlowNav.length">
+                          <td colspan="5" class="text-center text-muted">No status flow available.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
             <Quotation
               :dropdowns="dropdowns"
               :procurement="procurement"
@@ -418,6 +480,77 @@
     </div>
     <RightSidebar :procurement="procurement" :logs="logs" :isRightCollapsed="isRightCollapsed" @toggleRightSidebar="toggleRightSidebar" />
   </div>
+
+  <b-modal
+    v-model="showProcAssignModal"
+    style="--vz-modal-width: 600px"
+    header-class="p-3 bg-light"
+    title="Assign Personnel"
+    class="v-modal-custom"
+    modal-class="zoomIn"
+    centered
+    no-close-on-backdrop
+  >
+    <form class="customform" @submit.prevent="submitProcAssign">
+      <div class="mb-3">
+        <InputLabel value="Status" />
+        <input type="text" class="form-control" :value="procAssignForm.status" readonly />
+      </div>
+      <div class="mb-3">
+        <InputLabel value="Employee" :message="procAssignErrors.user_ids" />
+        <div class="position-relative">
+          <input
+            ref="procAssignSearchInput"
+            type="text"
+            class="form-control"
+            v-model="procAssignSearch"
+            @input="handleProcAssignSearch"
+            placeholder="Search employee"
+          />
+          <div v-if="procAssignOptions.length" class="dropdown-menu show w-100">
+            <button
+              v-for="option in procAssignOptions"
+              :key="option.value"
+              type="button"
+              class="dropdown-item d-flex align-items-center gap-2"
+              @click="selectProcAssignee(option)"
+            >
+              <img v-if="option.avatar" :src="option.avatar" class="rounded-circle" style="width: 28px; height: 28px; object-fit: cover;" />
+              <div>
+                <div class="fw-semibold">{{ option.name }}</div>
+                <div class="fs-11 text-muted">{{ option.position || '-' }}</div>
+              </div>
+            </button>
+          </div>
+        </div>
+        <InputError :message="procAssignErrors.user_ids" />
+      </div>
+      <div v-if="procAssignSelected.length" class="alert alert-light border">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="ri-group-line text-primary"></i>
+          <div class="fw-semibold text-primary">Selected Personnel</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <span
+            v-for="person in procAssignSelected"
+            :key="person.value || person.id"
+            class="badge rounded-pill bg-primary-subtle text-primary d-flex align-items-center gap-1"
+          >
+            <span>{{ person.name }}</span>
+            <button type="button" class="btn btn-sm p-0 text-primary" @click="removeProcAssignee(person)">
+              <i class="ri-close-line"></i>
+            </button>
+          </span>
+        </div>
+      </div>
+    </form>
+    <template v-slot:footer>
+      <b-button @click="hideProcAssignModal" variant="light" block>Cancel</b-button>
+      <b-button @click="submitProcAssign" variant="primary" :disabled="procAssignProcessing || !procAssignSelected.length" block>
+        Assign
+      </b-button>
+    </template>
+  </b-modal>
 </template>
 <script>
 import Overview from "./Pages/Detail.vue";
@@ -431,6 +564,9 @@ import RightSidebar from "./Pages/Components/RightSidebar.vue";
 import { router } from "@inertiajs/vue3";
 
 import PageHeader from "@/Shared/Components/PageHeader.vue";
+import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
+import InputError from "@/Shared/Components/Forms/InputError.vue";
+import axios from "axios";
 export default {
   components: {
     PageHeader,
@@ -442,6 +578,8 @@ export default {
     PurchaseOrder,
     CreatePO,
     RightSidebar,
+    InputLabel,
+    InputError,
   },
   props: ["dropdowns", "procurement", "tab", "logs"],
   data() {
@@ -453,10 +591,37 @@ export default {
       showCreatePOFlag: false,
       showOverview: true,
       isStatusFlowCollapsed: false,
+      showProcAssignModal: false,
+      procAssignForm: {
+        status: "",
+        user_ids: [],
+      },
+      procAssignSearch: "",
+      procAssignOptions: [],
+      procAssignSelected: [],
+      procAssignProcessing: false,
+      procAssignErrors: {},
+      procAssignSearchTimer: null,
+      localProcAssignees: {},
     };
   },
 
   computed: {
+    procAssigneeMap() {
+      const map = Object.keys(this.localProcAssignees || {}).length ? this.localProcAssignees : (this.procurement?.assignees || this.procurement?.assigned_personnel || {});
+      const normalized = {};
+      Object.keys(map || {}).forEach((key) => {
+        const value = map[key];
+        if (Array.isArray(value)) {
+          normalized[key] = value.filter(Boolean);
+        } else if (typeof value === "string" && value.trim()) {
+          normalized[key] = [value];
+        } else {
+          normalized[key] = [];
+        }
+      });
+      return normalized;
+    },
     statusFlowNav() {
       const currentStatus = this.procurement.status?.name;
       let statusFlow = [
@@ -580,6 +745,8 @@ export default {
   },
   mounted() {
     this.isRightCollapsed = localStorage.getItem("isRightCollapsed") === "true" || true;
+    const assignees = this.procurement?.assignees || this.procurement?.assigned_personnel || {};
+    this.localProcAssignees = { ...assignees };
   },
   methods: {
     show(tab) {
@@ -611,6 +778,102 @@ export default {
 
     toggleStatusFlow() {
       this.isStatusFlowCollapsed = !this.isStatusFlowCollapsed;
+    },
+    openProcAssign(step) {
+      this.procAssignForm.status = step?.name || "";
+      this.procAssignForm.user_ids = [];
+      this.procAssignSearch = "";
+      this.procAssignOptions = [];
+      this.procAssignSelected = [];
+      this.procAssignErrors = {};
+      this.showProcAssignModal = true;
+      this.$nextTick(() => {
+        if (this.$refs.procAssignSearchInput) {
+          this.$refs.procAssignSearchInput.focus();
+        }
+      });
+    },
+    hideProcAssignModal() {
+      this.showProcAssignModal = false;
+    },
+    handleProcAssignSearch() {
+      if (this.procAssignSearchTimer) {
+        clearTimeout(this.procAssignSearchTimer);
+      }
+      const term = (this.procAssignSearch || "").trim();
+      if (term.length < 2) {
+        this.procAssignOptions = [];
+        return;
+      }
+      this.procAssignSearchTimer = setTimeout(() => {
+        this.searchProcEmployees(term);
+      }, 300);
+    },
+    searchProcEmployees(term) {
+      axios
+        .get('/search', {
+          params: {
+            keyword: term,
+            option: 'users',
+          },
+        })
+        .then((response) => {
+          this.procAssignOptions = Array.isArray(response.data) ? response.data : [];
+        })
+        .catch(() => {
+          this.procAssignOptions = [];
+        });
+    },
+    selectProcAssignee(option) {
+      const id = option?.value ?? option?.id ?? null;
+      if (!id) return;
+      const exists = this.procAssignSelected.some((p) => (p.value ?? p.id) === id);
+      if (!exists) {
+        this.procAssignSelected.push(option);
+      }
+      this.procAssignForm.user_ids = this.procAssignSelected.map((p) => p.value ?? p.id).filter(Boolean);
+      this.procAssignSearch = option?.name || "";
+      this.procAssignOptions = [];
+      this.procAssignErrors.user_ids = null;
+    },
+    removeProcAssignee(person) {
+      const id = person?.value ?? person?.id;
+      this.procAssignSelected = this.procAssignSelected.filter((p) => (p.value ?? p.id) !== id);
+      this.procAssignForm.user_ids = this.procAssignSelected.map((p) => p.value ?? p.id).filter(Boolean);
+    },
+    submitProcAssign() {
+      this.procAssignErrors = {};
+      if (!this.procAssignSelected.length) {
+        this.procAssignErrors.user_ids = "Employee is required.";
+        return;
+      }
+      if (!this.procAssignForm.status) {
+        this.procAssignErrors.status = "Status is required.";
+        return;
+      }
+      this.procAssignProcessing = true;
+      axios
+        .post(`/faims/procurement-assignments`, {
+          procurement_id: this.procurement.id,
+          status: this.procAssignForm.status,
+          user_ids: this.procAssignForm.user_ids,
+        })
+        .then(() => {
+          const names = this.procAssignSelected.map((p) => p.name).filter(Boolean);
+          const current = this.localProcAssignees[this.procAssignForm.status];
+          const merged = Array.isArray(current) ? current : current ? [current] : [];
+          const updated = [...merged, ...names].filter((v, i, a) => a.indexOf(v) === i);
+          this.localProcAssignees[this.procAssignForm.status] = updated.length === 1 ? updated[0] : updated;
+          this.hideProcAssignModal();
+        })
+        .catch((error) => {
+          if (error?.response?.status === 422) {
+            this.procAssignErrors = error.response.data.errors || {};
+          }
+        })
+        .finally(() => {
+          this.procAssignProcessing = false;
+        });
     },
   },
 };
@@ -1614,3 +1877,26 @@ export default {
   }
 }
 </style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

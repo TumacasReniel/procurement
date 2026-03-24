@@ -14,6 +14,10 @@ return new class extends Migration
         Schema::create('procurements', function (Blueprint $table) {
             $table->engine = 'InnoDB';
             $table->increments('id');
+            $table->unsignedBigInteger('request_id');
+            $table->foreign('request_id')
+            ->references('id')
+            ->on('requests');
             $table->string('code')->unitque(); 
             $table->string('title')->nullable(); 
             $table->date('date'); 

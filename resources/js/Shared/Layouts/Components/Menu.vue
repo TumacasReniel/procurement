@@ -59,7 +59,7 @@
                 href="/faims/procurements"
                 class="nav-link menu-link"
                 :class="{
-                    active: $page.component.startsWith('Modules/HumanResource/Employees'),
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Index'),
                 }"
                 >
                 <i class="ri-file-list-3-line"></i>
@@ -185,6 +185,132 @@
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Status Assignee</span>
                 </Link>
             </li>
+            <li class="menu-title">
+                <i class="ri-more-fill" aria-expanded="false"></i>
+                <span data-key="t-menu">Finance</span>
+            </li>
+            <li class="nav-item"
+                v-if="
+                    $page.props.roles.includes('Finance Staff') ||
+                    $page.props.roles.includes('Finance Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
+            >
+                <Link
+                href="/faims/finance-dashboard"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Finance/Dashboard'),
+                }"
+                >
+                <i class="ri-dashboard-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Dashboard</span>
+                </Link>
+            </li>
+            <li class="nav-item"
+            >
+                <Link
+                href="/faims/finance-requests"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Finance/Index') ||
+                        $page.component.startsWith('Modules/FAIMS/Finance/View'),
+                }"
+                >
+                <i class="ri-file-list-3-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Requests</span>
+                </Link>
+            </li>
+            <li class="nav-item"
+                 v-if="
+                    $page.props.roles.includes('Finance Staff') ||
+                    $page.props.roles.includes('Finance Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
+            >
+                <Link
+                href="/faims/finance-disbursements-obligations"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Finance/DisbursementsObligations'),
+                }"
+                >
+                <i class="ri-bank-card-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Disbursements & Obligations</span>
+                </Link>
+            </li>
+            <li class="nav-item"
+               v-if="
+                    $page.props.roles.includes('Finance Staff') ||
+                    $page.props.roles.includes('Finance Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
+            >
+                <Link
+                href="/faims/finance-request-types"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Finance/RequestTypes'),
+                }"
+                >
+                <i class="ri-shapes-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Request Types</span>
+                </Link>
+            </li>
+            <li class="nav-item">
+                <Link
+                v-if="
+                $page.props.roles.includes('Finance Staff') ||
+                $page.props.roles.includes('Finance Officer') ||
+                $page.props.roles.includes('Administrator')
+                "
+                href="/faims/finance-documents"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Finance/Documents'),
+                }"
+                >
+                <i class="ri-file-copy-2-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Documents</span>
+                </Link>
+            </li>
+            <li class="nav-item"
+                 v-if="
+                    $page.props.roles.includes('Finance Staff') ||
+                    $page.props.roles.includes('Finance Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
+                >
+                <Link
+                href="/faims/finance-projects"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Finance/Projects'),
+                }"
+                >
+                <i class="ri-building-2-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Projects</span>
+                </Link>
+            </li>
+            <li class="nav-item"
+               v-if="
+                    $page.props.roles.includes('Finance Staff') ||
+                    $page.props.roles.includes('Finance Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
+            >
+                <Link
+                href="/faims/finance-creditors"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Finance/Creditors'),
+                }"
+                >
+                <i class="ri-user-star-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Creditors</span>
+                </Link>
+            </li>
+
             <tempalte v-if="$page.props.roles.includes('Document Management Officer')">
                 <li class="menu-title">
                     <i class="ri-more-fill" aria-expanded="false"></i>

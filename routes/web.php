@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\VelzonRoutesController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,12 +67,30 @@ Route::middleware(['role:Administrator'])->group(function () {
     Route::get('/rekognition/collection/{id}/face/{faceId}', [App\Http\Controllers\Executive\RekognitionController::class, 'deleteFace']);
 });
 
- Route::prefix('faims')->group(function () {
-    Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
-    Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'dashboard'])->name('procurement.dashboard');
+Route::prefix('faims')->group(function () {
+
+    // Finance
+    Route::get('/finance-dashboard', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'dashboard'])->name('finance.dashboard');
+    Route::get('/finance-disbursements-obligations', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'disbursementsObligations'])->name('finance.disbursements-obligations');
+    Route::resource('/finance-requests', App\Http\Controllers\FAIMS\Finance\FinanceController::class);
+    Route::post('/finance-requests/{id}/comments', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'addComment']);
+    Route::post('/finance-requests/{id}/attachments', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'storeAttachment']);
+    Route::delete('/finance-requests/{id}/attachments/{attachmentId}', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'deleteAttachment']);
+    Route::post('/finance-requests/{id}/attachments/{attachmentId}/comments', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'addAttachmentComment']);
+    Route::patch('/finance-requests/{id}/attachments/{attachmentId}/verify', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'verifyAttachment']);
+    Route::resource('/finance-requests-assignments', App\Http\Controllers\FAIMS\Finance\FinanceAssignmentController::class);
+    Route::resource('/finance-request-types', App\Http\Controllers\FAIMS\Finance\FinanceRequestTypeController::class);
+    Route::resource('/finance-documents', App\Http\Controllers\FAIMS\Finance\FinanceRequiredDocumentController::class);
+    Route::resource('/finance-projects', App\Http\Controllers\FAIMS\Finance\ProjectController::class);
+    Route::resource('/finance-creditors', App\Http\Controllers\FAIMS\Finance\FinanceCreditorController::class);
+
+    // Procurement
     Route::resource('/procurements', App\Http\Controllers\FAIMS\Procurement\ProcurementController::class)->names([
         'index' => 'procurement.index',
     ]);
+    Route::resource('/procurement-assignments', App\Http\Controllers\FAIMS\Procurement\ProcurementAssignmentController::class)->only(['index','store','update','destroy']);
+    Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
+    Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'dashboard'])->name('procurement.dashboard');
     Route::get('/procurements/create', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'create_index']);
     Route::post('/procurements/{id}/comments', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'addComment']);
     Route::resource('/quotations', App\Http\Controllers\FAIMS\Procurement\QuotationController::class);
@@ -90,3 +109,9 @@ Route::get('/bac-committee', [App\Http\Controllers\Public\InfoController::class,
 Route::get('/iar-committee', [App\Http\Controllers\Public\InfoController::class, 'iarcommittee']);
 Route::get('/mailing', [App\Http\Controllers\Public\InfoController::class, 'mailing']);
 require __DIR__.'/auth.php';
+
+
+
+
+
+

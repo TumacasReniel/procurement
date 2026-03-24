@@ -10,6 +10,7 @@ class Procurement extends Model
 {
     use LogsActivity;
     protected $fillable = [
+        'request_id',
         'code',
         'date',
         'purpose',
@@ -26,6 +27,12 @@ class Procurement extends Model
         'status_id',
         'sub_status_id'
     ];
+
+     public function request()
+    {
+        return $this->belongsTo('App\Models\Request', 'request_id', 'id');
+    }
+
 
     public function division()
     {
@@ -103,6 +110,11 @@ class Procurement extends Model
         return $this->morphMany('App\Models\RequestComment', 'commentable');
     }
 
+    public function assignments()
+    {
+        return $this->hasMany(\App\Models\ProcurementAssignment::class, 'procurement_id');
+    }
+
     
     public static function generateProcurementNumber($date = null)
     {
@@ -131,3 +143,4 @@ class Procurement extends Model
     }
 
 }
+

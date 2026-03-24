@@ -23,6 +23,10 @@ use App\Models\ProcurementCode;
 use App\Models\UnitType;
 use App\Models\supplier;
 use App\Models\OrgChart;
+use App\Models\FinanceDocument;
+use App\Models\FinanceRequestType;
+use App\Models\ListProject;
+use App\Models\FinanceCreditor;
 
 class DropdownClass
 {
@@ -665,8 +669,64 @@ class DropdownClass
 
 
 
+    //FINANCE
+
+    public function documents()
+    {
+        $data = FinanceDocument::get()->map(function ($item) {
+            return [
+                'value' => $item->id,
+                'name' => $item->name
+            ];
+        });
+        return $data;
+    }
+
+    public function request_types()
+    {
+        $data = FinanceRequestType::get()->map(function ($item) {
+            return [
+                'value' => $item->id,
+                'name' => $item->name
+            ];
+        });
+        return $data;
+    }
 
 
+    public function projects()
+    {
+        $data = ListProject::get()->map(function ($item) {
+            return [
+                'value' => $item->id,
+                'label' => $item->name
+            ];
+        });
+        return $data;
+    }
 
+    public function creditors()
+    {
+        $suppliers = Supplier::where('is_active', 1)->get()->map(function ($item) {
+            return [
+                'value' => 'supplier_' . $item->id,
+                'label' => $item->name . ' (Supplier)',
+                'name' => $item->name,
+                'type' => 'supplier'
+            ];
+        });
+
+        $users = User::with('profile')->get()->map(function ($user) {
+            $name = $user->profile->full_name ?? $user->name ?? 'User ' . $user->id;
+            return [
+                'value' => 'user_' . $user->id,
+                'label' => $name . ' (Employee)',
+                'name' => $name,
+                'type' => 'user'
+            ];
+        });
+
+        return $suppliers->concat($users)->values()->all();
+    }
 
 }

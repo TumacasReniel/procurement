@@ -391,7 +391,10 @@ tin<template>
 											<div class="unit-icon me-2">
 												<i class="ri-community-line"></i>
 											</div>
-											{{ getUnitLabel(item) }}
+											<div>
+												<div>{{ getUnitLabel(item) }}</div>
+												<div class="text-muted fs-12">{{ getUnitDivisionLabel(item) }}</div>
+											</div>
 										</div>
 									</td>
 									<td class="text-end fw-semibold">
@@ -422,7 +425,7 @@ tin<template>
 								<tr v-if="sortedDivisionDistribution.length === 0">
 									<td colspan="4" class="text-center text-muted py-5">
 										<i class="ri-inbox-line fs-1 d-block mb-2 opacity-50"></i>
-										No division data available
+										No unit data available
 									</td>
 								</tr>
 							</tbody>
@@ -671,9 +674,8 @@ export default {
         colors: ['#405189', '#5c6bc0', '#7986cb', '#9fa8da', '#c5cae9', '#0ab39c', '#20c997', '#ffc107', '#6b7299'],
         dataLabels: {
           enabled: true,
-          formatter: function (val, opts) {
-            const count = opts.w.globals.series[opts.seriesIndex] || 0;
-            return count > 0 ? count : '';
+          formatter: function (_val, opts) {
+            return opts.w.globals.labels[opts.seriesIndex] || '';
           },
           dropShadow: {
             enabled: false,
@@ -681,7 +683,7 @@ export default {
           style: {
             fontSize: '12px',
             fontWeight: '600',
-            colors: ['#fff'],
+            colors: ['#1e293b'],
           },
         },
         legend: {
@@ -1004,6 +1006,13 @@ export default {
 				return 'Unassigned';
 			}
 			return item.unit_name || item.unit || item.division || item.division_name || item.name || 'Unassigned';
+		},
+
+		getUnitDivisionLabel(item) {
+			if (!item) {
+				return 'Unassigned Division';
+			}
+			return item.division_name || item.division || 'Unassigned Division';
 		},
   },
 };

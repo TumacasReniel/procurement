@@ -146,13 +146,19 @@ class ViewClass
             ->leftJoinSub($unit_counts, 'unit_counts', function ($join) {
                 $join->on('list_units.id', '=', 'unit_counts.unit_id');
             })
+            ->leftJoin('list_dropdowns as divisions', function ($join) {
+                $join->on('list_units.division_id', '=', 'divisions.id')
+                    ->where('divisions.classification', '=', 'Division');
+            })
             ->selectRaw("list_units.name as unit_name")
+            ->selectRaw("COALESCE(divisions.name, 'Unassigned') as division_name")
             ->selectRaw('COALESCE(unit_counts.count, 0) as count')
             ->orderByDesc('count')
             ->get()
             ->map(function ($item) {
                 return [
                     'division' => $item->unit_name,
+                    'division_name' => $item->division_name,
                     'count' => (int) $item->count,
                 ];
             });
@@ -252,8 +258,19 @@ class ViewClass
             'pos.comments.user.profile',
             'pos.comments.replies.user.profile',
             'comments.user.profile',
-            'comments.replies.user.profile'
+            'comments.replies.user.profile',
+            'assignments.user.profile'
         )->findOrFail($id);
+
+        $assignees = [];
+        foreach ($procurement->assignments as $assignment) {
+            $name = $assignment->user?->profile?->full_name ?? $assignment->user?->name ?? 'User #' . $assignment->user_id;
+            if (!$name) {
+                continue;
+            }
+            $assignees[$assignment->status][] = $name;
+        }
+        $procurement->assignees = $assignees;
 
         // Add status distribution for the status flow panel
         $procurement->status_distribution = [

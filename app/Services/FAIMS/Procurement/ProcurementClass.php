@@ -10,6 +10,7 @@ use App\Models\ProcurementItem;
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use App\Models\User;
 use App\Models\ListStatus;
 use App\Models\ListData;
@@ -25,7 +26,7 @@ class ProcurementClass
         ]);
                                          
         // Save Procurement
-        $procurement = $this->saveProcurement($request);
+        $procurement = $this->saveProcurement($request, $data);
 
         // Save Procurement Items 
         $this->saveProcurementItems($request, $procurement->id);
@@ -37,14 +38,21 @@ class ProcurementClass
         ];
     }
 
-    public function saveProcurement($request){
+    public function saveProcurement($request, $data){
         $user = Auth::user();
         $purchase_request_number = Procurement::generateProcurementNumber();
-        $procurement = Procurement::create(array_merge($request->all(), [ 
+        $payload = array_merge($request->all(), [
             'code' => $purchase_request_number,
-            'status_id' => ListStatus::getID('Pending','Procurement'), //set to "Pending"
-            'created_by_id' => $user->id, 
-         ] )); 
+            'status_id' => ListStatus::getID('Pending', 'Procurement'), //set to "Pending"
+            'created_by_id' => $user->id,
+        ]);
+
+        // Handle schema drift safely for older DBs that may not yet have request_id.
+        if (Schema::hasColumn('procurements', 'request_id')) {
+            $payload['request_id'] = $data->id;
+        }
+
+        $procurement = Procurement::create($payload);
 
         if (!empty($request->procurement_code_ids) && is_array($request->procurement_code_ids)) {
             // Save PAP codes
