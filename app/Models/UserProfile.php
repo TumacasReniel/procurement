@@ -105,11 +105,37 @@ class UserProfile extends Model
 
     public function getAvatarAttribute($value)
     {
-        if (Storage::disk('s3')->exists($value)) {
-            return Storage::disk('s3')->url($value);
+        $defaultAvatar = asset('images/avatars/avatar.jpg');
+
+        if (empty($value)) {
+            return $defaultAvatar;
         }
 
-        return asset('images/avatars/' . $value);
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            return $value;
+        }
+
+        try {
+            if (Storage::disk('s3')->exists($value)) {
+                return Storage::disk('s3')->url($value);
+            }
+        } catch (\Throwable $e) {
+            // Fall back to local/public avatars when S3 availability checks fail.
+        }
+
+        if (Storage::disk('public')->exists($value)) {
+            return Storage::disk('public')->url($value);
+        }
+
+        if (Storage::disk('public')->exists('images/avatars/' . $value)) {
+            return asset('storage/images/avatars/' . $value);
+        }
+
+        if (file_exists(public_path('images/avatars/' . $value))) {
+            return asset('images/avatars/' . $value);
+        }
+
+        return $defaultAvatar;
     }
 
     protected static $recordEvents = ['updated'];
