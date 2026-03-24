@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Public;
 use App\Traits\HandlesTransaction;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\ListDropdown;
+use Illuminate\Support\Facades\Crypt;
+use Hashids\Hashids;
 use App\Services\Public\Dtr\SaveClass;
 use App\Services\Public\Dtr\ViewClass;
 
@@ -40,5 +43,18 @@ class AttendanceController extends Controller
     public function recognize(Request $request) //AWS REKOGNITION
     {
         return $this->save->recognize($request);
+    }
+    public function show(Request $request)
+    {
+        $decrypted = Crypt::decryptString($request->station);
+        $code = explode('/', $decrypted)[0];
+
+        $hashids = new Hashids('krad',10);
+        $id = $hashids->decode($code);
+
+        return inertia('Public/Dtr/Index',[
+            'code' => $code,
+            'station' => ListDropdown::where('id',$id)->value('name')
+        ]);
     }
 }

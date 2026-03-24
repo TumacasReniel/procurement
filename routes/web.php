@@ -15,6 +15,15 @@ use Inertia\Inertia;
 |
 */
 
+Route::domain('attendance.' . config('app.app_host'))->as('attendance.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Public\AttendanceController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\Public\AttendanceController::class, 'store']);
+    Route::post('/recognize', [App\Http\Controllers\Public\AttendanceController::class, 'recognize']);
+    Route::get('/{station}', [App\Http\Controllers\Public\AttendanceController::class, 'show'])
+    ->middleware('attendance') // Middleware to restrict access
+    ->name('attendance.station');
+});
+
 Route::get('/search', [App\Http\Controllers\SearchController::class, 'search']);
 Route::get('/dropdowns', [App\Http\Controllers\SearchController::class, 'dropdowns']);
 Route::get('/attendance', [App\Http\Controllers\Public\AttendanceController::class, 'index']);
@@ -109,7 +118,6 @@ Route::get('/bac-committee', [App\Http\Controllers\Public\InfoController::class,
 Route::get('/iar-committee', [App\Http\Controllers\Public\InfoController::class, 'iarcommittee']);
 Route::get('/mailing', [App\Http\Controllers\Public\InfoController::class, 'mailing']);
 require __DIR__.'/auth.php';
-
 
 
 

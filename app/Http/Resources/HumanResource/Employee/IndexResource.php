@@ -18,9 +18,7 @@ class IndexResource extends JsonResource
             'code' => $code,
             'email' => $this->email,
             'username' => $this->username,
-            'avatar' => ($this->profile && $this->profile->avatar && $this->profile->avatar !== 'noavatar.jpg')
-            ? asset('storage/' . $this->profile->avatar) 
-            : asset('images/avatars/avatar.jpg'), 
+            'avatar' => $this->profile?->avatar,
             'name' => $this->profile->name,
             'fullname' => $this->profile->fullname,
             'profile' => new ProfileResource($this->profile),

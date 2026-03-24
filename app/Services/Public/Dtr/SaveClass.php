@@ -2,11 +2,13 @@
 
 namespace App\Services\Public\Dtr;
 
+use Hashids\Hashids;
 use Carbon\Carbon;
 use App\Models\Dtr;
 use App\Models\User;
 use App\Models\Visitor;
 use App\Models\VisitorLogs;
+use App\Models\ListDropdown;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
@@ -70,6 +72,10 @@ class SaveClass
         $date = Carbon::now();
         $time = Carbon::now();
         $type = $request->type;
+        $device = $request->device;
+
+        $hashids = new Hashids('krad', 10);
+        $station_id = $hashids->decode($request->code)[0] ?? null;
 
         $cutoff = Carbon::createFromTimeString('12:30:00');
         $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
@@ -117,6 +123,7 @@ class SaveClass
             'minutes' => $minutes,
             'image' => $this->image($request),
             'is_updated' => false,
+            'station' => ListDropdown::where('id',$station_id)->value('name'),
             'changes' => []
         ];
 
@@ -129,6 +136,7 @@ class SaveClass
                 'undertime' => null
             ]; 
             if($dtr){
+                
                 switch($type){
                     case 'Time In (am)':
                         if($dtr->am_out_at) {
@@ -185,6 +193,17 @@ class SaveClass
                     break;
                 }
             }else{
+                if($type == 'Time In (am)'){
+                    if($date->hour >= 12){
+                        return [
+                            'data' => null,
+                            'message' => null,
+                            'info' => 'Disabled AM'
+                        ];
+                    }
+                }
+
+
                 $dtr = new Dtr;
                 $dtr->date = Carbon::today();
                 $dtr->am_in_at = ($type == 'Time In (am)') ? json_encode($info) : null;
@@ -194,6 +213,7 @@ class SaveClass
                 $dtr->tardiness += $minutes;
                 $dtr->remarks = json_encode($remarks);
                 $dtr->user_id = $user->id;
+                $dtr->station_id = $station_id;
                 if($dtr->save()){
                     $status = 'New';
                 }
@@ -205,7 +225,7 @@ class SaveClass
                 'username' => $user->username,
                 'name' => $name,
                 'division' => $user->organization->division->name,
-                'avatar' => ($user->profile->avatar === 'noavatar.jpg') ? '/images/avatars/avatar.jpg' : '/storage/'.$user->profile->avatar,
+                'avatar' => $user->profile->avatar,
                 'time' => \Carbon\Carbon::parse($time)->format('g:i A'),
                 'type' => $type,
                 'subtype' => $subtype,
@@ -231,8 +251,17 @@ class SaveClass
         $time = Carbon::now();
         $type = $request->type;
 
-        $cutoff = Carbon::createFromTimeString('12:30:00');
-        $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
+        $device = $request->device;
+
+        $hashids = new Hashids('krad', 10);
+        $station_id = $hashids->decode($request->code)[0] ?? null;
+        
+        if (!in_array($device, ['8406219db45495250f070f0793e14c4c','dc0e2c906ae83c88f35a720c9d1938d5','2659013f6df7ae7105a46eff32b33619'])) {
+            return ['data' => null,'message' => null,'info' => 'Unauthorized'];
+        }
+
+        // $cutoff = Carbon::createFromTimeString('12:30:00');
+        // $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
         $minutes = 0;
         $is_completed = 0;
 
@@ -276,6 +305,7 @@ class SaveClass
             'date' => $date,
             'minutes' => $minutes,
             'image' => $this->image($request),
+            'station' => ListDropdown::where('id',$station_id)->value('name'),
             'is_updated' => false,
             'changes' => []
         ];
@@ -349,6 +379,7 @@ class SaveClass
                 $dtr->pm_out_at = ($type == 'Time Out (pm)') ? json_encode($info) : null;
                 $dtr->remarks = json_encode($remarks);
                 $dtr->visitor_id = $visitor->id;
+                $dtr->station_id = $station_id;
                 if($dtr->save()){
                     $status = 'New';
                 }

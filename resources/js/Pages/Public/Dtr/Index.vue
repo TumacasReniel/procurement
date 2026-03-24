@@ -21,7 +21,7 @@
                                     </div>
                                     <div class="flex-shrink-0 ms-auto text-end">
                                     
-                                        <h5 class="mb-0 mt-2 fs-14 fw-semibold text-uppercase text-white" style="font-size: 10.7px">{{ currentTime }}</h5>
+                                        <h5 class="mb-0 mt-2 fs-14 fw-semibold text-uppercase text-white" style="font-size: 10.7px">{{ station }}</h5>
                                         <p class="text-white fs-11">{{ currentDate}}</p>
                                     </div>
                                 </div>
@@ -132,6 +132,12 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        <div v-else-if="status == 'Unauthorized'" class="d-flex w-100 justify-content-center align-items-center mb-2">
+                                            <div class="p-4 w-100 border rounded bg-dark text-center">
+                                                <p class="mb-0 text-white fw-bold fs-12">Access Restricted</p>
+                                                <p class="mb-0 text-white fs-11">DTR submission blocked. Your device or location is not authorized.</p>
+                                            </div>
+                                        </div>
                                         <div v-else-if="status == 'Duplicate'" class="d-flex w-100 justify-content-center align-items-center mb-2">
                                             <div class="p-4 w-100 border rounded bg-warning-subtle text-center">
                                                 <p class="mb-0 text-dark fs-12">Duplicate attendance detected for <b v-if="employee" class="text-danger text-uppercase">{{ employee.name }}</b>.</p>
@@ -148,6 +154,12 @@
                                             <div class="p-4 w-100 border rounded bg-danger-subtle text-center">
                                                 <p class="mb-0 text-dark fs-12">Attendance action is restricted for <b v-if="employee" class="text-danger text-uppercase">{{ employee.name }}</b>.</p>
                                                 <p class="mb-0 text-muted fs-11">You cannot time in because you have already timed out for this period.</p>
+                                            </div>
+                                        </div>
+                                        <div v-else-if="status == 'Disabled AM'" class="d-flex w-100 justify-content-center align-items-center mb-2">
+                                            <div class="p-4 w-100 border rounded bg-danger-subtle text-center">
+                                                <p class="mb-0 text-dark fs-12">Attendance action is restricted.</p>
+                                                <p class="mb-0 text-muted fs-11">You cannot time in because it is already PM period.</p>
                                             </div>
                                         </div>
                                         <div v-else class="d-flex w-100 justify-content-center align-items-center mb-2">
@@ -215,7 +227,6 @@
 
                     </div>
                 </BRow>
-
             </BContainer>
         </div>
     </div>
@@ -228,9 +239,10 @@ const twelve = new Date("2022-03-25 11:00:00").toLocaleTimeString("en-US",option
 const twelvethirty = new Date("2022-03-25 12:30:00").toLocaleTimeString("en-US",options1);
 const one = new Date("2022-03-25 15:00:00").toLocaleTimeString("en-US",options1);
 import { useForm } from '@inertiajs/vue3';
-import { isError } from 'lodash';
+import FingerprintJS from '@fingerprintjs/fingerprintjs'
 export default {
     layout: null,
+    props: ['code','station'],
     data() {
         return {
             currentUrl: window.location.origin,
@@ -254,9 +266,11 @@ export default {
             statusTimeout: null,
             tableHeightLocked: false,
             cameraStream: null,
+            deviceId: null
         };
     },
     mounted() {
+        this.initDeviceId();
         this.clockInterval = setInterval(() => {
             this.currentTime = new Date().toLocaleTimeString("en-US");
             this.currentDate = new Date().toLocaleDateString("en-US", options);
@@ -282,6 +296,31 @@ export default {
         this.fetch();
     },
     methods: {
+        async initDeviceId() {
+            try {
+                const fp = await FingerprintJS.load()
+                const result = await fp.get()
+                this.deviceId = result.visitorId
+                console.log(this.deviceId);
+            } catch (e) {
+                console.error("Failed to load FingerprintJS:", e)
+            }},
+        flashSuccess(){
+            this.$refs.successBeep.currentTime = 0
+            this.$refs.successBeep.play()
+            this.flashClass = "flash-overlay flash-success"
+            setTimeout(()=>{
+                this.flashClass = "flash-overlay"
+            },400)
+        },
+        flashError(){
+            this.$refs.errorBuzz.currentTime = 0
+            this.$refs.errorBuzz.play()
+            this.flashClass = "flash-overlay flash-error"
+            setTimeout(()=>{
+                this.flashClass = "flash-overlay"
+            },400)
+        },
         resetStatusTimer() {
             // Clear previous timer if exists
             if (this.statusTimeout) {
@@ -312,7 +351,7 @@ export default {
             this.type = value
         },
         fetch(page_url){
-            page_url = page_url || '/attendance';
+            page_url = page_url || '/';
             return axios.get(page_url,{
                 params : {
                     option: 'list',
@@ -327,7 +366,7 @@ export default {
             this.user = ''; 
             this.inactive = false;
             this.capturePhoto();
-            this.form.post('/attendance',{
+            this.form.post('/',{
                 preserveScroll: true,
                 onSuccess: (response) => {
                     if(response.props.flash.info == 'Error'){
@@ -367,6 +406,8 @@ export default {
             const formData = new FormData();
             formData.append('image', blob, 'capture.jpg');
             formData.append('type', type); 
+            formData.append('device', this.deviceId); 
+            formData.append('code', this.code); 
             formData.append('option', 'dtr'); 
 
             try {

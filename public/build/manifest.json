@@ -188,10 +188,6 @@
     "file": "assets/reset-password-BNEyUq9v.png",
     "src": "public/images/auth/reset-password.png"
   },
-  "public/images/brands/dribbble.png": {
-    "file": "assets/dribbble-CYfSis_k.png",
-    "src": "public/images/brands/dribbble.png"
-  },
   "public/images/logo-dark.png": {
     "file": "assets/logo-dark-BTQwWYkM.png",
     "src": "public/images/logo-dark.png"
@@ -232,7 +228,6 @@
       "assets/logo-light-xO5Q2xFH.png",
       "assets/customer-BnSpBMSv.png",
       "assets/calendar-yfM8ZpJt.png",
-      "assets/dribbble-CYfSis_k.png",
       "assets/hkgrotesk-light-CFOlwwJU.eot",
       "assets/hkgrotesk-light-Bch7Jc8H.woff",
       "assets/hkgrotesk-regular-C5FQFgYW.eot",
