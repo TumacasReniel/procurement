@@ -16,7 +16,6 @@ class ProcurementAssignmentController extends Controller
     public function index(Request $request)
     {
         if (
-            !$request->filled('procurement_id') &&
             !$request->boolean('json') &&
             !$request->expectsJson()
         ) {
@@ -25,25 +24,14 @@ class ProcurementAssignmentController extends Controller
             ]);
         }
 
-        $query = ProcurementAssignment::with('user.profile', 'procurement.status', 'procurement.sub_status');
-        if ($request->filled('procurement_id')) {
-            $query->where('procurement_id', $request->input('procurement_id'));
-        }
+        $query = ProcurementAssignment::with('user.profile');
 
         $assignments = $query->get()->map(function ($assignment) {
             return [
                 'id' => $assignment->id,
-                'procurement_id' => $assignment->procurement_id,
                 'status' => $assignment->status,
                 'user_id' => $assignment->user_id,
                 'name' => $assignment->user?->profile?->full_name ?? $assignment->user?->name ?? 'User #' . $assignment->user_id,
-                'procurement' => $assignment->procurement ? [
-                    'id' => $assignment->procurement->id,
-                    'code' => $assignment->procurement->code,
-                    'purpose' => $assignment->procurement->purpose,
-                    'status' => $assignment->procurement->status?->name,
-                    'sub_status' => $assignment->procurement->sub_status?->name,
-                ] : null,
             ];
         });
 
@@ -55,7 +43,6 @@ class ProcurementAssignmentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'procurement_id' => 'required|exists:procurements,id',
             'status' => 'required|string|max:100',
             'user_ids' => 'required|array|min:1',
             'user_ids.*' => 'exists:users,id',
@@ -63,10 +50,10 @@ class ProcurementAssignmentController extends Controller
 
         $created = [];
         foreach ($validated['user_ids'] as $userId) {
-            $created[] = ProcurementAssignment::create([
-                'procurement_id' => $validated['procurement_id'],
+            $created[] = ProcurementAssignment::firstOrCreate([
                 'status' => $validated['status'],
                 'user_id' => $userId,
+            ], [
                 'created_by_id' => auth()->id(),
             ]);
         }

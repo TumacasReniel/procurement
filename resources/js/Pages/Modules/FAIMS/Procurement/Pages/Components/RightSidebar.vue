@@ -251,6 +251,8 @@
                     :key="status.name"
                     class="timeline-step"
                     :class="{ 'active': status.isCurrent, 'completed': status.isPast, 'pending': !status.isCurrent && !status.isPast }"
+                    :style="{ cursor: 'pointer' }"
+                    @click="openStatusTip(status.name)"
                   >
                     <div class="timeline-dot" :class="{ 'pulse': status.isCurrent }">
                       <i v-if="status.isPast" class="ri-check-line"></i>
@@ -280,6 +282,8 @@
                     :key="status.name"
                     class="timeline-step"
                     :class="{ 'active': status.isCurrent, 'completed': status.isPast, 'pending': !status.isCurrent && !status.isPast }"
+                    :style="{ cursor: 'pointer' }"
+                    @click="openStatusTip(status.name)"
                   >
                     <div class="timeline-dot" :class="{ 'pulse': status.isCurrent }">
                       <i v-if="status.isPast" class="ri-check-line"></i>
@@ -351,6 +355,36 @@
         </div>
       </div>
     </div>
+    <b-modal
+      v-model="showStatusTipModal"
+      header-class="p-3 bg-light"
+      :title="statusTipTitle"
+      centered
+      hide-footer
+  >
+    <div class="status-tip-body">
+      <div v-if="!isEmployeeOnlyRole" class="status-tip-subtitle">{{ statusTipSubtitle }}</div>
+      <ul v-if="!isEmployeeOnlyRole" class="status-tip-steps">
+        <li v-for="(step, idx) in statusTipSteps" :key="`${step}-${idx}`">{{ step }}</li>
+      </ul>
+      <div class="status-tip-assigned">
+        <strong>Assigned Personnel:</strong>
+        <div v-if="statusTipAssigned.length" class="status-tip-badges">
+          <span
+            v-for="(person, idx) in statusTipAssigned"
+            :key="`${person}-${idx}`"
+            class="badge rounded-pill bg-primary-subtle text-primary status-tip-person"
+          >
+            {{ person }}
+          </span>
+        </div>
+        <span v-else> - </span>
+      </div>
+      <div v-if="isEmployeeOnlyRole" class="status-tip-note">
+        Note: If this procurement process is taking longer, please check with the assigned personnel to know the reason, or leave a comment for follow-up.
+      </div>
+    </div>
+  </b-modal>
   </div>
 </template>
 
@@ -367,9 +401,18 @@ export default {
       form: useForm({
         content: '',
       }),
+      showStatusTipModal: false,
+      statusTipTitle: "Status Guide",
+      statusTipSubtitle: "",
+      statusTipSteps: [],
+      statusTipAssigned: [],
     };
   },
   computed: {
+    isEmployeeOnlyRole() {
+      const roles = this.$page.props.roles || [];
+      return roles.length === 1 && roles.includes("Employee");
+    },
     logsCount() {
       return this.logs ? this.logs.length : 0;
     },
@@ -422,31 +465,76 @@ export default {
     commentCount() {
       return this.sortedComments.length;
     },
+    procAssigneeMap() {
+      const fromAssignments = {};
+      (this.procurement?.assignments || []).forEach((assignment) => {
+        const status = assignment?.status;
+        const name =
+          assignment?.user?.profile?.full_name ||
+          assignment?.user?.profile?.fullname ||
+          assignment?.user?.name ||
+          assignment?.name ||
+          null;
+        if (!status || !name) return;
+        if (!fromAssignments[status]) fromAssignments[status] = [];
+        fromAssignments[status].push(name);
+      });
+      const map = Object.keys(fromAssignments).length
+        ? fromAssignments
+        : (this.procurement?.assignees || this.procurement?.assigned_personnel || {});
+      const normalized = {};
+      Object.keys(map || {}).forEach((key) => {
+        const value = map[key];
+        if (Array.isArray(value)) {
+          normalized[key] = [...new Set(value.filter(Boolean))];
+        } else if (typeof value === "string" && value.trim()) {
+          normalized[key] = [value];
+        } else {
+          normalized[key] = [];
+        }
+      });
+      return normalized;
+    },
     statusFlow() {
       // Define the procurement main status flow
       const currentStatus = this.procurement.status?.name;
-      let statusFlow = [
-        { name: 'Pending', isCurrent: currentStatus === 'Pending' },
-        { name: 'Reviewed', isCurrent: currentStatus === 'Reviewed' },
-        { name: 'Approved', isCurrent: currentStatus === 'Approved' },
-        { name: 'For Quotations', isCurrent: currentStatus === 'For Quotations' },
-        { name: 'For Bids', isCurrent: currentStatus === 'For Bids' },
-        { name: 'For BAC Resolution', isCurrent: currentStatus === 'For BAC Resolution' },
-        { name: 'For Approval of BAC Resolution', isCurrent: currentStatus === 'For Approval of BAC Resolution' },
-        { name: 'For NOA', isCurrent: currentStatus === 'For NOA' },
-        { name: 'NOA Served to Supplier', isCurrent: currentStatus === 'NOA Served to Supplier' },
-        { name: 'NOA Conformed', isCurrent: currentStatus === 'NOA Conformed' },
-        { name: 'PO Issued', isCurrent: currentStatus === 'PO Issued' },
-        { name: 'PO Conformed', isCurrent: currentStatus === 'PO Conformed' },
-        { name: 'Delivered/For Inspection', isCurrent: currentStatus === 'Delivered/For Inspection' },
-        { name: 'Completed', isCurrent: currentStatus === 'Completed' },
-      ];
+      let statusFlow = [];
 
-      // Only show Re-award and Rebid if current status is Re-award or Rebid
-      if (currentStatus === 'Re-award') {
-        statusFlow.splice(-1, 0, { name: 'Re-award', isCurrent: true });
-      } else if (currentStatus === 'Rebid') {
-        statusFlow.splice(-1, 0, { name: 'Rebid', isCurrent: true });
+      if (currentStatus === 'Re-award' || currentStatus === 'Rebid') {
+        statusFlow = [
+          { name: 'Pending', isCurrent: false },
+          { name: 'Reviewed', isCurrent: false },
+          { name: 'Approved', isCurrent: false },
+          { name: 'For Quotations', isCurrent: false },
+          { name: 'For Bids', isCurrent: false },
+          { name: 'For BAC Resolution', isCurrent: false },
+          { name: 'For Approval of BAC Resolution', isCurrent: false },
+          { name: 'For NOA', isCurrent: false },
+          { name: 'NOA Served to Supplier', isCurrent: false },
+          { name: currentStatus, isCurrent: true },
+          { name: 'NOA Conformed', isCurrent: false },
+          { name: 'PO Issued', isCurrent: false },
+          { name: 'PO Conformed', isCurrent: false },
+          { name: 'Delivered/For Inspection', isCurrent: false },
+          { name: 'Completed', isCurrent: false },
+        ];
+      } else {
+        statusFlow = [
+          { name: 'Pending', isCurrent: currentStatus === 'Pending' },
+          { name: 'Reviewed', isCurrent: currentStatus === 'Reviewed' },
+          { name: 'Approved', isCurrent: currentStatus === 'Approved' },
+          { name: 'For Quotations', isCurrent: currentStatus === 'For Quotations' },
+          { name: 'For Bids', isCurrent: currentStatus === 'For Bids' },
+          { name: 'For BAC Resolution', isCurrent: currentStatus === 'For BAC Resolution' },
+          { name: 'For Approval of BAC Resolution', isCurrent: currentStatus === 'For Approval of BAC Resolution' },
+          { name: 'For NOA', isCurrent: currentStatus === 'For NOA' },
+          { name: 'NOA Served to Supplier', isCurrent: currentStatus === 'NOA Served to Supplier' },
+          { name: 'NOA Conformed', isCurrent: currentStatus === 'NOA Conformed' },
+          { name: 'PO Issued', isCurrent: currentStatus === 'PO Issued' },
+          { name: 'PO Conformed', isCurrent: currentStatus === 'PO Conformed' },
+          { name: 'Delivered/For Inspection', isCurrent: currentStatus === 'Delivered/For Inspection' },
+          { name: 'Completed', isCurrent: currentStatus === 'Completed' },
+        ];
       }
 
       const currentIndex = statusFlow.findIndex(s => s.isCurrent);
@@ -522,6 +610,74 @@ export default {
       const nextTab = [1, 2].includes(tab) ? tab : 1;
       this.activeRightTab = nextTab;
       localStorage.setItem("activeRightTab", nextTab);
+    },
+    openStatusTip(statusName) {
+      const assigned = this.getAssignedForStep(statusName);
+      if (statusName === "Rebid") {
+        this.statusTipTitle = "Rebid Workflow";
+        this.statusTipSubtitle = "Follow these steps after rebid:";
+        this.statusTipSteps = [
+          "Create and send RFQ",
+          "Collect bid offers",
+          "Create BAC Resolution",
+          "Approve BAC Resolution",
+          "Create NOA",
+          "Serve and conform NOA",
+          "Create and issue PO",
+          "Deliver and inspect",
+          "Mark as completed",
+        ];
+      } else if (statusName === "Re-award") {
+        this.statusTipTitle = "Re-award Workflow";
+        this.statusTipSubtitle = "Follow these steps after re-award:";
+        this.statusTipSteps = [
+          "Approve the failure of BAC resolution",
+          "Create NOA for re-award",
+          "Serve and conform NOA",
+          "Create and issue PO",
+          "Deliver and inspect",
+          "Mark as completed",
+        ];
+      } else {
+        this.statusTipTitle = `${statusName} Status`;
+        this.statusTipSubtitle = "Status details and suggested next action:";
+        const nextByStatus = {
+          Pending: "Review procurement request",
+          Reviewed: "Approve procurement request",
+          Approved: "Create and send RFQ",
+          "For Quotations": "Collect quotations from suppliers",
+          "For Bids": "Encode and evaluate bid offers",
+          "For BAC Resolution": "Create BAC resolution",
+          "For Approval of BAC Resolution": "Approve BAC resolution",
+          "For NOA": "Create NOA",
+          "NOA Served to Supplier": "Wait for supplier confirmation",
+          "NOA Conformed": "Create purchase order",
+          "PO Created": "Issue purchase order",
+          "PO Issued": "Wait for supplier conformity",
+          "PO Conformed": "Proceed to delivery and inspection",
+          "Delivered/For Inspection": "Complete inspection and acceptance",
+          Completed: "Process is completed",
+        };
+        this.statusTipSteps = [nextByStatus[statusName] || "Track and update this status as needed"];
+      }
+      this.statusTipAssigned = assigned;
+      this.showStatusTipModal = true;
+    },
+    mapStepToAssignmentStatuses(stepName) {
+      const map = {
+        "For RFQ": ["For Quotations"],
+        "For BAC": ["For BAC Resolution"],
+        "For Approval": ["For Approval of BAC Resolution"],
+        "NOA Served": ["NOA Served to Supplier"],
+        "NOA Confirmed": ["NOA Conformed"],
+        Delivered: ["PO Delivered/For Inspection", "Delivered/For Inspection"],
+      };
+      return map[stepName] || [stepName];
+    },
+    getAssignedForStep(stepName) {
+      const statuses = this.mapStepToAssignmentStatuses(stepName);
+      const names = statuses.flatMap((status) => this.procAssigneeMap?.[status] || []);
+      return [...new Set(names.filter(Boolean))];
     },
     formatDate(dateString) {
       const date = new Date(dateString);
@@ -1302,6 +1458,14 @@ export default {
   gap: 0.5rem;
   min-width: 80px;
   position: relative;
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+
+.timeline-step.completed {
+  background: #ecfdf3;
+  border-color: #86efac;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.15) inset;
 }
 
 .timeline-step:not(:last-child)::after {
@@ -1587,5 +1751,43 @@ export default {
   .empty-state-message {
     font-size: 0.85rem;
   }
+}
+
+.status-tip-body {
+  font-size: 0.95rem;
+}
+
+.status-tip-subtitle {
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.status-tip-steps {
+  margin-bottom: 0.75rem;
+  padding-left: 1.1rem;
+}
+
+.status-tip-assigned {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.status-tip-badges {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.status-tip-person {
+  align-self: flex-start;
+}
+
+.status-tip-note {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: #64748b;
 }
 </style>

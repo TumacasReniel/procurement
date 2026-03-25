@@ -9,6 +9,7 @@ use App\Models\ProcurementBac;
 use App\Models\ProcurementBacNoa;
 use App\Models\ProcurementNoaPo;
 use App\Models\ProcurementPoNtp;
+use App\Models\ProcurementAssignment;
 use Spatie\Activitylog\Models\Activity;
 
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
@@ -258,17 +259,20 @@ class ViewClass
             'pos.comments.user.profile',
             'pos.comments.replies.user.profile',
             'comments.user.profile',
-            'comments.replies.user.profile',
-            'assignments.user.profile'
+            'comments.replies.user.profile'
         )->findOrFail($id);
 
         $assignees = [];
-        foreach ($procurement->assignments as $assignment) {
+        $globalAssignments = ProcurementAssignment::with('user.profile')->get();
+        foreach ($globalAssignments as $assignment) {
             $name = $assignment->user?->profile?->full_name ?? $assignment->user?->name ?? 'User #' . $assignment->user_id;
             if (!$name) {
                 continue;
             }
             $assignees[$assignment->status][] = $name;
+        }
+        foreach ($assignees as $status => $names) {
+            $assignees[$status] = array_values(array_unique($names));
         }
         $procurement->assignees = $assignees;
 

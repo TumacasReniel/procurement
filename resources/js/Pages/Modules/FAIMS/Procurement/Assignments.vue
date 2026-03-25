@@ -99,15 +99,21 @@
                 <input type="text" class="form-control" :value="assignRow?.step || assignForm.status" readonly />
             </div>
             <div class="mb-2">
+                <label class="form-label">Procurement</label>
+                <select class="form-select" v-model="assignForm.procurement_selection" disabled>
+                    <option value="__ALL__">All Procurement</option>
+                </select>
+            </div>
+            <div class="mb-2">
                 <label class="form-label">Employee</label>
                 <div v-if="existingAssigned.length" class="alert alert-light border mb-2">
                     <small class="text-muted d-block mb-1">Currently assigned</small>
-                    <div class="d-flex flex-wrap gap-2">
+                    <div class="d-flex flex-column gap-2">
                         <span
                             v-for="person in existingAssigned"
-                            :key="person.id"
-                            class="badge rounded-pill bg-success-subtle text-success"
-                            :class="{ 'text-decoration-line-through opacity-75': pendingRemovalAssignmentIds.includes(person.id) }"
+                            :key="person.user_id || person.name"
+                            class="badge rounded-pill bg-success-subtle text-success align-self-start"
+                            :class="{ 'text-decoration-line-through opacity-75': isPendingRemovalPerson(person) }"
                         >
                             {{ person.name }}
                             <i
@@ -141,11 +147,11 @@
             </div>
             <div v-if="assignSelected.length" class="alert alert-light border mb-0">
                 <small class="text-muted d-block mb-2">Selected to add</small>
-                <div class="d-flex flex-wrap gap-2">
+                <div class="d-flex flex-column gap-2">
                     <span
                         v-for="person in assignSelected"
                         :key="person.value ?? person.id"
-                        class="badge rounded-pill bg-primary-subtle text-primary"
+                        class="badge rounded-pill bg-primary-subtle text-primary align-self-start"
                     >
                         {{ person.name }}
                         <i class="ri-close-line ms-1 cursor-pointer" @click="removeAssignee(person)"></i>
@@ -193,7 +199,7 @@ export default {
             showAssignModal: false,
             assignRow: null,
             assignForm: {
-                procurement_ids: [],
+                procurement_selection: "__ALL__",
                 status: "",
                 user_ids: [],
             },
@@ -227,6 +233,8 @@ export default {
                 { step: "For Approval", match: ["For Approval of BAC Resolution", "For Approval"] },
                 { step: "For NOA", match: ["For NOA"] },
                 { step: "NOA Served", match: ["NOA Served to Supplier", "NOA Served"] },
+                { step: "Re-award", match: ["Re-award"] },
+                { step: "Rebid", match: ["Rebid"] },
                 { step: "NOA Confirmed", match: ["NOA Conformed", "NOA Confirmed"] },
                 { step: "PO Created", match: ["PO Created"] },
                 { step: "PO Issued", match: ["PO Issued"] },
@@ -263,9 +271,11 @@ export default {
                 { step: "For Bids", match: ["For Bids"] },
                 { step: "For BAC", match: ["For BAC Resolution", "For BAC"] },
                 { step: "For Approval", match: ["For Approval of BAC Resolution", "For Approval"] },
-                { step: "For Failure", match: ["For Approval of Failure BAC Resolution", "For Failure"] },
+                { step: "For Approval of Failure BAC Resolution", match: ["For Approval of Failure BAC Resolution", "For Failure"] },
                 { step: "For NOA", match: ["For NOA"] },
                 { step: "NOA Served", match: ["NOA Served to Supplier", "NOA Served"] },
+                { step: "Re-award", match: ["Re-award"] },
+                { step: "Rebid", match: ["Rebid"] },
                 { step: "NOA Confirmed", match: ["NOA Conformed", "NOA Confirmed"] },
                 { step: "PO Created", match: ["PO Created"] },
                 { step: "PO Issued", match: ["PO Issued"] },
@@ -359,10 +369,9 @@ export default {
         this.fetchAssignments();
     },
     methods: {
-        assigneesFor(stepNames, procurementIds = []) {
+        assigneesFor(stepNames) {
             const names = this.assignments
                 .filter((item) =>
-                    procurementIds.includes(Number(item.procurement_id)) &&
                     this.statusMatches(item.status, stepNames)
                 )
                 .map((item) => item.name)
@@ -411,21 +420,36 @@ export default {
                 });
         },
         syncExistingAssigned() {
-            if (!this.assignRow || !this.assignForm.procurement_ids.length) {
+            if (!this.assignRow) {
                 this.existingAssigned = [];
                 this.pendingRemovalAssignmentIds = [];
                 return;
             }
-            this.existingAssigned = this.assignments.filter(
+
+            const relevant = this.assignments.filter(
                 (item) =>
-                    this.assignForm.procurement_ids.includes(Number(item.procurement_id)) &&
                     this.statusMatches(item.status, this.assignRow.match || [this.assignRow.step]),
             );
+
+            const groupedByUser = {};
+            relevant.forEach((item) => {
+                const key = Number(item.user_id);
+                if (!groupedByUser[key]) {
+                    groupedByUser[key] = {
+                        user_id: key,
+                        name: item.name,
+                        assignment_ids: [],
+                    };
+                }
+                groupedByUser[key].assignment_ids.push(item.id);
+            });
+
+            this.existingAssigned = Object.values(groupedByUser);
             this.pendingRemovalAssignmentIds = [];
         },
         openAssignModal(row) {
             this.assignRow = row;
-            this.assignForm.procurement_ids = row.procurementIds || [];
+            this.assignForm.procurement_selection = "__ALL__";
             this.assignForm.status = row.match?.[0] || row.step;
             this.assignForm.user_ids = [];
             this.assignSearch = "";
@@ -439,6 +463,10 @@ export default {
                     this.$refs.assignSearchInput.focus();
                 }
             });
+        },
+        isPendingRemovalPerson(person) {
+            const ids = person?.assignment_ids || [];
+            return ids.length > 0 && ids.every((id) => this.pendingRemovalAssignmentIds.includes(id));
         },
         handleAssignSearch() {
             if (this.assignSearchTimer) {
@@ -473,8 +501,11 @@ export default {
             if (!id) return;
             const existing = this.existingAssigned.find((p) => Number(p.user_id) === Number(id));
             if (existing) {
-                if (this.pendingRemovalAssignmentIds.includes(existing.id)) {
-                    this.pendingRemovalAssignmentIds = this.pendingRemovalAssignmentIds.filter((x) => x !== existing.id);
+                const ids = existing.assignment_ids || [];
+                if (ids.length && ids.every((assignmentId) => this.pendingRemovalAssignmentIds.includes(assignmentId))) {
+                    this.pendingRemovalAssignmentIds = this.pendingRemovalAssignmentIds.filter(
+                        (x) => !ids.includes(x),
+                    );
                 }
                 this.assignOptions = [];
                 this.assignSearch = "";
@@ -499,20 +530,24 @@ export default {
                 .filter(Boolean);
         },
         removeExistingAssignee(assignment) {
-            const assignmentId = assignment?.id;
-            if (!assignmentId) return;
-            if (this.pendingRemovalAssignmentIds.includes(assignmentId)) {
-                this.pendingRemovalAssignmentIds = this.pendingRemovalAssignmentIds.filter((id) => id !== assignmentId);
+            const assignmentIds = assignment?.assignment_ids || [];
+            if (!assignmentIds.length) return;
+
+            const allMarked = assignmentIds.every((id) => this.pendingRemovalAssignmentIds.includes(id));
+            if (allMarked) {
+                this.pendingRemovalAssignmentIds = this.pendingRemovalAssignmentIds.filter(
+                    (id) => !assignmentIds.includes(id),
+                );
                 return;
             }
-            this.pendingRemovalAssignmentIds.push(assignmentId);
+            assignmentIds.forEach((id) => {
+                if (!this.pendingRemovalAssignmentIds.includes(id)) {
+                    this.pendingRemovalAssignmentIds.push(id);
+                }
+            });
         },
         submitAssign() {
             this.assignErrors = {};
-            if (!this.assignForm.procurement_ids.length) {
-                this.assignErrors.user_ids = "No procurements found for this step.";
-                return;
-            }
             if (!this.assignSelected.length && !this.pendingRemovalAssignmentIds.length) {
                 this.assignErrors.user_ids = "No changes to save.";
                 return;
@@ -522,13 +557,12 @@ export default {
                 axios.delete(`/faims/procurement-assignments/${id}`),
             );
             const addRequests = this.assignSelected.length
-                ? this.assignForm.procurement_ids.map((procurementId) =>
+                ? [
                       axios.post("/faims/procurement-assignments", {
-                          procurement_id: procurementId,
                           status: this.assignForm.status,
                           user_ids: this.assignForm.user_ids,
                       }),
-                  )
+                  ]
                 : [];
 
             Promise.all([...removeRequests, ...addRequests])

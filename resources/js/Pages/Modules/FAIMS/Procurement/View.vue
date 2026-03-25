@@ -37,6 +37,8 @@
             <div 
               class="status-flow-banner-step"
               :class="{ 'completed': status.isPast, 'active': status.isCurrent, 'pending': !status.isPast && !status.isCurrent }"
+              :style="{ cursor: 'pointer' }"
+              @click="openStatusTip(status.name)"
             >
               <div class="status-flow-banner-dot">
                 <i v-if="status.isPast" class="ri-check-line"></i>
@@ -71,6 +73,8 @@
             <div 
               class="status-flow-banner-step"
               :class="{ 'completed': status.isPast, 'active': status.isCurrent, 'pending': !status.isPast && !status.isCurrent }"
+              :style="{ cursor: 'pointer' }"
+              @click="openStatusTip(status.name)"
             >
               <div class="status-flow-banner-dot">
                 <i v-if="status.isPast" class="ri-check-line"></i>
@@ -162,14 +166,21 @@
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 2
                     ? 'bg-primary text-white shadow-sm'
+                    : isProcessDoneTab(2)
+                    ? 'tab-done-light-success'
                     : 'bg-white text-dark hover-bg-light',
                 ]"
                 @click="show(2)"
                 style="transition: all 0.3s ease"
 
               >
-                <i class="ri-check-line text-success me-2" v-if="procurement.status?.name === 'Approved'"></i><i class="ri-file-text-line align-middle me-3 fs-5"></i>Request of
-                Quotations(RFQs)
+                <span class="d-flex align-items-center w-100">
+                  <span class="d-flex align-items-center">
+                    <i class="ri-file-text-line align-middle me-3 fs-5"></i>Request of
+                    Quotations(RFQs)
+                  </span>
+                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(2)"></i>
+                </span>
 
               </button>
               <button
@@ -178,13 +189,20 @@
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 3
                     ? 'bg-primary text-white shadow-sm'
+                    : isProcessDoneTab(3)
+                    ? 'tab-done-light-success'
                     : 'bg-white text-dark hover-bg-light',
                 ]"
                 @click="show(3)"
                 style="transition: all 0.3s ease"
               >
-                <i class="ri-check-line text-success me-2" v-if="procurement.status?.name === 'For BAC Resolution'"></i><i class="ri-auction-line align-middle me-3 fs-5"></i>Abstract of
-                Bids(AOBs)
+                <span class="d-flex align-items-center w-100">
+                  <span class="d-flex align-items-center">
+                    <i class="ri-auction-line align-middle me-3 fs-5"></i>Abstract of
+                    Bids(AOBs)
+                  </span>
+                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(3)"></i>
+                </span>
 
               </button>
               <button
@@ -193,12 +211,19 @@
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 4
                     ? 'bg-primary text-white shadow-sm'
+                    : isProcessDoneTab(4)
+                    ? 'tab-done-light-success'
                     : 'bg-white text-dark hover-bg-light',
                 ]"
                 @click="show(4)"
                 style="transition: all 0.3s ease"
               >
-                <i class="ri-check-line text-success me-2" v-if="procurement.status?.name === 'For Approval of BAC Resolution'"></i><i class="ri-file-line align-middle me-3 fs-5"></i>BAC Resolutions
+                <span class="d-flex align-items-center w-100">
+                  <span class="d-flex align-items-center">
+                    <i class="ri-file-line align-middle me-3 fs-5"></i>BAC Resolutions
+                  </span>
+                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(4)"></i>
+                </span>
               </button>
               <button
                 v-if="canManageProcurementWorkflow"
@@ -206,26 +231,40 @@
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 5
                     ? 'bg-primary text-white shadow-sm'
+                    : isProcessDoneTab(5)
+                    ? 'tab-done-light-success'
                     : 'bg-white text-dark hover-bg-light',
                 ]"
                 @click="show(5)"
                 style="transition: all 0.3s ease"
               >
-                <i class="ri-check-line text-success me-2" v-if="procurement.status?.name === 'For NOA' || procurement.status?.name === 'NOA Served to Supplier' || procurement.status?.name === 'NOA Conformed'"></i><i class="ri-trophy-line align-middle me-3 fs-5"></i>Notice of Award(NOAs)
+                <span class="d-flex align-items-center w-100">
+                  <span class="d-flex align-items-center">
+                    <i class="ri-trophy-line align-middle me-3 fs-5"></i>Notice of Award(NOAs)
+                  </span>
+                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(5)"></i>
+                </span>
               </button>
               <button
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 6
                     ? 'bg-primary text-white shadow-sm'
+                    : isProcessDoneTab(6)
+                    ? 'tab-done-light-success'
                     : 'bg-white text-dark hover-bg-light',
                 ]"
                 @click="show(6)"
                 style="transition: all 0.3s ease"
   
               >
-                <i class="ri-shopping-cart-line align-middle me-3 fs-5"></i>Purchase
-                Order(POs)
+                <span class="d-flex align-items-center w-100">
+                  <span class="d-flex align-items-center">
+                    <i class="ri-shopping-cart-line align-middle me-3 fs-5"></i>Purchase
+                    Order(POs)
+                  </span>
+                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(6)"></i>
+                </span>
               </button>
             </div>
           </div>
@@ -260,6 +299,8 @@
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 2
                   ? 'bg-primary text-white shadow-sm'
+                  : isProcessDoneTab(2)
+                  ? 'tab-done-light-success'
                   : 'bg-white text-dark hover-bg-light',
               ]"
               @click="show(2)"
@@ -276,6 +317,8 @@
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 3
                   ? 'bg-primary text-white shadow-sm'
+                  : isProcessDoneTab(3)
+                  ? 'tab-done-light-success'
                   : 'bg-white text-dark hover-bg-light',
               ]"
               @click="show(3)"
@@ -292,6 +335,8 @@
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 4
                   ? 'bg-primary text-white shadow-sm'
+                  : isProcessDoneTab(4)
+                  ? 'tab-done-light-success'
                   : 'bg-white text-dark hover-bg-light',
               ]"
               @click="show(4)"
@@ -308,6 +353,8 @@
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 5
                   ? 'bg-primary text-white shadow-sm'
+                  : isProcessDoneTab(5)
+                  ? 'tab-done-light-success'
                   : 'bg-white text-dark hover-bg-light',
               ]"
               @click="show(5)"
@@ -323,6 +370,8 @@
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 6
                   ? 'bg-primary text-white shadow-sm'
+                  : isProcessDoneTab(6)
+                  ? 'tab-done-light-success'
                   : 'bg-white text-dark hover-bg-light',
               ]"
               @click="show(6)"
@@ -533,6 +582,36 @@
       </b-button>
     </template>
   </b-modal>
+  <b-modal
+    v-model="showStatusTipModal"
+    header-class="p-3 bg-light"
+    :title="statusTipTitle"
+    centered
+    hide-footer
+  >
+    <div class="status-tip-body">
+      <div v-if="!isEmployeeOnlyRole" class="status-tip-subtitle">{{ statusTipSubtitle }}</div>
+      <ul v-if="!isEmployeeOnlyRole" class="status-tip-steps">
+        <li v-for="(step, idx) in statusTipSteps" :key="`${step}-${idx}`">{{ step }}</li>
+      </ul>
+      <div class="status-tip-assigned">
+        <strong>Assigned Personnel:</strong>
+        <div v-if="statusTipAssigned.length" class="status-tip-badges">
+          <span
+            v-for="(person, idx) in statusTipAssigned"
+            :key="`${person}-${idx}`"
+            class="badge rounded-pill bg-primary-subtle text-primary status-tip-person"
+          >
+            {{ person }}
+          </span>
+        </div>
+        <span v-else> - </span>
+      </div>
+      <div v-if="isEmployeeOnlyRole" class="status-tip-note">
+        Note: If this procurement process is taking longer, please check with the assigned personnel to know the reason, or leave a comment for follow-up.
+      </div>
+    </div>
+  </b-modal>
 </template>
 <script>
 import Overview from "./Pages/Detail.vue";
@@ -585,6 +664,11 @@ export default {
       procAssignErrors: {},
       procAssignSearchTimer: null,
       localProcAssignees: {},
+      showStatusTipModal: false,
+      statusTipTitle: "Status Guide",
+      statusTipSubtitle: "",
+      statusTipSteps: [],
+      statusTipAssigned: [],
     };
   },
 
@@ -597,13 +681,36 @@ export default {
         roles.includes("Administrator")
       );
     },
+    isEmployeeOnlyRole() {
+      const roles = this.$page.props.roles || [];
+      return roles.length === 1 && roles.includes("Employee");
+    },
     procAssigneeMap() {
-      const map = Object.keys(this.localProcAssignees || {}).length ? this.localProcAssignees : (this.procurement?.assignees || this.procurement?.assigned_personnel || {});
+      const fromAssignments = {};
+      (this.procurement?.assignments || []).forEach((assignment) => {
+        const status = assignment?.status;
+        const name =
+          assignment?.user?.profile?.full_name ||
+          assignment?.user?.profile?.fullname ||
+          assignment?.user?.name ||
+          assignment?.name ||
+          null;
+        if (!status || !name) return;
+        if (!fromAssignments[status]) fromAssignments[status] = [];
+        fromAssignments[status].push(name);
+      });
+
+      const hasLocal = Object.keys(this.localProcAssignees || {}).length > 0;
+      const map = hasLocal
+        ? this.localProcAssignees
+        : (Object.keys(fromAssignments).length
+            ? fromAssignments
+            : (this.procurement?.assignees || this.procurement?.assigned_personnel || {}));
       const normalized = {};
       Object.keys(map || {}).forEach((key) => {
         const value = map[key];
         if (Array.isArray(value)) {
-          normalized[key] = value.filter(Boolean);
+          normalized[key] = [...new Set(value.filter(Boolean))];
         } else if (typeof value === "string" && value.trim()) {
           normalized[key] = [value];
         } else {
@@ -614,28 +721,45 @@ export default {
     },
     statusFlowNav() {
       const currentStatus = this.procurement.status?.name;
-      let statusFlow = [
-        { name: 'Pending', isCurrent: currentStatus === 'Pending' },
-        { name: 'Reviewed', isCurrent: currentStatus === 'Reviewed' },
-        { name: 'Approved', isCurrent: currentStatus === 'Approved' },
-        { name: 'For RFQ', isCurrent: currentStatus === 'For Quotations' },
-        { name: 'For Bids', isCurrent: currentStatus === 'For Bids' },
-        { name: 'For BAC', isCurrent: currentStatus === 'For BAC Resolution' },
-        { name: 'For Approval', isCurrent: currentStatus === 'For Approval of BAC Resolution' },
-        { name: 'For NOA', isCurrent: currentStatus === 'For NOA' },
-        { name: 'NOA Served', isCurrent: currentStatus === 'NOA Served to Supplier' },
-        { name: 'NOA Conformed', isCurrent: currentStatus === 'NOA Conformed' },
-        { name: 'PO Created', isCurrent: currentStatus === 'PO Created' },
-        { name: 'PO Issued', isCurrent: currentStatus === 'PO Issued' },
-        { name: 'PO Conformed', isCurrent: currentStatus === 'PO Conformed' },
-        { name: 'Delivered', isCurrent: currentStatus === 'PO Delivered/For Inspection' },
-        { name: 'Completed', isCurrent: currentStatus === 'Completed' },
-      ];
+      let statusFlow = [];
 
-      if (currentStatus === 'Re-award') {
-        statusFlow.splice(-1, 0, { name: 'Re-award', isCurrent: true });
-      } else if (currentStatus === 'Rebid') {
-        statusFlow.splice(-1, 0, { name: 'Rebid', isCurrent: true });
+      if (currentStatus === 'Re-award' || currentStatus === 'Rebid') {
+        statusFlow = [
+          { name: 'Pending', isCurrent: false },
+          { name: 'Reviewed', isCurrent: false },
+          { name: 'Approved', isCurrent: false },
+          { name: 'For Quotations', isCurrent: false },
+          { name: 'For Bids', isCurrent: false },
+          { name: 'For BAC Resolution', isCurrent: false },
+          { name: 'For Approval of BAC Resolution', isCurrent: false },
+          { name: 'For NOA', isCurrent: false },
+          { name: 'NOA Served to Supplier', isCurrent: false },
+          { name: currentStatus, isCurrent: true },
+          { name: 'NOA Conformed', isCurrent: false },
+          { name: 'PO Created', isCurrent: false },
+          { name: 'PO Issued', isCurrent: false },
+          { name: 'PO Conformed', isCurrent: false },
+          { name: 'Delivered/For Inspection', isCurrent: false },
+          { name: 'Completed', isCurrent: false },
+        ];
+      } else {
+        statusFlow = [
+          { name: 'Pending', isCurrent: currentStatus === 'Pending' },
+          { name: 'Reviewed', isCurrent: currentStatus === 'Reviewed' },
+          { name: 'Approved', isCurrent: currentStatus === 'Approved' },
+          { name: 'For Quotations', isCurrent: currentStatus === 'For Quotations' },
+          { name: 'For Bids', isCurrent: currentStatus === 'For Bids' },
+          { name: 'For BAC Resolution', isCurrent: currentStatus === 'For BAC Resolution' },
+          { name: 'For Approval of BAC Resolution', isCurrent: currentStatus === 'For Approval of BAC Resolution' },
+          { name: 'For NOA', isCurrent: currentStatus === 'For NOA' },
+          { name: 'NOA Served to Supplier', isCurrent: currentStatus === 'NOA Served to Supplier' },
+          { name: 'NOA Conformed', isCurrent: currentStatus === 'NOA Conformed' },
+          { name: 'PO Created', isCurrent: currentStatus === 'PO Created' },
+          { name: 'PO Issued', isCurrent: currentStatus === 'PO Issued' },
+          { name: 'PO Conformed', isCurrent: currentStatus === 'PO Conformed' },
+          { name: 'Delivered/For Inspection', isCurrent: currentStatus === 'PO Delivered/For Inspection' || currentStatus === 'Delivered/For Inspection' || currentStatus === 'Delivered' },
+          { name: 'Completed', isCurrent: currentStatus === 'Completed' },
+        ];
       }
 
       const currentIndex = statusFlow.findIndex(s => s.isCurrent);
@@ -651,44 +775,44 @@ export default {
 
       if (currentStatus === 'Rebid') {
         subStatusFlow = [
-          { name: 'For RFQ', isCurrent: currentSubStatus === 'For Quotations' },
+          { name: 'For Quotations', isCurrent: currentSubStatus === 'For Quotations' },
           { name: 'For Bids', isCurrent: currentSubStatus === 'For Bids' },
-          { name: 'For BAC', isCurrent: currentSubStatus === 'For BAC Resolution' },
-          { name: 'For Approval', isCurrent: currentSubStatus === 'For Approval of BAC Resolution' },
-          { name: 'For Failure', isCurrent: currentSubStatus === 'For Approval of Failure BAC Resolution' },
+          { name: 'For BAC Resolution', isCurrent: currentSubStatus === 'For BAC Resolution' },
+          { name: 'For Approval of BAC Resolution', isCurrent: currentSubStatus === 'For Approval of BAC Resolution' },
+          { name: 'For Approval of Failure BAC Resolution', isCurrent: currentSubStatus === 'For Approval of Failure BAC Resolution' },
           { name: 'For NOA', isCurrent: currentSubStatus === 'For NOA' },
-          { name: 'NOA Served', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
-          { name: 'NOA Confirmed', isCurrent: currentSubStatus === 'NOA Conformed' },
+          { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
+          { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
-          { name: 'Delivered', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' },
+          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       } else if (currentStatus === 'Re-award') {
         subStatusFlow = [
           { name: 'For NOA', isCurrent: currentSubStatus === 'For NOA' },
-          { name: 'NOA Served', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
-          { name: 'NOA Confirmed', isCurrent: currentSubStatus === 'NOA Conformed' },
+          { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
+          { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
-          { name: 'Delivered', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' },
+          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       } else {
         subStatusFlow = [
-          { name: 'For RFQ', isCurrent: currentSubStatus === 'For Quotations' },
+          { name: 'For Quotations', isCurrent: currentSubStatus === 'For Quotations' },
           { name: 'For Bids', isCurrent: currentSubStatus === 'For Bids' },
-          { name: 'For BAC', isCurrent: currentSubStatus === 'For BAC Resolution' },
-          { name: 'For Approval', isCurrent: currentSubStatus === 'For Approval of BAC Resolution' },
+          { name: 'For BAC Resolution', isCurrent: currentSubStatus === 'For BAC Resolution' },
+          { name: 'For Approval of BAC Resolution', isCurrent: currentSubStatus === 'For Approval of BAC Resolution' },
           { name: 'For NOA', isCurrent: currentSubStatus === 'For NOA' },
-          { name: 'NOA Served', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
-          { name: 'NOA Confirmed', isCurrent: currentSubStatus === 'NOA Conformed' },
+          { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
+          { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
-          { name: 'Delivered', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' },
+          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       }
@@ -777,6 +901,99 @@ export default {
     toggleStatusFlow() {
       this.isStatusFlowCollapsed = !this.isStatusFlowCollapsed;
     },
+    openStatusTip(statusName) {
+      const assigned = this.getAssignedForStep(statusName);
+      if (statusName === "Rebid") {
+        this.statusTipTitle = "Rebid Workflow";
+        this.statusTipSubtitle = "Follow these steps after rebid:";
+        this.statusTipSteps = [
+          "Create and send RFQ",
+          "Collect bid offers",
+          "Create BAC Resolution",
+          "Approve BAC Resolution",
+          "Create NOA",
+          "Serve and conform NOA",
+          "Create and issue PO",
+          "Deliver and inspect",
+          "Mark as completed",
+        ];
+      } else if (statusName === "Re-award") {
+        this.statusTipTitle = "Re-award Workflow";
+        this.statusTipSubtitle = "Follow these steps after re-award:";
+        this.statusTipSteps = [
+          "Approve the failure of BAC resolution",
+          "Create NOA for re-award",
+          "Serve and conform NOA",
+          "Create and issue PO",
+          "Deliver and inspect",
+          "Mark as completed",
+        ];
+      } else {
+        this.statusTipTitle = `${statusName} Status`;
+        this.statusTipSubtitle = "Status details and suggested next action:";
+        const nextByStatus = {
+          Pending: "Review procurement request",
+          Reviewed: "Approve procurement request",
+          Approved: "Create and send RFQ",
+          "For Quotations": "Collect quotations from suppliers",
+          "For RFQ": "Collect quotations from suppliers",
+          "For Bids": "Encode and evaluate bid offers",
+          "For BAC Resolution": "Create BAC resolution",
+          "For BAC": "Create BAC resolution",
+          "For Approval of BAC Resolution": "Approve BAC resolution",
+          "For Approval": "Approve BAC resolution",
+          "For NOA": "Create NOA",
+          "NOA Served to Supplier": "Wait for supplier confirmation",
+          "NOA Served": "Wait for supplier confirmation",
+          "NOA Conformed": "Create purchase order",
+          "PO Created": "Issue purchase order",
+          "PO Issued": "Wait for supplier conformity",
+          "PO Conformed": "Proceed to delivery and inspection",
+          "Delivered/For Inspection": "Complete inspection and acceptance",
+          Delivered: "Complete inspection and acceptance",
+          Completed: "Process is completed",
+        };
+        this.statusTipSteps = [nextByStatus[statusName] || "Track and update this status as needed"];
+      }
+      this.statusTipAssigned = assigned;
+      this.showStatusTipModal = true;
+    },
+    mapStepToAssignmentStatuses(stepName) {
+      const map = {
+        "For Quotations": ["For Quotations", "For RFQ"],
+        "For RFQ": ["For Quotations"],
+        "For BAC Resolution": ["For BAC Resolution", "For BAC"],
+        "For BAC": ["For BAC Resolution"],
+        "For Approval of BAC Resolution": ["For Approval of BAC Resolution", "For Approval"],
+        "For Approval": ["For Approval of BAC Resolution"],
+        "NOA Served to Supplier": ["NOA Served to Supplier", "NOA Served"],
+        "NOA Served": ["NOA Served to Supplier"],
+        "NOA Conformed": ["NOA Conformed", "NOA Confirmed"],
+        "NOA Confirmed": ["NOA Conformed"],
+        "Delivered/For Inspection": ["PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"],
+        Delivered: ["PO Delivered/For Inspection", "Delivered/For Inspection"],
+      };
+      return map[stepName] || [stepName];
+    },
+    getAssignedForStep(stepName) {
+      const statuses = this.mapStepToAssignmentStatuses(stepName);
+      const names = statuses.flatMap((status) => this.procAssigneeMap?.[status] || []);
+      return [...new Set(names.filter(Boolean))];
+    },
+    isProcessDoneTab(tab) {
+      const subStatus = (this.procurement?.sub_status?.name || "").trim();
+      const mainStatus = (this.procurement?.status?.name || "").trim();
+      const status = subStatus || mainStatus;
+      const doneStatusMap = {
+        2: ["Approved", "For Quotations", "For RFQ"],
+        3: ["For Bids"],
+        4: ["For BAC Resolution", "For Approval of BAC Resolution", "Re-award", "Rebid"],
+        5: ["For NOA", "NOA Served to Supplier", "NOA Conformed", "PO Created", "PO Issued", "PO Conformed"],
+        6: ["PO Created", "PO Issued", "PO Conformed", "Delivered/For Inspection", "PO Delivered/For Inspection", "Delivered", "Completed"],
+      };
+
+      return (doneStatusMap[tab] || []).includes(status);
+    },
     openProcAssign(step) {
       this.procAssignForm.status = step?.name || "";
       this.procAssignForm.user_ids = [];
@@ -852,7 +1069,6 @@ export default {
       this.procAssignProcessing = true;
       axios
         .post(`/faims/procurement-assignments`, {
-          procurement_id: this.procurement.id,
           status: this.procAssignForm.status,
           user_ids: this.procAssignForm.user_ids,
         })
@@ -1767,6 +1983,7 @@ export default {
   min-width: 72px;
   padding: 0.72rem 0.5rem;
   border-radius: 12px;
+  border: 1px solid transparent;
   transition: all 0.3s ease;
   cursor: default;
 }
@@ -1776,7 +1993,9 @@ export default {
 }
 
 .status-flow-banner-step.completed {
-  background: rgba(74, 222, 128, 0.2);
+  background: #dcfce7;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25) inset;
 }
 
 .status-flow-banner-step.active {
@@ -1829,7 +2048,8 @@ export default {
 }
 
 .status-flow-banner-step.completed .status-flow-banner-label {
-  color: #bbf7d0;
+  color: #166534;
+  text-shadow: none;
 }
 
 .status-flow-banner-step.active .status-flow-banner-label {
@@ -1883,26 +2103,54 @@ export default {
   padding: 1rem 1.2rem 1.2rem;
   border-radius: 12px;
 }
+
+.status-tip-body {
+  font-size: 0.95rem;
+}
+
+.status-tip-subtitle {
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.status-tip-steps {
+  margin-bottom: 0.75rem;
+  padding-left: 1.1rem;
+}
+
+.status-tip-assigned {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.status-tip-badges {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.status-tip-person {
+  align-self: flex-start;
+}
+
+.status-tip-note {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.tab-done-light-success {
+  background: #ecfdf3 !important;
+  color: #166534 !important;
+  border: 1px solid #86efac !important;
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.2);
+}
+
+.tab-done-light-success:hover {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
 </style>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
