@@ -1993,7 +1993,7 @@ export default {
 }
 
 .status-flow-banner-step.completed {
-  background: #dcfce7;
+  background: transparent;
   border-color: #22c55e;
   box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25) inset;
 }
@@ -2021,8 +2021,9 @@ export default {
 
 .status-flow-banner-step.completed .status-flow-banner-dot {
   background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: white;
-  box-shadow: 0 3px 10px rgba(34, 197, 94, 0.4);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 3px 10px rgba(34, 197, 94, 0.35);
 }
 
 .status-flow-banner-step.active .status-flow-banner-dot {
@@ -2048,7 +2049,7 @@ export default {
 }
 
 .status-flow-banner-step.completed .status-flow-banner-label {
-  color: #166534;
+  color: #bbf7d0;
   text-shadow: none;
 }
 
