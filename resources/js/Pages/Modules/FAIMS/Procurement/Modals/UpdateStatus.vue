@@ -9,7 +9,7 @@
     centered
     no-close-on-backdrop
   >
-    <form class="customform">
+    <form class="customform" @submit.prevent="submitOnEnter">
       <div class="m-5 text-center">
         <b>
           <!-- BACResolution -->
@@ -31,14 +31,15 @@
 
         <!-- // Bac Resolution Status Updates to 'Approved' -->
         
-          <span
+        <span
           v-if="
+            actionType !== 'revert' &&
             form.status?.name === 'Pending'  &&
             (type == 'BACResolution'   )
           "
         >
           Update status from
-          <span :class="form.status?.color">"{{ form.status?.name }}"</span>
+          <span :class="statusTextClass">"{{ form.status?.name }}"</span>
           to
           <span class="text-primary">"Approved"</span>
           ?
@@ -48,14 +49,29 @@
 
         <span
           v-if="
+            actionType === 'revert' &&
+            (type == 'NOA' || type == 'PO')
+          "
+        >
+          Revert status from
+          <span :class="statusTextClass">"{{ form.status?.name }}"</span>
+          to
+          <span class="text-primary">"{{ revertTargetStatus }}"</span>
+          ?
+        </span>
+
+        <span
+          v-if="
+          actionType !== 'revert' &&
           ((form.status?.name === 'PO Issued')|| ((form.status?.name === 'Pending' || form.status?.name === 'Created')  && (type == 'NOA' || type == 'PO')) &&
             type != 'NOA Not Conformed' &&
             type != 'PO Not Conformed')
           "
         >
           Update status from
-          <span :class="form.status?.color">"{{ form.status?.name }}"</span>
+          <span :class="statusTextClass">"{{ form.status?.name }}"</span>
           to
+          <span class="text-primary" v-if="type == 'NOA'">"Served to Supplier"</span>
           <span class="text-primary" v-if="type == 'PO'">"Served to Supplier"</span>
           
           ?
@@ -63,28 +79,29 @@
 
         <span
           v-if="
+            actionType !== 'revert' &&
             (form.status?.name === 'Served to Supplier' || form.status?.name === 'Issued') &&
             type != 'NOA Not Conformed' &&
             type != 'PO Not Conformed'
           "
         >
           Update status from
-          <span :class="form.status?.color">"{{ form.status?.name }}"</span>
+          <span :class="statusTextClass">"{{ form.status?.name }}"</span>
           to
           <span class="text-primary">"Conformed"</span>
           ?
         </span>
 
-        <span v-if="form.status?.name === 'Conformed'">
+        <span v-if="actionType !== 'revert' && form.status?.name === 'Conformed'">
           Update status from
-          <span :class="form.status?.color">"{{ form.status?.name }}"</span>
+          <span :class="statusTextClass">"{{ form.status?.name }}"</span>
           to
           <span class="text-primary">"Delivered/For Inspection"</span>
           ?
         </span>
         <br />
 
-        <div v-if="type == 'NOA Not Conformed' || type == 'PO Not Conformed'">
+        <div v-if="actionType !== 'revert' && (type == 'NOA Not Conformed' || type == 'PO Not Conformed')">
           <b-form-textarea
             id="textarea"
             v-model="form.comment"
@@ -95,7 +112,7 @@
           <br />
           <span>
             Update status from
-            <span :class="form.status?.color">"{{ form.status?.name }}"</span>
+            <span :class="statusTextClass">"{{ form.status?.name }}"</span>
             to
             <span class="text-primary">"Not Conformed"</span>
             ?
@@ -114,6 +131,7 @@
             :class="{ 'is-invalid': confirmTextError }"
             class="text-center fw-bold"
             @input="handleConfirmInput"
+            @keyup.enter.exact.prevent="submitOnEnter"
           ></b-form-input>
           <small v-if="confirmTextError" class="text-danger">
             Please type "confirm" to proceed
@@ -122,8 +140,8 @@
       </div>
     </form>
     <template v-slot:footer>
-      <b-button @click="hide()" variant="light" block>Close</b-button>
-      <b-button @click="submit()" variant="primary" :disabled="form.processing || !isConfirmed" block
+      <b-button type="button" @click="hide()" variant="light" block>Close</b-button>
+      <b-button type="button" @click="submit()" variant="primary" :disabled="form.processing || !isConfirmed" block
         >Update</b-button
       >
     </template>
@@ -158,15 +176,18 @@ export default {
         comment: null,
         option: "update_status",
       }),
+      actionType: "update",
       type: null,
       showModal: false,
     };
   },
   methods: {
-    show(data, type) {
+    show(data, type, actionType = "update") {
       this.form.id = data.id;
       this.form.code = data.code;
       this.form.status = data.status;
+      this.actionType = actionType;
+      this.form.option = actionType === "revert" ? "revert_status" : "update_status";
       this.type = type;
       if (this.type === "BACResolution") {
         this.form.bac_reso_type = data.type;
@@ -174,6 +195,27 @@ export default {
       this.showModal = true;
     },
     submit() {
+      if (this.actionType === "revert") {
+        if (this.type == "NOA") {
+          this.form.put("/faims/notice-of-awards/" + this.form.id, {
+            preserveScroll: true,
+            onSuccess: () => {
+              this.$emit("add", true);
+              this.hide();
+            },
+          });
+        } else if (this.type == "PO") {
+          this.form.put("/faims/purchase-orders/" + this.form.id, {
+            preserveScroll: true,
+            onSuccess: () => {
+              this.$emit("add", true);
+              this.hide();
+            },
+          });
+        }
+        return;
+      }
+
       if (this.type == "BACResolution") {
         this.form.put("/faims/bac-resolutions/" + this.form.id, {
           preserveScroll: true,
@@ -212,15 +254,43 @@ export default {
     handleConfirmInput() {
       this.confirmTextError = this.confirmText.toUpperCase() !== "CONFIRM";
     },
+    submitOnEnter() {
+      if (this.isConfirmed && !this.form.processing) {
+        this.submit();
+      }
+    },
     hide() {
       this.showModal = false;
       this.confirmText = "";
       this.confirmTextError = false;
+      this.form.option = "update_status";
+      this.actionType = "update";
     },
   },
   computed: {
     isConfirmed() {
       return this.confirmText.toUpperCase() === "CONFIRM";
+    },
+    statusTextClass() {
+      const raw = this.form.status?.color || "";
+      return String(raw)
+        .split(" ")
+        .filter((cls) => cls && cls !== "text-white")
+        .join(" ");
+    },
+    revertTargetStatus() {
+      const current = this.form.status?.name || "";
+      if (this.type === "NOA") {
+        if (current === "Delivered/For Inspection") return "Conformed";
+        if (current === "Conformed") return "Served to Supplier";
+        if (current === "Served to Supplier") return "Pending";
+      }
+      if (this.type === "PO") {
+        if (current === "Delivered/For Inspection") return "Conformed";
+        if (current === "Conformed") return "Issued";
+        if (current === "Issued") return "Created";
+      }
+      return "Previous Status";
     },
   },
 };

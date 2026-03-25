@@ -20,12 +20,11 @@
             <span class="position-relative me-2">
               <i v-if="activeRightTab === 1" class="ri-chat-1-line"></i>
               <i v-else-if="activeRightTab === 2" class="ri-file-list-line"></i>
-              <i v-else-if="activeRightTab === 3" class="ri-flow-chart"></i>
             <span v-if="activeRightTab === 1 && commentCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">{{ commentCount }}</span>
             <span v-if="activeRightTab === 2 && logsCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">{{ logsCount }}</span>
             </span>
             <span class="text-white">
-              {{ activeRightTab === 1 ? 'Procurement Comments' : activeRightTab === 2 ? 'Activity Logs' : 'Status' }}
+              {{ activeRightTab === 1 ? 'Procurement Comments' : 'Activity Logs' }}
             </span>
           </h5>
         </div>
@@ -62,12 +61,6 @@
               @click="showRightTab(2)"
             >
               <i class="ri-file-list-line me-1"></i>Logs
-            </button>
-            <button
-              :class="['nav-link', activeRightTab === 3 ? 'active' : '']"
-              @click="showRightTab(3)"
-            >
-              <i class="ri-flow-chart me-1"></i>Status 
             </button>
           </div>
           <div v-if="activeRightTab === 1" class="comments-section">
@@ -355,21 +348,6 @@
               {{ logsCount }}
             </span>
           </button>
-          <button
-            :class="[
-              'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-              activeRightTab === 3
-                ? 'bg-primary text-white shadow-sm'
-                : 'bg-white text-dark hover-bg-light',
-            ]"
-            @click="showRightTab(3)"
-            style="transition: all 0.3s ease; width: 50px; height: 50px"
-            v-b-tooltip.hover
-            title="Status"
-          >
-            <i class="ri-flow-chart fs-5"></i>
-          </button>
-
         </div>
       </div>
     </div>
@@ -532,7 +510,8 @@ export default {
     },
   },
   mounted() {
-    this.activeRightTab = parseInt(localStorage.getItem("activeRightTab")) || 1;
+    const savedTab = parseInt(localStorage.getItem("activeRightTab")) || 1;
+    this.activeRightTab = [1, 2].includes(savedTab) ? savedTab : 1;
     this.listenForComments();
   },
   methods: {
@@ -540,8 +519,9 @@ export default {
       this.$emit("toggleRightSidebar");
     },
     showRightTab(tab) {
-      this.activeRightTab = tab;
-      localStorage.setItem("activeRightTab", tab);
+      const nextTab = [1, 2].includes(tab) ? tab : 1;
+      this.activeRightTab = nextTab;
+      localStorage.setItem("activeRightTab", nextTab);
     },
     formatDate(dateString) {
       const date = new Date(dateString);

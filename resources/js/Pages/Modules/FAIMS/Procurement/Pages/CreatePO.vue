@@ -58,12 +58,27 @@
         <i class="ri-edit-fill align-bottom me-1"></i>
         Update Status
       </b-button>
+      <b-button
+        variant="outline-warning"
+        class="btn-modern shadow-sm"
+        size="sm"
+        v-if="
+          purchase_order &&
+          ['Issued', 'Conformed', 'Delivered/For Inspection'].includes(purchase_order.status.name)
+        "
+        @click="revertStatus(purchase_order)"
+        v-b-tooltip.hover
+        title="Revert Status"
+      >
+        <i class="ri-arrow-go-back-line align-bottom me-1"></i>
+        Revert
+      </b-button>
 
       <b-button
         variant="outline-danger"
         class="btn-modern shadow-sm"
         size="sm"
-        v-if="purchase_order && purchase_order.status.name == 'Served to Supplier'"
+        v-if="purchase_order && purchase_order.status.name == 'Issued'"
         @click="notConformed(purchase_order)"
         v-b-tooltip.hover
         title="Not Conformed"
@@ -245,6 +260,12 @@
     ref="create"
   />
   <UpdateStatus :procurement="procurement" @add="fetch()" ref="updateStatus" />
+  <RevertResultModal
+    v-model="showRevertResultModal"
+    :title="revertResultMessage"
+    :info="revertResultInfo"
+    :variant="revertResultVariant"
+  />
 </template>
 
 <script>
@@ -254,10 +275,11 @@ import Pagination from "@/Shared/Components/Pagination.vue";
 import UpdateStatus from "../Modals/UpdateStatus.vue";
 import { router } from "@inertiajs/vue3";
 import PurchaseOrder from "../Modals/PurchaseOrder.vue";
+import RevertResultModal from "@/Shared/Components/RevertResultModal.vue";
 
 export default {
   props: ["noa", "procurement", "dropdowns"],
-  components: { PageHeader, Pagination, UpdateStatus, PurchaseOrder },
+  components: { PageHeader, Pagination, UpdateStatus, PurchaseOrder, RevertResultModal },
   data() {
     return {
       currentUrl: window.location.origin,
@@ -267,6 +289,10 @@ export default {
       purchase_order: null,
       selectedRows: [],
       selectAll: false,
+      showRevertResultModal: false,
+      revertResultMessage: "",
+      revertResultInfo: "",
+      revertResultVariant: "success",
     };
   },
   created() {
@@ -320,6 +346,9 @@ export default {
     },
     updateStatus(data) {
       this.$refs.updateStatus.show(data, "PO");
+    },
+    revertStatus(data) {
+      this.$refs.updateStatus.show(data, "PO", "revert");
     },
     notConformed(data) {
       this.$refs.updateStatus.show(data, "PO Not Conformed");

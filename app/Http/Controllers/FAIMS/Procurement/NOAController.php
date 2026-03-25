@@ -47,12 +47,34 @@ class NOAController extends Controller
 
     public function update($id, Request $request) {
         $result = $this->handleTransaction(function () use ($id, $request) {
-            switch($request->option){     
+            $option = $request->input('option') ?? $request->query('option');
+            if (!$option) {
+                if ($request->filled('comment')) {
+                    $option = 'not_conformed';
+                } elseif ($request->filled('status')) {
+                    $option = 'update_status';
+                } else {
+                    $option = 'revert_status';
+                }
+            }
+
+            switch($option){     
                 case 'update_status':
                     return $this->noa->updateStatus($id, $request);
                 break;
                 case 'not_conformed':
                     return $this->noa->notConformed($id, $request);
+                break;
+                case 'revert_status':
+                    return $this->noa->revertStatus($id, $request);
+                break;
+                default:
+                    return [
+                        'data' => null,
+                        'message' => 'Invalid update option.',
+                        'info' => 'No changes were applied.',
+                        'status' => 'warning',
+                    ];
                 break;
             }   
            

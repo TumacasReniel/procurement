@@ -4,13 +4,28 @@ namespace App\Http\Controllers\FAIMS\Procurement;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProcurementAssignment;
+use App\Services\DropdownClass;
 use Illuminate\Http\Request;
 
 class ProcurementAssignmentController extends Controller
 {
+    public function __construct(public DropdownClass $dropdown)
+    {
+    }
+
     public function index(Request $request)
     {
-        $query = ProcurementAssignment::with('user.profile');
+        if (
+            !$request->filled('procurement_id') &&
+            !$request->boolean('json') &&
+            !$request->expectsJson()
+        ) {
+            return inertia('Modules/FAIMS/Procurement/Assignments', [
+                'statuses' => $this->dropdown->statuses('Procurement'),
+            ]);
+        }
+
+        $query = ProcurementAssignment::with('user.profile', 'procurement.status', 'procurement.sub_status');
         if ($request->filled('procurement_id')) {
             $query->where('procurement_id', $request->input('procurement_id'));
         }
@@ -22,6 +37,13 @@ class ProcurementAssignmentController extends Controller
                 'status' => $assignment->status,
                 'user_id' => $assignment->user_id,
                 'name' => $assignment->user?->profile?->full_name ?? $assignment->user?->name ?? 'User #' . $assignment->user_id,
+                'procurement' => $assignment->procurement ? [
+                    'id' => $assignment->procurement->id,
+                    'code' => $assignment->procurement->code,
+                    'purpose' => $assignment->procurement->purpose,
+                    'status' => $assignment->procurement->status?->name,
+                    'sub_status' => $assignment->procurement->sub_status?->name,
+                ] : null,
             ];
         });
 

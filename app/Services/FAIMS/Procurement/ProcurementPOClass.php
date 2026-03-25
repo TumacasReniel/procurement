@@ -145,9 +145,22 @@ class ProcurementPOClass
         $po = ProcurementNoaPo::with('noa.procurement_bac.procurement')->findOrFail($id);
         $current_pr_status = $po->noa->procurement_bac->procurement->status_id;
         $procurement =  $po->noa->procurement_bac->procurement;
+        $statusPayload = $request->input('status');
+        $currentStatusName = is_array($statusPayload)
+            ? ($statusPayload['name'] ?? null)
+            : (is_object($statusPayload) ? ($statusPayload->name ?? null) : null);
+
+        if (!$currentStatusName) {
+            return [
+                'data' => new ProcurementNoaPoResource($po),
+                'message' => 'Missing status payload.',
+                'info' => 'No status update was applied.',
+                'status' => 'warning',
+            ];
+        }
 
         // Update PO/NOA status FIRST based on the requested status
-        if($request->status['name'] == "Created"){
+        if($currentStatusName == "Created"){
 
              $po->update([
                 'status_id' => ListStatus::getID('Issued','Procurement'), // set status to "Issued"
@@ -156,7 +169,7 @@ class ProcurementPOClass
                 'status_id' => ListStatus::getID('PO Issued','Procurement'), // set noa status to "PO Issued"
             ]);
         }
-        else if($request->status['name'] == "Issued"){
+        else if($currentStatusName == "Issued"){
         
        
             $po->update([
@@ -170,7 +183,7 @@ class ProcurementPOClass
             // create Notice to Proceed(NTP) 
             $this->createNTP($request, $po, $user);
         }
-        else if($request->status['name'] == "Conformed"){
+        else if($currentStatusName == "Conformed"){
              $po->update([
                 'status_id' => ListStatus::getID('Delivered/For Inspection','Procurement'), // set status to "Delivered/For Inspection"
             ]);
@@ -180,7 +193,7 @@ class ProcurementPOClass
             //Create IAR
             $this->createIAR($po);
         }
-        else if($request->status['name'] == "Delivered/For Inspection"){
+        else if($currentStatusName == "Delivered/For Inspection"){
              $po->update([
                 'status_id' => ListStatus::getID('Completed','Procurement'), // set status to "Completed"
 
@@ -373,6 +386,73 @@ class ProcurementPOClass
             'data' =>new ProcurementNoaPoResource($po),
             'message' => 'Purchase Order Status updated successfully!', 
             'info' => "You've successfully updated Purchase Order Status.",
+        ];
+    }
+
+    public function revertStatus($id, $request)
+    {
+        $po = ProcurementNoaPo::with('noa.procurement_bac.procurement', 'status', 'noa.status')->findOrFail($id);
+        $procurement = $po->noa->procurement_bac->procurement;
+        $current_pr_status = $procurement->status_id;
+
+        $currentStatusName = $po->status?->name;
+        $revertedPoStatus = null;
+        $revertedNoaStatus = null;
+
+        if ($currentStatusName === 'Completed') {
+            $revertedPoStatus = 'Delivered/For Inspection';
+            $revertedNoaStatus = 'PO Delivered/For Inspection';
+        } elseif ($currentStatusName === 'Delivered/For Inspection') {
+            $revertedPoStatus = 'Conformed';
+            $revertedNoaStatus = 'PO Conformed';
+        } elseif ($currentStatusName === 'Conformed') {
+            $revertedPoStatus = 'Issued';
+            $revertedNoaStatus = 'PO Issued';
+        } elseif ($currentStatusName === 'Issued') {
+            $revertedPoStatus = 'Created';
+            $revertedNoaStatus = 'PO Created';
+        }
+
+        if (!$revertedPoStatus || !$revertedNoaStatus) {
+            return [
+                'data' => new ProcurementNoaPoResource($po),
+                'message' => 'PO status cannot be reverted from the current step.',
+                'info' => 'Nothing changed.',
+                'status' => 'warning',
+            ];
+        }
+
+        $po->update([
+            'status_id' => ListStatus::getID($revertedPoStatus, 'Procurement'),
+        ]);
+
+        $po->noa->update([
+            'status_id' => ListStatus::getID($revertedNoaStatus, 'Procurement'),
+        ]);
+
+        $po->refresh();
+        $po->noa->refresh();
+
+        if (
+            $current_pr_status == ListStatus::getID('Re-award', 'Procurement') ||
+            $current_pr_status == ListStatus::getID('Rebid', 'Procurement')
+        ) {
+            $updated_pr_substatus = $po->noa->procurement_bac->overall_substatus($current_pr_status);
+            $procurement->update([
+                'sub_status_id' => $updated_pr_substatus,
+            ]);
+        } else {
+            $updated_pr_status = $po->noa->procurement_bac->overall_status($current_pr_status);
+            $procurement->update([
+                'status_id' => $updated_pr_status,
+                'sub_status_id' => null,
+            ]);
+        }
+
+        return [
+            'data' => new ProcurementNoaPoResource($po),
+            'message' => 'Purchase Order Status reverted successfully!',
+            'info' => "You've successfully reverted Purchase Order Status.",
         ];
     }
 

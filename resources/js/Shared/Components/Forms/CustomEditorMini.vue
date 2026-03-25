@@ -145,7 +145,7 @@ export default {
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border-bottom: 2px solid #e2e8f0;
   padding: 8px 12px;

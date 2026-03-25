@@ -9,7 +9,7 @@
     centered
     no-close-on-backdrop
   >
-    <form class="customform">
+    <form class="customform" @submit.prevent="submitOnEnter">
       <div class="m-5 text-center">
         <b>
             <!-- Purchase Order -->
@@ -19,11 +19,18 @@
           
           <span class="text-danger flex">{{ form.code }}</span></b>
           <br>
-        <span v-if="form.status?.name === 'Delivered/For Inspection'">
+        <span v-if="actionType !== 'revert' && form.status?.name === 'Delivered/For Inspection'">
             Update status from
             <span :class="form.status?.color">"{{ form.status?.name }}"</span>
             to
             <span class="text-primary">"Completed"</span>
+            ?
+          </span>
+          <span v-if="actionType === 'revert'">
+            Revert status from
+            <span :class="form.status?.color">"{{ form.status?.name }}"</span>
+            to
+            <span class="text-primary">"{{ revertTargetStatus }}"</span>
             ?
           </span>
           <br />
@@ -37,6 +44,7 @@
             placeholder="Type confirm here..."
             :class="{ 'is-invalid': confirmTextError }"
             @input="handleConfirmInput"
+            @keyup.enter.exact.prevent="submitOnEnter"
             class="text-center  fw-bold"
           ></b-form-input>
           <small v-if="confirmTextError" class="text-danger">
@@ -46,8 +54,8 @@
       </div>
     </form>
     <template v-slot:footer>
-      <b-button @click="hide()" variant="light" block>Close</b-button>
-      <b-button @click="submit()" variant="primary" :disabled="form.processing || !isConfirmed" block
+      <b-button type="button" @click="hide()" variant="light" block>Close</b-button>
+      <b-button type="button" @click="submit()" variant="primary" :disabled="form.processing || !isConfirmed" block
         >Update</b-button
       >
     </template>
@@ -74,22 +82,19 @@ export default {
         comment: null,
         option: "update_status",
       }),
+      actionType: "update",
       type: null,
       showModal: false,
     };
   },
 
-  computed: {
-    isConfirmed() {
-      return this.confirmText.toLowerCase() === "confirm";
-    },
-  },
-
   methods: {
-    show(data, type) {
+    show(data, type, actionType = "update") {
       this.form.id = data.id;
       this.form.code = data.code;
       this.form.status = data.status;
+      this.actionType = actionType;
+      this.form.option = actionType === "revert" ? "revert_status" : "update_status";
       this.type = type;
       this.showModal = true;
     },
@@ -130,8 +135,30 @@ export default {
     handleInput(field) {
       this.form.errors[field] = false;
     },
+    handleConfirmInput() {
+      this.confirmTextError = this.confirmText.toLowerCase() !== "confirm";
+    },
+    submitOnEnter() {
+      if (this.isConfirmed && !this.form.processing) {
+        this.submit();
+      }
+    },
     hide() {
       this.showModal = false;
+      this.confirmText = "";
+      this.confirmTextError = false;
+      this.form.option = "update_status";
+      this.actionType = "update";
+    },
+  },
+  computed: {
+    isConfirmed() {
+      return this.confirmText.toLowerCase() === "confirm";
+    },
+    revertTargetStatus() {
+      if (this.form.status?.name === "Completed") return "Delivered/For Inspection";
+      if (this.form.status?.name === "Delivered/For Inspection") return "Conformed";
+      return "Previous Status";
     },
   },
 };

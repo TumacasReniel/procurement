@@ -30,6 +30,24 @@
                 </button>
 
                 <button
+                    v-if="
+                        !isForBACResolution &&
+                        hasAwardableBid &&
+                        (((procurement?.status.name == 'For Bids' ||
+                            procurement?.sub_status?.name == 'For Bids') &&
+                            $page.props.roles.includes('Procurement Officer')) ||
+                        $page.props.roles.includes('Procurement Staff'))
+                    "
+                    class="btn btn-primary btn-sm me-2"
+                    @click="openRecommendAward()"
+                    v-b-tooltip.hover
+                    title="Save Bids For Award"
+                >
+                    <i class="ri-save-line"></i>
+                    Save Bids For Award
+                </button>
+
+                <button
                     v-if="procurement.quotations.length > 0"
                     @click="printBids(procurement)"
                     class="btn btn-outline-dark btn-sm me-2"
@@ -61,12 +79,18 @@
         </div>
     </div>
 
-    <b-tabs v-else class="horizontal-scroll-tabs bg-white" card>
+    <b-tabs
+        v-else
+        v-model="activeBidTab"
+        @update:modelValue="persistActiveBidTab"
+        class="horizontal-scroll-tabs bg-white"
+        card
+    >
         <template
-            v-for="(bid, bidIndex) in procurement.quotations"
+            v-for="(bid, bidIndex) in availableBids"
             :key="bid.id"
         >
-            <b-tab v-if="bid.status_id == 46">
+            <b-tab>
                 <template #title v-if="bid.status_id == 46">
                     {{ bid.supplier.name }}
 
@@ -118,12 +142,9 @@
                                         <th
                                             v-if="
                                                 !isForBACResolution &&
-                                                (procurement.status.name ==
-                                                    'For Bids' ||
-                                                (this.procurement.status
-                                                    .name === 'Rebid' &&
-                                                    this.procurement.sub_status
-                                                        ?.name === 'For Bids' &&
+                                                (this.procurement.status.name ==='For Bids' ||
+                                                (this.procurement.status.name === 'Rebid' &&
+                                                    this.procurement.sub_status?.name === 'For Bids' &&
                                                     $page.props.roles.includes(
                                                         'Procurement Officer',
                                                     )) ||
@@ -217,7 +238,7 @@
                                             }}
                                         </td>
 
-                                        <td @click="openEditOffer(item)">
+                                        <td @click="openEditOffer(item, bid)">
                                             <span
                                                 v-if="item.bid_price > 0"
                                                 :class="{
@@ -234,27 +255,27 @@
                                                 }}</u>
                                             </span>
                                             <span
-                                                v-else-if="item.bid_price == 0"
+                                                v-else-if="item.bid_price == null"
                                             >
                                                 <b
                                                     ><i class="text-primary"
-                                                        ><u>free</u></i
+                                                        ><u>no bid</u></i
                                                     ></b
                                                 >
                                             </span>
                                             <span v-else>
                                                 <b
                                                     ><i class="text-primary"
-                                                        ><u>not set</u></i
+                                                        ><u>free</u></i
                                                     ></b
                                                 >
                                             </span>
                                         </td>
                                         <td>
-                                            <span v-if="item.bid_price == 0">
+                                            <span v-if="item.bid_price == null">
                                                 <b
                                                     ><i class="text-primary"
-                                                        >free</i
+                                                        >no bid</i
                                                     ></b
                                                 >
                                             </span>
@@ -272,7 +293,7 @@
                                             <span v-else>
                                                 <b
                                                     ><i class="text-primary"
-                                                        >not set</i
+                                                        >free</i
                                                     ></b
                                                 >
                                             </span>
@@ -324,7 +345,7 @@
                                                             itemIndex,
                                                             bid,
                                                         ) ||
-                                                        item.bid_price == null
+                                                        item.bid_price === null
                                                     "
                                                     @change="
                                                         handleCheckboxChange(
@@ -354,22 +375,6 @@
             </b-tab>
         </template>
 
-        <div class="input-group mb-1">
-            <b-button
-                v-if="
-                    !isForBACResolution &&
-                    (((procurement?.status.name == 'For Bids' ||
-                        procurement?.sub_status?.name == 'For Bids') &&
-                        $page.props.roles.includes('Procurement Officer')) ||
-                    $page.props.roles.includes('Procurement Staff'))
-                "
-                class="text-end"
-                @click="openRecommendAward()"
-                variant="primary"
-                block
-                >Save Bids For Award</b-button
-            >
-        </div>
     </b-tabs>
 
     <Offer ref="editOffer" />
@@ -414,10 +419,19 @@ export default {
             checkedItems: [],
             recommendedBidsForAward: {},
             showBACResoForm: false,
+            activeBidTab: 0,
         };
     },
 
     computed: {
+        availableBids() {
+            return (this.procurement?.quotations || []).filter(
+                (bid) => Number(bid.status_id) === 46,
+            );
+        },
+        bidTabStorageKey() {
+            return `procurement-bids-active-tab-${this.procurement?.id || "default"}`;
+        },
         isForBACResolution() {
             return (
                 this.procurement?.status?.name === "For BAC Resolution" ||
@@ -435,16 +449,36 @@ export default {
                     this.procurement?.sub_status?.name === "For Approval of BAC Resolution")
             );
         },
+        hasAwardableBid() {
+            return this.availableBids.some((bid) =>
+                (bid.items || []).some((item) => item.bid_price !== null),
+            );
+        },
     },
 
     methods: {
-        openEditOffer(item) {
+        persistActiveBidTab(index) {
+            localStorage.setItem(this.bidTabStorageKey, String(index ?? 0));
+        },
+        restoreActiveBidTab() {
+            const saved = Number(localStorage.getItem(this.bidTabStorageKey) ?? 0);
+            if (
+                Number.isFinite(saved) &&
+                saved >= 0 &&
+                saved < this.availableBids.length
+            ) {
+                this.activeBidTab = saved;
+                return;
+            }
+            this.activeBidTab = 0;
+        },
+        openEditOffer(item, bid) {
             if (
                 this.procurement.status?.name == "For Bids" ||
                 (this.procurement.status.name === "Rebid" &&
                     this.procurement.sub_status?.name === "For Bids")
             ) {
-                this.$refs.editOffer.edit(item);
+                this.$refs.editOffer.edit(item, bid);
             }
         },
 
@@ -525,6 +559,9 @@ export default {
                 `/faims/procurements/${data.id}?option=print&type=abstract_of_bids`,
             );
         },
+    },
+    mounted() {
+        this.restoreActiveBidTab();
     },
 };
 </script>

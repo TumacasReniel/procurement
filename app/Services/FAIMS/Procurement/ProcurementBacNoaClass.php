@@ -52,7 +52,19 @@ class ProcurementBacNoaClass
         $noa = ProcurementBacNoa::with('procurement_bac.procurement' , 'status')->findOrFail($id);
 
         // Get current status name
-        $currentStatusName = is_array($request->status) ? $request->status['name'] : $request->status->name;
+        $statusPayload = $request->input('status');
+        $currentStatusName = is_array($statusPayload)
+            ? ($statusPayload['name'] ?? null)
+            : (is_object($statusPayload) ? ($statusPayload->name ?? null) : null);
+
+        if (!$currentStatusName) {
+            return [
+                'data' => new ProcurementBacNoaResource($noa),
+                'message' => 'Missing status payload.',
+                'info' => 'No status update was applied.',
+                'status' => 'warning',
+            ];
+        }
    
         // Update NOA status FIRST
         if($currentStatusName == "Pending"){
@@ -208,6 +220,69 @@ class ProcurementBacNoaClass
             'data' =>new ProcurementBacNoaResource($noa),
             'message' => 'BAC Resolution Status updated successfully!', 
             'info' => "You've successfully updated BAC Resolution Status.",
+        ];
+    }
+
+    public function revertStatus($id, $request)
+    {
+        $user = Auth::user();
+        $noa = ProcurementBacNoa::with('procurement_bac.procurement', 'status')->findOrFail($id);
+
+        $currentStatusName = $noa->status?->name;
+        $revertedTo = null;
+
+        if ($currentStatusName === 'Delivered/For Inspection') {
+            $revertedTo = 'Conformed';
+        } elseif ($currentStatusName === 'Conformed') {
+            $revertedTo = 'Served to Supplier';
+        } elseif ($currentStatusName === 'Served to Supplier') {
+            $revertedTo = 'Pending';
+        }
+
+        if (!$revertedTo) {
+            return [
+                'data' => new ProcurementBacNoaResource($noa),
+                'message' => 'NOA status cannot be reverted from the current step.',
+                'info' => 'Nothing changed.',
+                'status' => 'warning',
+            ];
+        }
+
+        $noa->update([
+            'status_id' => ListStatus::getID($revertedTo, 'Procurement'),
+        ]);
+        activity()->performedOn($noa)->causedBy($user)->log("NOA status reverted to {$revertedTo}");
+
+        $noa->refresh();
+        $noa->load('procurement_bac.notice_of_awards');
+
+        $procurement = $noa->procurement_bac->procurement;
+        $current_pr_status = $procurement->status_id;
+        $current_sub_status = $procurement->sub_status_id;
+
+        if (
+            $current_pr_status == ListStatus::getID('Re-award', 'Procurement') ||
+            $current_pr_status == ListStatus::getID('Rebid', 'Procurement')
+        ) {
+            $updated_pr_substatus = $noa->procurement_bac->overall_substatus($current_sub_status);
+            if ($updated_pr_substatus !== null && is_numeric($updated_pr_substatus)) {
+                $procurement->update([
+                    'sub_status_id' => $updated_pr_substatus,
+                ]);
+            }
+        } else {
+            $updated_pr_status = $noa->procurement_bac->overall_status($current_pr_status);
+            if ($updated_pr_status !== null && is_numeric($updated_pr_status)) {
+                $procurement->update([
+                    'status_id' => $updated_pr_status,
+                ]);
+            }
+        }
+
+        return [
+            'data' => new ProcurementBacNoaResource($noa),
+            'message' => 'NOA Status reverted successfully!',
+            'info' => "You've successfully reverted NOA Status.",
         ];
     }
 

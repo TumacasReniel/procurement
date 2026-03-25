@@ -25,6 +25,7 @@ class ProcurementResource extends JsonResource
             'division' =>  $this->division,
             'fund_cluster' =>  $this->fund_cluster,
             'created_by' => $this->created_by->profile->full_name ,
+            'created_by_id' => $this->created_by_id,
             'requested_by' => $this->requested_by->profile->full_name ,
             'approved_by' =>  $this->approved_by->profile->full_name ,
             'codes' =>  $this->codes,

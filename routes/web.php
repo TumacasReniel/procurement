@@ -35,6 +35,7 @@ Route::middleware(['auth','verified'])->group(function () {
     
     Route::resource('/dtr', App\Http\Controllers\Portal\DtrController::class);
     Route::resource('/requests', App\Http\Controllers\Portal\RequestController::class);
+    Route::get('/inventory-dashboard', [App\Http\Controllers\Inventory\DashboardController::class, 'index'])->name('inventory.dashboard');
 });
 
 Route::middleware(['role:Asset Management Officer'])->group(function () {
@@ -84,6 +85,7 @@ Route::prefix('faims')->group(function () {
     Route::resource('/finance-requests', App\Http\Controllers\FAIMS\Finance\FinanceController::class);
     Route::post('/finance-requests/{id}/comments', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'addComment']);
     Route::post('/finance-requests/{id}/attachments', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'storeAttachment']);
+    Route::get('/finance-requests/{id}/attachments/{attachmentId}/preview', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'previewAttachment']);
     Route::delete('/finance-requests/{id}/attachments/{attachmentId}', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'deleteAttachment']);
     Route::post('/finance-requests/{id}/attachments/{attachmentId}/comments', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'addAttachmentComment']);
     Route::patch('/finance-requests/{id}/attachments/{attachmentId}/verify', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'verifyAttachment']);
@@ -97,7 +99,7 @@ Route::prefix('faims')->group(function () {
     Route::resource('/procurements', App\Http\Controllers\FAIMS\Procurement\ProcurementController::class)->names([
         'index' => 'procurement.index',
     ]);
-    Route::resource('/procurement-assignments', App\Http\Controllers\FAIMS\Procurement\ProcurementAssignmentController::class)->only(['index','store','update','destroy']);
+    Route::resource('/procurement-assignments', App\Http\Controllers\FAIMS\Procurement\ProcurementAssignmentController::class);
     Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
     Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'dashboard'])->name('procurement.dashboard');
     Route::get('/procurements/create', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'create_index']);
@@ -118,8 +120,6 @@ Route::get('/bac-committee', [App\Http\Controllers\Public\InfoController::class,
 Route::get('/iar-committee', [App\Http\Controllers\Public\InfoController::class, 'iarcommittee']);
 Route::get('/mailing', [App\Http\Controllers\Public\InfoController::class, 'mailing']);
 require __DIR__.'/auth.php';
-
-
 
 
 

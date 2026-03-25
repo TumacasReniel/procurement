@@ -49,47 +49,55 @@
 
       <!-- Basic Information Cards Row -->
       <div class="row g-4 mb-4">
-        <div class="col-lg-3 col-md-6">
-          <div class="info-card">
+        <div class="col-lg-3 col-md-6 d-flex">
+          <div class="info-card w-100 h-100">
             <div class="card-icon">
               <i class="ri-hashtag"></i>
             </div>
             <div class="card-content">
-              <h6 class="card-title">PR Number</h6>
-              <p class="card-value">{{ procurement.code }}</p>
+              <div class="card-meta-inline">
+                <h6 class="card-title mb-0">PR Number</h6>
+                <p class="card-value mb-0">{{ procurement.code }}</p>
+              </div>
             </div>
           </div>
         </div>
-        <div class="col-lg-3 col-md-6">
-          <div class="info-card">
+        <div class="col-lg-3 col-md-6 d-flex">
+          <div class="info-card w-100 h-100">
             <div class="card-icon">
               <i class="ri-calendar-line"></i>
             </div>
             <div class="card-content">
-              <h6 class="card-title">PR Date</h6>
-              <p class="card-value">{{ procurement.date }}</p>
+              <div class="card-meta-inline">
+                <h6 class="card-title mb-0">PR Date</h6>
+                <p class="card-value mb-0">{{ procurement.date }}</p>
+              </div>
             </div>
           </div>
         </div>
-        <div class="col-lg-3 col-md-6">
-          <div class="info-card">
+        <div class="col-lg-3 col-md-6 d-flex">
+          <div class="info-card w-100 h-100">
             <div class="card-icon">
               <i class="ri-building-line"></i>
             </div>
             <div class="card-content">
-              <h6 class="card-title">Division</h6>
-              <p class="card-value">{{ procurement.division?.name }}</p>
+              <div class="card-meta-inline">
+                <h6 class="card-title mb-0">Division</h6>
+                <p class="card-value mb-0">{{ procurement.division?.name }}</p>
+              </div>
             </div>
           </div>
         </div>
-        <div class="col-lg-3 col-md-6">
-          <div class="info-card">
+        <div class="col-lg-3 col-md-6 d-flex">
+          <div class="info-card w-100 h-100">
             <div class="card-icon">
               <i class="ri-group-line"></i>
             </div>
             <div class="card-content">
-              <h6 class="card-title">Unit</h6>
-              <p class="card-value">{{ procurement.unit?.name }}</p>
+              <div class="card-meta-inline">
+                <h6 class="card-title mb-0">Unit</h6>
+                <p class="card-value mb-0">{{ procurement.unit?.name }}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -489,15 +497,17 @@ export default {
 .info-card {
   background: white;
   border-radius: 15px;
-  padding: 1rem;
+  padding: 1.15rem 1.25rem;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.8);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
-  min-height: 120px;
+  min-height: 126px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .info-card::before {
@@ -524,25 +534,41 @@ export default {
   justify-content: center;
   font-size: 1.5rem;
   color: white;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   background: linear-gradient(135deg, #667eea, #764ba2);
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
+.card-content {
+  margin-top: 0.1rem;
+  width: 100%;
+}
+
 .card-title {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: #6c757d;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0;
 }
 
 .card-value {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #2c3e50;
   margin: 0;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.card-meta-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
 }
 
 /* Content Cards */
@@ -847,7 +873,11 @@ export default {
   }
 
   .info-card {
-    padding: 1rem;
+    padding: 1rem 1.05rem;
+  }
+
+  .card-meta-inline {
+    gap: 0.15rem;
   }
 
   .card-icon {

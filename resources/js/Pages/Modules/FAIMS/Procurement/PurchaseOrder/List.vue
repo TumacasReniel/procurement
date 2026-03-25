@@ -57,9 +57,9 @@
                     <i class="ri-apps-2-line me-1 align-bottom"></i> All
                   </BLink>
                 </li>
-                 <li class="nav-item">
+                <li class="nav-item">
                   <BLink
-                    v-if="!dropdowns.roles.includes('Procurement Officer')"
+                    v-if="canAccessInspectionTab"
                     class="nav-link py-3"
                     data-bs-toggle="tab"
                     role="tab"
@@ -151,6 +151,18 @@
                       >
                         <i class="ri-edit-line"></i>
                       </b-button>
+                      <b-button
+                        v-if="list.status.name == 'Completed'"
+                        @click="revertStatus(list)"
+                        size="sm"
+                        variant="warning"
+                        class="btn-icon"
+                        v-b-tooltip.hover
+                        title="Revert Status"
+                        style="border-radius: 8px;"
+                      >
+                        <i class="ri-arrow-go-back-line"></i>
+                      </b-button>
 
                       <b-button
                         @click="openPrint(list)"
@@ -208,6 +220,16 @@ import { router } from "@inertiajs/vue3";
 export default {
   components: { PageHeader, Pagination, Multiselect, Inspection },
   props: ['dropdowns'],
+  computed: {
+    canAccessInspectionTab() {
+      const roles = this.$page.props.roles || [];
+      return (
+        roles.includes("Procurement Staff") ||
+        roles.includes("Procurement Officer") ||
+        roles.includes("Administrator")
+      );
+    },
+  },
   data() {
     return {
       currentUrl: window.location.origin,
@@ -297,7 +319,13 @@ export default {
     updateStatus(data) {
       this.$refs.inspection.show(data, "PO");
     },
+    revertStatus(data) {
+      this.$refs.inspection.show(data, "PO", "revert");
+    },
     viewStatus(status) {
+      if (!this.canAccessInspectionTab && status === 52) {
+        return;
+      }
       this.filter.status = status;
       this.fetch();
     },

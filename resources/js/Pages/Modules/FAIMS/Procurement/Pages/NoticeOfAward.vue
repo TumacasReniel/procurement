@@ -77,6 +77,18 @@
                 <i class="ri-edit-circle-fill"></i>
               </button>
               <button
+                v-if="
+                  ['Served to Supplier', 'Conformed', 'Delivered/For Inspection'].includes(list.status.name) &&
+                  ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))
+                "
+                @click="revertStatus(list)"
+                class="btn btn-warning btn-sm"
+                v-b-tooltip.hover
+                title="Revert Status"
+              >
+                <i class="ri-arrow-go-back-line"></i>
+              </button>
+              <button
                 v-if="(list.status.name == 'Served to Supplier') && ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))"
                 @click="notConformed(list)"
                 class="btn btn-danger btn-sm"
@@ -141,6 +153,12 @@
   <NOA :procurement="procurement" ref="NOA" />
 
   <UpdateStatus :procurement="procurement" @add="fetch()" ref="updateStatus" />
+  <RevertResultModal
+    v-model="showRevertResultModal"
+    :title="revertResultMessage"
+    :info="revertResultInfo"
+    :variant="revertResultVariant"
+  />
 </template>
 <script>
 import _ from "lodash";
@@ -149,10 +167,11 @@ import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import NOA from "../Modals/NOA.vue";
 import UpdateStatus from "../Modals/UpdateStatus.vue";
+import RevertResultModal from "@/Shared/Components/RevertResultModal.vue";
 
 export default {
   props: ["bac_resolution", "procurement", "dropdowns"],
-  components: { PageHeader, Pagination, NOA, UpdateStatus },
+  components: { PageHeader, Pagination, NOA, UpdateStatus, RevertResultModal },
   data() {
     return {
       currentUrl: window.location.origin,
@@ -164,6 +183,10 @@ export default {
       },
       selectedRow: null,
       index: null,
+      showRevertResultModal: false,
+      revertResultMessage: "",
+      revertResultInfo: "",
+      revertResultVariant: "success",
     };
   },
   watch: {
@@ -211,6 +234,9 @@ export default {
     notConformed(data) {
       let type = "NOA Not Conformed";
       this.$refs.updateStatus.show(data, type);
+    },
+    revertStatus(data) {
+      this.$refs.updateStatus.show(data, "NOA", "revert");
     },
 
     printNOA(data) {

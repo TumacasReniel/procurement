@@ -123,41 +123,7 @@ class FinanceController extends Controller
             ->values();
 
         $attachments = $request->attachments
-            ->map(function ($attachment) {
-                return [
-                    'id' => $attachment->id,
-                    'finance_document_id' => $attachment->finance_document_id,
-                    'document_name' => $attachment->document?->name,
-                    'name' => $attachment->name,
-                    'path' => $attachment->path,
-                    'url' => Storage::disk('public')->url($attachment->path),
-                    'mime_type' => $attachment->mime_type,
-                    'size' => $attachment->size,
-                    'uploaded_by' => $attachment->uploadedBy?->profile?->full_name
-                        ?? $attachment->uploadedBy?->name
-                        ?? null,
-                    'uploaded_at' => optional($attachment->created_at)->format('M d, Y h:i A'),
-                    'verification_status' => $attachment->verification_status ?? 'pending',
-                    'verification_note' => $attachment->verification_note,
-                    'verified_at' => optional($attachment->verified_at)->format('M d, Y h:i A'),
-                    'verified_by' => $attachment->verifiedBy?->profile?->full_name
-                        ?? $attachment->verifiedBy?->name
-                        ?? null,
-                    'comments_count' => $attachment->comments->count(),
-                    'comments' => $attachment->comments->map(function ($comment) {
-                        return [
-                            'id' => $comment->id,
-                            'content' => $comment->content,
-                            'created_at' => optional($comment->created_at)->format('M d, Y h:i A'),
-                            'created_ago' => $comment->created_ago,
-                            'user' => [
-                                'id' => $comment->user?->id,
-                                'name' => $comment->user?->profile?->full_name ?? $comment->user?->name ?? 'User',
-                            ],
-                        ];
-                    })->values(),
-                ];
-            })
+            ->map(fn ($attachment) => $this->transformAttachment($request->id, $attachment))
             ->values();
 
         $payload = [
@@ -193,7 +159,7 @@ class FinanceController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return inertia('Modules/FAIMS/Finance/View', [
+        return inertia('Modules/FAIMS/Finance/Overview/View', [
             'request' => $payload,
             'logs' => $logs,
             'roles' => \Auth::user()->roles,
@@ -239,15 +205,19 @@ class FinanceController extends Controller
                 ]
             );
 
+            $attachment->load(['document', 'uploadedBy.profile', 'verifiedBy.profile', 'comments.user.profile']);
+
             return [
-                'data' => $attachment->load(['document', 'uploadedBy.profile']),
+                'data' => $this->transformAttachment($financeRequest->id, $attachment),
                 'message' => 'Attachment submitted successfully.',
                 'info' => null,
                 'status' => true,
             ];
         });
 
-        return response()->json($result);
+        $httpStatus = ($result['status'] ?? false) ? 200 : 422;
+
+        return response()->json($result, $httpStatus);
     }
 
     public function deleteAttachment($id, $attachmentId)
@@ -273,7 +243,9 @@ class FinanceController extends Controller
             ];
         });
 
-        return response()->json($result);
+        $httpStatus = ($result['status'] ?? false) ? 200 : 422;
+
+        return response()->json($result, $httpStatus);
     }
 
     public function verifyAttachment($id, $attachmentId, Request $request)
@@ -306,6 +278,63 @@ class FinanceController extends Controller
             'message' => 'Attachment verification status updated.',
             'status' => true,
         ]);
+    }
+    public function previewAttachment($id, $attachmentId)
+    {
+        $financeRequest = FinanceRequest::findOrFail($id);
+        $attachment = FinanceRequestAttachment::where('finance_request_id', $financeRequest->id)
+            ->where('id', $attachmentId)
+            ->firstOrFail();
+
+        if (!$attachment->path || !Storage::disk('public')->exists($attachment->path)) {
+            abort(404, 'Attachment file not found.');
+        }
+
+        $absolutePath = Storage::disk('public')->path($attachment->path);
+        $headers = [
+            'Content-Type' => $attachment->mime_type ?: 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . ($attachment->name ?: 'attachment.pdf') . '"',
+        ];
+
+        return response()->file($absolutePath, $headers);
+    }
+
+    protected function transformAttachment(int $requestId, FinanceRequestAttachment $attachment): array
+    {
+        return [
+            'id' => $attachment->id,
+            'finance_document_id' => $attachment->finance_document_id,
+            'document_name' => $attachment->document?->name,
+            'name' => $attachment->name,
+            'path' => $attachment->path,
+            'url' => $attachment->path ? Storage::disk('public')->url($attachment->path) : null,
+            'preview_url' => url("/faims/finance-requests/{$requestId}/attachments/{$attachment->id}/preview"),
+            'mime_type' => $attachment->mime_type,
+            'size' => $attachment->size,
+            'uploaded_by' => $attachment->uploadedBy?->profile?->full_name
+                ?? $attachment->uploadedBy?->name
+                ?? null,
+            'uploaded_at' => optional($attachment->created_at)->format('M d, Y h:i A'),
+            'verification_status' => $attachment->verification_status ?? 'pending',
+            'verification_note' => $attachment->verification_note,
+            'verified_at' => optional($attachment->verified_at)->format('M d, Y h:i A'),
+            'verified_by' => $attachment->verifiedBy?->profile?->full_name
+                ?? $attachment->verifiedBy?->name
+                ?? null,
+            'comments_count' => $attachment->comments->count(),
+            'comments' => $attachment->comments->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'content' => $comment->content,
+                    'created_at' => optional($comment->created_at)->format('M d, Y h:i A'),
+                    'created_ago' => $comment->created_ago,
+                    'user' => [
+                        'id' => $comment->user?->id,
+                        'name' => $comment->user?->profile?->full_name ?? $comment->user?->name ?? 'User',
+                    ],
+                ];
+            })->values(),
+        ];
     }
     public function addAttachmentComment($id, $attachmentId, Request $request)
     {
@@ -412,7 +441,9 @@ class FinanceController extends Controller
             ];
         });
 
-        return response()->json($result);
+        $httpStatus = ($result['status'] ?? false) ? 200 : 422;
+
+        return response()->json($result, $httpStatus);
     }
 
     public function disbursementsObligations(Request $request)
@@ -440,8 +471,6 @@ class FinanceController extends Controller
         ]);
     }
 }
-
-
 
 
 

@@ -268,7 +268,10 @@
                                                 <b-button
                                                     v-if="
                                                         list.status.name ==
-                                                        'Pending'
+                                                            'Pending' &&
+                                                        list.created_by_id ==
+                                                            $page.props.user
+                                                                .data.id
                                                     "
                                                     @click="goEditPage(list)"
                                                     size="sm"
@@ -284,7 +287,10 @@
                                                 <b-button
                                                     v-if="
                                                         list.status.name ==
-                                                        'Pending'
+                                                            'Pending' &&
+                                                        list.created_by_id ==
+                                                            $page.props.user
+                                                                .data.id
                                                     "
                                                     @click="openCancel(list)"
                                                     size="sm"

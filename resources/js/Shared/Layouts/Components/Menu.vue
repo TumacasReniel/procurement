@@ -59,11 +59,23 @@
                 href="/faims/procurements"
                 class="nav-link menu-link"
                 :class="{
-                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Index'),
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Index') || ($page.component.startsWith('Modules/FAIMS/Procurement/View') && !isProcurementProcessActive),
                 }"
                 >
                 <i class="ri-file-list-3-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Request</span>
+                </Link>
+            </li>
+            <li
+                class="nav-item"
+            >
+                <Link
+                href="/faims/procurement-assignments"
+                class="nav-link menu-link"
+                :class="{ active: $page.component.startsWith('Modules/FAIMS/Procurement/Assignments') }"
+                >
+                <i class="ri-route-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Assignment</span>
                 </Link>
             </li>
             <li
@@ -311,7 +323,30 @@
                 </Link>
             </li>
 
-            <tempalte v-if="$page.props.roles.includes('Document Management Officer')">
+                        <template v-if="
+                $page.props.roles.includes('Supply Officer') ||
+                $page.props.roles.includes('Employee') ||
+                $page.props.roles.includes('Administrator')
+            ">
+                <li class="menu-title">
+                    <i class="ri-more-fill" aria-expanded="false"></i>
+                    <span data-key="t-menu">Inventory</span>
+                </li>
+                <li class="nav-item">
+                    <Link
+                        href="/inventory-dashboard"
+                        class="nav-link menu-link"
+                        :class="{
+                            active: $page.component.startsWith('Modules/Inventory/Dashboard'),
+                        }"
+                    >
+                        <i class="ri-dashboard-line"></i>
+                        <span class="fw-semibold fs-14" data-key="t-dashboards">Dashboard</span>
+                    </Link>
+                </li>
+            </template>
+
+            <template v-if="$page.props.roles.includes('Document Management Officer')">
                 <li class="menu-title">
                     <i class="ri-more-fill" aria-expanded="false"></i>
                     <span data-key="t-menu">Document Management</span>
@@ -330,7 +365,7 @@
                     <span class="fw-semibold fs-14" data-key="t-dashboards">Events</span>
                     </Link>
                 </li>
-            </tempalte>
+            </template>
             <template v-if="$page.props.roles.includes('Human Resource Officer')">
                 <li class="menu-title">
                     <i class="ri-more-fill" aria-expanded="false"></i>
@@ -516,25 +551,13 @@ export default {
                 return this.$store ? this.$store.state.layout.layoutType : {} || {};
             },
         },
-        filteredFinance() {
-            const cashier = ['Dashboard', 'Receipts', 'Deposits', 'Collection Type', 'OR Series', 'Names',
-                'Reports'];
-            const accountant = ['Dashboard', 'Order of Payment', 'Collection Type', 'Reports'];
-
-            const role = this.$page.props.user.data.assigned_role;
-            const menus = this.$page.props.menus.finance;
-
-            const isMenuNameInArray = (menuName, nameArray) =>
-                nameArray.some(name => menuName.toLowerCase().includes(name.toLowerCase()));
-
-            if (role === 'Cashier') {
-                return menus.filter(menu => isMenuNameInArray(menu.main.name, cashier));
-            } else if (role === 'Accountant') {
-                return menus.filter(menu => isMenuNameInArray(menu.main.name, accountant));
+        isProcurementProcessActive() {
+            if (!this.$page.component.startsWith("Modules/FAIMS/Procurement/View")) {
+                return false;
             }
-
-            return [];
-        }
+            const query = this.$page.url.split("?")[1] || "";
+            return new URLSearchParams(query).get("tab") === "7";
+        },
     },
     mounted() {
         this.initActiveMenu();

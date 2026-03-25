@@ -58,7 +58,7 @@
                 </li>
                 <li class="nav-item">
                   <BLink
-                    v-if="!dropdowns.roles.includes('Procurement Officer')"
+                    v-if="canAccessInspectionTab"
                     class="nav-link py-3"
                     data-bs-toggle="tab"
                     role="tab"
@@ -135,13 +135,22 @@
                       </button> -->
 
                       <button
-                        v-if="list.status.name == 'Delivered/For Inspection' &&  ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))"
+                        v-if="list.status.name == 'Delivered/For Inspection' && canAccessInspectionTab"
                         @click="updateStatus(list)"
                         class="btn btn-warning btn-sm"
                         v-b-tooltip.hover
                         title="Update Status"
                       >
                         <i class="ri-edit-circle-fill"></i>
+                      </button>
+                      <button
+                        v-if="list.status.name == 'Completed' && canAccessInspectionTab"
+                        @click="revertStatus(list)"
+                        class="btn btn-outline-warning btn-sm"
+                        v-b-tooltip.hover
+                        title="Revert Status"
+                      >
+                        <i class="ri-arrow-go-back-line"></i>
                       </button>
 
                       <button
@@ -207,6 +216,16 @@ import { router } from "@inertiajs/vue3";
 export default {
   components: { PageHeader, Pagination, Multiselect, Inspection },
   props: ["dropdowns", "procurement"],
+  computed: {
+    canAccessInspectionTab() {
+      const roles = this.$page.props.roles || [];
+      return (
+        roles.includes("Procurement Staff") ||
+        roles.includes("Procurement Officer") ||
+        roles.includes("Administrator")
+      );
+    },
+  },
   data() {
     return {
       currentUrl: window.location.origin,
@@ -295,8 +314,14 @@ export default {
     updateStatus(data) {
       this.$refs.inspection.show(data, "PO");
     },
+    revertStatus(data) {
+      this.$refs.inspection.show(data, "PO", "revert");
+    },
 
     viewStatus(status) {
+      if (!this.canAccessInspectionTab && status === "Delivered/For Inspection") {
+        return;
+      }
       this.filter.status = status;
       this.fetch();
     },

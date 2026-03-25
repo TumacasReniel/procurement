@@ -3,7 +3,7 @@
   <PageHeader title="Procurement Overview" pageTitle="User" />
 
   <!-- Status Flow Banner -->
-  <div class="bg-primary mb-3 p-3">
+  <div class="bg-primary mb-3 status-flow-panel">
     <div class="status-flow-banner-header" @click="toggleStatusFlow" style="cursor: pointer;">
       <div class="d-flex align-items-center flex-wrap gap-2">
         <i class="ri-flow-chart text-white"></i>
@@ -157,18 +157,7 @@
                 Details
               </button>
               <button
-                :class="[
-                  'nav-link text-start mb-2 rounded-pill border-0 transition-all',
-                  activeTab === 7
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-white text-dark hover-bg-light',
-                ]"
-                @click="show(7)"
-                style="transition: all 0.3s ease"
-              >
-                <i class="ri-route-line align-middle me-3 fs-5"></i>Process
-              </button>
-              <button
+                v-if="canManageProcurementWorkflow"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 2
@@ -184,6 +173,7 @@
 
               </button>
               <button
+                v-if="canManageProcurementWorkflow"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 3
@@ -198,6 +188,7 @@
 
               </button>
               <button
+                v-if="canManageProcurementWorkflow"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 4
@@ -210,6 +201,7 @@
                 <i class="ri-check-line text-success me-2" v-if="procurement.status?.name === 'For Approval of BAC Resolution'"></i><i class="ri-file-line align-middle me-3 fs-5"></i>BAC Resolutions
               </button>
               <button
+                v-if="canManageProcurementWorkflow"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 5
@@ -263,20 +255,7 @@
               <i class="ri-information-line fs-5"></i>
             </button>
             <button
-              :class="[
-                'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-                activeTab === 7
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'bg-white text-dark hover-bg-light',
-              ]"
-              @click="show(7)"
-              style="transition: all 0.3s ease; width: 50px; height: 50px"
-              v-b-tooltip.hover
-              title="Process"
-            >
-              <i class="ri-route-line fs-5"></i>
-            </button>
-            <button
+              v-if="canManageProcurementWorkflow"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 2
@@ -292,6 +271,7 @@
               <span v-if="quotationsCount > 0" class="badge bg-danger" style="position: absolute; top: -5px; right: -5px; font-size: 0.6rem; padding: 0.1rem 0.2rem;">{{ quotationsCount }}</span>
             </button>
             <button
+              v-if="canManageProcurementWorkflow"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 3
@@ -307,6 +287,7 @@
               <span v-if="bidsCount > 0" class="badge bg-danger" style="position: absolute; top: -5px; right: -5px; font-size: 0.6rem; padding: 0.1rem 0.2rem;">{{ bidsCount }}</span>
             </button>
             <button
+              v-if="canManageProcurementWorkflow"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 4
@@ -322,6 +303,7 @@
               <span v-if="bacResolutionsCount > 0" class="badge bg-danger" style="position: absolute; top: -5px; right: -5px; font-size: 0.6rem; padding: 0.1rem 0.2rem;">{{ bacResolutionsCount }}</span>
             </button>
             <button
+              v-if="canManageProcurementWorkflow"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 5
@@ -444,22 +426,22 @@
             <Quotation
               :dropdowns="dropdowns"
               :procurement="procurement"
-              v-if="activeTab === 2"
+              v-if="canManageProcurementWorkflow && activeTab === 2"
             />
             <AbstractOfBids
               :dropdowns="dropdowns"
               :procurement="procurement"
-              v-if="activeTab === 3"
+              v-if="canManageProcurementWorkflow && activeTab === 3"
             />
             <BACResolution
               :dropdowns="dropdowns"
               :procurement="procurement"
-              v-if="activeTab === 4"
+              v-if="canManageProcurementWorkflow && activeTab === 4"
             />
             <NoticeOfAward
               :dropdowns="dropdowns"
               :procurement="procurement"
-              v-if="activeTab === 5 && !showCreatePOFlag"
+              v-if="canManageProcurementWorkflow && activeTab === 5 && !showCreatePOFlag"
               @changeTab="show"
               @showCreatePO="handleShowCreatePO"
             />
@@ -607,6 +589,14 @@ export default {
   },
 
   computed: {
+    canManageProcurementWorkflow() {
+      const roles = this.$page.props.roles || [];
+      return (
+        roles.includes("Procurement Staff") ||
+        roles.includes("Procurement Officer") ||
+        roles.includes("Administrator")
+      );
+    },
     procAssigneeMap() {
       const map = Object.keys(this.localProcAssignees || {}).length ? this.localProcAssignees : (this.procurement?.assignees || this.procurement?.assigned_personnel || {});
       const normalized = {};
@@ -739,7 +729,12 @@ export default {
   },
   watch: {
     tab() {
-      this.activeTab = parseInt(this.tab) || 1;
+      const nextTab = parseInt(this.tab) || 1;
+      if (!this.canManageProcurementWorkflow && [2, 3, 4, 5].includes(nextTab)) {
+        this.activeTab = 1;
+        return;
+      }
+      this.activeTab = nextTab;
       this.showCreatePOFlag = false; // Reset flag when tab changes
     },
   },
@@ -750,6 +745,9 @@ export default {
   },
   methods: {
     show(tab) {
+      if (!this.canManageProcurementWorkflow && [2, 3, 4, 5].includes(tab)) {
+        return;
+      }
       this.activeTab = tab;
       localStorage.setItem("activeTab", tab);
       router.visit(
@@ -1655,8 +1653,8 @@ export default {
   justify-content: space-between;
   color: white;
   font-size: 1rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+  padding: 0.2rem 0 0.9rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -1673,11 +1671,11 @@ export default {
 }
 
 .status-flow-banner-content {
-  padding-top: 0.5rem;
+  padding-top: 0.35rem;
 }
 
 .status-flow-section {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .status-flow-section-label {
@@ -1686,11 +1684,11 @@ export default {
   color: rgba(255, 255, 255, 0.85);
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
   display: flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.1);
-  padding: 0.4rem 0.75rem;
+  padding: 0.45rem 0.85rem;
   border-radius: 20px;
   width: fit-content;
 }
@@ -1704,7 +1702,7 @@ export default {
   align-items: center;
   gap: 0;
   overflow-x: auto;
-  padding: 0.5rem 0;
+  padding: 0.65rem 0.1rem 0.75rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.3) transparent;
 }
@@ -1766,8 +1764,8 @@ export default {
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  min-width: 65px;
-  padding: 0.6rem 0.4rem;
+  min-width: 72px;
+  padding: 0.72rem 0.5rem;
   border-radius: 12px;
   transition: all 0.3s ease;
   cursor: default;
@@ -1857,6 +1855,10 @@ export default {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .status-flow-panel {
+    padding: 0.9rem 0.95rem 1rem;
+  }
+
   .status-flow-banner {
     padding: 1rem;
   }
@@ -1876,8 +1878,12 @@ export default {
     font-size: 0.55rem;
   }
 }
-</style>
 
+.status-flow-panel {
+  padding: 1rem 1.2rem 1.2rem;
+  border-radius: 12px;
+}
+</style>
 
 
 
