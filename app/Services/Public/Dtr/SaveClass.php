@@ -256,16 +256,14 @@ class SaveClass
         $hashids = new Hashids('krad', 10);
         $station_id = $hashids->decode($request->code)[0] ?? null;
         
-        if (!in_array($device, ['8406219db45495250f070f0793e14c4c','dc0e2c906ae83c88f35a720c9d1938d5','2659013f6df7ae7105a46eff32b33619'])) {
-            return ['data' => null,'message' => null,'info' => 'Unauthorized'];
-        }
+       
 
         // $cutoff = Carbon::createFromTimeString('12:30:00');
         // $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
         $minutes = 0;
         $is_completed = 0;
 
-        switch($type){
+         switch($type){
             case 'Time In (am)':
                 if ($date->isMonday()) {
                     $officialStart = Carbon::createFromTimeString('08:00:00');
@@ -334,6 +332,7 @@ class SaveClass
                             break;
                         }
                         $status = 'New';
+                        $dtr->tardiness += $minutes;
                         $dtr->am_in_at = json_encode($info);
                         $dtr->save();
                     break;
@@ -344,6 +343,7 @@ class SaveClass
                         }
 
                         $status = 'Success';
+                        $dtr->undertime += $minutes;
                         $dtr->am_out_at = json_encode($info);
                         $dtr->save();
                     break;
@@ -356,6 +356,7 @@ class SaveClass
                             $status = 'Duplicate';
                         }else{
                             $status = 'New';
+                            $dtr->tardiness += $minutes;
                             $dtr->pm_in_at = json_encode($info);
                             $dtr->save();
                         }
@@ -365,6 +366,7 @@ class SaveClass
                             $status = 'Duplicate';
                         }else{
                             $status = 'Success';
+                            $dtr->undertime += $minutes;
                             $dtr->pm_out_at = json_encode($info);
                             $dtr->save();
                         }
