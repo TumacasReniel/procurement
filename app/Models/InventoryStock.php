@@ -14,6 +14,7 @@ class InventoryStock extends Model
         'location_id',
         'quantity',
         'status',
+        'last_updated',
     ];
 
     protected $casts = [

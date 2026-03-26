@@ -989,7 +989,7 @@ export default {
         3: ["For Bids"],
         4: ["For BAC Resolution", "For Approval of BAC Resolution", "Re-award", "Rebid"],
         5: ["For NOA", "NOA Served to Supplier", "NOA Conformed", "PO Created", "PO Issued", "PO Conformed"],
-        6: ["PO Created", "PO Issued", "PO Conformed", "Delivered/For Inspection", "PO Delivered/For Inspection", "Delivered", "Completed"],
+        6: ["PO Created", "PO Issued", "Delivered/For Inspection", "PO Delivered/For Inspection", "Delivered", "Completed"],
       };
 
       return (doneStatusMap[tab] || []).includes(status);

@@ -99,12 +99,6 @@
                 <input type="text" class="form-control" :value="assignRow?.step || assignForm.status" readonly />
             </div>
             <div class="mb-2">
-                <label class="form-label">Procurement</label>
-                <select class="form-select" v-model="assignForm.procurement_selection" disabled>
-                    <option value="__ALL__">All Procurement</option>
-                </select>
-            </div>
-            <div class="mb-2">
                 <label class="form-label">Employee</label>
                 <div v-if="existingAssigned.length" class="alert alert-light border mb-2">
                     <small class="text-muted d-block mb-1">Currently assigned</small>
@@ -199,7 +193,6 @@ export default {
             showAssignModal: false,
             assignRow: null,
             assignForm: {
-                procurement_selection: "__ALL__",
                 status: "",
                 user_ids: [],
             },
@@ -449,7 +442,6 @@ export default {
         },
         openAssignModal(row) {
             this.assignRow = row;
-            this.assignForm.procurement_selection = "__ALL__";
             this.assignForm.status = row.match?.[0] || row.step;
             this.assignForm.user_ids = [];
             this.assignSearch = "";

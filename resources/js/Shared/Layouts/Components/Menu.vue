@@ -344,6 +344,19 @@
                         <span class="fw-semibold fs-14" data-key="t-dashboards">Dashboard</span>
                     </Link>
                 </li>
+
+                <li class="nav-item">
+                    <Link
+                        href="/inventory-stocks"
+                        class="nav-link menu-link"
+                        :class="{
+                            active: $page.component.startsWith('Modules/InventoryStocks'),
+                        }"
+                    >
+                        <i class="ri-dashboard-line"></i>
+                        <span class="fw-semibold fs-14" data-key="t-dashboards">Stocks</span>
+                    </Link>
+                </li>
             </template>
 
             <template v-if="$page.props.roles.includes('Document Management Officer')">

@@ -36,6 +36,7 @@ Route::middleware(['auth','verified'])->group(function () {
     Route::resource('/dtr', App\Http\Controllers\Portal\DtrController::class);
     Route::resource('/requests', App\Http\Controllers\Portal\RequestController::class);
     Route::get('/inventory-dashboard', [App\Http\Controllers\Inventory\DashboardController::class, 'index'])->name('inventory.dashboard');
+    Route::resource('/inventory-stocks', App\Http\Controllers\Inventory\InventoryStockController::class)->only(['index','store','update','destroy']);
 });
 
 Route::middleware(['role:Asset Management Officer'])->group(function () {
@@ -120,6 +121,4 @@ Route::get('/bac-committee', [App\Http\Controllers\Public\InfoController::class,
 Route::get('/iar-committee', [App\Http\Controllers\Public\InfoController::class, 'iarcommittee']);
 Route::get('/mailing', [App\Http\Controllers\Public\InfoController::class, 'mailing']);
 require __DIR__.'/auth.php';
-
-
 

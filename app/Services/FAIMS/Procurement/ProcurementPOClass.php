@@ -12,6 +12,9 @@ use App\Models\ProcurementQuotationItem;
 use App\Models\ProcurementNoaPo;
 use App\Models\ProcurementPoNtp;
 use App\Models\ProcurementPoIar;
+use App\Models\Inventory;
+use App\Models\InventoryStock;
+use App\Models\ListDropdown;
 use App\Http\Resources\FAIMS\Procurement\ProcurementNoaPoResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -218,6 +221,9 @@ class ProcurementPOClass
            // update ProcurementItem status to "Completed" only for items related to the NOA
            ProcurementItem::whereIn('id', $item_ids)->update(['status_id' => ListStatus::getID('Completed','Procurement')]);
 
+           // sync completed procurement items to inventory stocks
+           $this->syncCompletedItemsToInventory($po, $item_ids);
+
            // update also the items in with the same item no in the related quotation items to "Not Awarded"
            ProcurementQuotationItem::whereHas('quotation', function($q) use ($po) {
                $q->where('procurement_id', $po->procurement_id);
@@ -400,6 +406,11 @@ class ProcurementPOClass
         $revertedNoaStatus = null;
 
         if ($currentStatusName === 'Completed') {
+            // rollback previously posted inventory quantities before reverting status
+            $noa_items = ProcurementBacNoaItem::where('procurement_bac_noa_id', $po->noa->id)->get();
+            $item_ids = $noa_items->pluck('item.procurement_item_id')->unique()->filter()->values();
+            $this->rollbackCompletedItemsFromInventory($po, $item_ids);
+
             $revertedPoStatus = 'Delivered/For Inspection';
             $revertedNoaStatus = 'PO Delivered/For Inspection';
         } elseif ($currentStatusName === 'Delivered/For Inspection') {
@@ -456,6 +467,167 @@ class ProcurementPOClass
         ];
     }
 
+
+    private function syncCompletedItemsToInventory(ProcurementNoaPo $po, $procurementItemIds): void
+    {
+        $itemIds = collect($procurementItemIds)->filter()->unique()->values();
+        if ($itemIds->isEmpty()) {
+            return;
+        }
+
+        $categoryId = $this->defaultInventoryCategoryId();
+        if (!$categoryId) {
+            Log::warning('Inventory sync skipped: missing Inventory Category dropdown.', [
+                'po_id' => $po->id,
+                'procurement_id' => $po->procurement_id,
+            ]);
+            return;
+        }
+
+        $items = ProcurementItem::with('item_unit_type')
+            ->whereIn('id', $itemIds)
+            ->get();
+
+        foreach ($items as $item) {
+            $unitId = $this->resolveInventoryUnitIdFromProcurementItem($item);
+            if (!$unitId) {
+                Log::warning('Inventory sync skipped item: unit mapping not found.', [
+                    'po_id' => $po->id,
+                    'procurement_item_id' => $item->id,
+                    'item_unit_type_id' => $item->item_unit_type_id,
+                ]);
+                continue;
+            }
+
+            $itemName = trim((string) $item->item_description);
+            if ($itemName === '') {
+                $itemName = 'Procurement Item #' . $item->id;
+            }
+
+            $inventory = Inventory::firstOrCreate(
+                [
+                    'name' => $itemName,
+                    'unit_id' => $unitId,
+                ],
+                [
+                    'description' => $item->item_description,
+                    'category_id' => $categoryId,
+                    'min_stock_level' => 0,
+                ]
+            );
+
+            $stock = InventoryStock::firstOrNew([
+                'inventory_id' => $inventory->id,
+                'location_id' => $po->place_of_delivery_id,
+            ]);
+
+            $currentQuantity = (float) ($stock->quantity ?? 0);
+            $incomingQuantity = (float) ($item->item_quantity ?? 0);
+            $newQuantity = $currentQuantity + $incomingQuantity;
+
+            $stock->quantity = $newQuantity;
+            $stock->status = $this->resolveInventoryStockStatus($newQuantity, (float) $inventory->min_stock_level);
+            $stock->last_updated = now();
+            $stock->save();
+        }
+    }
+
+    private function rollbackCompletedItemsFromInventory(ProcurementNoaPo $po, $procurementItemIds): void
+    {
+        $itemIds = collect($procurementItemIds)->filter()->unique()->values();
+        if ($itemIds->isEmpty()) {
+            return;
+        }
+
+        $items = ProcurementItem::with('item_unit_type')
+            ->whereIn('id', $itemIds)
+            ->get();
+
+        foreach ($items as $item) {
+            $unitId = $this->resolveInventoryUnitIdFromProcurementItem($item);
+            if (!$unitId) {
+                continue;
+            }
+
+            $itemName = trim((string) $item->item_description);
+            if ($itemName === '') {
+                $itemName = 'Procurement Item #' . $item->id;
+            }
+
+            $inventory = Inventory::where('name', $itemName)
+                ->where('unit_id', $unitId)
+                ->first();
+
+            if (!$inventory) {
+                continue;
+            }
+
+            $stock = InventoryStock::where('inventory_id', $inventory->id)
+                ->where('location_id', $po->place_of_delivery_id)
+                ->first();
+
+            if (!$stock) {
+                continue;
+            }
+
+            $currentQuantity = (float) ($stock->quantity ?? 0);
+            $outgoingQuantity = (float) ($item->item_quantity ?? 0);
+            $newQuantity = max($currentQuantity - $outgoingQuantity, 0);
+
+            $stock->quantity = $newQuantity;
+            $stock->status = $this->resolveInventoryStockStatus($newQuantity, (float) $inventory->min_stock_level);
+            $stock->last_updated = now();
+            $stock->save();
+        }
+    }
+
+    private function resolveInventoryUnitIdFromProcurementItem(ProcurementItem $item): ?int
+    {
+        $unitType = $item->item_unit_type;
+        if (!$unitType) {
+            return null;
+        }
+
+        $candidates = collect([
+            $unitType->name_short ?? null,
+            $unitType->name_long ?? null,
+        ])->filter()->map(fn($name) => trim((string) $name))->filter()->values();
+
+        foreach ($candidates as $candidate) {
+            $unit = ListDropdown::where('classification', 'Unit')
+                ->where(function ($query) use ($candidate) {
+                    $query->whereRaw('LOWER(name) = ?', [strtolower($candidate)])
+                        ->orWhereRaw('LOWER(others) = ?', [strtolower($candidate)]);
+                })
+                ->first();
+
+            if ($unit) {
+                return (int) $unit->id;
+            }
+        }
+
+        return null;
+    }
+
+    private function defaultInventoryCategoryId(): ?int
+    {
+        return ListDropdown::where('classification', 'Inventory Category')
+            ->orderBy('id')
+            ->value('id');
+    }
+
+    private function resolveInventoryStockStatus(float $quantity, float $minStockLevel): string
+    {
+        if ($quantity <= 0) {
+            return 'out';
+        }
+
+        if ($quantity <= $minStockLevel) {
+            return 'low';
+        }
+
+        return 'available';
+    }
 
 
    
