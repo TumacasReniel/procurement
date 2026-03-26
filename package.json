@@ -19,6 +19,7 @@
     "dependencies": {
         "@amcharts/amcharts5": "^5.9.4",
         "@amcharts/amcharts5-geodata": "^5.1.5",
+        "@fingerprintjs/fingerprintjs": "^5.1.0",
         "@fullcalendar/bootstrap": "^6.1.11",
         "@fullcalendar/core": "^6.1.11",
         "@fullcalendar/daygrid": "^6.1.11",
@@ -66,6 +67,7 @@
         "vue3-count-to": "^1.1.2",
         "vue3-echarts": "^1.1.0",
         "vue3-google-map": "^0.21.1",
+        "vuedraggable": "^4.1.0",
         "vuex": "^4.1.0"
     }
 }

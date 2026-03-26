@@ -13,9 +13,7 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'username' => $this->username,
             'email' => $this->email,
-            'avatar' => ($this->profile && $this->profile->avatar && $this->profile->avatar !== 'noavatar.jpg')
-            ? asset('storage/' . $this->profile->avatar) 
-            : asset('images/avatars/avatar.jpg'), 
+            'avatar' => $this->profile?->avatar,
             'avatar_name' => $this->profile->avatar,
             'name' => $this->profile->firstname.' '.$this->profile->lastname,
             'firstname' => $this->profile->firstname,

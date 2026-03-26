@@ -4,6 +4,8 @@ namespace App\Services\Profile;
 
 use App\Models\User;
 use App\Models\UserInformation;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 use App\Http\Resources\UserResource;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -13,12 +15,20 @@ class SaveClass
     public function save($request){
 
         $user = User::find(\Auth::user()->id);
-        if ($user->profile->avatar) {
-            Storage::disk('public')->delete($user->profile->avatar);
-        }
+        $image = $request->file('image');
+        $manager = new ImageManager(new Driver());
 
-        $imagePath = $request->file('image')->store('profile-pictures', 'public');
-        $user->profile->avatar = $imagePath;
+        // Read image
+        $img = $manager->read($image);
+
+        // Resize + convert to webp
+        $img->cover(300, 300); // better than fit() in v3
+        $webp = $img->toWebp(80);
+
+        $filename = $user->username.'.webp';
+        $s3Path = $image->storeAs('oneportal/avatars', $filename, 's3');
+        
+        $user->profile->avatar = $s3Path;
         $user->profile->save();
 
         return [

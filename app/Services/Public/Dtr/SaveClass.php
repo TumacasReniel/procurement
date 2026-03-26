@@ -2,11 +2,13 @@
 
 namespace App\Services\Public\Dtr;
 
+use Hashids\Hashids;
 use Carbon\Carbon;
 use App\Models\Dtr;
 use App\Models\User;
 use App\Models\Visitor;
 use App\Models\VisitorLogs;
+use App\Models\ListDropdown;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
@@ -70,10 +72,13 @@ class SaveClass
         $date = Carbon::now();
         $time = Carbon::now();
         $type = $request->type;
+        $device = $request->device;
 
+        $hashids = new Hashids('krad', 10);
+        $station_id = $hashids->decode($request->code)[0] ?? null;
 
-        // $cutoff = Carbon::createFromTimeString('12:30:00');
-        // $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
+        $cutoff = Carbon::createFromTimeString('12:30:00');
+        $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
         $minutes = 0;
         $is_completed = 0;
 
@@ -118,12 +123,194 @@ class SaveClass
             'minutes' => $minutes,
             'image' => $this->image($request),
             'is_updated' => false,
+            'station' => ListDropdown::where('id',$station_id)->value('name'),
             'changes' => []
         ];
 
         $user = User::with('profile','organization.division')->where('username',$request->username)->first();
         if($user){
             $dtr = Dtr::whereDate('date',$date)->where('user_id',$user->id)->first();
+            $status = null;
+            $remarks = [
+                'tardiness' => null,
+                'undertime' => null
+            ]; 
+            if($dtr){
+                
+                switch($type){
+                    case 'Time In (am)':
+                        if($dtr->am_out_at) {
+                            $status = 'Disabled Overlap';
+                            break;
+                        }
+                        if($date->hour >= 12) {
+                            $status = 'Disabled AM';
+                            break;
+                        }
+                        if($dtr->am_in_at) {
+                            $status = 'Duplicate';
+                            break;
+                        }
+                        $status = 'New';
+                        $dtr->tardiness += $minutes;
+                        $dtr->am_in_at = json_encode($info);
+                        $dtr->save();
+                    break;
+                    case 'Time Out (am)':
+                        if ($dtr->am_out_at) {
+                            $status = 'Duplicate';
+                            break;
+                        }
+
+                        $status = 'Success';
+                        $dtr->undertime += $minutes;
+                        $dtr->am_out_at = json_encode($info);
+                        $dtr->save();
+                    break;
+                    case 'Time In (pm)':
+                        if (!empty(json_decode($dtr->pm_out_at))) {
+                            $status = "Disabled Overlap";
+                        }else if($date->hour >= 17) {
+                            $status = "Disabled";
+                        }else if($dtr->pm_in_at){
+                            $status = 'Duplicate';
+                        }else{
+                            $status = 'New';
+                            $dtr->tardiness += $minutes;
+                            $dtr->pm_in_at = json_encode($info);
+                            $dtr->save();
+                        }
+                    break;
+                    case 'Time Out (pm)':
+                        if(!empty(json_decode($dtr->pm_out_at))){
+                            $status = 'Duplicate';
+                        }else{
+                            $status = 'Success';
+                            $dtr->undertime += $minutes;
+                            $dtr->pm_out_at = json_encode($info);
+                            $dtr->save();
+                        }
+                    break;
+                }
+            }else{
+                if($type == 'Time In (am)'){
+                    if($date->hour >= 12){
+                        return [
+                            'data' => null,
+                            'message' => null,
+                            'info' => 'Disabled AM'
+                        ];
+                    }
+                }
+
+
+                $dtr = new Dtr;
+                $dtr->date = Carbon::today();
+                $dtr->am_in_at = ($type == 'Time In (am)') ? json_encode($info) : null;
+                $dtr->am_out_at = ($type == 'Time Out (am)') ? json_encode($info) : null;
+                $dtr->pm_in_at = ($type == 'Time In (pm)') ? json_encode($info) : null;
+                $dtr->pm_out_at = ($type == 'Time Out (pm)') ? json_encode($info) : null;
+                $dtr->tardiness += $minutes;
+                $dtr->remarks = json_encode($remarks);
+                $dtr->user_id = $user->id;
+                $dtr->station_id = $station_id;
+                if($dtr->save()){
+                    $status = 'New';
+                }
+            }
+
+            $name = $user->profile->firstname.' '.$user->profile->lastname;
+            $subtype = str_contains(strtolower($type), 'out') ? 'out' : 'in';
+            $data = [
+                'username' => $user->username,
+                'name' => $name,
+                'division' => $user->organization->division->name,
+                'avatar' => $user->profile->avatar,
+                'time' => \Carbon\Carbon::parse($time)->format('g:i A'),
+                'type' => $type,
+                'subtype' => $subtype,
+                'status' => $status,
+            ];
+            return [
+                'data' => $data,
+                'message' => null, 
+                'info' => $status,
+            ];
+        }else{
+            return [
+                'data' => null,
+                'message' => null, 
+                'info' => 'Error',
+            ];
+        }
+    }
+
+    public function storeVisitor($request)
+    {
+        $date = Carbon::now();
+        $time = Carbon::now();
+        $type = $request->type;
+
+        $device = $request->device;
+
+        $hashids = new Hashids('krad', 10);
+        $station_id = $hashids->decode($request->code)[0] ?? null;
+        
+       
+
+        // $cutoff = Carbon::createFromTimeString('12:30:00');
+        // $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
+        $minutes = 0;
+        $is_completed = 0;
+
+         switch($type){
+            case 'Time In (am)':
+                if ($date->isMonday()) {
+                    $officialStart = Carbon::createFromTimeString('08:00:00');
+                    $officialMorningTimeIn = Carbon::createFromTimeString('8:00:59');
+                    $minutes = ($time->greaterThan($officialMorningTimeIn)) ? (int)  $officialStart->diffInMinutes($time) : 0;
+                }else{
+                    $officialStart = Carbon::createFromTimeString('08:00:00');
+                    $flexibleCutoff = Carbon::createFromTimeString('08:30:59');
+                    $minutes = ($time->greaterThan($flexibleCutoff)) ? (int) $officialStart->diffInMinutes($time) : 0;
+                }
+            break;
+            case 'Time Out (am)':
+                $officialMorningOut = Carbon::createFromTimeString('12:00:00');
+                $minutes = ($time->lessThan($officialMorningOut)) ? ceil($time->diffInMinutes($officialMorningOut)) : 0;
+            break;
+            case 'Time In (pm)':
+                $officialAfternoonTimeIn = Carbon::createFromTimeString('13:00:59'); //59 seconds
+                if ($time->lessThanOrEqualTo($officialAfternoonTimeIn)) {
+                    $minutes = 0;
+                }else{
+                    // $minutes = ($time->greaterThan($officialAfternoonTimeIn)) ? (int) $officialAfternoonTimeIn->diffInMinutes($time) : 0;
+                    $secondsLate = $officialAfternoonTimeIn->diffInSeconds($time);
+                    $minutes = (int) ceil($secondsLate / 60);
+                }
+            break;
+            case 'Time Out (pm)':
+                $officialAfternoonOut = Carbon::createFromTimeString('17:00:00');
+                $minutes = ($time->lessThan($officialAfternoonOut)) ? ceil($time->floatDiffInMinutes($officialAfternoonOut)) : 0;
+            break;
+        }
+
+        $info = [
+            'ip' => \Request::ip(), 
+            'pcname' => gethostname(),
+            'browser' => $request->header('User-Agent'),
+            'time' =>  $time->toTimeString(),
+            'date' => $date,
+            'minutes' => $minutes,
+            'image' => $this->image($request),
+            'station' => ListDropdown::where('id',$station_id)->value('name'),
+            'is_updated' => false,
+            'changes' => []
+        ];
+
+        $visitor = Visitor::with('type')->where('username',$request->username)->first();
+        if($visitor){
+            $dtr = VisitorLogs::whereDate('date',$date)->where('visitor_id',$visitor->id)->first();
             $status = null;
             $remarks = [
                 'tardiness' => null,
@@ -186,162 +373,6 @@ class SaveClass
                     break;
                 }
             }else{
-                $dtr = new Dtr;
-                $dtr->date = Carbon::today();
-                $dtr->am_in_at = ($type == 'Time In (am)') ? json_encode($info) : null;
-                $dtr->am_out_at = ($type == 'Time Out (am)') ? json_encode($info) : null;
-                $dtr->pm_in_at = ($type == 'Time In (pm)') ? json_encode($info) : null;
-                $dtr->pm_out_at = ($type == 'Time Out (pm)') ? json_encode($info) : null;
-                $dtr->tardiness += $minutes;
-                $dtr->remarks = json_encode($remarks);
-                $dtr->user_id = $user->id;
-                if($dtr->save()){
-                    $status = 'New';
-                }
-            }
-
-            $name = $user->profile->fullname;
-            $subtype = str_contains(strtolower($type), 'out') ? 'out' : 'in';
-            $data = [
-                'username' => $user->username,
-                'name' => $name,
-                'division' => $user->organization->division->name,
-                'avatar' => ($user->profile->avatar === 'noavatar.jpg') ? '/images/avatars/avatar.jpg' : '/storage/'.$user->profile->avatar,
-                'time' => \Carbon\Carbon::parse($time)->format('g:i A'),
-                'type' => $type,
-                'subtype' => $subtype,
-                'status' => $status,
-            ];
-            return [
-                'data' => $data,
-                'message' => null, 
-                'info' => $status,
-            ];
-        }else{
-            return [
-                'data' => null,
-                'message' => null, 
-                'info' => 'Error',
-            ];
-        }
-    }
-
-    public function storeVisitor($request)
-    {
-        $date = Carbon::now();
-        $time = Carbon::now();
-        $type = $request->type;
-
-        $cutoff = Carbon::createFromTimeString('12:30:00');
-        $type .= ($time->lte($cutoff)) ? ' (am)' : ' (pm)'; 
-        $minutes = 0;
-        $is_completed = 0;
-
-        switch($type){
-            case 'Time In (am)':
-                if ($date->isMonday()) {
-                    $officialStart = Carbon::createFromTimeString('08:00:00');
-                    $officialMorningTimeIn = Carbon::createFromTimeString('8:00:59');
-                    $minutes = ($time->greaterThan($officialMorningTimeIn)) ? (int)  $officialStart->diffInMinutes($time) : 0;
-                }else{
-                    $officialStart = Carbon::createFromTimeString('08:00:00');
-                    $flexibleCutoff = Carbon::createFromTimeString('08:30:59');
-                    $minutes = ($time->greaterThan($flexibleCutoff)) ? (int) $officialStart->diffInMinutes($time) : 0;
-                }
-            break;
-            case 'Time Out (am)':
-                $officialMorningOut = Carbon::createFromTimeString('12:00:00');
-                $minutes = ($time->lessThan($officialMorningOut)) ? ceil($time->diffInMinutes($officialMorningOut)) : 0;
-            break;
-            case 'Time In (pm)':
-                $officialAfternoonTimeIn = Carbon::createFromTimeString('13:00:59'); //59 seconds
-                if ($time->lessThanOrEqualTo($officialAfternoonTimeIn)) {
-                    $minutes = 0;
-                }else{
-                    // $minutes = ($time->greaterThan($officialAfternoonTimeIn)) ? (int) $officialAfternoonTimeIn->diffInMinutes($time) : 0;
-                    $secondsLate = $officialAfternoonTimeIn->diffInSeconds($time);
-                    $minutes = (int) ceil($secondsLate / 60);
-                }
-            break;
-            case 'Time Out (pm)':
-                $officialAfternoonOut = Carbon::createFromTimeString('17:00:00');
-                $minutes = ($time->lessThan($officialAfternoonOut)) ? ceil($time->floatDiffInMinutes($officialAfternoonOut)) : 0;
-            break;
-        }
-
-        $info = [
-            'ip' => \Request::ip(), 
-            'pcname' => gethostname(),
-            'browser' => $request->header('User-Agent'),
-            'time' =>  $time->toTimeString(),
-            'date' => $date,
-            'minutes' => $minutes,
-            'image' => $this->image($request),
-            'is_updated' => false,
-            'changes' => []
-        ];
-
-        $visitor = Visitor::with('type')->where('username',$request->username)->first();
-        if($visitor){
-            $dtr = VisitorLogs::whereDate('date',$date)->where('visitor_id',$visitor->id)->first();
-            $status = null;
-            $remarks = [
-                'tardiness' => null,
-                'undertime' => null
-            ]; 
-            if($dtr){
-                switch($type){
-                    case 'Time In (am)':
-                        if($dtr->am_out_at) {
-                            $status = 'Disabled Overlap';
-                            break;
-                        }
-                        if($date->hour >= 12) {
-                            $status = 'Disabled AM';
-                            break;
-                        }
-                        if($dtr->am_in_at) {
-                            $status = 'Duplicate';
-                            break;
-                        }
-                        $status = 'New';
-                        $dtr->am_in_at = json_encode($info);
-                        $dtr->save();
-                    break;
-                    case 'Time Out (am)':
-                        if ($dtr->am_out_at) {
-                            $status = 'Duplicate';
-                            break;
-                        }
-
-                        $status = 'Success';
-                        $dtr->am_out_at = json_encode($info);
-                        $dtr->save();
-                    break;
-                    case 'Time In (pm)':
-                        if (!empty(json_decode($dtr->pm_out_at))) {
-                            $status = "Disabled Overlap";
-                        }else if($date->hour >= 17) {
-                            $status = "Disabled";
-                        }else if($dtr->pm_in_at){
-                            $status = 'Duplicate';
-                        }else{
-                            $status = 'New';
-                            $dtr->pm_in_at = json_encode($info);
-                            $dtr->save();
-                        }
-                    break;
-                    case 'Time Out (pm)':
-                        if(!empty(json_decode($dtr->pm_out_at))){
-                            $status = 'Duplicate';
-                        }else{
-                            $status = 'Success';
-                            $dtr->pm_out_at = json_encode($info);
-                            $dtr->save();
-                        }
-                    break;
-                }
-            }else{
                 $dtr = new VisitorLogs;
                 $dtr->date = Carbon::today();
                 $dtr->am_in_at = ($type == 'Time In (am)') ? json_encode($info) : null;
@@ -350,6 +381,7 @@ class SaveClass
                 $dtr->pm_out_at = ($type == 'Time Out (pm)') ? json_encode($info) : null;
                 $dtr->remarks = json_encode($remarks);
                 $dtr->visitor_id = $visitor->id;
+                $dtr->station_id = $station_id;
                 if($dtr->save()){
                     $status = 'New';
                 }

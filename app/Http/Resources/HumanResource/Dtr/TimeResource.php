@@ -17,6 +17,7 @@ class TimeResource extends JsonResource
             'time' =>  \Carbon\Carbon::parse($this->time)->format('h:i A'),
             'minutes' => $this->minutes,
             'is_updated' => $this->is_updated,
+            'station' => $this->station,
             'image' => isset($this->image) ? $this->image : null,
             'changes' => $this->changes
         ];

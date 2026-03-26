@@ -17,6 +17,7 @@ class VisitorLogs extends Model
         'pm_in_at',
         'pm_out_at',
         'remarks',
+        'station_id',
         'date'
     ];
 

@@ -3,6 +3,7 @@
 namespace App\Services\Public\Dtr;
 
 use DateTime;
+use Hashids\Hashids;
 use App\Models\Dtr;
 use App\Models\User;
 
@@ -10,8 +11,12 @@ class ViewClass
 {
     public function list($request)
     {    
+        $hashids = new Hashids('krad', 10);
+        $station_id = $hashids->decode($request->code)[0] ?? null;
+        
         $dtrs = Dtr::with('user.profile','user.organization.division')
             ->whereDate('date', now())
+            ->where('station_id',$station_id)
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -33,9 +38,7 @@ class ViewClass
                 if (!$raw) return null;
                 $subtype = str_contains(strtolower($typeLabel), 'out') ? 'out' : 'in';
                 return [
-                    'avatar' => ($dtr->user->profile && $dtr->user->profile->avatar && $dtr->user->profile->avatar !== 'noavatar.jpg')
-                        ? asset('storage/' . $dtr->user->profile->avatar)
-                        : asset('images/avatars/avatar.jpg'),
+                    'avatar' => $dtr->user->profile->avatar,
                     'name' => $dtr->user->profile->fullname ?? 'No Name',
                     'division' => $dtr->user->organization->division->name ?? 'No Division',
                     'dtr_id' => $dtr->id,

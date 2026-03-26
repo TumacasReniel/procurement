@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Illuminate\Support\Facades\Storage;
 
 class UserProfile extends Model
 {
@@ -100,6 +101,41 @@ class UserProfile extends Model
                 $model->mobile_hash = hash('sha256', $normalized);
             }
         });
+    }
+
+    public function getAvatarAttribute($value)
+    {
+        $defaultAvatar = asset('images/avatars/avatar.jpg');
+
+        if (empty($value)) {
+            return $defaultAvatar;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            return $value;
+        }
+
+        try {
+            if (Storage::disk('s3')->exists($value)) {
+                return Storage::disk('s3')->url($value);
+            }
+        } catch (\Throwable $e) {
+            // Fall back to local/public avatars when S3 availability checks fail.
+        }
+
+        if (Storage::disk('public')->exists($value)) {
+            return Storage::disk('public')->url($value);
+        }
+
+        if (Storage::disk('public')->exists('images/avatars/' . $value)) {
+            return asset('storage/images/avatars/' . $value);
+        }
+
+        if (file_exists(public_path('images/avatars/' . $value))) {
+            return asset('images/avatars/' . $value);
+        }
+
+        return $defaultAvatar;
     }
 
     protected static $recordEvents = ['updated'];

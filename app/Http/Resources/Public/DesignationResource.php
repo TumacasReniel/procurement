@@ -4,6 +4,8 @@ namespace App\Http\Resources\Public;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\Executive\Signatory\ProfileResource;
+use App\Http\Resources\Executive\Signatory\SignatoryResource;
 
 class DesignationResource extends JsonResource
 {
@@ -20,11 +22,11 @@ class DesignationResource extends JsonResource
             'order' => $this->order,
             'designation' => $this->designation->name,
             'assigned' => $this->assigned,
-            'user' => new ProfileResource($this->user),
-            'oic' => new ProfileResource($this->oic),
+            'user' => $this->user ? new ProfileResource($this->user) : null,
+            'oic' => $this->oic ? new ProfileResource($this->oic) : null,
             'is_oic' => $this->is_oic,
             'is_active' => $this->is_active,
-            'signatory' => new SignatoryResource($this->designationable),
+            'signatory' => $this->designationable ? new SignatoryResource($this->designationable): null,
             'updated_at' => $this->updated_at
         ];
     }
