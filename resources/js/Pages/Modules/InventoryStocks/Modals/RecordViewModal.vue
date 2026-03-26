@@ -3,6 +3,10 @@
     :model-value="modelValue"
     :title="modalTitle"
     centered
+    header-class="p-3 bg-light"
+    body-class="p-4"
+    class="v-modal-custom"
+    modal-class="zoomIn"
     hide-footer
     @update:modelValue="(value) => $emit('update:modelValue', value)"
   >
@@ -30,9 +34,9 @@ export default {
   emits: ['update:modelValue'],
   computed: {
     modalTitle() {
-      if (this.type === 'receiving') return 'Receiving Details';
-      if (this.type === 'withdrawal') return 'Withdrawal Details';
-      return 'Details';
+      if (this.type === 'receiving') return 'Purchase Order Receiving Details';
+      if (this.type === 'withdrawal') return 'Inventory Withdrawal Details';
+      return 'Inventory Record Details';
     },
     fields() {
       if (!this.record) return [];
@@ -41,6 +45,9 @@ export default {
         return [
           { label: 'P.O. Number', value: this.record.po_number },
           { label: 'Supplier Name', value: this.record.supplier_name },
+          { label: 'Procurement Code', value: this.record.procurement_code },
+          { label: 'Procurement Title', value: this.record.procurement_title },
+          { label: 'Location', value: this.record.location_name },
           { label: 'Remarks', value: this.record.remarks },
           { label: 'Date', value: this.record.received_at },
           { label: 'Status', value: this.record.status },
@@ -95,3 +102,5 @@ export default {
   font-weight: 600;
 }
 </style>
+
+

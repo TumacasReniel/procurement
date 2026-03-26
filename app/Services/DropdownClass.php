@@ -356,7 +356,9 @@ class DropdownClass
             })
             ->limit(5)->get()->map(function ($item) {
                 return [
+                    'id' => $item->id,
                     'value' => $item->id,
+                    'username' => $item->username,
                     'signatory' => $item->signatory,
                     'name' => $item->profile->lastname . ', ' . $item->profile->firstname . ' ' . $item->profile->middlename[0] . '.',
                     'position' => optional($item->organization->position)->name,

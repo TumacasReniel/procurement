@@ -23,6 +23,12 @@ class InventoryStockController extends Controller
         switch ($request->option) {
             case 'lists':
                 return $this->inventoryStock->lists($request);
+            case 'receivings':
+                return $this->inventoryStock->receivings($request);
+            case 'withdrawals':
+                return $this->inventoryStock->withdrawals($request);
+            case 'receiving-withdrawal-items':
+                return $this->inventoryStock->receivingWithdrawalItems($request);
 
             default:
                 return Inertia::render('Modules/InventoryStocks/Index', $this->inventoryStock->indexData());
@@ -57,6 +63,24 @@ class InventoryStockController extends Controller
         ]);
     }
 
+    public function transferReceiving(Request $request)
+    {
+        $request->validate([
+            'receiving_id' => ['required', 'integer', 'exists:procurement_noa_pos,id'],
+        ]);
+
+        $result = $this->handleTransaction(function () use ($request) {
+            return $this->inventoryStock->transferReceiving($request);
+        });
+
+        return response()->json([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
+        ]);
+    }
+
     public function destroy(InventoryStock $inventory_stock)
     {
         $result = $this->handleTransaction(function () use ($inventory_stock) {
@@ -71,3 +95,4 @@ class InventoryStockController extends Controller
         ]);
     }
 }
+

@@ -3,10 +3,14 @@
     :model-value="modelValue"
     :title="modalTitle"
     centered
+    header-class="p-3 bg-light"
+    body-class="p-4"
+    class="v-modal-custom"
+    modal-class="zoomIn"
     hide-footer
     @update:modelValue="(value) => $emit('update:modelValue', value)"
   >
-    <div class="row g-3">
+    <div class="row g-3 inventory-modal-form">
       <template v-if="type === 'receiving'">
         <div class="col-md-6">
           <label class="form-label">P.O. Number</label>
@@ -81,9 +85,9 @@ export default {
   },
   computed: {
     modalTitle() {
-      if (this.type === 'receiving') return 'Edit Receiving';
-      if (this.type === 'withdrawal') return 'Edit Withdrawal';
-      return 'Edit Record';
+      if (this.type === 'receiving') return 'Edit Purchase Order Receiving';
+      if (this.type === 'withdrawal') return 'Edit Inventory Withdrawal';
+      return 'Edit Inventory Record';
     },
   },
   watch: {
@@ -105,3 +109,14 @@ export default {
   },
 };
 </script>
+
+
+<style scoped>
+.inventory-modal-form .form-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+</style>

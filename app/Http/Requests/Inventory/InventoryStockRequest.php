@@ -18,6 +18,7 @@ class InventoryStockRequest extends FormRequest
 
         $rules = [
             'location_id' => ['nullable', 'exists:list_dropdowns,id'],
+            'requested_by_id' => ['nullable', 'exists:users,id'],
             'quantity' => ['required', 'numeric', 'min:0'],
             'status' => ['required', Rule::in(['available', 'low', 'out', 'reserved'])],
             'last_updated' => ['nullable', 'date'],
