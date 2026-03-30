@@ -209,7 +209,10 @@ class ProcurementBacNoaClass
         // Update the next item to be awarded in other quotations
         $procurement = $noa->procurement_bac->procurement;
         $other_quotations = $procurement->quotations->where('id', '!=', $noa->procurement_quotation_id);
-        $available_items = $other_quotations->flatMap->items->filter(fn($item) => $item->status_id == ListStatus::getID('Available for Re-award','Procurement') && !empty($item->bid_price));
+        $available_items = $other_quotations->flatMap->items->filter(fn($item) =>
+            $item->status_id == ListStatus::getID('Available for Re-award','Procurement') &&
+            ($item->is_free || (float) $item->bid_price > 0)
+        );
         if ($available_items->isNotEmpty()) {
             $next_item = $available_items->sortBy('bid_price')->first();
             $next_item->update(['status_id' => ListStatus::getID('Awarded','Procurement')]);
