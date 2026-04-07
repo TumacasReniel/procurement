@@ -462,7 +462,6 @@ export default {
         goViewPage(data) {
             router.get("/faims/procurements/" + data.id, {
                 option: "view",
-                tab: 1,
             });
         },
 

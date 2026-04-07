@@ -1,0 +1,39 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('inventory_receivings', function (Blueprint $table) {
+            $table->increments('id');
+            $table->timestamp('received_at')->nullable();
+            $table->text('remarks')->nullable();
+            $table->timestamps();
+
+
+            $table->unsignedInteger('item_id')->index();
+            $table->foreign('item_id')
+                ->references('id')
+                ->on('inventory_items');
+
+            $table->unsignedInteger('approved_by_id')->nullable();
+            $table->foreign('approved_by_id')
+                ->references('id')
+                ->on('users');
+
+            $table->unsignedTinyInteger('status_id');
+            $table->foreign('status_id')
+                ->references('id')
+                ->on('list_statuses');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('inventory_receivings');
+    }
+};

@@ -10,53 +10,35 @@ class InventoryWithdrawal extends Model
     use HasFactory;
 
     protected $fillable = [
-        'reference_no',
-        'inventory_id',
-        'inventory_stock_id',
-        'location_id',
+        'item_id',
         'requested_by_id',
-        'item_name',
-        'quantity',
+        'approved_by_id',
+        'status_id',
         'released_at',
-        'status',
         'remarks',
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
         'released_at' => 'datetime',
     ];
 
-    public function inventory()
+    public function item()
     {
-        return $this->belongsTo(Inventory::class);
+        return $this->belongsTo(InventoryItem::class, 'item_id');
     }
 
-    public function stock()
-    {
-        return $this->belongsTo(InventoryStock::class, 'inventory_stock_id');
-    }
-
-    public function location()
-    {
-        return $this->belongsTo(ListDropdown::class, 'location_id');
-    }
-
-    public function requested_by()
+    public function requestedBy()
     {
         return $this->belongsTo(User::class, 'requested_by_id')->with('profile');
     }
 
-    public static function generateReferenceNumber($date = null): string
+    public function approvedBy()
     {
-        $timestamp = $date ? now()->parse($date) : now();
-        $year = $timestamp->format('y');
-        $month = $timestamp->format('m');
+        return $this->belongsTo(User::class, 'approved_by_id')->with('profile');
+    }
 
-        $count = self::whereYear('created_at', $timestamp->year)
-            ->whereMonth('created_at', $timestamp->month)
-            ->count() + 1;
-
-        return 'WDR-' . $year . '-' . $month . '-' . str_pad((string) $count, 4, '0', STR_PAD_LEFT);
+    public function status()
+    {
+        return $this->belongsTo(ListStatus::class, 'status_id');
     }
 }

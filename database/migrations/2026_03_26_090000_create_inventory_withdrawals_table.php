@@ -9,20 +9,30 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('inventory_withdrawals', function (Blueprint $table) {
-            $table->id();
-            $table->string('reference_no')->unique();
-            $table->foreignId('inventory_id')->nullable()->constrained('inventories')->nullOnDelete();
-            $table->foreignId('inventory_stock_id')->nullable()->constrained('inventory_stocks')->nullOnDelete();
-            $table->unsignedTinyInteger('location_id')->nullable();
-            $table->foreign('location_id')->references('id')->on('list_dropdowns')->nullOnDelete();
-            $table->unsignedInteger('requested_by_id')->nullable();
-            $table->foreign('requested_by_id')->references('id')->on('users')->nullOnDelete();
-            $table->string('item_name');
-            $table->decimal('quantity', 12, 2)->default(0);
+            $table->increments('id');
             $table->timestamp('released_at')->nullable();
-            $table->string('status')->default('Released');
             $table->text('remarks')->nullable();
             $table->timestamps();
+
+            $table->unsignedInteger('inventory_id')->index();
+            $table->foreign('inventory_id')
+                ->references('id')
+                ->on('inventory_items');
+
+            $table->unsignedInteger('requested_by_id')->index();
+            $table->foreign('requested_by_id')
+                ->references('id')
+                ->on('users');
+
+            $table->unsignedInteger('approved_by_id')->index()->nullablr();
+            $table->foreign('approved_by_id')
+                ->references('id')
+                ->on('users');
+
+            $table->unsignedTinyInteger('status_id')->index();
+            $table->foreign('status_id')
+                ->references('id')
+                ->on('list_statuses');
         });
     }
 
