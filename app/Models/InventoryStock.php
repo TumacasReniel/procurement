@@ -10,16 +10,14 @@ class InventoryStock extends Model
     use HasFactory;
 
     protected $fillable = [
+        'code',
+        'name',
         'inventory_id',
-        'location_id',
-        'quantity',
-        'status',
-        'last_updated',
+        'entry_date',
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
-        'last_updated' => 'datetime',
+        'entry_date' => 'datetime',
     ];
 
     public function inventory()
@@ -27,9 +25,8 @@ class InventoryStock extends Model
         return $this->belongsTo(Inventory::class);
     }
 
-    public function location()
+    public function items()
     {
-        return $this->belongsTo(ListDropdown::class, 'location_id');
+        return $this->hasMany(InventoryItem::class, 'stock_id');
     }
 }
-

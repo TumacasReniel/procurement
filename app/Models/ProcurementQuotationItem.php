@@ -12,8 +12,15 @@ class ProcurementQuotationItem extends Model
         'delivery_term',
         'technical_proposal',
         'bid_price',
+        'is_free',
         'status_id',
         'is_rebid'
+    ];
+
+    protected $casts = [
+        'is_free' => 'boolean',
+        'is_checked' => 'boolean',
+        'is_rebid' => 'boolean',
     ];
 
     public function item()

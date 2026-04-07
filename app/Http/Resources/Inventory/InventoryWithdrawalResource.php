@@ -11,13 +11,15 @@ class InventoryWithdrawalResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'reference_no' => $this->reference_no,
-            'requested_by' => $this->requested_by?->profile?->fullname ?? 'System',
-            'item_name' => $this->item_name,
-            'quantity' => (float) $this->quantity,
+            'item_id' => $this->item_id,
+            'item_name' => $this->item?->name ?? '-',
+            'requested_by_id' => $this->requested_by_id,
+            'requested_by' => $this->requestedBy?->profile?->fullname ?? '-',
+            'approved_by_id' => $this->approved_by_id,
+            'approved_by' => $this->approvedBy?->profile?->fullname ?? '-',
+            'status_id' => $this->status_id,
+            'status' => $this->status?->name ?? '-',
             'released_at' => $this->released_at?->format('Y-m-d H:i:s'),
-            'status' => $this->status,
-            'location_name' => $this->location?->name,
             'remarks' => $this->remarks,
         ];
     }

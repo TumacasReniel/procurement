@@ -240,10 +240,19 @@
 
                                         <td @click="openEditOffer(item, bid)">
                                             <span
-                                                v-if="item.bid_price > 0"
+                                                v-if="item.is_free"
+                                            >
+                                                <b
+                                                    ><i class="text-primary"
+                                                        ><u>free</u></i
+                                                    ></b
+                                                >
+                                            </span>
+                                            <span
+                                                v-else-if="Number(item.bid_price) > 0"
                                                 :class="{
                                                     'text-danger':
-                                                        item.bid_price >
+                                                        Number(item.bid_price) >
                                                         item.item
                                                             .item_unit_cost,
                                                 }"
@@ -255,32 +264,32 @@
                                                 }}</u>
                                             </span>
                                             <span
-                                                v-else-if="item.bid_price == null"
+                                                v-else
                                             >
                                                 <b
                                                     ><i class="text-primary"
-                                                        ><u>no bid</u></i
-                                                    ></b
-                                                >
-                                            </span>
-                                            <span v-else>
-                                                <b
-                                                    ><i class="text-primary"
-                                                        ><u>free</u></i
+                                                        ><u>not set</u></i
                                                     ></b
                                                 >
                                             </span>
                                         </td>
                                         <td>
-                                            <span v-if="item.bid_price == null">
+                                            <span v-if="item.is_free">
                                                 <b
                                                     ><i class="text-primary"
-                                                        >no bid</i
+                                                        >free</i
+                                                    ></b
+                                                >
+                                            </span>
+                                            <span v-else-if="!(Number(item.bid_price) > 0)">
+                                                <b
+                                                    ><i class="text-primary"
+                                                        >not set</i
                                                     ></b
                                                 >
                                             </span>
                                             <span
-                                                v-else-if="item.bid_price > 0"
+                                                v-else
                                             >
                                                 {{
                                                     formatCurrency(
@@ -289,13 +298,6 @@
                                                             item.bid_price,
                                                     )
                                                 }}
-                                            </span>
-                                            <span v-else>
-                                                <b
-                                                    ><i class="text-primary"
-                                                        >free</i
-                                                    ></b
-                                                >
                                             </span>
                                         </td>
 
@@ -345,7 +347,8 @@
                                                             itemIndex,
                                                             bid,
                                                         ) ||
-                                                        item.bid_price === null
+                                                        (!item.is_free &&
+                                                            !(Number(item.bid_price) > 0))
                                                     "
                                                     @change="
                                                         handleCheckboxChange(
@@ -451,7 +454,9 @@ export default {
         },
         hasAwardableBid() {
             return this.availableBids.some((bid) =>
-                (bid.items || []).some((item) => item.bid_price !== null),
+                (bid.items || []).some(
+                    (item) => item.is_free || Number(item.bid_price) > 0,
+                ),
             );
         },
     },

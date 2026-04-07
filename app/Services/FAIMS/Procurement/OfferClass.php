@@ -12,7 +12,8 @@ class OfferClass
         $item = ProcurementQuotationItem::with('quotation')->findOrFail($request->id);
         if($item){
             // update bid offer for bid_item
-            $item->bid_price = $request->bid_price;
+            $item->bid_price = $request->boolean('is_free') ? 0 : $request->bid_price;
+            $item->is_free = $request->boolean('is_free');
             $item->technical_proposal = $request->technical_proposal;
             $item->update();
         }
@@ -44,7 +45,7 @@ class OfferClass
         foreach ($request->itemsNotAvailableForAward as $item) {
             $item = ProcurementQuotationItem::findOrFail($item['id']);
             if($item){
-                if (!empty($item->bid_price)) {
+                if ($item->is_free || (float) $item->bid_price > 0) {
                     // update item status to "Available for Re-award" 
                     $item->status_id = ListStatus::getID('Available for Re-award', 'Procurement');
                     $item->update();

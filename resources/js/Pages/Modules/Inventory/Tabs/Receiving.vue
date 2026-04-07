@@ -36,14 +36,13 @@
               class="form-control"
               style="width: 40%"
             />
-            <Multiselect
-              v-model="filters.status"
-              class="white ledger-status-select"
-              style="width: 15%"
-              :options="statusOptions"
-              :searchable="true"
-              placeholder="Select Status"
-            />
+            <button
+              type="button"
+              class="btn btn-primary ms-2"
+              @click="$emit('create')"
+            >
+              <i class="ri-add-circle-fill me-1"></i>Create
+            </button>
             <span
               class="input-group-text"
               style="cursor: pointer"
@@ -61,12 +60,12 @@
         <table class="table align-middle table-hover mb-0 ledger-table">
           <thead class="table-light thead-fixed">
             <tr>
-              <th>P.O. Number</th>
-              <th>Supplier Name</th>
-              <th>Remarks</th>
-              <th>Date</th>
+              <th>Item</th>
+              <th>Approved By</th>
               <th>Status</th>
-              <th class="text-center" style="width: 150px">Action</th>
+              <th>Date Received</th>
+              <th>Remarks</th>
+              <th class="text-center" style="width: 140px">Action</th>
             </tr>
           </thead>
           <tbody class="table-group-divider">
@@ -77,15 +76,15 @@
               <td colspan="6" class="text-center text-muted py-4">No receiving records found.</td>
             </tr>
             <tr v-else v-for="item in filteredRows" :key="item.id">
-              <td class="fw-semibold">{{ item.po_number }}</td>
-              <td>{{ item.supplier_name }}</td>
-              <td>{{ item.remarks }}</td>
-              <td>{{ item.received_at }}</td>
+              <td class="fw-semibold">{{ item.item_name }}</td>
+              <td>{{ item.approved_by }}</td>
               <td>
                 <span class="badge receiving-status-chip">
                   <i class="ri-checkbox-circle-fill me-1"></i>{{ item.status }}
                 </span>
               </td>
+              <td>{{ item.received_at }}</td>
+              <td>{{ item.remarks }}</td>
               <td class="text-center">
                 <div class="d-inline-flex gap-1">
                   <button
@@ -104,21 +103,8 @@
                   >
                     <i class="ri-pencil-line"></i>
                   </button>
-                  <button
-                    class="btn btn-sm btn-outline-secondary receiving-action-btn"
-                    type="button"
-                    title="Transfer to Inventory"
-                    @click="$emit('transfer', item)"
-                  >
-                    <i class="ri-exchange-box-line"></i>
-                  </button>
-                  <button
-                    class="btn btn-sm btn-outline-warning receiving-action-btn"
-                    type="button"
-                    title="Withdraw"
-                    @click="$emit('withdraw', item)"
-                  >
-                    <i class="ri-arrow-up-circle-line"></i>
+                  <button class="btn btn-sm btn-outline-danger receiving-action-btn" type="button" title="Delete" @click="$emit('delete', item)">
+                    <i class="ri-delete-bin-line"></i>
                   </button>
                 </div>
               </td>
@@ -151,7 +137,7 @@ export default {
     meta: { type: Object, default: null },
     links: { type: Array, default: null },
   },
-  emits: ['fetch', 'refresh', 'view', 'edit', 'transfer', 'withdraw'],
+  emits: ['create', 'fetch', 'refresh', 'view', 'edit', 'delete'],
   data() {
     return {
       filters: {
@@ -161,27 +147,22 @@ export default {
     };
   },
   computed: {
-    statusOptions() {
-      return [...new Set(this.rows.map((item) => item.status).filter(Boolean))];
-    },
     filteredRows() {
       const keyword = (this.filters.keyword || '').toLowerCase();
-      const status = this.filters.status || '';
 
       return this.rows.filter((item) => {
-        const searchable = [item.po_number, item.supplier_name, item.remarks, item.received_at]
+        const searchable = [item.item_name, item.approved_by, item.remarks, item.received_at, item.status]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
 
-        return searchable.includes(keyword) && (!status || item.status === status);
+        return searchable.includes(keyword);
       });
     },
   },
   methods: {
     handleRefresh() {
       this.filters.keyword = '';
-      this.filters.status = '';
       this.$emit('refresh');
     },
   },

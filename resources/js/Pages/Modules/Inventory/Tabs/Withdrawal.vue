@@ -40,13 +40,6 @@
               </div>
             </div>
 
-            <Multiselect
-              v-model="filters.status"
-              class="white ledger-status-select"
-              :options="statusOptions"
-              :searchable="true"
-              placeholder="Select Status"
-            />
             <button
               type="button"
               class="btn ledger-refresh-btn"
@@ -71,13 +64,13 @@
         <table class="table align-middle table-hover mb-0 ledger-table">
           <thead class="table-light thead-fixed">
             <tr>
-              <th>Ref. No</th>
-              <th>Requested By</th>
               <th>Item</th>
-              <th class="text-end">Qty</th>
+              <th>Requested By</th>
+              <th>Approved By</th>
               <th>Date Released</th>
               <th>Status</th>
-              <th class="text-center" style="width: 100px">Action</th>
+              <th>Remarks</th>
+              <th class="text-center" style="width: 140px">Action</th>
             </tr>
           </thead>
           <tbody class="table-group-divider">
@@ -88,16 +81,16 @@
               <td colspan="7" class="text-center text-muted py-4">No withdrawal records found.</td>
             </tr>
             <tr v-else v-for="item in filteredRows" :key="item.id">
-              <td class="fw-semibold">{{ item.reference_no }}</td>
+              <td class="fw-semibold">{{ item.item_name }}</td>
               <td>{{ item.requested_by }}</td>
-              <td>{{ item.item_name }}</td>
-              <td class="text-end fw-semibold">{{ formatNumber(item.quantity) }}</td>
+              <td>{{ item.approved_by }}</td>
               <td>{{ item.released_at }}</td>
               <td>
                 <span class="badge withdrawal-status-chip">
                   <i class="ri-checkbox-circle-fill me-1"></i>{{ item.status }}
                 </span>
               </td>
+              <td>{{ item.remarks }}</td>
               <td class="text-center">
                 <div class="d-inline-flex gap-1">
                   <button
@@ -107,6 +100,12 @@
                     @click="$emit('view', item)"
                   >
                     <i class="ri-eye-line"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-warning withdrawal-action-btn" type="button" title="Edit" @click="$emit('edit', item)">
+                    <i class="ri-pencil-line"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger withdrawal-action-btn" type="button" title="Delete" @click="$emit('delete', item)">
+                    <i class="ri-delete-bin-line"></i>
                   </button>
                 </div>
               </td>
@@ -130,7 +129,7 @@ export default {
     meta: { type: Object, default: null },
     links: { type: Array, default: null },
   },
-  emits: ['create', 'fetch', 'refresh', 'view'],
+  emits: ['create', 'fetch', 'refresh', 'view', 'edit', 'delete'],
   data() {
     return {
       filters: {
@@ -140,31 +139,23 @@ export default {
     };
   },
   computed: {
-    statusOptions() {
-      return [...new Set(this.rows.map((item) => item.status).filter(Boolean))];
-    },
     filteredRows() {
       const keyword = (this.filters.keyword || '').toLowerCase();
-      const status = this.filters.status || '';
 
       return this.rows.filter((item) => {
-        const searchable = [item.reference_no, item.requested_by, item.item_name, item.released_at]
+        const searchable = [item.item_name, item.requested_by, item.approved_by, item.released_at, item.status, item.remarks]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
 
-        return searchable.includes(keyword) && (!status || item.status === status);
+        return searchable.includes(keyword);
       });
     },
   },
   methods: {
     handleRefresh() {
       this.filters.keyword = '';
-      this.filters.status = '';
       this.$emit('refresh');
-    },
-    formatNumber(value) {
-      return new Intl.NumberFormat().format(Number(value || 0));
     },
   },
 };

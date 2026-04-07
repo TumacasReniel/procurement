@@ -27,7 +27,7 @@
             </label>
           </div>
           <small class="text-muted d-block mt-1">
-            Free uses 0.00 amount. Blank means No Bid.
+            Leave blank or enter 0 to keep this bid not set. Check Free for a free offer.
           </small>
         </BCol>
         <BCol lg="6" class="mt-2">
@@ -133,35 +133,37 @@ export default {
       } else {
         this.form.delivery_term = "7 days upon received of Notice to Proceed";
       }
-      this.form.bid_price = item.bid_price;
-      this.isFree = false;
+      this.isFree = Boolean(item.is_free);
+      this.form.bid_price = this.normalizeBidPrice(item.bid_price, this.isFree);
       this.showModal = true;
       this.$nextTick(() => {
         if (this.$refs.amountComponent) {
           this.$refs.amountComponent.emitValue(
-            item.bid_price === null ? "" : Number(item.bid_price || 0).toFixed(2)
+            this.isFree
+              ? "0.00"
+              : this.form.bid_price === null
+                ? ""
+                : Number(this.form.bid_price).toFixed(2)
           );
         }
       });
     },
 
     updateItemBidOffer() {
-      if (this.isFree) {
-        this.form.bid_price = 0;
-      } else if (this.form.bid_price === null || this.form.bid_price === "") {
-        this.form.bid_price = null;
-      }
+      this.form.bid_price = this.normalizeBidPrice(this.form.bid_price, this.isFree);
       this.form.processing = true;
       axios
         .post("/faims/offers", {
           id: this.form.id,
           bid_price: this.form.bid_price,
+          is_free: this.isFree,
           technical_proposal: this.form.technical_proposal,
           delivery_term: this.form.delivery_term,
         })
         .then(() => {
           if (this.currentItem) {
             this.currentItem.bid_price = this.form.bid_price;
+            this.currentItem.is_free = this.isFree;
             this.currentItem.technical_proposal = this.form.technical_proposal;
           }
           if (this.currentBid) {
@@ -196,6 +198,11 @@ export default {
         this.form.bid_price = null;
         this.$refs.amountComponent.emitValue("");
       }
+    },
+    normalizeBidPrice(value, isFree = false) {
+      if (isFree) return 0;
+      const cleaned = this.cleanCurrency(value);
+      return cleaned === null || cleaned <= 0 ? null : cleaned;
     },
   },
 };
