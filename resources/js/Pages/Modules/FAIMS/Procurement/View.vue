@@ -877,9 +877,32 @@ export default {
 
       const mainStatus = (this.procurement?.status?.name || "").trim();
       const subStatus = (this.procurement?.sub_status?.name || "").trim();
+      const status = subStatus || mainStatus;
 
-      if (mainStatus === "For BAC Resolution" || subStatus === "For BAC Resolution") {
-        return 3;
+      const defaultTabByStatus = {
+        Approved: 2,
+        "For Quotations": 2,
+        "For RFQ": 2,
+        "For Bids": 3,
+        "For BAC Resolution": 3,
+        "For Approval of BAC Resolution": 4,
+        Rebid: 4,
+        "Re-award": 4,
+        "For NOA": 5,
+        "NOA Served to Supplier": 5,
+        "NOA Served": 5,
+        "NOA Conformed": 5,
+        "PO Created": 5,
+        "PO Issued": 5,
+        "PO Conformed": 5,
+        "Delivered/For Inspection": 6,
+        "PO Delivered/For Inspection": 6,
+        Delivered: 6,
+        Completed: 6,
+      };
+
+      if (defaultTabByStatus[status]) {
+        return defaultTabByStatus[status];
       }
 
       return 1;
@@ -1005,7 +1028,7 @@ export default {
         3: ["For Bids", "For BAC Resolution"],
         4: ["For Approval of BAC Resolution", "Re-award", "Rebid"],
         5: ["For NOA", "NOA Served to Supplier", "NOA Conformed", "PO Created", "PO Issued", "PO Conformed"],
-        6: ["PO Created", "PO Issued", "Delivered/For Inspection", "PO Delivered/For Inspection", "Delivered", "Completed"],
+        6: ["Delivered/For Inspection", "PO Delivered/For Inspection", "Delivered", "Completed"],
       };
 
       return (doneStatusMap[tab] || []).includes(status);
