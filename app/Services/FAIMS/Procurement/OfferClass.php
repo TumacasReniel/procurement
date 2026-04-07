@@ -5,6 +5,7 @@ use App\Models\Procurement;
 use App\Models\ListStatus;
 use App\Models\ProcurementQuotationItem;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class OfferClass
 {
@@ -13,9 +14,11 @@ class OfferClass
         if($item){
             // update bid offer for bid_item
             $item->bid_price = $request->boolean('is_free') ? 0 : $request->bid_price;
-            $item->is_free = $request->boolean('is_free');
+            if (Schema::hasColumn('procurement_quotation_items', 'is_free')) {
+                $item->is_free = $request->boolean('is_free');
+            }
             $item->technical_proposal = $request->technical_proposal;
-            $item->update();
+            $item->save();
         }
 
          $item->quotation->update([
