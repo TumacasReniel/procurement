@@ -11,15 +11,13 @@ class InventoryStockResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'code' => $this->code,
+            'name' => $this->name,
             'inventory_id' => $this->inventory_id,
             'inventory_name' => $this->inventory?->name ?? '-',
-            'inventory_category' => $this->inventory?->category?->name ?? '-',
-            'inventory_unit' => $this->inventory?->unit?->name ?? '-',
-            'location_id' => $this->location_id,
-            'location_name' => $this->location?->name ?? '-',
-            'quantity' => (float) $this->quantity,
-            'status' => $this->status,
-            'last_updated' => $this->last_updated?->format('Y-m-d H:i:s'),
+            'entry_date' => optional($this->entry_date)->format('Y-m-d H:i:s'),
+            'created_at' => optional($this->created_at)->format('Y-m-d H:i:s'),
+            'updated_at' => optional($this->updated_at)->format('Y-m-d H:i:s'),
         ];
     }
 }

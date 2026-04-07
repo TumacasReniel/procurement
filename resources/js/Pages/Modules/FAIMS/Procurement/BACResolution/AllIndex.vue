@@ -242,7 +242,7 @@ export default {
     viewProcurement(list) {
       router.visit(`/faims/procurements/${list.procurement.id}`, {
         method: 'get',
-        data: { option: 'view', tab: 1 },
+        data: { option: 'view' },
       });
     },
     printBACResolution(list) {

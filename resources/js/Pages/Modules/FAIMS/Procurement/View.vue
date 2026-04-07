@@ -645,7 +645,7 @@ export default {
   props: ["dropdowns", "procurement", "tab", "logs"],
   data() {
     return {
-      activeTab: parseInt(this.tab) || 1,
+      activeTab: 1,
       isCollapsed: false,
       isRightCollapsed: true,
       selectedNoa: null,
@@ -853,7 +853,7 @@ export default {
   },
   watch: {
     tab() {
-      const nextTab = parseInt(this.tab) || 1;
+      const nextTab = this.resolveDefaultTab();
       if (!this.canManageProcurementWorkflow && [2, 3, 4, 5].includes(nextTab)) {
         this.activeTab = 1;
         return;
@@ -866,8 +866,24 @@ export default {
     this.isRightCollapsed = localStorage.getItem("isRightCollapsed") === "true" || true;
     const assignees = this.procurement?.assignees || this.procurement?.assigned_personnel || {};
     this.localProcAssignees = { ...assignees };
+    this.activeTab = this.resolveDefaultTab();
   },
   methods: {
+    resolveDefaultTab() {
+      const requestedTab = parseInt(this.tab);
+      if (Number.isFinite(requestedTab) && requestedTab > 0) {
+        return requestedTab;
+      }
+
+      const mainStatus = (this.procurement?.status?.name || "").trim();
+      const subStatus = (this.procurement?.sub_status?.name || "").trim();
+
+      if (mainStatus === "For BAC Resolution" || subStatus === "For BAC Resolution") {
+        return 3;
+      }
+
+      return 1;
+    },
     show(tab) {
       if (!this.canManageProcurementWorkflow && [2, 3, 4, 5].includes(tab)) {
         return;
@@ -986,8 +1002,8 @@ export default {
       const status = subStatus || mainStatus;
       const doneStatusMap = {
         2: ["Approved", "For Quotations", "For RFQ"],
-        3: ["For Bids"],
-        4: ["For BAC Resolution", "For Approval of BAC Resolution", "Re-award", "Rebid"],
+        3: ["For Bids", "For BAC Resolution"],
+        4: ["For Approval of BAC Resolution", "Re-award", "Rebid"],
         5: ["For NOA", "NOA Served to Supplier", "NOA Conformed", "PO Created", "PO Issued", "PO Conformed"],
         6: ["PO Created", "PO Issued", "Delivered/For Inspection", "PO Delivered/For Inspection", "Delivered", "Completed"],
       };

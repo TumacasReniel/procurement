@@ -350,7 +350,7 @@
                         href="/inventory-stocks"
                         class="nav-link menu-link"
                         :class="{
-                            active: $page.component.startsWith('Modules/InventoryStocks'),
+                            active: $page.component.startsWith('Modules/Inventory'),
                         }"
                     >
                         <i class="ri-dashboard-line"></i>
