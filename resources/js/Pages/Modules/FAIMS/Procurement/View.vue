@@ -918,7 +918,6 @@ export default {
         { replace: true, preserveState: true }
       );
     },
-
     toggleSidebar() {
       this.isCollapsed = !this.isCollapsed;
     },
@@ -1023,6 +1022,9 @@ export default {
       const subStatus = (this.procurement?.sub_status?.name || "").trim();
       const mainStatus = (this.procurement?.status?.name || "").trim();
       const status = subStatus || mainStatus;
+      if (status === "Completed") {
+        return false;
+      }
       const doneStatusMap = {
         2: ["Approved", "For Quotations", "For RFQ"],
         3: ["For Bids", "For BAC Resolution"],
