@@ -49,7 +49,7 @@
                 </td>
                 <td>{{ formatCurrency(bid_item.total_cost) }}</td>
                 <td>
-                  {{ formatCurrency(bid_item.bid_price * bid_item.item_quantity) }}
+                  {{ bid_item.is_free ? 'free' : formatCurrency(bid_item.bid_price * bid_item.item_quantity) }}
                 </td>
                 <td><span v-html="bid_item.item_description"></span></td>
                 <td><span v-html="bid_item.technical_proposal"></span></td>
@@ -107,7 +107,7 @@
               @change="updateRanks(groupIndex)"
             >
               <template #item="{ element, index }">
-                <tr v-if="element.bid_price > 0">
+                <tr v-if="element.is_free || Number(element.bid_price) > 0">
                   <td class="text-center">{{ element.rank }}</td>
                   <td>
                     <span class="m-2">{{ element.item_quantity }}</span>
@@ -121,7 +121,7 @@
                   </td>
                   <td>{{ formatCurrency(element.total_cost) }}</td>
                   <td>
-                    {{ formatCurrency(element.bid_price * element.item_quantity) }}
+                    {{ element.is_free ? 'free' : formatCurrency(element.bid_price * element.item_quantity) }}
                   </td>
                   <td><span v-html="element.item_description"></span></td>
                   <td><span v-html="element.technical_proposal"></span></td>
@@ -201,7 +201,7 @@ export default {
       return (
         count +
         group.quotations.filter(
-          q => q.bid_price !== null && q.bid_price > 0
+          q => q.is_free || Number(q.bid_price) > 0
         ).length
       );
     }, 0);
@@ -244,6 +244,7 @@ export default {
           supplier: quotation.supplier,
           total_cost: item.item.item_quantity * item.item.item_unit_cost,
           bid_price: item.bid_price,
+          is_free: item.is_free,
           total_bid_price: item.bid_price * item.item.item_quantity,
           technical_proposal: item.technical_proposal,
           delivery_term: item.delivery_term,
@@ -272,7 +273,7 @@ export default {
           quotations: quotations
             .sort(
               (a, b) =>
-                parseFloat(a.bid_price) * a.item_quantity - parseFloat(b.bid_price) * b.item_quantity
+                (a.is_free ? 0 : parseFloat(a.bid_price)) * a.item_quantity - (b.is_free ? 0 : parseFloat(b.bid_price)) * b.item_quantity
             )
             .map((quotation, index) => ({
               ...quotation,
@@ -288,7 +289,7 @@ export default {
         .sort(([a], [b]) => parseInt(a) - parseInt(b))
         .flatMap(([item_no, quotations]) =>
           quotations
-            .sort((a, b) => parseFloat(a.bid_price) * a.item_quantity - parseFloat(b.bid_price) * b.item_quantity)
+            .sort((a, b) => (a.is_free ? 0 : parseFloat(a.bid_price)) * a.item_quantity - (b.is_free ? 0 : parseFloat(b.bid_price)) * b.item_quantity)
             .map((quotation, index) => ({
               ...quotation,
               rank: index + 1,

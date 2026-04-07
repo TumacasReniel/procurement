@@ -120,10 +120,10 @@
                                 $price = $quotation->items[$index]->bid_price;
                             @endphp
 
-                            @if (is_null($price))
+                            @if ($quotation->items[$index]->is_free)
+                                free
+                            @elseif (is_null($price) || (float) $price <= 0)
                                 No Bid
-                            @elseif ($price == 0)
-                                Free
                             @else
                                 {{ number_format($price, 2) }}
                             @endif

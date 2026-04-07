@@ -12,8 +12,14 @@ class InventoryItemResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'code' => $this->code,
+            'stock_id' => $this->stock_id,
+            'stock_name' => $this->stock?->name ?? '-',
+            'category_id' => $this->category_id,
             'category' => $this->category?->name ?? '-',
-            'unit' => $this->unit?->name ?? '-',
+            'quantity' => (int) $this->quantity,
+            'unit_cost' => (int) $this->unit_cost,
+            'expiration' => optional($this->expiration)->format('Y-m-d'),
         ];
     }
 }
