@@ -9,6 +9,7 @@ class ProcurementItem extends Model
      protected $fillable = [
         'procurement_id',
         'item_unit_type_id',
+        'item_name',
         'item_description',
         'item_quantity',
         'item_unit_cost', 

@@ -32,7 +32,7 @@ class ResponsibilityCenterController extends Controller
             break;
 
             default:
-                return inertia('Modules/FAIMS/Procurement/ResponsibilityCenters/Index', [
+                return inertia('Modules/FAIMS/Procurement/ResponsibilityCenters/index', [
                     'dropdowns' => [
                         'units' => $this->dropdown->list_units(),
                     ],

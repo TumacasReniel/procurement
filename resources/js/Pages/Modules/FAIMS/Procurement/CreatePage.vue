@@ -208,6 +208,7 @@
                             <thead>
                               <tr>
                                 <th class="text-center">#</th>
+                                <th>Item Name</th>
                                 <th>Unit</th>
                                 <th>Description</th>
                                 <th class="text-center">Qty</th>
@@ -219,6 +220,9 @@
                             <tbody>
                               <tr v-for="(item, index) in form.items" :key="index" class="item-row">
                                 <td class="text-center item-number">{{ index + 1 }}</td>
+                                <td class="item-name">
+                                  {{ item.item_name || "-" }}
+                                </td>
                                 <td class="item-unit">
                                   <span class="unit-badge">
                                     {{
@@ -265,7 +269,7 @@
                             </tbody>
                             <tfoot>
                               <tr class="grand-total-row">
-                                <td colspan="5" class="text-end grand-total-label">Grand Total:</td>
+                                <td colspan="6" class="text-end grand-total-label">Grand Total:</td>
                                 <td class="text-end grand-total-amount">{{ formatCurrency(totalCostSum) }}</td>
                                 <td></td>
                               </tr>

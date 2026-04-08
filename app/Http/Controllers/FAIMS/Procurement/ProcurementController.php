@@ -11,6 +11,9 @@ use App\Services\FAIMS\Procurement\ProcurementClass;
 use App\Services\FAIMS\Procurement\PrintClass;
 use App\Services\Executive\Users\SaveClass;
 use App\Events\CommentAdded;
+use App\Models\OrgChart;
+use App\Models\User;
+use App\Models\ListDropdown;
 
 class ProcurementController extends Controller
 {
@@ -149,6 +152,64 @@ class ProcurementController extends Controller
                 'designation'  =>  \Auth::user()->designation,
             ],
         ]);
+    }
+
+    public function reports(Request $request){
+        if ($request->option === 'print') {
+            return $this->print->printReport($request);
+        }
+
+        $signatories = $this->reportSignatories();
+
+        return inertia('Modules/FAIMS/Procurement/Reports/Index', [
+            'dropdowns' => [
+                'roles'  =>  \Auth::user()->roles,
+                'designation'  =>  \Auth::user()->org_chart?->designation,
+                'statuses' => $this->dropdown->statuses('Procurement'),
+                'types' => $this->dropdown->dropdowns('Type'),
+                'modes' => $this->dropdown->dropdowns('Mode of Procurement'),
+            ],
+            'signatories' => $signatories,
+        ]);
+    }
+
+    private function reportSignatories(): array
+    {
+        $procurementStaff = User::with('profile')
+            ->whereHas('roles', function ($query) {
+                $query->where('list_roles.name', 'Procurement Staff');
+            })
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'name' => strtoupper($user->profile?->full_name ?? ('USER #' . $user->id)),
+                    'role' => 'Procurement Staff',
+                ];
+            })
+            ->values()
+            ->all();
+
+        $supplyOfficer = User::with('profile')
+            ->whereHas('roles', function ($query) {
+                $query->where('list_roles.name', 'Supply Officer');
+            })
+            ->first();
+
+        $assistantRegionalDirector = OrgChart::with('user.profile', 'designation')
+            ->where('designation_id', ListDropdown::getID('Assistant Regional Director', 'Designation'))
+            ->first();
+
+        return [
+            'prepared_by' => array_slice($procurementStaff, 0, 2),
+            'supply_officer' => $supplyOfficer ? [
+                'name' => strtoupper($supplyOfficer->profile?->full_name ?? ('USER #' . $supplyOfficer->id)),
+                'role' => 'Supply Officer',
+            ] : null,
+            'noted_by' => $assistantRegionalDirector ? [
+                'name' => strtoupper($assistantRegionalDirector->user?->profile?->full_name ?? ''),
+                'designation' => 'ARD-FASS',
+            ] : null,
+        ];
     }
 
     public function show($id, Request $request){

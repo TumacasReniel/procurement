@@ -178,7 +178,8 @@
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Purchase Orders</span>
                 </Link>
             </li>
-            <li
+
+             <li
                 class="nav-item"
                 v-if="
                 $page.props.roles.includes('Procurement Staff') ||
@@ -187,16 +188,17 @@
                 "
             >
                 <Link
-                href="/faims/procurement-followers"
+                href="/faims/procurement-reports"
                 class="nav-link menu-link"
                 :class="{
-                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Followers'),
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Reports'),
                 }"
                 >
-                <i class="ri-user-follow-line"></i>
-                <span class="fw-semibold fs-14" data-key="t-dashboards">Status Assignee</span>
+                <i class="ri-file-paper-2-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Procurement Results</span>
                 </Link>
             </li>
+  
             <li class="menu-title">
                 <i class="ri-more-fill" aria-expanded="false"></i>
                 <span data-key="t-menu">Finance</span>

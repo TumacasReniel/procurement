@@ -179,7 +179,7 @@
                     <i class="ri-file-text-line align-middle me-3 fs-5"></i>Request of
                     Quotations(RFQs)
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(2)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(2)"></i>
                 </span>
 
               </button>
@@ -201,7 +201,7 @@
                     <i class="ri-auction-line align-middle me-3 fs-5"></i>Abstract of
                     Bids(AOBs)
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(3)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(3)"></i>
                 </span>
 
               </button>
@@ -222,7 +222,7 @@
                   <span class="d-flex align-items-center">
                     <i class="ri-file-line align-middle me-3 fs-5"></i>BAC Resolutions
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(4)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(4)"></i>
                 </span>
               </button>
               <button
@@ -242,7 +242,7 @@
                   <span class="d-flex align-items-center">
                     <i class="ri-trophy-line align-middle me-3 fs-5"></i>Notice of Award(NOAs)
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(5)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(5)"></i>
                 </span>
               </button>
               <button
@@ -263,7 +263,7 @@
                     <i class="ri-shopping-cart-line align-middle me-3 fs-5"></i>Purchase
                     Order(POs)
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(6)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(6)"></i>
                 </span>
               </button>
             </div>
@@ -2185,14 +2185,28 @@ export default {
 }
 
 .tab-done-light-success {
-  background: #ecfdf3 !important;
-  color: #166534 !important;
-  border: 1px solid #86efac !important;
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.2);
+  background: #fff8db !important;
+  color: #8a5a00 !important;
+  border: 1px solid #f7d067 !important;
+  box-shadow: inset 0 0 0 1px rgba(247, 184, 75, 0.25);
 }
 
 .tab-done-light-success:hover {
-  background: #dcfce7 !important;
-  color: #166534 !important;
+  background: #fff2b8 !important;
+  color: #8a5a00 !important;
+}
+
+.tab-done-icon {
+  color: #d97706;
+}
+
+.nav-link.bg-primary .tab-done-icon {
+  color: #ffffff;
+  -webkit-text-stroke: 1px #facc15;
+  text-shadow:
+    1px 0 #facc15,
+    -1px 0 #facc15,
+    0 1px #facc15,
+    0 -1px #facc15;
 }
 </style>

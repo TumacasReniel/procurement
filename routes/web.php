@@ -103,6 +103,8 @@ Route::prefix('faims')->group(function () {
     Route::resource('/procurements', App\Http\Controllers\FAIMS\Procurement\ProcurementController::class)->names([
         'index' => 'procurement.index',
     ]);
+    Route::get('/procurement-reports', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'reports'])
+        ->name('procurement.reports');
     Route::resource('/procurement-assignments', App\Http\Controllers\FAIMS\Procurement\ProcurementAssignmentController::class);
     Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
     Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'dashboard'])->name('procurement.dashboard');

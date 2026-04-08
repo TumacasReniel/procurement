@@ -28,6 +28,16 @@
 
       <BRow>
         <BCol lg="12" class="mt-3">
+          <InputLabel value="Item Name" :message="form.errors.item_name" />
+          <TextInput
+            v-model="form.item_name"
+            type="text"
+            class="form-control"
+            placeholder="Enter item name"
+          />
+        </BCol>
+
+        <BCol lg="12" class="mt-3">
           <InputLabel value="Description" :message="form.errors.item_description" />
           <CustomEditorMini v-model="form.item_description" :modal-size="modal_size" />
         </BCol>
@@ -93,6 +103,7 @@ export default {
       currentUrl: window.location.origin,
       form: useForm({
         id: null,
+        item_name: "",
         item_description: "",
         item_unit_type: null,
         item_unit_type_id: null,
@@ -126,7 +137,8 @@ export default {
     },
 
     isItemFormValid() {
-      return this.form.item_description &&
+      return this.form.item_name &&
+             this.form.item_description &&
              this.form.item_quantity &&
              this.form.item_unit_type_id &&
              this.form.item_unit_cost;
@@ -167,6 +179,7 @@ export default {
       this.editItem = item;
       this.editIndex = index;
       this.form.reset();
+      this.form.item_name = item.item_name || "";
       this.form.item_description = item.item_description;
       this.form.item_quantity = item.item_quantity;
       this.form.item_unit_cost = parseFloat(item.item_unit_cost);

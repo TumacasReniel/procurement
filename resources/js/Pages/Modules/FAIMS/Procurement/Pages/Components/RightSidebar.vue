@@ -19,12 +19,10 @@
           <h5 class="card-title mb-1">
             <span class="position-relative me-2">
               <i v-if="activeRightTab === 1" class="ri-chat-1-line"></i>
-              <i v-else-if="activeRightTab === 2" class="ri-file-list-line"></i>
             <span v-if="activeRightTab === 1 && commentCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">{{ commentCount }}</span>
-            <span v-if="activeRightTab === 2 && logsCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">{{ logsCount }}</span>
             </span>
             <span class="text-white">
-              {{ activeRightTab === 1 ? 'Procurement Comments' : 'Activity Logs' }}
+              Procurement Comments
             </span>
           </h5>
         </div>
@@ -55,12 +53,6 @@
               @click="showRightTab(1)"
             >
               <i class="ri-chat-1-line me-1"></i>Comments
-            </button>
-            <button
-              :class="['nav-link', activeRightTab === 2 ? 'active' : '']"
-              @click="showRightTab(2)"
-            >
-              <i class="ri-file-list-line me-1"></i>Logs
             </button>
           </div>
           <div v-if="activeRightTab === 1" class="comments-section">
@@ -335,23 +327,6 @@
             {{ commentCount }}
             </span>
           </button>
-          <button
-            :class="[
-              'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-              activeRightTab === 2
-                ? 'bg-primary text-white shadow-sm'
-                : 'bg-white text-dark hover-bg-light',
-            ]"
-            @click="showRightTab(2)"
-            style="transition: all 0.3s ease; width: 50px; height: 50px; position: relative;"
-            v-b-tooltip.hover
-            title="Logs"
-          >
-            <i class="ri-file-list-line fs-5"></i>
-            <span v-if="logsCount > 0" class="badge bg-danger" style="position: absolute; top: -5px; right: -5px; font-size: 0.9rem; padding: 0.2rem 0.4rem; font-weight: bold;">
-              {{ logsCount }}
-            </span>
-          </button>
         </div>
       </div>
     </div>
@@ -598,8 +573,8 @@ export default {
     },
   },
   mounted() {
-    const savedTab = parseInt(localStorage.getItem("activeRightTab")) || 1;
-    this.activeRightTab = [1, 2].includes(savedTab) ? savedTab : 1;
+    this.activeRightTab = 1;
+    localStorage.setItem("activeRightTab", "1");
     this.listenForComments();
   },
   methods: {
@@ -607,9 +582,8 @@ export default {
       this.$emit("toggleRightSidebar");
     },
     showRightTab(tab) {
-      const nextTab = [1, 2].includes(tab) ? tab : 1;
-      this.activeRightTab = nextTab;
-      localStorage.setItem("activeRightTab", nextTab);
+      this.activeRightTab = 1;
+      localStorage.setItem("activeRightTab", "1");
     },
     openStatusTip(statusName) {
       const assigned = this.getAssignedForStep(statusName);

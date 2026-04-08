@@ -36,6 +36,22 @@ class ViewClass
                         ->orWhere('created_at', 'LIKE', "%{$keyword}%")
                         ->orWhere('updated_at', 'LIKE', "%{$keyword}%");
                 })
+                ->when($request->report_type, function ($query, $reportType) {
+                    $modeNames = $this->modeNamesForReportType($reportType);
+
+                    if (empty($modeNames)) {
+                        $query->whereRaw('1 = 0');
+                    } else {
+                        $query->whereHas('codes.procurement_code.mode_of_procurement', function ($modeQuery) use ($modeNames) {
+                            $modeQuery->whereIn('name', $modeNames);
+                        });
+                    }
+                })
+                ->when($request->mode, function ($query, $mode) {
+                    $query->whereHas('codes.procurement_code', function ($codeQuery) use ($mode) {
+                        $codeQuery->where('mode_of_procurement_id', $mode);
+                    });
+                })
                 ->when($request->status, function ($query, $status) {
                     $query->where('status_id', $status);
                 })
@@ -52,6 +68,37 @@ class ViewClass
                 ->paginate($request->count)
         );
         return $data;
+    }
+
+    private function modeNamesForReportType($reportType)
+    {
+        $map = [
+            'goods_and_services' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Direct Contracting',
+                'Repeat Order',
+                'Shopping',
+                'Negotiated Procurement',
+                'Small Value Procurement',
+                'Lease of Venue and Community Facilities',
+                'Agency-to-Agency',
+            ],
+            'infrastructure' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Direct Contracting',
+                'Negotiated Procurement',
+                'Agency-to-Agency',
+            ],
+            'consulting' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Negotiated Procurement',
+            ],
+        ];
+
+        return $map[$reportType] ?? [];
     }
 
 
@@ -246,6 +293,7 @@ class ViewClass
             'items.item_unit_type',
             'items.status',
             'quotations.supplier',
+            'quotations.status',
             'quotations.items',
             'status',
             'sub_status',
@@ -318,7 +366,7 @@ class ViewClass
                         'approvers' => $this->dropdown->approvers(),
                         'supply_officers' => $this->dropdown->supply_officers(),
                         'suppliers' => $this->dropdown->suppliers(),
-                        'delivery_places' => $this->dropdown->dropdowns('Place of Delivery'),
+                        'delivery_places' => $this->dropdown->dropdowns('Station'),
                         'roles' => $this->dropdown->roles(),
                     ],
                     'tab' => $request->tab,
@@ -360,6 +408,7 @@ class ViewClass
                     'approved_by.profile',
                     'items.item_unit_type',
                     'quotations.supplier',
+                    'quotations.status',
                     'quotations.items',
                     'status',
                     'sub_status',
@@ -448,7 +497,7 @@ class ViewClass
 
             case 'purchase_order':
                 $noa = ProcurementBacNoa::with('purchase_order', 'procurement_quotation.supplier.address', 'items', )->findOrFail($request->noa_id);
-                $procurement = Procurement::with('division', 'unit', 'codes', 'items', 'approved_by.profile', 'items.item_unit_type', 'quotations.supplier', 'quotations.items', 'status', 'sub_status', 'requested_by', 'created_by', 'comments.user.profile', 'comments.replies.user.profile')->findOrFail($id);
+                $procurement = Procurement::with('division', 'unit', 'codes', 'items', 'approved_by.profile', 'items.item_unit_type', 'quotations.supplier', 'quotations.status', 'quotations.items', 'status', 'sub_status', 'requested_by', 'created_by', 'comments.user.profile', 'comments.replies.user.profile')->findOrFail($id);
                 return inertia('Modules/FAIMS/Procurement/View', [
                     'dropdowns' => [
                         'delivery_places' => $this->dropdown->dropdowns('Place of Delivery'),

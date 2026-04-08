@@ -4,9 +4,9 @@
     <title>Notice of Award</title>
     <style>
         @page { 
-            margin: 10px 50px 50px 50px;
+            margin: 10px 50px 35px 50px;
         }
-        body { font-family: Arial, sans-serif; font-size: 9px; margin: 0; }
+        body { font-family: Arial, sans-serif; font-size: 8px; margin: 0; }
 
         .content {
             margin-bottom: 20px;
@@ -19,6 +19,14 @@
             table-layout: fixed;
         }
 
+        .meta-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid black;
+            table-layout: fixed;
+            margin-bottom: 8px;
+        }
+
         /* Forces header to repeat on every page */
         thead { display: table-header-group; }
         
@@ -27,8 +35,14 @@
 
         .main-table th, .main-table td { 
             border: 1px solid black; 
-            padding: 5px; 
+            padding: 4px; 
             vertical-align: top;
+            word-wrap: break-word;
+        }
+
+        .meta-table td {
+            border: 1px solid black;
+            padding: 4px;
             word-wrap: break-word;
         }
 
@@ -51,88 +65,182 @@
             page-break-inside: avoid;
             line-height: 1; 
             font-size: 10px;
-            position: fixed;
-            bottom: -20px;
-            left: 0;
-            right: 0;
+            margin-top: 18px;
         }
 
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .bold { font-weight: bold; }
+        .description-cell {
+            font-size: 7px;
+            line-height: 1.2;
+        }
+
+        .description-continuation {
+            text-align: left;
+            white-space: pre-line;
+        }
+
+        .continuation-row td {
+            border-top: 0;
+        }
+
+        .row-fragment-start td {
+            border-bottom: 1px solid black;
+        }
+
+        .row-fragment-middle td {
+            border-top: 0;
+            border-bottom: 1px solid black;
+        }
+
+        .row-fragment-end td {
+            border-top: 0;
+            border-bottom: 1px solid black;
+        }
+
     </style>
 </head>
 <body>
 
-    <div class="text-center">
-        <img src="{{ public_path('/images/logo-sm.png') }}" alt="Logo Left" style="float:left; height:50px; width: 50px" >
-        <div style="line-height: .1">
-            <p>Republic of the Philippines</p>
-            <h3>Department of Science and Technology</h3>
-            <p>Regional Office No. IX</p>
+    @php
+        $quotationChunks = collect($quotations)->chunk(5);
+        $items = count($quotations) > 0 ? $quotations[0]->items : collect();
+
+        $splitDescriptionChunks = function ($html, $preferSingleRow = false) {
+            $text = (string) $html;
+            $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+            $text = preg_replace('/<\/p>/i', "\n", $text);
+            $text = preg_replace('/<\/div>/i', "\n", $text);
+            $text = preg_replace('/<\/li>/i', "\n", $text);
+            $text = preg_replace('/<li[^>]*>/i', '- ', $text);
+            $text = strip_tags($text);
+            $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $text = preg_replace("/\r\n|\r/", "\n", $text);
+
+            $lines = collect(explode("\n", $text))
+                ->map(fn ($line) => trim(preg_replace('/\s+/', ' ', $line)))
+                ->filter(fn ($line) => $line !== '')
+                ->values();
+
+            if ($lines->isEmpty()) {
+                return collect(['']);
+            }
+
+            if ($preferSingleRow && $lines->count() <= 55) {
+                return collect([$lines->implode("\n")]);
+            }
+
+            return $lines->chunk(55)->map(fn ($chunk) => $chunk->implode("\n"))->values();
+        };
+    @endphp
+
+    @foreach ($quotationChunks as $chunkIndex => $quotationChunk)
+        <div class="text-center">
+            <img src="{{ public_path('/images/logo-sm.png') }}" alt="Logo Left" style="float:left; height:50px; width: 50px" >
+            <div style="line-height: .1">
+                <p>Republic of the Philippines</p>
+                <h3>Department of Science and Technology</h3>
+                <p>Regional Office No. IX</p>
+            </div>
         </div>
-    </div>
 
-    <center style="margin-right:-30px"> <h2>ABSTRACT OF BIDS</h2></center>
+        <center style="margin-right:-30px"> <h2>ABSTRACT OF BIDS</h2></center>
 
-
-    <table class="main-table">
-        <thead>
-            <tr>
-                <td style="text-align: left;" colspan="2">Standard Form Number:</td>
-                <td style="text-align: left;" colspan="{{ count($quotations) + 1 }}">Project Reference No.:</td>
-            </tr>
-            <tr>
-                <td style="text-align: left;" colspan="2">Revised Date:</td>
-                <td style="text-align: left;" colspan="2">Name of the Project:</td>
-                <td style="text-align: left;" colspan="{{ count($quotations) - 1 }}">Location of the Project:</td>
-            </tr>
-            <tr>
-                <th style="width:5%">Item No.</th>
-                <th style="width:12%">Quantity/Unit</th>
-                <th style="width:35%">Description</th>
-                @foreach ($quotations as $quotation)
-                    <th style="width:auto">{{ $quotation->supplier->name }}</th>
-                @endforeach
-            </tr>
-        </thead>
-        <tbody>
-            @php
-                $items = $quotations[0]->items;
-            @endphp
-
-            @foreach ($items as $index => $item)
+        <table class="meta-table">
+            <tbody>
                 <tr>
-                    <td class="text-center">{{ $index + 1 }}</td>
-                    <td class="text-center">
-                        {{ $item->item->item_quantity }} 
-                        {{ $item->item->item_quantity > 1 ? $item->item->item_unit_type->name_long : $item->item->item_unit_type->name_short }}
-                    </td>
-                    <td> 
-                        <div style="margin-top: -5px">
-                            {!! $item->item->item_description !!}
-                        </div>
-                    </td>
+                    <td style="text-align: left;" colspan="2">Standard Form Number:</td>
+                    <td style="text-align: left;" colspan="{{ $quotationChunk->count() + 1 }}">Project Reference No.:</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;" colspan="2">Revised Date:</td>
+                    <td style="text-align: left;" colspan="2">Name of the Project:</td>
+                    <td style="text-align: left;" colspan="{{ max($quotationChunk->count() - 1, 1) }}">Location of the Project:</td>
+                </tr>
+            </tbody>
+        </table>
 
-                    @foreach ($quotations as $quotation)
-                        <td class="text-center">
-                            @php
-                                $price = $quotation->items[$index]->bid_price;
-                            @endphp
-
-                            @if ($quotation->items[$index]->is_free)
-                                free
-                            @elseif (is_null($price) || (float) $price <= 0)
-                                No Bid
-                            @else
-                                {{ number_format($price, 2) }}
-                            @endif
-                        </td>
+        <table class="main-table">
+            <thead>
+                <tr>
+                    <th style="width:4%">Item No.</th>
+                    <th style="width:10%">Quantity/Unit</th>
+                    <th style="width:42%">Description</th>
+                    @foreach ($quotationChunk as $quotation)
+                        <th style="width:auto">{{ $quotation->supplier->name }}</th>
                     @endforeach
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach ($items as $index => $item)
+                    @php
+                        $descriptionChunks = $splitDescriptionChunks(
+                            $item->item->item_description,
+                            $items->count() === 1
+                        );
+                    @endphp
+
+                    @foreach ($descriptionChunks as $chunkIndex => $descriptionChunk)
+                        @php
+                            $rowClass = '';
+
+                            if ($descriptionChunks->count() > 1) {
+                                if ($chunkIndex === 0) {
+                                    $rowClass = 'row-fragment-start';
+                                } elseif ($chunkIndex === $descriptionChunks->count() - 1) {
+                                    $rowClass = 'row-fragment-end';
+                                } else {
+                                    $rowClass = 'row-fragment-middle';
+                                }
+                            } elseif ($chunkIndex > 0) {
+                                $rowClass = 'continuation-row';
+                            }
+                        @endphp
+                        <tr class="{{ $rowClass }}">
+                            @if ($chunkIndex === 0)
+                                <td class="text-center">{{ $index + 1 }}</td>
+                                <td class="text-center">
+                                    {{ $item->item->item_quantity }}
+                                    {{ $item->item->item_quantity > 1 ? $item->item->item_unit_type->name_long : $item->item->item_unit_type->name_short }}
+                                </td>
+
+                                <td class="description-cell description-continuation">{{ $descriptionChunk }}</td>
+
+                                @foreach ($quotationChunk as $quotation)
+                                    <td class="text-center">
+                                        @php
+                                            $quotationItem = $quotation->items[$index] ?? null;
+                                            $price = $quotationItem?->bid_price;
+                                        @endphp
+
+                                        @if ($quotationItem?->is_free)
+                                            free
+                                        @elseif (is_null($price) || (float) $price <= 0)
+                                            No Bid
+                                        @else
+                                            {{ number_format($price, 2) }}
+                                        @endif
+                                    </td>
+                                @endforeach
+                            @else
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td class="description-cell description-continuation">{{ $descriptionChunk }}</td>
+                                @foreach ($quotationChunk as $quotation)
+                                    <td>&nbsp;</td>
+                                @endforeach
+                            @endif
+                        </tr>
+                    @endforeach
+                @endforeach
+            </tbody>
+        </table>
+
+        @if (! $loop->last)
+            <div style="page-break-after: always;"></div>
+        @endif
+    @endforeach
 
 
     <div class="footer-assig">

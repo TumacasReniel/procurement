@@ -9,11 +9,15 @@ use App\Models\ProcurementBac;
 use App\Models\ProcurementBacNoa;
 use App\Models\ProcurementNoaPo;
 use App\Models\ProcurementPoNtp;
+use App\Models\ListDropdown;
+use App\Models\OrgChart;
+use App\Models\User;
 
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
 use App\Http\Resources\FAIMS\Procurement\ProcurementQuotationResource;
 use Illuminate\Support\Facades\Auth;
 use NumberFormatter;
+use Carbon\Carbon;
 
 
 
@@ -53,6 +57,113 @@ class PrintClass
                 return $this->printIAR($id);
             break;
         }
+    }
+
+    public function printReport($request){
+        $reportType = $request->report_type ?: 'goods_and_services';
+        $dateFilterType = $request->date_filter_type ?: 'monthly';
+        $year = (int) ($request->year ?: now()->year);
+        $month = str_pad((string) ($request->month ?: now()->format('m')), 2, '0', STR_PAD_LEFT);
+        $quarter = $request->quarter ?: 'Q1';
+
+        $query = Procurement::with([
+            'status',
+            'codes.procurement_code.mode_of_procurement',
+        ])
+        ->when($request->keyword, function ($query, $keyword) {
+            $query->where(function ($inner) use ($keyword) {
+                $inner->where('code', 'LIKE', "%{$keyword}%")
+                    ->orWhere('date', 'LIKE', "%{$keyword}%")
+                    ->orWhere('created_at', 'LIKE', "%{$keyword}%")
+                    ->orWhere('updated_at', 'LIKE', "%{$keyword}%");
+            });
+        })
+        ->when($request->status, function ($query, $status) {
+            $query->where('status_id', $status);
+        });
+
+        $modeNames = $this->modeNamesForReportType($reportType);
+        if (empty($modeNames)) {
+            $query->whereRaw('1 = 0');
+        } else {
+            $query->whereHas('codes.procurement_code.mode_of_procurement', function ($modeQuery) use ($modeNames) {
+                $modeQuery->whereIn('name', $modeNames);
+            });
+        }
+
+        $procurements = $query->orderBy('created_at', 'DESC')->get()->filter(function ($item) use ($dateFilterType, $year, $month, $quarter, $request) {
+            if (!$item->date) {
+                return true;
+            }
+
+            $itemDate = $this->parseReportDate($item->date);
+            if (!$itemDate) {
+                return true;
+            }
+
+            if ($dateFilterType === 'quarterly') {
+                $monthNumber = $itemDate->month;
+                $itemQuarter = $monthNumber <= 3 ? 'Q1' : ($monthNumber <= 6 ? 'Q2' : ($monthNumber <= 9 ? 'Q3' : 'Q4'));
+
+                return $itemQuarter === $quarter && $itemDate->year === $year;
+            }
+
+            if ($dateFilterType === 'yearly') {
+                return $itemDate->year === $year;
+            }
+
+            if ($dateFilterType === 'range') {
+                $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : null;
+                $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : null;
+
+                if ($startDate && $itemDate->lt($startDate)) {
+                    return false;
+                }
+
+                if ($endDate && $itemDate->gt($endDate)) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            return $itemDate->year === $year && $itemDate->format('m') === $month;
+        })->values();
+
+        $signatories = $this->reportSignatories();
+        $preparedBy = collect($signatories['prepared_by'] ?? [])->values();
+        if ($preparedBy->isEmpty()) {
+            $preparedBy = collect([
+                ['name' => 'N/A', 'role' => 'Procurement Staff'],
+            ]);
+        }
+
+        $array = [
+            'procurements' => $procurements,
+            'report_type' => $reportType,
+            'date_filter_type' => $dateFilterType,
+            'month' => $month,
+            'quarter' => $quarter,
+            'year' => $year,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'signatories' => $signatories,
+            'prepared_by_signatories' => $preparedBy,
+            'supply_officer' => $signatories['supply_officer'] ?? null,
+            'noted_by' => $signatories['noted_by'] ?? null,
+            'fo_label' => $this->foLabelForReportType($reportType),
+            'report_subtitle' => $this->reportSubtitleForType($reportType),
+            'report_period_label' => $this->reportPeriodLabel($dateFilterType, $month, $quarter, $year, $request->start_date, $request->end_date),
+        ];
+
+        $pdf = \PDF::loadView('FAIMS.Procurement.prints.procurement-report', $array)
+            ->setPaper('A4', 'landscape')
+            ->setOption([
+                'isPhpEnabled' => true,
+                'isRemoteEnabled' => true,
+            ]);
+
+        return $pdf->stream('procurement-report-'.$this->fileSafePeriodLabel($dateFilterType, $month, $quarter, $year, $request->start_date, $request->end_date).'.pdf');
     }
 
     public function printPR($id){
@@ -330,6 +441,155 @@ class PrintClass
 
     return ucwords($words);
 }
+
+    private function modeNamesForReportType($reportType): array
+    {
+        $map = [
+            'goods_and_services' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Direct Contracting',
+                'Repeat Order',
+                'Shopping',
+                'Negotiated Procurement',
+                'Small Value Procurement',
+                'Lease of Venue and Community Facilities',
+                'Agency-to-Agency',
+            ],
+            'infrastructure' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Direct Contracting',
+                'Negotiated Procurement',
+                'Agency-to-Agency',
+            ],
+            'consulting' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Negotiated Procurement',
+            ],
+        ];
+
+        return $map[$reportType] ?? [];
+    }
+
+    private function reportSignatories(): array
+    {
+        $procurementStaff = User::with('profile')
+            ->whereHas('roles', function ($query) {
+                $query->where('list_roles.name', 'Procurement Staff');
+            })
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'name' => strtoupper($user->profile?->full_name ?? ('USER #' . $user->id)),
+                    'role' => 'Procurement Staff',
+                ];
+            })
+            ->values()
+            ->all();
+
+        $supplyOfficer = User::with('profile')
+            ->whereHas('roles', function ($query) {
+                $query->where('list_roles.name', 'Supply Officer');
+            })
+            ->first();
+
+        $assistantRegionalDirector = OrgChart::with('user.profile', 'designation')
+            ->where('designation_id', ListDropdown::getID('Assistant Regional Director', 'Designation'))
+            ->first();
+
+        return [
+            'prepared_by' => array_slice($procurementStaff, 0, 2),
+            'supply_officer' => $supplyOfficer ? [
+                'name' => strtoupper($supplyOfficer->profile?->full_name ?? ('USER #' . $supplyOfficer->id)),
+                'role' => 'Supply Officer',
+            ] : null,
+            'noted_by' => $assistantRegionalDirector ? [
+                'name' => strtoupper($assistantRegionalDirector->user?->profile?->full_name ?? ''),
+                'designation' => 'ARD-FASS',
+            ] : null,
+        ];
+    }
+
+    private function parseReportDate($date): ?Carbon
+    {
+        if ($date instanceof \DateTimeInterface) {
+            return Carbon::instance($date);
+        }
+
+        $raw = trim((string) $date);
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw);
+        } catch (\Throwable $e) {
+            $formats = ['F j, Y', 'Y-m-d', 'm/d/Y', 'd/m/Y'];
+
+            foreach ($formats as $format) {
+                try {
+                    return Carbon::createFromFormat($format, $raw);
+                } catch (\Throwable $inner) {
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function reportSubtitleForType($reportType): string
+    {
+        return match ($reportType) {
+            'infrastructure' => 'INFRASTRUCTURE PROJECTS',
+            'consulting' => 'CONSULTING SERVICES',
+            default => 'GOODS AND SERVICES',
+        };
+    }
+
+    private function foLabelForReportType($reportType): string
+    {
+        return match ($reportType) {
+            'infrastructure' => 'For Infrastructure Projects',
+            'consulting' => 'For Consulting Services',
+            default => 'For Goods and Services',
+        };
+    }
+
+    private function reportPeriodLabel($dateFilterType, $month, $quarter, $year, $startDate, $endDate): string
+    {
+        if ($dateFilterType === 'quarterly') {
+            return "Quarter of {$quarter}, {$year}";
+        }
+
+        if ($dateFilterType === 'yearly') {
+            return "Year of {$year}";
+        }
+
+        if ($dateFilterType === 'range') {
+            return 'Date Range: '.($startDate ?: '-').' to '.($endDate ?: '-');
+        }
+
+        return 'Month of '.Carbon::createFromDate($year, (int) $month, 1)->format('F Y');
+    }
+
+    private function fileSafePeriodLabel($dateFilterType, $month, $quarter, $year, $startDate, $endDate): string
+    {
+        if ($dateFilterType === 'quarterly') {
+            return strtolower($quarter).'-'.$year;
+        }
+
+        if ($dateFilterType === 'yearly') {
+            return (string) $year;
+        }
+
+        if ($dateFilterType === 'range') {
+            return ($startDate ?: 'start').'-to-'.($endDate ?: 'end');
+        }
+
+        return $year.'-'.$month;
+    }
 
       
 

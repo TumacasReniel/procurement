@@ -235,6 +235,7 @@
                       <tr>
                         <th class="text-center">#</th>
                         <th class="text-center">Status</th>
+                        <th>Item Name</th>
                         <th>Description</th>
                         <th class="text-center">Qty</th>
                         <th class="text-center">Unit</th>
@@ -258,6 +259,9 @@
                             {{ item.status?.name }}
                           </b-badge>
                           <span v-else class="text-muted">-</span>
+                        </td>
+                        <td class="item-name">
+                          {{ item.item_name || "-" }}
                         </td>
                         <td class="item-description">
                           <span v-html="item.item_description"></span>
@@ -292,7 +296,7 @@
                     </tbody>
                     <tfoot>
                       <tr class="grand-total-row">
-                        <td colspan="6" class="text-end grand-total-label">
+                        <td colspan="7" class="text-end grand-total-label">
                           Grand Total:
                         </td>
                         <td class="text-end grand-total-amount">

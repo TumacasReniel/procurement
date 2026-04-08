@@ -804,9 +804,13 @@ export default {
       submission_not_later_than_with_format,
       bidders
     ) {
-      // Filter rfq suppliers who bid same bid items
-      const reawarded_quotations = this.procurement.quotations.filter((quotation) =>
-        quotation.items.some((item) => item.status.name = 'Awarded' && item.bid_price != null)
+      const reawardStatuses = ["Awarded", "Available for Re-award"];
+      const reawarded_quotations = (this.procurement.quotations || []).filter((quotation) =>
+        (quotation.items || []).some(
+          (item) =>
+            reawardStatuses.includes(item.status?.name) &&
+            item.bid_price != null
+        )
       );
 
       const bidder_count = new Set(bidders).size;
@@ -817,12 +821,14 @@ export default {
       let counter = 2;
       const reawarded_quotations_list = reawarded_quotations
         .map((quotation) => {
-          const filtered_items = quotation.items.filter((item) => item.status.name === 'Awarded');
+          const filtered_items = (quotation.items || []).filter((item) =>
+            reawardStatuses.includes(item.status?.name) && item.bid_price != null
+          );
           if (filtered_items.length === 0) return "";
           const item_numbers = filtered_items.map((item) => item.item.item_no).join(", ");
           const total_price = filtered_items.reduce((sum, item) => {
-            const bp = parseFloat(item.bid_price);
-            const bq = parseFloat(item.item.item_quantity);
+            const bp = parseFloat(item.bid_price) || 0;
+            const bq = parseFloat(item.item.item_quantity) || 0;
             return sum + bp * bq;
           }, 0);
           const roman = this.toRoman(counter++);
@@ -848,17 +854,16 @@ export default {
         .join(", ")
         .toUpperCase();
 
-      // === CORRECT total accumulation across reawarded bids ===
-      const reawarded_bid_total_price = reawarded_quotations.reduce((total, bid) => {
-        const filtered_bid_details = (bid.bid_items || []).filter(
-          (bid_item) => bid_item.status.name == "Awarded"
+      const reawarded_bid_total_price = reawarded_quotations.reduce((total, quotation) => {
+        const filtered_items = (quotation.items || []).filter(
+          (item) => reawardStatuses.includes(item.status?.name) && item.bid_price != null
         );
-        const total_price_for_bid = filtered_bid_details.reduce((sum, detail) => {
-          const bp = parseFloat(detail.item_bid_price) || 0;
-          const bq = parseFloat(detail.item_quantity) || 0;
+        const total_price_for_bid = filtered_items.reduce((sum, item) => {
+          const bp = parseFloat(item.bid_price) || 0;
+          const bq = parseFloat(item.item.item_quantity) || 0;
           return sum + bp * bq;
         }, 0);
-        return total + total_price_for_bid; // accumulate correctly
+        return total + total_price_for_bid;
       }, 0);
 
       const reaward_total_amount_contract_in_words = this.numberToWords(
@@ -868,7 +873,7 @@ export default {
       const reawarded_table_rows = reawarded_quotations
         .map((quotation) => {
           const filtered_items = (quotation.items || []).filter(
-            (item) => item.status.name = 'Awarded'
+            (item) => reawardStatuses.includes(item.status?.name) && item.bid_price != null
           );
           if (filtered_items.length === 0) return null;
           const item_ids = filtered_items.map((item) => item.item.item_no).join(", ");
@@ -882,7 +887,7 @@ export default {
         .filter((row) => row !== null);
 
       const reawarded_table_html =
-        bidder_count.length > 2
+        bidder_count > 2
           ? `
         <b>WHEREAS</b>, after thorough evaluation on the technical specifications of the bidders, the BAC
         determined the following:
@@ -941,6 +946,11 @@ export default {
           <p style="text-align: justify;  margin-bottom: 1em; ">
             <b>WHEREAS</b>, among the above-mentioned bidders, ${reawarded_supplier_names} responded by submitting
             its price quotation to the BAC before opening of bids on ${submission_not_later_than_with_format}.
+          </p>
+
+          <p style="text-align: justify;  margin-bottom: 1em; ">
+            <b>WHEREAS</b>, the total contract amount for the re-award recommendation is
+            <b>PHP ${Number(reawarded_bid_total_price).toLocaleString()}</b> (${reaward_total_amount_contract_in_words});
           </p>
 
           ${reawarded_table_html}

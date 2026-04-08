@@ -3,9 +3,11 @@
     v-model="showModal"
     header-class="p-3"
     title="Save Bids For Award?"
-    size="xl"
+    fullscreen
     class="v-modal-custom"
-    modal-class="zoomIn"
+    modal-class="zoomIn award-fullscreen-modal"
+    content-class="award-fullscreen-content"
+    body-class="award-fullscreen-body"
     centered
     no-close-on-backdrop
   >
@@ -343,5 +345,18 @@ th {
 }
 th {
   text-align: center;
+}
+
+:deep(.award-fullscreen-modal) {
+  padding: 0 !important;
+}
+
+:deep(.award-fullscreen-content) {
+  min-height: 100vh;
+  border-radius: 0;
+}
+
+:deep(.award-fullscreen-body) {
+  overflow-y: auto;
 }
 </style>

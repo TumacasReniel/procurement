@@ -77,6 +77,7 @@ class ProcurementClass
             $data->item_no = $index + 1;
             $data->procurement_id = $procurement_id;
             $data->item_unit_type_id =  $item['item_unit_type_id'];
+            $data->item_name = $item['item_name'] ?? null;
             $data->item_unit_cost = $item['item_unit_cost'];
             $data->item_quantity = $item['item_quantity'];
             $data->item_description = $item['item_description'];
