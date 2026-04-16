@@ -4,8 +4,6 @@ namespace App\Http\Resources\FAIMS\Procurement;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Carbon\Carbon;
-
 
 class SupplierResource extends JsonResource
 {
@@ -18,13 +16,22 @@ class SupplierResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'name'  => $this->name,
-            'code'  => $this->code,
+            'name' => $this->name,
+            'code' => $this->code,
             'is_active' => $this->is_active,
+            'status' => [
+                'name' => $this->is_active ? 'Active' : 'Inactive',
+                'bg' => $this->is_active ? 'bg-success' : 'bg-secondary',
+            ],
             'created_at' => $this->created_at,
-            'conformes'  => $this->conformes,
-            'address'  => $this->address ? $this->address->address : null,
-            'attachments'  => $this->attachments,
+            'updated_at' => $this->updated_at,
+            'created_by' => $this->created_by?->profile?->full_name ?? 'System',
+            'created_by_id' => $this->user_id,
+            'address' => $this->address?->address,
+            'conformes_count' => $this->conformes_count ?? ($this->conformes?->count() ?? 0),
+            'attachments_count' => $this->attachments_count ?? ($this->attachments?->count() ?? 0),
+            'conformes' => $this->conformes,
+            'attachments' => $this->attachments,
         ];
     }
 }

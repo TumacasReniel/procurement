@@ -89,7 +89,9 @@
                 <tr class="fs-11">
                   <th style="width: 3%" class="text-center">#</th>
                   <th style="width: 10%">Code</th>
-                  <th style="width: 14%" class="text-center">PO Date</th>
+                  <th style="width: 14%; min-width: 140px;" class="text-center text-nowrap">PO Date</th>
+                  <th style="width: 14%; min-width: 140px;" class="text-center text-nowrap">Released At</th>
+                  <th style="width: 14%; min-width: 140px;" class="text-center text-nowrap">Conformed At</th>
                   <th style="width: 10%" class="text-center">Delivery Term</th>
                   <th style="width: 10%" class="text-center">Payment Term</th>
                   <th style="width: 10%" class="text-center">Date of delivery</th>
@@ -107,7 +109,15 @@
                   <td>
                     <h5 class="fs-13 mb-0 fw-semibold text-primary">{{ list.code }}</h5>
                   </td>
-                  <td class="text-center">{{ list.po_date }}</td>
+                  <td class="text-center text-nowrap">{{ list.po_date }}</td>
+                  <td class="text-center text-nowrap">
+                    <span v-if="list.released_at" class="text-nowrap">{{ list.released_at }}</span>
+                    <span v-else class="text-muted text-nowrap">Not yet</span>
+                  </td>
+                  <td class="text-center text-nowrap">
+                    <span v-if="list.conformed_at" class="text-nowrap">{{ list.conformed_at }}</span>
+                    <span v-else class="text-muted text-nowrap">Not yet</span>
+                  </td>
                   <td class="text-center">
                     {{ list.delivery_term }}
                   </td>
@@ -177,6 +187,7 @@
                       </b-button>
 
                       <b-button
+                        v-if="list.status.name == 'Delivered/For Inspection' || list.status.name == 'Completed'"
                         @click="openPrintIAR(list)"
                         size="sm"
                         variant="secondary"
@@ -208,17 +219,19 @@
     </div>
   </BRow>
     <Inspection :procurement="procurement" @add="fetch()" ref="inspection" />
+    <IARItemSelection @updated="fetch()" ref="iarSelection" />
 </template>
 <script>
 import _ from "lodash";
 
 import Inspection from "../Modals/Inspection.vue";
+import IARItemSelection from "../Modals/IARItemSelection.vue";
 import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import { router } from "@inertiajs/vue3";
 export default {
-  components: { PageHeader, Pagination, Multiselect, Inspection },
+  components: { PageHeader, Pagination, Multiselect, Inspection, IARItemSelection },
   props: ['dropdowns'],
   computed: {
     canAccessInspectionTab() {
@@ -335,7 +348,7 @@ export default {
     },
 
     openPrintIAR(data) {
-      window.open(`/faims/purchase-orders/${data.id}?option=print&type=iar`);
+      this.$refs.iarSelection.show(data);
     },
 
     refresh() {

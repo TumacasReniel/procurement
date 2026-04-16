@@ -87,7 +87,7 @@
                 <tr class="fs-11">
                   <th style="width: 3%" class="text-center">#</th>
                   <th style="width: 10%">Code</th>
-                  <th style="width: 14%" class="text-center">PO Date</th>
+                  <th style="width: 18%; min-width: 220px;" class="text-center">PO Dates</th>
                   <th style="width: 10%" class="text-center">Delivery Term</th>
                   <th style="width: 10%" class="text-center">Payment Term</th>
                   <th style="width: 10%" class="text-center">Date of delivery</th>
@@ -105,7 +105,26 @@
                   <td>
                     <h5 class="fs-13 mb-0 fw-semibold text-primary">{{ list.code }}</h5>
                   </td>
-                  <td class="text-center">{{ list.po_date }}</td>
+                  <td>
+                    <div class="po-date-stack">
+                      <div class="po-date-row">
+                        <span class="po-date-label">PO Date</span>
+                        <span class="po-date-value">{{ list.po_date }}</span>
+                      </div>
+                      <div class="po-date-row">
+                        <span class="po-date-label">Released Date</span>
+                        <span :class="['po-date-value', { 'text-muted': !list.released_at }]">
+                          {{ list.released_at || "Not yet" }}
+                        </span>
+                      </div>
+                      <div class="po-date-row">
+                        <span class="po-date-label">Conformed Date</span>
+                        <span :class="['po-date-value', { 'text-muted': !list.conformed_at }]">
+                          {{ list.conformed_at || "Not yet" }}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
                   <td class="text-center">
                     {{ list.delivery_term }}
                   </td>
@@ -162,15 +181,7 @@
                         <i class="ri-printer-line"></i>
                       </button>
 
-                      <button
-                        v-if="list.status.name == 'Delivered/For Inspection' || list.status.name == 'Completed'"
-                        @click="openPrintIAR(list)"
-                        class="btn btn-info btn-sm"
-                        v-b-tooltip.hover
-                        title="Print IAR"
-                      >
-                        <i class="ri-printer-fill"></i>
-                      </button>
+                 
                     </div>
                   </td>
                 </tr>
@@ -203,18 +214,20 @@
     </div>
   </BRow>
   <Inspection :procurement="procurement" @add="fetch()" ref="inspection" />
+  <IARItemSelection @updated="fetch()" ref="iarSelection" />
 </template>
 <script>
 import _ from "lodash";
 
 import Inspection from "../Modals/Inspection.vue";
+import IARItemSelection from "../Modals/IARItemSelection.vue";
 import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import { router } from "@inertiajs/vue3";
 
 export default {
-  components: { PageHeader, Pagination, Multiselect, Inspection },
+  components: { PageHeader, Pagination, Multiselect, Inspection, IARItemSelection },
   props: ["dropdowns", "procurement"],
   computed: {
     canAccessInspectionTab() {
@@ -334,9 +347,6 @@ export default {
       window.open(`/faims/purchase-orders/${data.id}?option=print&type=purchase_order`);
     },
 
-    openPrintIAR(data) {
-      window.open(`/faims/purchase-orders/${data.id}?option=print&type=iar`);
-    },
 
     refresh() {
       this.filter.expense = null;
@@ -347,3 +357,32 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.po-date-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 190px;
+}
+
+.po-date-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.po-date-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.po-date-value {
+  color: #0f172a;
+  font-weight: 500;
+}
+</style>

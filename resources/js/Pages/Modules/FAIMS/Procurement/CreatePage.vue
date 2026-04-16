@@ -45,22 +45,7 @@
     <!-- Main Content -->
     <div class="container-fluid">
       <div class="row d-flex">
-        <div :class="[
-          'transition-all',
-          option == 'create' ? 'col-md-12' : (isRightCollapsed ? 'col-md-11' : 'col-md-9'),
-        ]" style="transition: all 0.3s ease; height: 100%; overflow: hidden">
-        </div>
-        </div>
-        </div>
-        
-
-    <!-- Main Content -->
-    <div class="container-fluid">
-      <div class="row d-flex">
-        <div :class="[
-          'transition-all',
-          option == 'create' ? 'col-md-12' : (isRightCollapsed ? 'col-md-11' : 'col-md-9'),
-        ]" style="transition: all 0.3s ease; height: 100%; overflow: hidden; ">
+        <div class="col-12" style="transition: all 0.3s ease; height: 100%; overflow: hidden;">
 
           <div class="content-wrapper">
             <form class="customform">
@@ -131,9 +116,30 @@
                               :options="dropdowns.procurement_codes"
                               v-model="form.procurement_code_ids"
                               :searchable="true"
-                              label="code"
+                              label="label"
                               placeholder="Select PAP Codes"
                               mode="tags"
+                              class="modern-select"
+                            />
+                          </div>
+                        </div>
+
+                        <div
+                          v-if="showClassificationField"
+                          class="col-12"
+                        >
+                          <div class="form-group">
+                            <InputLabel
+                              for="classification"
+                              value="Classification"
+                              :message="form.errors.classification_id"
+                            />
+                            <Multiselect
+                              :options="classificationOptions"
+                              v-model="form.classification_id"
+                              :searchable="true"
+                              label="name"
+                              placeholder="Select Classification"
                               class="modern-select"
                             />
                           </div>
@@ -354,6 +360,7 @@
 
                       <b-button
                         v-if="option == 'review'"
+                        :disabled="!canReviewRequest"
                         @click="review(form)"
                         variant="success"
                         size="sm"
@@ -389,21 +396,19 @@
                   </div>
                 </div>
               </div>
-
-            
             </form>
           </div>
         </div>
-
-        <RightSidebar
-          v-if="option != 'create'"
-          :procurement="procurement"
-          :logs="logs"
-          :isRightCollapsed="isRightCollapsed"
-          @toggleRightSidebar="toggleRightSidebar"
-        />
       </div>
     </div>
+
+    <RightSidebar
+      v-if="option != 'create'"
+      :procurement="procurement"
+      :logs="logs"
+      :isRightCollapsed="isRightCollapsed"
+      @toggleRightSidebar="toggleRightSidebar"
+    />
 
     <Item :dropdowns="dropdowns" @refresh="getDataFromLocalStorage()" ref="item" />
   </div>
@@ -434,6 +439,7 @@ export default {
         division_id: null,
         unit_id: null,
         fund_cluster_id: null,
+        classification_id: null,
         items: null,
         requested_by_id: null,
         approved_by_id: null,
@@ -478,6 +484,7 @@ export default {
         this.form.division_id = this.procurement.division_id;
         this.form.unit_id = this.procurement.unit_id;
         this.form.fund_cluster_id = this.procurement.fund_cluster_id;
+        this.form.classification_id = this.procurement.classification_id;
         this.form.procurement_code_ids = this.procurement.codes.map(
           (code) => code.procurement_code_id
         );
@@ -496,6 +503,20 @@ export default {
       return this.form.items.reduce((sum, item) => {
         return sum + (parseFloat(item.total_cost) || 0);
       }, 0);
+    },
+    showClassificationField() {
+      return ["review", "approve"].includes(this.option) || Boolean(this.form.classification_id);
+    },
+    classificationOptions() {
+      const options =
+        this.dropdowns?.classifications ??
+        this.dropdowns?.procurement_classifications ??
+        [];
+
+      return Array.isArray(options) ? options : Object.values(options);
+    },
+    canReviewRequest() {
+      return Boolean(this.form.classification_id);
     },
 
     isFormValid() {
@@ -799,6 +820,14 @@ export default {
 .content-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+}
+
+.classification-helper-text {
+  display: inline-block;
+  margin-top: 0.45rem;
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.5;
 }
 
 .card-header-custom {

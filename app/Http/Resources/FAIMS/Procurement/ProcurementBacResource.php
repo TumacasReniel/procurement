@@ -24,6 +24,7 @@ class ProcurementBACResource extends JsonResource
             'procurement' => $this->whenLoaded('procurement'),
             'created_by'  =>  $this->created_by,
             'approved_by'  => $this->approved_by ,
+            'approved_at' => $this->approved_at?->format('F j, Y'),
             'status'  => $this->status,
             'created_at' => (new \DateTime($this->created_at))->format('F j, Y'),
         ];

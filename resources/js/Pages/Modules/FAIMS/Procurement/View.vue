@@ -2,94 +2,6 @@
   <Head title="Profile" />
   <PageHeader title="Procurement Overview" pageTitle="User" />
 
-  <!-- Status Flow Banner -->
-  <div class="bg-primary mb-3 status-flow-panel">
-    <div class="status-flow-banner-header" @click="toggleStatusFlow" style="cursor: pointer;">
-      <div class="d-flex align-items-center flex-wrap gap-2">
-        <i class="ri-flow-chart text-white"></i>
-        <span class="fw-bold text-white">Procurement Progress</span>
-        <b-badge class="bg-white text-primary ms-2" style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">{{ procurement.status?.name || 'N/A' }}</b-badge>
-        <b-badge v-if="procurement.sub_status" class="bg-white text-primary ms-1" style="font-size: 0.7rem; padding: 0.3rem 0.6rem;">{{ procurement.sub_status?.name }}</b-badge>
-      </div>
-      <i :class="isStatusFlowCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'" class="text-white" style="font-size: 1.2rem;"></i>
-    </div>
-    <div v-show="!isStatusFlowCollapsed" class="status-flow-banner-content">
-      <!-- Main Status Flow -->
-      <div class="status-flow-section">
-        <div class="status-flow-section-label">
-          <i class="ri-route-line me-1"></i>Main Status
-        </div>
-        <div class="status-flow-banner-track">
-          <div 
-            v-for="(status, index) in statusFlowNav" 
-            :key="status.name"
-            class="status-flow-banner-step-wrapper"
-          >
-            <!-- Connecting line before the step (except for first) -->
-            <div v-if="index > 0" 
-                 class="status-flow-banner-line"
-                 :class="{ 
-                   'connected': statusFlowNav[index - 1].isPast,
-                   'active': statusFlowNav[index - 1].isPast && status.isCurrent
-                 }">
-              <i class="ri-arrow-right-s-line"></i>
-            </div>
-            <div 
-              class="status-flow-banner-step"
-              :class="{ 'completed': status.isPast, 'active': status.isCurrent, 'pending': !status.isPast && !status.isCurrent }"
-              :style="{ cursor: 'pointer' }"
-              @click="openStatusTip(status.name)"
-            >
-              <div class="status-flow-banner-dot">
-                <i v-if="status.isPast" class="ri-check-line"></i>
-                <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
-                <i v-else class="ri-circle-line"></i>
-              </div>
-              <div class="status-flow-banner-label">{{ status.name }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Sub Status Flow -->
-      <div v-if="procurement.sub_status" class="status-flow-section mt-2">
-        <div class="status-flow-section-label">
-          <i class="ri-git-branch-line me-1"></i>Sub Status
-        </div>
-        <div class="status-flow-banner-track">
-          <div 
-            v-for="(status, index) in subStatusFlowNav" 
-            :key="status.name"
-            class="status-flow-banner-step-wrapper"
-          >
-            <!-- Connecting line before the step (except for first) -->
-            <div v-if="index > 0" 
-                 class="status-flow-banner-line"
-                 :class="{ 
-                   'connected': subStatusFlowNav[index - 1].isPast,
-                   'active': subStatusFlowNav[index - 1].isPast && status.isCurrent
-                 }">
-              <i class="ri-arrow-right-s-line"></i>
-            </div>
-            <div 
-              class="status-flow-banner-step"
-              :class="{ 'completed': status.isPast, 'active': status.isCurrent, 'pending': !status.isPast && !status.isCurrent }"
-              :style="{ cursor: 'pointer' }"
-              @click="openStatusTip(status.name)"
-            >
-              <div class="status-flow-banner-dot">
-                <i v-if="status.isPast" class="ri-check-line"></i>
-                <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
-                <i v-else class="ri-circle-line"></i>
-              </div>
-              <div class="status-flow-banner-label">{{ status.name }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-
   <div class="row">
     <div
       :class="['transition-all', isCollapsed ? 'col-md-1' : 'col-md-3']"
@@ -389,11 +301,7 @@
     <div
       :class="[
         'transition-all',
-        isCollapsed && isRightCollapsed
-          ? 'col-md-10'
-          : isCollapsed || isRightCollapsed
-          ? 'col-md-8'
-          : 'col-md-6',
+        isCollapsed ? 'col-md-11' : 'col-md-9',
       ]"
       style="transition: all 0.3s ease; overflow-x: auto"
     >
@@ -509,8 +417,148 @@
         </div>
       </div>
     </div>
-    <RightSidebar :procurement="procurement" :logs="logs" :isRightCollapsed="isRightCollapsed" @toggleRightSidebar="toggleRightSidebar" />
   </div>
+  <div class="floating-progress-wrapper">
+    <button
+      class="floating-progress-trigger"
+      type="button"
+      @click="showProgressModal = true"
+      title="Open procurement progress"
+    >
+      <i class="ri-flow-chart"></i>
+    </button>
+  </div>
+  <RightSidebar :procurement="procurement" :logs="logs" :isRightCollapsed="isRightCollapsed" @toggleRightSidebar="toggleRightSidebar" />
+  <b-modal
+    v-model="showProgressModal"
+    header-class="p-3 bg-light"
+    title="Procurement Progress"
+    centered
+    hide-footer
+    size="xl"
+    modal-class="progress-floating-modal"
+    body-class="progress-modal-body"
+  >
+    <div class="bg-primary status-flow-panel progress-modal-panel">
+      <div class="status-flow-banner-header" @click="toggleStatusFlow" style="cursor: pointer;">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+          <i class="ri-flow-chart text-white"></i>
+          <span class="fw-bold text-white">Procurement Progress</span>
+          <b-badge class="bg-white text-primary ms-2" style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">{{ procurement.status?.name || 'N/A' }}</b-badge>
+          <b-badge v-if="procurement.sub_status" class="bg-white text-primary ms-1" style="font-size: 0.7rem; padding: 0.3rem 0.6rem;">{{ procurement.sub_status?.name }}</b-badge>
+        </div>
+        <i :class="isStatusFlowCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'" class="text-white" style="font-size: 1.2rem;"></i>
+      </div>
+      <div v-show="!isStatusFlowCollapsed" class="status-flow-banner-content">
+        <div class="status-flow-section">
+          <div class="status-flow-section-label">
+            <i class="ri-route-line me-1"></i>Main Status
+          </div>
+          <div class="status-flow-banner-track">
+            <div
+              v-for="(status, index) in statusFlowNav"
+              :key="`main-${status.name}`"
+              class="status-flow-banner-step-wrapper"
+            >
+              <div
+                v-if="index > 0"
+                class="status-flow-banner-line"
+                :class="{
+                  connected: statusFlowNav[index - 1].isPast,
+                  active: statusFlowNav[index - 1].isPast && status.isCurrent,
+                }"
+              >
+                <i class="ri-arrow-right-s-line"></i>
+              </div>
+              <div
+                class="status-flow-banner-step"
+                :class="{ completed: status.isPast, active: status.isCurrent, pending: !status.isPast && !status.isCurrent }"
+                :style="{ cursor: 'pointer' }"
+                @click="openStatusTip(status.name)"
+              >
+                <div class="status-flow-banner-dot">
+                  <i v-if="status.isPast" class="ri-check-line"></i>
+                  <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
+                  <i v-else class="ri-circle-line"></i>
+                </div>
+                <div class="status-flow-banner-label">{{ status.name }}</div>
+                <div
+                  v-if="shouldShowStatusTimeline(status)"
+                  class="status-flow-banner-time"
+                  :class="{ pending: !status.updatedAt }"
+                >
+                  <template v-if="status.updatedAt">
+                    <span>{{ formatStatusTimelineDate(status.updatedAt) }}</span>
+                    <span>{{ formatStatusTimelineTime(status.updatedAt) }}</span>
+                    <span
+                      v-if="status.updatedBy"
+                      class="status-flow-banner-actor"
+                    >
+                      By {{ status.updatedBy }}
+                    </span>
+                  </template>
+                  <template v-else>Not yet</template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-if="procurement.sub_status" class="status-flow-section mt-2">
+          <div class="status-flow-section-label">
+            <i class="ri-git-branch-line me-1"></i>Sub Status
+          </div>
+          <div class="status-flow-banner-track">
+            <div
+              v-for="(status, index) in subStatusFlowNav"
+              :key="`sub-${status.name}`"
+              class="status-flow-banner-step-wrapper"
+            >
+              <div
+                v-if="index > 0"
+                class="status-flow-banner-line"
+                :class="{
+                  connected: subStatusFlowNav[index - 1].isPast,
+                  active: subStatusFlowNav[index - 1].isPast && status.isCurrent,
+                }"
+              >
+                <i class="ri-arrow-right-s-line"></i>
+              </div>
+              <div
+                class="status-flow-banner-step"
+                :class="{ completed: status.isPast, active: status.isCurrent, pending: !status.isPast && !status.isCurrent }"
+                :style="{ cursor: 'pointer' }"
+                @click="openStatusTip(status.name)"
+              >
+                <div class="status-flow-banner-dot">
+                  <i v-if="status.isPast" class="ri-check-line"></i>
+                  <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
+                  <i v-else class="ri-circle-line"></i>
+                </div>
+                <div class="status-flow-banner-label">{{ status.name }}</div>
+                <div
+                  v-if="shouldShowStatusTimeline(status)"
+                  class="status-flow-banner-time"
+                  :class="{ pending: !status.updatedAt }"
+                >
+                  <template v-if="status.updatedAt">
+                    <span>{{ formatStatusTimelineDate(status.updatedAt) }}</span>
+                    <span>{{ formatStatusTimelineTime(status.updatedAt) }}</span>
+                    <span
+                      v-if="status.updatedBy"
+                      class="status-flow-banner-actor"
+                    >
+                      By {{ status.updatedBy }}
+                    </span>
+                  </template>
+                  <template v-else>Not yet</template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </b-modal>
 
   <b-modal
     v-model="showProcAssignModal"
@@ -669,10 +717,69 @@ export default {
       statusTipSubtitle: "",
       statusTipSteps: [],
       statusTipAssigned: [],
+      showProgressModal: false,
     };
   },
 
   computed: {
+    statusNameMap() {
+      const statuses = Array.isArray(this.dropdowns?.statuses) ? this.dropdowns.statuses : [];
+
+      return statuses.reduce((map, status) => {
+        const id = status?.value ?? status?.id;
+        const name = status?.name;
+
+        if (id != null && name) {
+          map[String(id)] = name;
+        }
+
+        return map;
+      }, {});
+    },
+    statusTimelineMap() {
+      const timeline = {
+        main: {},
+        sub: {},
+      };
+
+      const procurementId = Number(this.procurement?.id);
+      const procurementLogs = (this.logs || []).filter((log) => {
+        return (
+          log?.subject_type === "App\\Models\\Procurement" &&
+          Number(log?.subject_id) === procurementId
+        );
+      });
+
+      procurementLogs.forEach((log) => {
+        const properties = this.parseLogProperties(log?.properties);
+        const attributes = properties?.attributes || {};
+
+        const statusName = this.resolveStatusName(attributes.status_id);
+        if (statusName && !timeline.main[statusName]) {
+          timeline.main[statusName] = {
+            updatedAt: log?.created_at || null,
+            updatedBy: this.extractLogCauserName(log),
+          };
+        }
+
+        const subStatusName = this.resolveStatusName(attributes.sub_status_id);
+        if (subStatusName && !timeline.sub[subStatusName]) {
+          timeline.sub[subStatusName] = {
+            updatedAt: log?.created_at || null,
+            updatedBy: this.extractLogCauserName(log),
+          };
+        }
+      });
+
+      if (!timeline.main.Pending && this.procurement?.created_at) {
+        timeline.main.Pending = {
+          updatedAt: this.procurement.created_at,
+          updatedBy: this.getDisplayName(this.procurement?.created_by),
+        };
+      }
+
+      return timeline;
+    },
     canManageProcurementWorkflow() {
       const roles = this.$page.props.roles || [];
       return (
@@ -721,6 +828,11 @@ export default {
     },
     statusFlowNav() {
       const currentStatus = this.procurement.status?.name;
+      const showForQuotationsStep =
+        currentStatus === "Re-award" ||
+        currentStatus === "Rebid" ||
+        currentStatus === "For Quotations" ||
+        Boolean(this.getStatusTimeline("For Quotations", "main"));
       let statusFlow = [];
 
       if (currentStatus === 'Re-award' || currentStatus === 'Rebid') {
@@ -747,7 +859,9 @@ export default {
           { name: 'Pending', isCurrent: currentStatus === 'Pending' },
           { name: 'Reviewed', isCurrent: currentStatus === 'Reviewed' },
           { name: 'Approved', isCurrent: currentStatus === 'Approved' },
-          { name: 'For Quotations', isCurrent: currentStatus === 'For Quotations' },
+          ...(showForQuotationsStep
+            ? [{ name: 'For Quotations', isCurrent: currentStatus === 'For Quotations' }]
+            : []),
           { name: 'For Bids', isCurrent: currentStatus === 'For Bids' },
           { name: 'For BAC Resolution', isCurrent: currentStatus === 'For BAC Resolution' },
           { name: 'For Approval of BAC Resolution', isCurrent: currentStatus === 'For Approval of BAC Resolution' },
@@ -764,13 +878,21 @@ export default {
 
       const currentIndex = statusFlow.findIndex(s => s.isCurrent);
       statusFlow.forEach((status, index) => {
+        const timelineEntry = this.getStatusTimelineEntry(status.name, "main");
         status.isPast = index < currentIndex;
+        status.updatedAt = timelineEntry?.updatedAt || null;
+        status.updatedBy = timelineEntry?.updatedBy || null;
       });
       return statusFlow;
     },
     subStatusFlowNav() {
       const currentStatus = this.procurement.status?.name;
       const currentSubStatus = this.procurement.sub_status?.name;
+      const showForQuotationsStep =
+        currentStatus === "Re-award" ||
+        currentStatus === "Rebid" ||
+        currentSubStatus === "For Quotations" ||
+        Boolean(this.getStatusTimeline("For Quotations", "sub"));
       let subStatusFlow = [];
 
       if (currentStatus === 'Rebid') {
@@ -802,7 +924,9 @@ export default {
         ];
       } else {
         subStatusFlow = [
-          { name: 'For Quotations', isCurrent: currentSubStatus === 'For Quotations' },
+          ...(showForQuotationsStep
+            ? [{ name: 'For Quotations', isCurrent: currentSubStatus === 'For Quotations' }]
+            : []),
           { name: 'For Bids', isCurrent: currentSubStatus === 'For Bids' },
           { name: 'For BAC Resolution', isCurrent: currentSubStatus === 'For BAC Resolution' },
           { name: 'For Approval of BAC Resolution', isCurrent: currentSubStatus === 'For Approval of BAC Resolution' },
@@ -819,7 +943,10 @@ export default {
 
       const currentIndex = subStatusFlow.findIndex(s => s.isCurrent);
       subStatusFlow.forEach((status, index) => {
+        const timelineEntry = this.getStatusTimelineEntry(status.name, "sub");
         status.isPast = index < currentIndex;
+        status.updatedAt = timelineEntry?.updatedAt || null;
+        status.updatedBy = timelineEntry?.updatedBy || null;
       });
       return subStatusFlow;
     },
@@ -861,14 +988,139 @@ export default {
       this.activeTab = nextTab;
       this.showCreatePOFlag = false; // Reset flag when tab changes
     },
+    "procurement.id"(newId, oldId) {
+      if (newId && newId !== oldId) {
+        this.openProgressModalOnce();
+      }
+    },
   },
   mounted() {
     this.isRightCollapsed = localStorage.getItem("isRightCollapsed") === "true" || true;
     const assignees = this.procurement?.assignees || this.procurement?.assigned_personnel || {};
     this.localProcAssignees = { ...assignees };
     this.activeTab = this.resolveDefaultTab();
+    this.openProgressModalOnce();
   },
   methods: {
+    getProgressModalSeenKey() {
+      return this.procurement?.id
+        ? `procurement-progress-modal-seen:${this.procurement.id}`
+        : null;
+    },
+    openProgressModalOnce() {
+      const seenKey = this.getProgressModalSeenKey();
+
+      if (seenKey && sessionStorage.getItem(seenKey)) {
+        return;
+      }
+
+      this.$nextTick(() => {
+        this.showProgressModal = true;
+
+        if (seenKey) {
+          sessionStorage.setItem(seenKey, "1");
+        }
+      });
+    },
+    parseLogProperties(properties) {
+      if (!properties) {
+        return {};
+      }
+
+      if (typeof properties === "string") {
+        try {
+          return JSON.parse(properties);
+        } catch (error) {
+          return {};
+        }
+      }
+
+      return properties;
+    },
+    normalizeStatusLabel(statusName) {
+      const aliases = {
+        "For RFQ": "For Quotations",
+        "For BAC": "For BAC Resolution",
+        "For Approval": "For Approval of BAC Resolution",
+        "NOA Served": "NOA Served to Supplier",
+        "NOA Confirmed": "NOA Conformed",
+        "PO Delivered/For Inspection": "Delivered/For Inspection",
+        Delivered: "Delivered/For Inspection",
+      };
+
+      return aliases[statusName] || statusName;
+    },
+    resolveStatusName(statusId) {
+      if (statusId == null || statusId === "") {
+        return null;
+      }
+
+      const statusName = this.statusNameMap[String(statusId)] || null;
+      return statusName ? this.normalizeStatusLabel(statusName) : null;
+    },
+    getDisplayName(person) {
+      if (!person) {
+        return null;
+      }
+
+      if (typeof person === "string") {
+        return person.trim() || null;
+      }
+
+      return (
+        person?.profile?.full_name ||
+        person?.profile?.fullname ||
+        person?.fullname ||
+        person?.name ||
+        null
+      );
+    },
+    extractLogCauserName(log) {
+      return this.getDisplayName(log?.causer);
+    },
+    getStatusTimelineEntry(statusName, type = "main") {
+      const normalizedStatus = this.normalizeStatusLabel(statusName);
+      return this.statusTimelineMap?.[type]?.[normalizedStatus] || null;
+    },
+    getStatusTimeline(statusName, type = "main") {
+      return this.getStatusTimelineEntry(statusName, type)?.updatedAt || null;
+    },
+    shouldShowStatusTimeline(status) {
+      const normalizedStatus = this.normalizeStatusLabel(status?.name || "");
+
+      if (status?.updatedAt) {
+        return true;
+      }
+
+      if (status?.isPast || status?.isCurrent) {
+        return false;
+      }
+
+      return normalizedStatus !== "For Quotations";
+    },
+    formatStatusTimelineDate(dateString) {
+      const date = new Date(dateString);
+      if (Number.isNaN(date.getTime())) {
+        return "Invalid date";
+      }
+
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    },
+    formatStatusTimelineTime(dateString) {
+      const date = new Date(dateString);
+      if (Number.isNaN(date.getTime())) {
+        return "";
+      }
+
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    },
     resolveDefaultTab() {
       const requestedTab = parseInt(this.tab);
       if (Number.isFinite(requestedTab) && requestedTab > 0) {
@@ -2021,7 +2273,7 @@ export default {
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  min-width: 72px;
+  min-width: 96px;
   padding: 0.72rem 0.5rem;
   border-radius: 12px;
   border: 1px solid transparent;
@@ -2085,8 +2337,32 @@ export default {
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   text-align: center;
-  white-space: nowrap;
   line-height: 1.2;
+}
+
+.status-flow-banner-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  font-size: 0.53rem;
+  line-height: 1.15;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.78);
+  min-height: 2.55rem;
+}
+
+.status-flow-banner-time span {
+  display: block;
+}
+
+.status-flow-banner-actor {
+  max-width: 100%;
+  font-size: 0.48rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .status-flow-banner-step.completed .status-flow-banner-label {
@@ -2102,6 +2378,18 @@ export default {
 
 .status-flow-banner-step.pending .status-flow-banner-label {
   color: rgba(255, 255, 255, 0.45);
+}
+
+.status-flow-banner-step.completed .status-flow-banner-time {
+  color: rgba(220, 252, 231, 0.88);
+}
+
+.status-flow-banner-step.active .status-flow-banner-time {
+  color: rgba(254, 243, 199, 0.95);
+}
+
+.status-flow-banner-time.pending {
+  color: rgba(255, 255, 255, 0.42);
 }
 
 @keyframes pulseBannerDot {
@@ -2126,7 +2414,7 @@ export default {
   }
   
   .status-flow-banner-step {
-    min-width: 55px;
+    min-width: 84px;
     padding: 0.4rem 0.3rem;
   }
   
@@ -2138,6 +2426,14 @@ export default {
   
   .status-flow-banner-label {
     font-size: 0.55rem;
+  }
+
+  .status-flow-banner-time {
+    font-size: 0.48rem;
+  }
+
+  .status-flow-banner-actor {
+    font-size: 0.44rem;
   }
 }
 
@@ -2200,6 +2496,48 @@ export default {
   color: #d97706;
 }
 
+.floating-progress-wrapper {
+  position: fixed;
+  right: 24px;
+  bottom: 104px;
+  z-index: 1049;
+}
+
+.floating-progress-trigger {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a5fa7 0%, #31488f 100%);
+  color: #fff;
+  box-shadow: 0 18px 36px rgba(49, 72, 143, 0.28);
+  font-size: 1.4rem;
+}
+
+.floating-progress-trigger:hover {
+  transform: translateY(-2px);
+}
+
+:deep(.progress-floating-modal .modal-dialog) {
+  max-width: min(1450px, calc(100vw - 32px));
+}
+
+:deep(.progress-floating-modal .modal-content) {
+  border: 0;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+:deep(.progress-modal-body) {
+  padding: 0;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.progress-modal-panel {
+  margin-bottom: 0;
+}
+
 .nav-link.bg-primary .tab-done-icon {
   color: #ffffff;
   -webkit-text-stroke: 1px #facc15;
@@ -2208,5 +2546,12 @@ export default {
     -1px 0 #facc15,
     0 1px #facc15,
     0 -1px #facc15;
+}
+
+@media (max-width: 768px) {
+  .floating-progress-wrapper {
+    right: 16px;
+    bottom: 96px;
+  }
 }
 </style>

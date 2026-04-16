@@ -109,27 +109,28 @@
 
         <div>
           <div
-            class="w-100 pt-0 pb-0 "
-            style="height: calc(100vh - 305px); overflow: auto"
+            class="w-100 pt-0 pb-0 aob-scroll-area"
+            style="height: calc(100vh - 305px); overflow-y: auto; overflow-x: hidden"
             ref="box"
           >
             <div>
-              <table style="width: 100%; border-collapse: collapse; border: 1px solid">
+              <div class="aob-table-wrap">
+              <table class="aob-table aob-supplier-table">
                 <thead>
                   <tr>
-                    <th style="width: 2px">Item No</th>
-                    <th style="width: 20px">Status</th>
-                    <th style="width: 240px">Item Name</th>
-                    <th style="width: 140px">Description</th>
-                    <th style="width: 20px">Quantity/Unit</th>
-                    <th style="width: 20px">Unit Cost</th>
-                    <th style="width: 20px">ABC</th>
-                    <th style="width: 20px">Bid Price</th>
-                    <th style="width: 20px">Total Bid Price</th>
-                    <th style="width: 160px">Technical Proposal / Offer</th>
-                    <th style="width: 100px">Delivery Term</th>
+                    <th class="aob-col-item-no">Item No</th>
+                    <th class="aob-col-status">Status</th>
+                    <th class="aob-col-description">Description</th>
+                    <th class="aob-col-qty">Quantity / Unit</th>
+                    <th class="aob-col-money">Unit Cost</th>
+                    <th class="aob-col-money">ABC</th>
+                    <th class="aob-col-money">Bid Price</th>
+                    <th class="aob-col-money">Total Bid Price</th>
+                    <th class="aob-col-offer">Technical Proposal / Offer</th>
+                    <th class="aob-col-delivery">Delivery Term</th>
 
                     <th
+                      class="aob-col-check"
                       v-if="
                         !isForBACResolution &&
                         (this.procurement.status.name === 'For Bids' ||
@@ -146,11 +147,12 @@
 
                 <tbody>
                   <tr v-for="(item, itemIndex) in bid.items" :key="item.item_id">
-                    <td>{{ itemIndex + 1 }}</td>
-                    <td>
+                    <td class="aob-cell-index">{{ itemIndex + 1 }}</td>
+                    <td class="aob-cell-status">
                       <b-badge
                         v-if="item.status"
                         :variant="getBadgeVariant(item.status.name)"
+                        class="aob-status-badge"
                         style="color: white"
                       >
                         {{ item.status.name }}
@@ -164,95 +166,93 @@
                         ></i>
                         <i v-if="item.status.name == 'Awarded'" class="ri-check-line"></i>
                       </b-badge>
+                      <span v-else class="aob-muted-text">No status</span>
                     </td>
-                    <td
-                      style="
-                        text-align: left;
-                        word-break: break-word;
-                        white-space: normal;
-                      "
-                    >
-                      {{ item.item.item_name || "-" }}
-                      <div class="mt-2">
-                        <button
-                          type="button"
-                          class="btn btn-outline-primary btn-sm"
-                          @click="openAllOffers(item)"
-                        >
-                          View All Offers
-                        </button>
-                      </div>
-                    </td>
-                    <td class="text-center">
+                    <td class="aob-cell-action">
                       <button
                         type="button"
-                        class="btn btn-outline-secondary btn-sm"
+                        class="btn btn-outline-secondary btn-sm aob-action-btn aob-action-btn-muted"
                         @click="openItemDescription(item.item)"
                       >
                         View Description
                       </button>
                     </td>
 
-                    <td>
-                      {{ item.item.item_quantity }}
-                      {{
-                        item.item.item_quantity > 1
-                          ? item.item.item_unit_type.name_long
-                          : item.item.item_unit_type.name_short
-                      }}
+                    <td class="aob-cell-qty">
+                      <div class="aob-qty-value">{{ item.item.item_quantity }}</div>
+                      <div class="aob-qty-unit">
+                        {{
+                          item.item.item_quantity > 1
+                            ? item.item.item_unit_type.name_long
+                            : item.item.item_unit_type.name_short
+                        }}
+                      </div>
                     </td>
-                    <td>
+                    <td class="aob-cell-money">
                       {{ formatCurrency(item.item.item_unit_cost) }}
                     </td>
-                    <td>
+                    <td class="aob-cell-money">
                       {{ formatCurrency(item.item.total_cost) }}
                     </td>
 
-                    <td @click="openEditOffer(item, bid)">
-                      <span v-if="item.is_free">
-                        <b
-                          ><i class="text-primary"><u>free</u></i></b
-                        >
+                    <td
+                      class="aob-cell-money"
+                      :class="{ 'aob-clickable-cell': canEditOffer() }"
+                      @click="openEditOffer(item, bid)"
+                    >
+                      <span v-if="item.is_free" class="aob-price aob-price-free">
+                        free
                       </span>
                       <span
                         v-else-if="Number(item.bid_price) > 0"
-                        :class="{
-                          'text-danger':
-                            Number(item.bid_price) > item.item.item_unit_cost,
-                        }"
+                        :class="[
+                          'aob-price',
+                          'aob-price-link',
+                          {
+                            'aob-price-over': Number(item.bid_price) > item.item.item_unit_cost,
+                          },
+                        ]"
                       >
-                        <u>{{ formatCurrency(item.bid_price) }}</u>
+                        {{ formatCurrency(item.bid_price) }}
                       </span>
-                      <span v-else>
-                        <b
-                          ><i class="text-primary"><u>not set</u></i></b
-                        >
+                      <span
+                        v-else
+                        :class="[
+                          'aob-price',
+                          'aob-price-pending',
+                          { 'aob-price-editable': canEditOffer() },
+                        ]"
+                      >
+                        not set
                       </span>
                     </td>
-                    <td>
-                      <span v-if="item.is_free">
-                        <b><i class="text-primary">free</i></b>
+                    <td class="aob-cell-money">
+                      <span v-if="item.is_free" class="aob-price aob-price-free">
+                        free
                       </span>
-                      <span v-else-if="!(Number(item.bid_price) > 0)">
-                        <b><i class="text-primary">not set</i></b>
+                      <span v-else-if="!(Number(item.bid_price) > 0)" class="aob-price aob-price-pending">
+                        not set
                       </span>
                       <span v-else>
                         {{ formatCurrency(item.item.item_quantity * item.bid_price) }}
                       </span>
                     </td>
 
-                    <td class="text-center">
+                    <td class="aob-cell-action">
                       <button
                         type="button"
-                        class="btn btn-outline-secondary btn-sm"
-                        @click="openOfferDescription(item)"
+                        class="btn btn-outline-secondary btn-sm aob-action-btn aob-action-btn-muted"
+                        @click="openOfferDescription(item, bid)"
                       >
                         View Offer
                       </button>
                     </td>
-                    <td>{{ bid.delivery_term }}</td>
+                    <td class="aob-cell-delivery">
+                      {{ bid.delivery_term || "-" }}
+                    </td>
 
                     <td
+                      class="aob-cell-check"
                       v-if="
                         !isForBACResolution &&
                         (((procurement.status.name == 'For Bids' ||
@@ -280,6 +280,7 @@
                   </tr>
                 </tbody>
               </table>
+              </div>
 
               <Pagination
                 class="ms-2 me-2"
@@ -298,59 +299,64 @@
 
   <div v-else class="bg-white">
     <div
-      class="w-100 pt-0 pb-0"
-      style="height: calc(100vh - 305px); overflow: auto"
+      class="w-100 pt-0 pb-0 aob-scroll-area"
+      style="height: calc(100vh - 305px); overflow-y: auto; overflow-x: hidden"
     >
-      <table style="width: 100%; border-collapse: collapse; border: 1px solid">
+      <div class="aob-table-wrap">
+      <table class="aob-table aob-items-table">
         <thead>
           <tr>
-            <th style="width: 2px">Item No</th>
-            <th style="width: 160px">Item Name</th>
-            <th style="width: 220px">Description</th>
-            <th style="width: 20px">Quantity/Unit</th>
-            <th style="width: 20px">Unit Cost</th>
-            <th style="width: 20px">ABC</th>
-            <th style="width: 120px">Offers</th>
+            <th class="aob-col-item-no">Item No</th>
+            <th class="aob-col-item-name">Item Name</th>
+            <th class="aob-col-description">Description</th>
+            <th class="aob-col-qty">Quantity / Unit</th>
+            <th class="aob-col-money">Unit Cost</th>
+            <th class="aob-col-money">ABC</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="item in allBidItems" :key="item.id">
-            <td>{{ item.item_no || "-" }}</td>
-            <td>{{ item.item_name || "-" }}</td>
-            <td class="text-center">
+            <td class="aob-cell-index">{{ item.item_no || "-" }}</td>
+            <td class="aob-cell-item">
+              <div class="aob-item-title">{{ item.item_name || "-" }}</div>
+              <div class="aob-item-actions">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm aob-action-btn"
+                  @click="openAllOffers({ item })"
+                >
+                  View Item Offer
+                </button>
+              </div>
+            </td>
+            <td class="aob-cell-action">
               <button
                 type="button"
-                class="btn btn-outline-secondary btn-sm"
+                class="btn btn-outline-secondary btn-sm aob-action-btn aob-action-btn-muted"
                 @click="openItemDescription(item)"
               >
                 View Description
               </button>
             </td>
-            <td>
-              {{ item.item_quantity }}
-              {{
-                item.item_quantity > 1
-                  ? item.item_unit_type?.name_long
-                  : item.item_unit_type?.name_short
-              }}
+            <td class="aob-cell-qty">
+              <div class="aob-qty-value">{{ item.item_quantity }}</div>
+              <div class="aob-qty-unit">
+                {{
+                  item.item_quantity > 1
+                    ? item.item_unit_type?.name_long
+                    : item.item_unit_type?.name_short
+                }}
+              </div>
             </td>
-            <td>{{ formatCurrency(item.item_unit_cost) }}</td>
-            <td>{{ formatCurrency(item.total_cost) }}</td>
-            <td class="text-center">
-              <button
-                type="button"
-                class="btn btn-outline-primary btn-sm"
-                @click="openAllOffers({ item })"
-              >
-                View Offers
-              </button>
-            </td>
+            <td class="aob-cell-money">{{ formatCurrency(item.item_unit_cost) }}</td>
+            <td class="aob-cell-money">{{ formatCurrency(item.total_cost) }}</td>
           </tr>
           <tr v-if="allBidItems.length === 0">
-            <td colspan="7" class="text-center text-muted py-4">No items available.</td>
+            <td colspan="6" class="aob-empty-row">No items available.</td>
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   </div>
   </template>
@@ -370,7 +376,7 @@
 
   <b-modal
     v-model="showOfferModal"
-    title="Technical Proposal / Offer"
+    title="Offer Details"
     :size="offerModalSize"
     centered
     hide-footer
@@ -378,6 +384,43 @@
     <div class="mb-2 fw-semibold">
       {{ selectedItemName || "-" }}
     </div>
+    <div v-if="selectedOfferDetails" class="offer-detail-summary mb-3">
+      <div class="offer-detail-grid">
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Supplier</span>
+          <span class="offer-detail-value">{{ selectedOfferDetails.supplier_name }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Status</span>
+          <span class="offer-detail-value">{{ selectedOfferDetails.status_name }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Bid Price</span>
+          <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.bid_price, selectedOfferDetails.is_free) }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Total Bid Price</span>
+          <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.total_bid_price, selectedOfferDetails.is_free) }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Delivery Term</span>
+          <span class="offer-detail-value">{{ selectedOfferDetails.delivery_term }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Quantity / Unit</span>
+          <span class="offer-detail-value">{{ selectedOfferDetails.quantity_label }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Unit Cost</span>
+          <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.unit_cost) }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">ABC</span>
+          <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.abc) }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="offer-detail-section-label">Technical Proposal / Offer</div>
     <div v-html="selectedOfferDescription"></div>
   </b-modal>
 
@@ -482,7 +525,7 @@
 
   <b-modal
     v-model="showComparedOfferModal"
-    title="Supplier Offer"
+    title="Supplier Offer Details"
     :size="comparedOfferModalSize"
     centered
     hide-footer
@@ -493,6 +536,39 @@
     <div class="small text-muted mb-3">
       {{ selectedItemName || "-" }}
     </div>
+    <div v-if="selectedComparedOfferDetails" class="offer-detail-summary mb-3">
+      <div class="offer-detail-grid">
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Status</span>
+          <span class="offer-detail-value">{{ selectedComparedOfferDetails.status_name }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Bid Price</span>
+          <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.bid_price, selectedComparedOfferDetails.is_free) }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Total Bid Price</span>
+          <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.total_bid_price, selectedComparedOfferDetails.is_free) }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Delivery Term</span>
+          <span class="offer-detail-value">{{ selectedComparedOfferDetails.delivery_term }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Quantity / Unit</span>
+          <span class="offer-detail-value">{{ selectedComparedOfferDetails.quantity_label }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">Unit Cost</span>
+          <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.unit_cost) }}</span>
+        </div>
+        <div class="offer-detail-card">
+          <span class="offer-detail-label">ABC</span>
+          <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.abc) }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="offer-detail-section-label">Technical Proposal / Offer</div>
     <div class="offer-modal-content" v-html="selectedComparedOfferDescription"></div>
   </b-modal>
 
@@ -551,6 +627,10 @@ export default {
       selectedItemNo: null,
       selectedItemUnitCost: null,
       selectedItemAbc: null,
+      selectedItemQuantity: null,
+      selectedItemUnitLabel: "",
+      selectedOfferDetails: null,
+      selectedComparedOfferDetails: null,
     };
   },
 
@@ -675,12 +755,15 @@ export default {
       }
       this.activeBidTab = 0;
     },
-    openEditOffer(item, bid) {
-      if (
-        this.procurement.status?.name == "For Bids" ||
-        (this.procurement.status.name === "Rebid" &&
+    canEditOffer() {
+      return (
+        this.procurement.status?.name === "For Bids" ||
+        (this.procurement.status?.name === "Rebid" &&
           this.procurement.sub_status?.name === "For Bids")
-      ) {
+      );
+    },
+    openEditOffer(item, bid) {
+      if (this.canEditOffer()) {
         this.$refs.editOffer.edit(item, bid);
       }
     },
@@ -702,6 +785,58 @@ export default {
         style: "currency",
         currency: "PHP",
       }).format(value);
+    },
+    offerDisplayValue(value, isFree = false) {
+      if (isFree) {
+        return "free";
+      }
+
+      const amount = Number(value);
+      if (amount > 0) {
+        return this.formatCurrency(amount);
+      }
+
+      return "not set";
+    },
+    formatQuantityLabel(quantity, unitType) {
+      const qty = Number(quantity);
+      const unitLabel =
+        qty > 1 ? unitType?.name_long || unitType?.name_short : unitType?.name_short || unitType?.name_long;
+
+      if (!Number.isFinite(qty) || qty <= 0) {
+        return unitLabel || "-";
+      }
+
+      return `${qty} ${unitLabel || ""}`.trim();
+    },
+    buildOfferDetails(item, bid) {
+      const procurementItem = item?.item || {};
+      const quantity = Number(procurementItem?.item_quantity) || 0;
+      const bidPrice = Number(item?.bid_price) || 0;
+
+      return {
+        supplier_name: bid?.supplier?.name || "-",
+        status_name: item?.status?.name || "-",
+        bid_price: bidPrice,
+        total_bid_price: item?.is_free ? 0 : bidPrice * quantity,
+        delivery_term: bid?.delivery_term || "-",
+        quantity_label: this.formatQuantityLabel(quantity, procurementItem?.item_unit_type),
+        unit_cost: Number(procurementItem?.item_unit_cost) || 0,
+        abc: Number(procurementItem?.total_cost) || 0,
+        is_free: Boolean(item?.is_free),
+      };
+    },
+    buildComparedOfferDetails(offer) {
+      return {
+        status_name: offer?.status_name || "-",
+        bid_price: Number(offer?.bid_price) || 0,
+        total_bid_price: Number(offer?.total_bid_price) || 0,
+        delivery_term: offer?.delivery_term || "-",
+        quantity_label: this.formatQuantityLabel(this.selectedItemQuantity, { name_short: this.selectedItemUnitLabel, name_long: this.selectedItemUnitLabel }),
+        unit_cost: Number(this.selectedItemUnitCost) || 0,
+        abc: Number(this.selectedItemAbc) || 0,
+        is_free: Boolean(offer?.is_free),
+      };
     },
 
     getBadgeVariant(status_name) {
@@ -774,15 +909,17 @@ export default {
       this.selectedItemDescription = item?.item_description || "<p>No description available.</p>";
       this.showItemDescriptionModal = true;
     },
-    openOfferDescription(item) {
+    openOfferDescription(item, bid) {
       this.selectedItemName = item?.item?.item_name || "";
       this.selectedOfferDescription = item?.technical_proposal || "<p>No offer available.</p>";
+      this.selectedOfferDetails = this.buildOfferDetails(item, bid);
       this.showOfferModal = true;
     },
     openComparedOfferModal(offer) {
       this.selectedComparedOfferSupplier = offer?.supplier_name || "";
       this.selectedComparedOfferDescription =
         offer?.technical_proposal || "<p>No offer available.</p>";
+      this.selectedComparedOfferDetails = this.buildComparedOfferDetails(offer);
       this.showComparedOfferModal = true;
     },
     openAllOffers(item) {
@@ -792,6 +929,11 @@ export default {
       this.selectedItemNo = item?.item?.item_no || item?.item_no || null;
       this.selectedItemUnitCost = Number(item?.item?.item_unit_cost) || null;
       this.selectedItemAbc = Number(item?.item?.total_cost) || null;
+      this.selectedItemQuantity = Number(item?.item?.item_quantity) || null;
+      this.selectedItemUnitLabel =
+        (Number(item?.item?.item_quantity) || 0) > 1
+          ? item?.item?.item_unit_type?.name_long || item?.item?.item_unit_type?.name_short || ""
+          : item?.item?.item_unit_type?.name_short || item?.item?.item_unit_type?.name_long || "";
       this.selectedItemDescription =
         item?.item?.item_description || "<p>No description available.</p>";
       this.isAllOffersDescriptionExpanded = false;
@@ -962,6 +1104,53 @@ export default {
   color: #1f2937;
 }
 
+.offer-detail-summary {
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.offer-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.offer-detail-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.offer-detail-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.offer-detail-value {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #1e293b;
+  word-break: break-word;
+}
+
+.offer-detail-section-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  margin-bottom: 0.65rem;
+}
+
 .offer-modal-content {
   color: #334155;
   text-align: left;
@@ -1013,11 +1202,311 @@ export default {
 </style>
 
 <style scoped>
-td,
-th {
-  border: 1px solid;
-  padding: 5px;
+.aob-scroll-area {
+  padding: 1rem 0;
+}
+
+.aob-table-wrap {
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  overflow: auto;
+  max-width: 100%;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #eef2f7;
+}
+
+.aob-table-wrap::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.aob-table-wrap::-webkit-scrollbar-track {
+  background: #eef2f7;
+}
+
+.aob-table-wrap::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+  border: 2px solid #eef2f7;
+}
+
+.aob-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.aob-supplier-table {
+  min-width: 1220px;
+}
+
+.aob-items-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.aob-table th,
+.aob-table td {
+  padding: 0.9rem 0.85rem;
   vertical-align: top;
   text-align: center;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.aob-table th:last-child,
+.aob-table td:last-child {
+  border-right: 0;
+}
+
+.aob-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.aob-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+}
+
+.aob-table tbody td {
+  color: #1e293b;
+  background: #ffffff;
+}
+
+.aob-table tbody tr:nth-child(even) td {
+  background: #fbfdff;
+}
+
+.aob-table tbody tr:hover td {
+  background: #f5f8ff;
+}
+
+.aob-col-item-no {
+  width: 78px;
+}
+
+.aob-col-status {
+  width: 140px;
+}
+
+.aob-col-item-name {
+  width: 260px;
+}
+
+.aob-col-description {
+  width: 170px;
+}
+
+.aob-col-qty {
+  width: 120px;
+}
+
+.aob-col-money {
+  width: 150px;
+}
+
+.aob-col-offer {
+  width: 170px;
+}
+
+.aob-col-delivery {
+  width: 170px;
+}
+
+.aob-col-check {
+  width: 120px;
+}
+
+.aob-items-table .aob-col-item-no {
+  width: 8%;
+}
+
+.aob-items-table .aob-col-item-name {
+  width: 25%;
+}
+
+.aob-items-table .aob-col-description {
+  width: 18%;
+}
+
+.aob-items-table .aob-col-qty {
+  width: 12%;
+}
+
+.aob-items-table .aob-col-money {
+  width: 15%;
+}
+
+.aob-items-table .aob-col-offer {
+  width: 14%;
+}
+
+.aob-cell-index {
+  font-weight: 700;
+  color: #475569;
+}
+
+.aob-cell-status,
+.aob-cell-action,
+.aob-cell-check {
+  vertical-align: middle;
+}
+
+.aob-cell-item {
+  text-align: left !important;
+}
+
+.aob-item-title {
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.aob-item-actions {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.aob-cell-qty {
+  vertical-align: middle;
+}
+
+.aob-qty-value {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.aob-qty-unit {
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.aob-cell-money {
+  text-align: right !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.aob-clickable-cell {
+  cursor: pointer;
+}
+
+.aob-price {
+  display: inline-block;
+  font-weight: 700;
+}
+
+.aob-price-link {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.aob-price-over {
+  color: #dc2626;
+}
+
+.aob-price-free {
+  color: #2563eb;
+  font-style: italic;
+  text-transform: lowercase;
+}
+
+.aob-price-pending {
+  color: #64748b;
+  font-style: italic;
+  text-transform: lowercase;
+}
+
+.aob-price-editable {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.aob-cell-delivery {
+  vertical-align: middle;
+}
+
+.aob-delivery-pill {
+  display: inline-block;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #dbe4f0;
+  color: #334155;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.aob-action-btn {
+  border-radius: 10px;
+  padding: 0.42rem 0.78rem;
+  font-weight: 600;
+  min-width: 138px;
+}
+
+.aob-items-table .aob-action-btn {
+  min-width: 118px;
+}
+
+.aob-action-btn-muted {
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.aob-action-btn-muted:hover {
+  color: #1e293b;
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.aob-status-badge {
+  padding: 0.45rem 0.62rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.aob-muted-text {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.aob-empty-row {
+  padding: 2.2rem 1rem !important;
+  text-align: center;
+  color: #64748b;
+  font-weight: 500;
+}
+
+@media (max-width: 992px) {
+  .aob-supplier-table {
+    min-width: 1080px;
+  }
+
+  .aob-items-table {
+    min-width: 900px;
+  }
+
+  .aob-action-btn {
+    min-width: 124px;
+  }
 }
 </style>

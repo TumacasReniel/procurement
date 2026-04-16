@@ -57,6 +57,16 @@
         </BCol>
 
         <BCol lg="6" class="mt-2">
+          <InputLabel value="PO Date" :message="form.errors.po_date" />
+          <TextInput
+            v-model="form.po_date"
+            type="date"
+            class="form-control"
+            :light="true"
+          />
+        </BCol>
+
+        <BCol lg="6" class="mt-2">
           <InputLabel value="Delivery Term" :message="form.errors.date_of_delivery" />
           <TextInput
             v-model="form.delivery_term"
@@ -174,6 +184,7 @@ export default {
           });
         }
       });
+      this.form.po_date = this.getCurrentDate();
       this.form.supplier = data.supplier;
       this.form.delivery_term = data.procurement_quotation.delivery_term;
       this.form.place_of_delivery_id = data.place_of_delivery_id;
@@ -214,6 +225,14 @@ export default {
         }
       }
 
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+    },
+    getCurrentDate() {
+      const date = new Date();
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");

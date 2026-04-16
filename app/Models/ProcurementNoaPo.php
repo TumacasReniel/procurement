@@ -15,14 +15,25 @@ class ProcurementNoaPo extends Model
         'delivery_term',
         'payment_term',
         'date_of_delivery',
+        'actual_delivery_date',
         'place_of_delivery_id',
         'noa_id',
         'created_by_id',
         'approved_by_id',
         'updated_by_id',
         'procurement_id',
+        'released_at',
+        'conformed_at',
         'status_id',
 
+    ];
+
+    protected $casts = [
+        'po_date' => 'date',
+        'date_of_delivery' => 'date',
+        'actual_delivery_date' => 'date',
+        'released_at' => 'datetime',
+        'conformed_at' => 'datetime',
     ];
 
     public function place_of_delivery()
@@ -37,7 +48,14 @@ class ProcurementNoaPo extends Model
 
     public function iar()
     {
-        return $this->hasOne('App\Models\procurementPoIar', 'po_id' );
+        return $this->hasOne('App\Models\procurementPoIar', 'po_id')->latestOfMany();
+    }
+
+    public function iars()
+    {
+        return $this->hasMany('App\Models\procurementPoIar', 'po_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
     }
       
     public function status()
@@ -47,7 +65,7 @@ class ProcurementNoaPo extends Model
 
     public function ntp()
     {
-        return $this->hasOne('App\Models\procurementPoNtp', 'id' );
+        return $this->hasOne('App\Models\ProcurementPoNtp', 'po_id');
     }
 
 
@@ -67,8 +85,8 @@ class ProcurementNoaPo extends Model
             $month = date("m", strtotime("now"));
         }
 
-        $count = self::whereYear('created_at', date("Y", strtotime($date ?? "now")))
-                     ->whereMonth('created_at', $month)
+        $count = self::whereYear('po_date', date("Y", strtotime($date ?? "now")))
+                     ->whereMonth('po_date', $month)
                      ->count() + 1;
 
         return 'PO-' .$year . '-' . $month . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
@@ -76,7 +94,7 @@ class ProcurementNoaPo extends Model
 
     public function getActivitylogOptions(): LogOptions {
         return LogOptions::defaults()
-        ->logOnly(['code','po_date','delivery_term','payment_term','date_of_delivery','place_of_delivery_id','noa_id','created_by_id','approved_by_id','updated_by_id','procurement_id','status_id'])
+        ->logOnly(['code','po_date','delivery_term','payment_term','date_of_delivery','actual_delivery_date','place_of_delivery_id','noa_id','created_by_id','approved_by_id','updated_by_id','procurement_id','released_at','conformed_at','status_id'])
         ->setDescriptionForEvent(fn(string $eventName) => "Purchase Order {$eventName}")
         ->useLogName('Purchase Order')
         ->logOnlyDirty()

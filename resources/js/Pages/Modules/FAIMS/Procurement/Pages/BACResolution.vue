@@ -37,78 +37,85 @@
   </b-row>
 
   <b-card no-body>
-    <table class="table mb-0">
-      <thead class="table-light">
-        <tr class="fs-11">
-          <th>#</th>
-          <th>BAC Resolution No.</th>
-          <th>Type</th>
-          <th>Date Created</th>
-          <th>Status</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
+    <div class="table-responsive">
+      <table class="table mb-0" style="min-width: 900px;">
+        <thead class="table-light">
+          <tr class="fs-11">
+            <th>#</th>
+            <th>BAC Resolution No.</th>
+            <th>Type</th>
+            <th>Date Created</th>
+            <th>Date Approved</th>
+            <th>Status</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
 
-      <tbody>
-        <tr
-          class="custom-hover-row"
-          v-for="(list, index) in lists"
-          v-bind:key="index"
-          @click="selectRow(list.id)"
-          :class="{ 'bg-info-subtle': selectedRow === list.id }"
-        >
-          <td>{{ index + 1 }}</td>
-          <td>{{ list.code }}</td>
-          <td>{{ list.type }}</td>
-          <td>{{ list.created_at }}</td>
-          <td>
-            <b-badge :class="list.status.bg">{{ list.status?.name }}</b-badge>
-          </td>
-          <td class="text-center">
-            <div class="d-flex gap-1 justify-content-center flex-wrap">
-              <button
-                @click="printBACReso(list)"
-                class="btn btn-dark btn-sm"
-                v-b-tooltip.hover
-                title="Print"
-              >
-                <i class="ri-printer-fill"></i>
-              </button>
-              <button
-                v-if="list.status?.name == 'Pending' && ($page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Procurement Staff') )"
-                @click="editBACReso(list)"
-                class="btn btn-success btn-sm"
-                v-b-tooltip.hover
-                title="Edit"
-              >
-                <i class="ri-edit-2-fill"></i>
-              </button>
-              <button
-                v-if="list.status.name == 'Pending' && ($page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Procurement Staff') )"
-                @click="updateStatus(list)"
-                class="btn btn-warning btn-sm"
-                v-b-tooltip.hover
-                title="Update Status"
-              >
-                <i class="ri-edit-circle-fill"></i>
-   
-              </button>
-            </div>
-          </td>
-        </tr>
-        <tr v-if="lists.length === 0">
-          <td colspan="6" class="text-center py-5">
-            <div class="empty-state">
-              <div class="empty-state-icon">
-                <i class="ri-file-line"></i>
+        <tbody>
+          <tr
+            class="custom-hover-row"
+            v-for="(list, index) in lists"
+            v-bind:key="index"
+            @click="selectRow(list.id)"
+            :class="{ 'bg-info-subtle': selectedRow === list.id }"
+          >
+            <td>{{ index + 1 }}</td>
+            <td>{{ list.code }}</td>
+            <td>{{ list.type }}</td>
+            <td>{{ list.created_at }}</td>
+            <td>
+              <span v-if="list.approved_at">{{ list.approved_at }}</span>
+              <span v-else class="text-muted">Not yet</span>
+            </td>
+            <td>
+              <b-badge :class="list.status.bg">{{ list.status?.name }}</b-badge>
+            </td>
+            <td class="text-center">
+              <div class="d-flex gap-1 justify-content-center flex-wrap">
+                <button
+                  @click="printBACReso(list)"
+                  class="btn btn-dark btn-sm"
+                  v-b-tooltip.hover
+                  title="Print"
+                >
+                  <i class="ri-printer-fill"></i>
+                </button>
+                <button
+                  v-if="list.status?.name == 'Pending' && ($page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Procurement Staff') )"
+                  @click="editBACReso(list)"
+                  class="btn btn-success btn-sm"
+                  v-b-tooltip.hover
+                  title="Edit"
+                >
+                  <i class="ri-edit-2-fill"></i>
+                </button>
+                <button
+                  v-if="list.status.name == 'Pending' && ($page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Procurement Staff') )"
+                  @click="updateStatus(list)"
+                  class="btn btn-warning btn-sm"
+                  v-b-tooltip.hover
+                  title="Update Status"
+                >
+                  <i class="ri-edit-circle-fill"></i>
+     
+                </button>
               </div>
-              <h6 class="empty-state-title">No BAC Resolutions</h6>
-              <p class="empty-state-message">No BAC resolutions have been created for this procurement yet.</p>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            </td>
+          </tr>
+          <tr v-if="lists.length === 0">
+            <td colspan="7" class="text-center py-5">
+              <div class="empty-state">
+                <div class="empty-state-icon">
+                  <i class="ri-file-line"></i>
+                </div>
+                <h6 class="empty-state-title">No BAC Resolutions</h6>
+                <p class="empty-state-message">No BAC resolutions have been created for this procurement yet.</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <Pagination
       class="ms-2 me-2"
       v-if="meta"
@@ -227,6 +234,10 @@ export default {
 
     selectRow(index) {
       this.selectedRow = this.selectedRow == index ? null : index;
+    },
+    refresh() {
+      this.filter.keyword = null;
+      this.fetch();
     },
   },
 };

@@ -63,7 +63,7 @@
 
                         <!-- Members -->
                         <h4 class="mb-3">Members </h4>
-                        <div class="row justify-content-center" v-f="members.length > 0">
+                        <div class="row justify-content-center" v-if="members.length > 0">
                             <div v-for="(member, index) in members" :key="index" class="col-md-4 mb-3" style="cursor: pointer;" @click="openView(member)">
                                 <div class="card-body border rounded-4 text-center">
                                     <div class="mb-2 mx-auto">

@@ -4,12 +4,12 @@
     <title>Notice of Award</title>
     <style>
         @page { 
-            margin: 10px 50px 35px 50px;
+            margin: 8px 24px 26px 24px;
         }
-        body { font-family: Arial, sans-serif; font-size: 8px; margin: 0; }
+        body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1; margin: 0; }
 
         .content {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         
         .main-table {
@@ -24,7 +24,7 @@
             border-collapse: collapse;
             border: 1.5px solid black;
             table-layout: fixed;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
         /* Forces header to repeat on every page */
@@ -35,14 +35,14 @@
 
         .main-table th, .main-table td { 
             border: 1px solid black; 
-            padding: 4px; 
+            padding: 3px; 
             vertical-align: top;
             word-wrap: break-word;
         }
 
         .meta-table td {
             border: 1px solid black;
-            padding: 4px;
+            padding: 3px;
             word-wrap: break-word;
         }
 
@@ -73,7 +73,7 @@
         .bold { font-weight: bold; }
         .description-cell {
             font-size: 7px;
-            line-height: 1.2;
+            line-height: 1;
         }
 
         .description-continuation {
@@ -137,15 +137,15 @@
 
     @foreach ($quotationChunks as $chunkIndex => $quotationChunk)
         <div class="text-center">
-            <img src="{{ public_path('/images/logo-sm.png') }}" alt="Logo Left" style="float:left; height:50px; width: 50px" >
-            <div style="line-height: .1">
+            <img src="{{ public_path('/images/logo-sm.png') }}" alt="Logo Left" style="float:left; height:42px; width: 42px" >
+            <div style="line-height: 1">
                 <p>Republic of the Philippines</p>
                 <h3>Department of Science and Technology</h3>
                 <p>Regional Office No. IX</p>
             </div>
         </div>
 
-        <center style="margin-right:-30px"> <h2>ABSTRACT OF BIDS</h2></center>
+        <center style="margin-right:-20px"> <h2 style="margin: 4px 0 6px;">ABSTRACT OF BIDS</h2></center>
 
         <table class="meta-table">
             <tbody>
@@ -268,19 +268,22 @@
     <script type="text/php">
         if ( isset($pdf) ) {
             $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-            $size = 8;
+            $size = 12;
             $width = $pdf->get_width();
             $height = $pdf->get_height();
-            $y_axis = $height - 25; 
+            $left_margin = 24;
+            $right_margin = 24;
+            $bottom_margin = 20;
+            $y_axis = $height - $bottom_margin; 
 
             // LEFT: Procurement Code
             $text_code = "{{ $procurement->code }}";
-            $pdf->page_text(35, $y_axis, $text_code, $font, $size, array(0,0,0));
+            $pdf->page_text($left_margin, $y_axis, $text_code, $font, $size, array(0,0,0));
 
             // RIGHT: Page Counter
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-            $pdf->page_text($width - $text_width + 50, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $text_width = $fontMetrics->get_text_width("Page 1 of 1", $font, $size);
+            $pdf->page_text($width - $text_width - $right_margin, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

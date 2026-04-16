@@ -15,7 +15,7 @@ return new class extends Migration
             $table->engine = 'InnoDB';
             $table->increments('id');
             $table->string('code')->unique(); 
-            $table->string('remarks')->nullable(); 
+            $table->longText('remarks')->nullable();
             $table->integer('procurement_id')->unsigned()->index();
             $table->foreign('procurement_id')->references('id')->on('procurements')->onDelete('cascade');
             $table->integer('procurement_bac_id')->unsigned()->index();
@@ -28,6 +28,8 @@ return new class extends Migration
             $table->foreign('approved_by_id')->references('id')->on('users');
             $table->tinyInteger('status_id')->unsigned()->index();
             $table->foreign('status_id')->references('id')->on('list_statuses');
+            $table->timestamp('served_at')->nullable();
+            $table->timestamp('conformed_at')->nullable();
             $table->timestamps();
         });
     }

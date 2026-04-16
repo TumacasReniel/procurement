@@ -14,9 +14,17 @@ class ProcurementBacNoa extends Model
         'procurement_bac_id',
         'procurement_quotation_id',
         'code',
+        'remarks',
         'created_by_id',
         'approved_by_id',
+        'served_at',
+        'conformed_at',
         'status_id',
+    ];
+
+    protected $casts = [
+        'served_at' => 'datetime',
+        'conformed_at' => 'datetime',
     ];
 
     public function procurement()
@@ -91,7 +99,7 @@ class ProcurementBacNoa extends Model
 
     public function getActivitylogOptions(): LogOptions {
         return LogOptions::defaults()
-        ->logOnly(['procurement_id','procurement_bac_id','procurement_quotation_id','code','created_by_id','approved_by_id','status_id'])
+        ->logOnly(['procurement_id','procurement_bac_id','procurement_quotation_id','code','remarks','created_by_id','approved_by_id','served_at','conformed_at','status_id'])
         ->setDescriptionForEvent(fn(string $eventName) => "NOA {$eventName}")
         ->useLogName('NOA')
         ->logOnlyDirty()

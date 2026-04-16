@@ -54,7 +54,7 @@ class PrintClass
                 return $this->printNTP($id);
             break;
             case 'iar':
-                return $this->printIAR($id);
+                return $this->printIAR($id, $request);
             break;
         }
     }
@@ -167,7 +167,7 @@ class PrintClass
     }
 
     public function printPR($id){
-        $procurement = Procurement::with('division','unit','fund_cluster','items.item_unit_type' , 'items' , 'requested_by.org_chart' , 'approved_by.org_chart' )->findOrFail($id); // 
+        $procurement = Procurement::with('division','unit','fund_cluster','items.item_unit_type' , 'items' , 'requested_by.org_chart' , 'approved_by.org_chart', 'comments.user.profile' )->findOrFail($id); // 
         $items = $procurement->items;
         $regional_director = $this->dropdown->regional_director();
 
@@ -343,9 +343,11 @@ class PrintClass
      public function printNTP($id){
         $ntp = ProcurementPoNtp::with('po.noa.procurement_quotation.procurement')->where('po_id', $id)->first(); // 
 
-        $total_contract_amount =  $ntp->po->noa
-                                ->items
-                                ->sum('item.bid_price');
+        $total_contract_amount = $ntp->po->noa
+            ->items
+            ->sum(function ($item) {
+                return ($item->item->bid_price ?? 0) * ($item->item->item->item_quantity ?? 0);
+            });
         // set amoutn format   
         $total_amount = number_format($total_contract_amount, 2);
         $amount_to_words = $this->numberToWords($total_contract_amount );
@@ -377,16 +379,45 @@ class PrintClass
 
     }
 
-    public function printIAR($id){
-        $purchase_order = ProcurementNoaPo::with('noa.procurement_bac.procurement.codes' , 'noa.procurement_quotation.supplier', 'noa.items.item', 'iar', 'noa.procurement_quotation.supply_officer.profile' )->findOrFail($id); // 
+    public function printIAR($id, $request = null){
+        $purchase_order = ProcurementNoaPo::with(
+            'noa.procurement_bac.procurement.codes',
+            'noa.procurement_quotation.supplier',
+            'noa.items.item',
+            'iar.status',
+            'iars.status',
+            'noa.procurement_quotation.supply_officer.profile'
+        )->findOrFail($id); // 
         $procurement =  $purchase_order->noa->procurement_bac->procurement;
         $codes = $procurement->codes;
-        $items = $purchase_order->noa->items;
+        $allItems = $purchase_order->noa->items;
+        $selectedIarId = (int) data_get($request, 'iar_id', 0);
+        $iar = $selectedIarId > 0
+            ? $purchase_order->iars->firstWhere('id', $selectedIarId)
+            : $purchase_order->iar;
+        $savedDeliveries = $iar
+            ? $iar->normalizedDeliveredItems($allItems)
+            : collect();
+        $savedDeliveryMap = $savedDeliveries->keyBy('item_id');
+        $hasSavedDeliveries = $savedDeliveries->isNotEmpty();
+        $items = $allItems
+            ->filter(fn ($item) => !$hasSavedDeliveries || $savedDeliveryMap->has((int) $item->id))
+            ->values()
+            ->map(function ($item) use ($savedDeliveryMap, $hasSavedDeliveries) {
+                $orderedQuantity = (float) data_get($item, 'item.item.item_quantity', 0);
+                $deliveredQuantity = $hasSavedDeliveries
+                    ? (float) data_get($savedDeliveryMap->get((int) $item->id), 'delivered_quantity', $orderedQuantity)
+                    : $orderedQuantity;
+
+                $item->ordered_quantity = $orderedQuantity;
+                $item->delivered_quantity = $deliveredQuantity;
+                $item->line_total = $item->item->bid_price * $deliveredQuantity;
+
+                return $item;
+            });
         $supplier = $purchase_order->noa->procurement_quotation->supplier;
 
-        $total_amount = $items->sum(function ($item) {
-            return $item->item->bid_price * $item->item->item->item_quantity;
-        });
+        $total_amount = $items->sum(fn ($item) => (float) ($item->line_total ?? 0));
 
         $amount_to_words = $this->numberToWords($total_amount );
 
@@ -398,12 +429,14 @@ class PrintClass
         $supply_officer =   $purchase_order->noa->procurement_quotation->supply_officer->profile;
 
         $array = [
-            'iar' => $purchase_order?->iar,
+            'iar' => $iar,
             'purchase_order' => $purchase_order,
             'supplier' => $supplier, 
              'procurement' => $procurement, 
             'codes' => $codes,
             'items' => $items,
+            'is_partial_delivery' => $items->count() !== $allItems->count()
+                || $items->contains(fn ($item) => (float) ($item->delivered_quantity ?? 0) < (float) ($item->ordered_quantity ?? 0)),
             'amount_to_words' => $amount_to_words,
             'regional_director' => $regional_director, 
             'supply_officer' => $supply_officer,
@@ -417,7 +450,7 @@ class PrintClass
                         'isPhpEnabled' => true,
                         'isRemoteEnabled' => true 
                     ]);
-         return $pdf->stream($purchase_order?->iar?->code.'.pdf');
+         return $pdf->stream(($iar?->code ?? $purchase_order->code . '-iar').'.pdf');
 
     }
 

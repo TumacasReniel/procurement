@@ -15,7 +15,7 @@
                         </div>
                         <div class="flex-grow-1">
                             <h5 class="mb-0 fs-14"><span class="text-body">For Approval</span></h5>
-                            <p class="text-muted text-truncate-two-lines fs-12">A detailed list of submitted travel order requests including destination, purpose, schedule, and status.</p>
+                            <p class="text-muted text-truncate-two-lines fs-12">A detailed list of submitted requests awaiting recommendation, review, or approval, including procurement requests.</p>
                         </div>
                         <div class="flex-shrink-0" style="width: 15%;">
                         </div>
@@ -46,7 +46,7 @@
                                     <i class="ri-apps-2-line me-1 align-bottom"></i> For Recommendation
                                     </BLink>
                                 </li>
-                                <li class="nav-item" v-if="designation == 43">
+                                <li class="nav-item" v-if="designation == 43 || !designation">
                                     <BLink @click="viewStatus(null)" class="nav-link py-3 active" data-bs-toggle="tab" role="tab" aria-selected="true">
                                     <i class="ri-apps-2-line me-1 align-bottom"></i> For Approval
                                     </BLink>
@@ -120,7 +120,7 @@
                                         <span :class="'badge '+list.status.bg">{{list.status.name}}</span>
                                     </td>
                                     <td class="text-end">
-                                        <Link :href="`/approvals/${list.link}`">
+                                        <Link :href="list.href || `/approvals/${list.link}`">
                                             <b-button variant="soft-info" class="me-1" v-b-tooltip.hover title="View" size="sm">
                                                 <i class="ri-eye-fill align-bottom"></i>
                                             </b-button>
@@ -170,7 +170,7 @@ export default {
                 expense: null,
                 leave: null
             },
-            designation: this.$page.props.user.data.signatory.designationable.designation_id,
+            designation: this.$page.props.user?.data?.signatory?.designationable?.designation_id ?? null,
             icons: ['ri-flight-takeoff-fill','ri-car-fill','ri-calendar-2-fill'],
             index: null,
             units: [],

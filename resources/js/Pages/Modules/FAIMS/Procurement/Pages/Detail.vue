@@ -105,13 +105,13 @@
 
       <!-- Statistics and Personnel Row -->
       <div class="row g-4 mb-4">
-        <div class="col-lg-6">
-          <div class="content-card">
+        <div class="col-lg-6 d-flex">
+          <div class="content-card overview-equal-card">
             <div class="card-header-custom">
               <i class="ri-bar-chart-line card-header-icon"></i>
               <h5 class="card-header-title">Statistics</h5>
             </div>
-            <div class="card-body-custom">
+            <div class="card-body-custom overview-equal-body">
               <div class="stat-grid">
                 <div class="stat-item">
                   <div class="stat-icon">
@@ -145,13 +145,13 @@
           </div>
         </div>
 
-        <div class="col-lg-6">
-          <div class="content-card">
+        <div class="col-lg-6 d-flex">
+          <div class="content-card overview-equal-card">
             <div class="card-header-custom">
               <i class="ri-user-line card-header-icon"></i>
               <h5 class="card-header-title">Personnel</h5>
             </div>
-            <div class="card-body-custom">
+            <div class="card-body-custom overview-equal-body">
               <div class="personnel-list">
                 <div class="personnel-item">
                   <div class="personnel-avatar">
@@ -160,7 +160,7 @@
                   <div class="personnel-info">
                     <span class="personnel-role">Created By</span>
                     <span class="personnel-name">{{
-                      procurement.created_by.profile.fullname
+                      getPersonnelName(procurement.created_by)
                     }}</span>
                   </div>
                 </div>
@@ -171,7 +171,18 @@
                   <div class="personnel-info">
                     <span class="personnel-role">Requested By</span>
                     <span class="personnel-name">{{
-                      procurement.requested_by.profile.fullname
+                      getPersonnelName(procurement.requested_by)
+                    }}</span>
+                  </div>
+                </div>
+                <div class="personnel-item">
+                  <div class="personnel-avatar">
+                    <i class="ri-user-star-line"></i>
+                  </div>
+                  <div class="personnel-info">
+                    <span class="personnel-role">Approved By</span>
+                    <span class="personnel-name">{{
+                      getPersonnelName(procurement.approved_by)
                     }}</span>
                   </div>
                 </div>
@@ -403,6 +414,22 @@ export default {
     };
   },
   methods: {
+    getPersonnelName(person) {
+      if (!person) {
+        return "Not yet assigned";
+      }
+
+      if (typeof person === "string") {
+        return person;
+      }
+
+      return (
+        person?.profile?.fullname ||
+        person?.profile?.full_name ||
+        person?.name ||
+        "Not yet assigned"
+      );
+    },
     calculateGrandTotal() {
       if (!this.procurement.items || this.procurement.items.length === 0) {
         return "0.00";
@@ -590,6 +617,17 @@ export default {
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
 }
 
+.overview-equal-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-equal-body {
+  flex: 1;
+}
+
 .card-header-custom {
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);
   padding: 1.5rem;
@@ -622,7 +660,8 @@ export default {
 .stat-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
+  height: 100%;
 }
 
 .stat-item {
@@ -633,6 +672,8 @@ export default {
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);
   border-radius: 10px;
   transition: all 0.3s ease;
+  flex: 1;
+  min-height: 96px;
 }
 
 .stat-item:hover {
@@ -677,6 +718,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  height: 100%;
 }
 
 .personnel-item {
@@ -687,6 +729,8 @@ export default {
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);
   border-radius: 10px;
   transition: all 0.3s ease;
+  flex: 1;
+  min-height: 96px;
 }
 
 .personnel-item:hover {

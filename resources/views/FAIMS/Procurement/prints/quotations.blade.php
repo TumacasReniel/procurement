@@ -9,6 +9,8 @@
         
         body {
             font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1;
             margin: -30px;
             padding: 20px;
             
@@ -28,11 +30,11 @@
         }
         .text-right{
             text-align: right ;
-            line-height: 0.1;
+            line-height: 1;
         }
         .text-left{
             text-align: left ;
-            line-height: 0.5;
+            line-height: 1;
         }
 
 
@@ -40,7 +42,7 @@
             text-align: left;
             position:absolute;
             right:0;
-            line-height: 0.5;
+            line-height: 1;
         }
         .border-container {
             margin-top: 0px;
@@ -126,9 +128,9 @@
     </div>
     <div class="text-center">
         <span style="font-size: 12px">Republic of the Philippines</span>
-        <h3 style="line-height: .1; font-size: 12px">DEPARTMENT OF SCIENCE AND TECHNOLOGY</h3>
-        <p style="line-height: .1; font-size: 12px">Regional Office No. IX</p>
-        <p style="line-height: .1; font-size: 12px">Pettit Barracks, Zone IV, Zamboanga City</p>
+        <h3 style="line-height: 1; font-size: 12px">DEPARTMENT OF SCIENCE AND TECHNOLOGY</h3>
+        <p style="line-height: 1; font-size: 12px">Regional Office No. IX</p>
+        <p style="line-height: 1; font-size: 12px">Pettit Barracks, Zone IV, Zamboanga City</p>
         <h3>
             REQUEST FOR QUOTATION
         </h3>
@@ -215,7 +217,7 @@
         </div>
     </div>
 
-    <div class="border-container3 " style="font-size: 11px; line-height: 1.5; margin-top:20px">
+    <div class="border-container3 " style="font-size: 11px; line-height: 1; margin-top:20px">
         <u>
             <b>GENERAL CONDITIONS</b>
         </u>
@@ -368,10 +370,10 @@
               </b>
               
          </p>
-         <p style="line-height: .5">
+         <p style="line-height: 1">
               Account Number: _______________________________________________________________________________________________
          </p>
-         <p style="line-height: .5; margin-bottom: 20px" >
+         <p style="line-height: 1; margin-bottom: 20px" >
               Account Name: _______________________________________________________________________________________________
          </p>
 
@@ -385,7 +387,7 @@
               I hereby certify that the above information is true and correct.
             
           </p>
-         <div style="line-height:.5">
+         <div style="line-height:1">
           <p >
                   ________________________________________________
               </p>
@@ -394,7 +396,7 @@
 
               </p>
          </div>
-        <div style="line-height:.5">
+        <div style="line-height:1">
           <p >
               ________________________________________________
               </p>
@@ -403,7 +405,7 @@
               
               </p>
           </div>
-         <div style="line-height:.5">
+         <div style="line-height:1">
           <p>
               ________________________________________________
               </p>
@@ -420,23 +422,23 @@
   <script type="text/php">
     if ( isset($pdf) ) {
         $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-        $size = 8;
+        $size = 12;
         $width = $pdf->get_width();
         $height = $pdf->get_height();
+        $left_margin = 35;
+        $right_margin = 35;
         $y_axis = $height - 25; 
 
             // 1. LEFT SIDE: Procurement Code
             $text_code = "{{ $procurement->code }}";
-        $pdf->page_text(35, $y_axis, $text_code, $font, $size, array(0,0,0));
+        $pdf->page_text($left_margin, $y_axis, $text_code, $font, $size, array(0,0,0));
 
         // RIGHT: Page Counter
         $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-        $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-        $pdf->page_text($width - $text_width + 50, $y_axis, $text_page, $font, $size, array(0,0,0));
+        $text_width = $fontMetrics->get_text_width("Page 1 of 1", $font, $size);
+        $pdf->page_text($width - $text_width - $right_margin, $y_axis, $text_page, $font, $size, array(0,0,0));
     }
 </script>
 
 </body>
 </html>
-
-

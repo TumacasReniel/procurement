@@ -12,6 +12,7 @@ use App\Services\FAIMS\Procurement\PrintClass;
 use App\Services\Executive\Users\SaveClass;
 use App\Events\CommentAdded;
 use App\Models\OrgChart;
+use App\Models\OrgSignatory;
 use App\Models\User;
 use App\Models\ListDropdown;
 
@@ -51,6 +52,19 @@ class ProcurementController extends Controller
 
             default:
                 $regionalDirector = $this->dropdown->regional_director();
+                $procurementApprovalUserIds = OrgSignatory::query()
+                    ->where(function ($query) {
+                        $query->where('user_id', \Auth::id())
+                            ->orWhere('oic_id', \Auth::id());
+                    })
+                    ->where('is_active', 1)
+                    ->pluck('user_id')
+                    ->push(\Auth::id())
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
                 return inertia('Modules/FAIMS/Procurement/Index', [
                     'dropdowns' => [
                         'roles'  =>  \Auth::user()->roles,
@@ -61,7 +75,7 @@ class ProcurementController extends Controller
                     ],
                     'regional_director'  =>  $regionalDirector,
                     'is_regional_director' => $regionalDirector && $regionalDirector['value'] == \Auth::id(),
-
+                    'procurement_approval_user_ids' => $procurementApprovalUserIds,
                 ]);
         }
     }
@@ -88,6 +102,7 @@ class ProcurementController extends Controller
                     'dropdowns' => [
                         'divisions' => $this->dropdown->dropdowns('Division'),
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
+                        'classifications' => $this->dropdown->dropdowns('Classification'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
                         'requesters' => $this->dropdown->requesters(),
@@ -246,7 +261,16 @@ class ProcurementController extends Controller
             ];
         });
 
-         return back()->with([
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $result['data'],
+                'status' => $result['status'],
+                'message' => $result['message'],
+                'info' => $result['info'],
+            ]);
+        }
+
+        return back()->with([
             'data' => $result['data'],
             'status' => $result['status'],
         ]);

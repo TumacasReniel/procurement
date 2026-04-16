@@ -11,6 +11,13 @@
     body-class="p-4"
   >
     <div class="supplier-form">
+      <div
+        v-if="form.errors.body || Object.keys(form.errors).length"
+        class="alert alert-danger py-2 px-3 mb-4"
+      >
+        {{ form.errors.body || "Please review the highlighted supplier fields." }}
+      </div>
+
       <!-- Basic Information -->
       <div class="form-section mb-4">
         <h5 class="section-title mb-3">
@@ -27,6 +34,7 @@
                 placeholder="Enter company or business name"
                 style="border-radius: 10px; border: 2px solid #e9ecef"
               />
+              <InputError :message="form.errors.name" class="mt-1" />
             </div>
           </b-col>
           <b-col lg="6">
@@ -42,6 +50,7 @@
                 :disabled="!editable"
                 style="border-radius: 10px; border: 2px solid #e9ecef"
               />
+              <InputError :message="form.errors.code" class="mt-1" />
             </div>
           </b-col>
         </b-row>
@@ -63,6 +72,7 @@
                 placeholder="Enter complete address including street, city, province, and postal code"
                 style="border-radius: 10px; border: 2px solid #e9ecef; resize: vertical"
               ></textarea>
+              <InputError :message="form.errors.address" class="mt-1" />
             </div>
           </b-col>
         </b-row>
@@ -257,7 +267,7 @@
         <b-button
           @click="saveSupplier()"
           variant="success"
-          :disabled="form.processing"
+          :disabled="isSaving"
           style="
             border-radius: 8px;
             padding: 0.5rem 1.5rem;
@@ -266,7 +276,7 @@
         >
           <i class="ri-save-line me-1"></i>
           {{
-            form.processing
+            isSaving
               ? "Saving..."
               : editable
               ? "Update Supplier"
@@ -301,6 +311,7 @@ export default {
       showModal: false,
       editable: false,
       attachments: [{ file: null, code: null, type_id: null }],
+      isSaving: false,
     };
   },
 
@@ -308,14 +319,17 @@ export default {
     show() {
       this.editable = false;
       this.form.reset();
+      this.form.clearErrors();
       this.form.conformes = [{ name: null, position: null, contact_no: null }];
       this.form.is_active = true;
       this.attachments = [{ file: null, code: null, type_id: null, isExisting: false }];
+      this.isSaving = false;
       this.showModal = true;
     },
 
     edit(data) {
       this.editable = true;
+      this.form.clearErrors();
       this.form.id = data.id;
       this.form.name = data.name;
       this.form.code = data.code;
@@ -335,18 +349,24 @@ export default {
             isExisting: true // Mark as existing
           }))
         : [{ file: null, code: null, type_id: null, isExisting: false }];
+      this.isSaving = false;
       this.showModal = true;
     },
 
     hide() {
       this.form.reset();
+      this.form.clearErrors();
       this.form.conformes = [{ name: null, position: null, contact_no: null }];
       this.form.is_active = true;
       this.attachments = [{ file: null, code: null, type_id: null, isExisting: false }];
+      this.isSaving = false;
       this.showModal = false;
     },
 
     saveSupplier() {
+      this.form.clearErrors();
+      this.isSaving = true;
+
       // Prepare form data
       const formData = new FormData();
 
@@ -409,7 +429,18 @@ export default {
             this.hide();
           })
           .catch((error) => {
+            if (error.response?.status === 422 && error.response.data?.errors) {
+              this.form.setError(error.response.data.errors);
+            } else {
+              this.form.setError(
+                "body",
+                error.response?.data?.info || "Unable to update the supplier right now.",
+              );
+            }
             console.error("Error updating supplier:", error);
+          })
+          .finally(() => {
+            this.isSaving = false;
           });
       } else {
         axios
@@ -423,7 +454,18 @@ export default {
             this.hide();
           })
           .catch((error) => {
+            if (error.response?.status === 422 && error.response.data?.errors) {
+              this.form.setError(error.response.data.errors);
+            } else {
+              this.form.setError(
+                "body",
+                error.response?.data?.info || "Unable to create the supplier right now.",
+              );
+            }
             console.error("Error creating supplier:", error);
+          })
+          .finally(() => {
+            this.isSaving = false;
           });
       }
     },
@@ -439,7 +481,7 @@ export default {
     },
 
     addAttachment() {
-      this.attachments.push({ file: null, code: null, type_id: null });
+      this.attachments.push({ file: null, code: null, type_id: null, isExisting: false });
     },
 
     removeAttachment(index) {

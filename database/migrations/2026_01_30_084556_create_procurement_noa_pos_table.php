@@ -33,6 +33,9 @@ return new class extends Migration
             $table->foreign('updated_by_id')->references('id')->on('users');
             $table->tinyInteger('status_id')->unsigned()->index();
             $table->foreign('status_id')->references('id')->on('list_statuses');
+            $table->timestamp('released_at')->nullable();
+            $table->timestamp('conformed_at')->nullable();
+            $table->date('actual_delivery_date')->nullable();
             $table->timestamps();
         });
     }

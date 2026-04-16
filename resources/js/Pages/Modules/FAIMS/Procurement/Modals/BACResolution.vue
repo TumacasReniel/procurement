@@ -26,13 +26,11 @@
             </BCol>
             <BCol class="mt-2">
               <InputLabel value="Type" />
-              <Multiselect
-                :options="['Award', 'Re-award', 'Rebid']"
+              <TextInput
                 v-model="form.type"
-                :searchable="true"
-                label="name"
-                disabled
-                placeholder="Select BAC Resolution Type"
+                class="form-control"
+                :light="true"
+                readonly
               />
             </BCol>
 
@@ -261,7 +259,6 @@
 
 <script>
 import { useForm } from "@inertiajs/vue3";
-import Multiselect from "@vueform/multiselect";
 import InputError from "@/Shared/Components/Forms/InputError.vue";
 import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
 import TextInput from "@/Shared/Components/Forms/TextInput.vue";
@@ -273,7 +270,6 @@ export default {
     InputError,
     InputLabel,
     TextInput,
-    Multiselect,
     CustomEditor,
   },
   props: ["procurement", "logs"],
@@ -683,7 +679,7 @@ export default {
       // === CORRECT total accumulation across awarded bids ===
       const award_bid_total_price = awarded_quotations.reduce((total, bid) => {
         const filtered_items = (bid.bid_items || []).filter(
-          (item) => item.status.name = 'Awarded' && item.is_rebid == 0
+          (item) => item.status.name === 'Awarded' && item.is_rebid == 0
         );
         const total_price = filtered_items.reduce((sum, quotation) => {
           const bp = parseFloat(quotation.bid_price) || 0;
@@ -1007,7 +1003,7 @@ export default {
       const awarded_quotations_list = awarded_quotations
         .map((quotation) => {
           const filtered_items = quotation.items.filter(
-            (item) => item.status.name = 'Awarded' || item.is_rebid == 0
+            (item) => item.status.name === 'Awarded' || item.is_rebid == 0
           );
           if (filtered_items.length === 0) return "";
           const item_numbers = filtered_items.map((item) => item.item.item_no).join(", ");

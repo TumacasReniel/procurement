@@ -392,9 +392,17 @@ class DropdownClass
     public function procurement_codes()
     {
         $data = ProcurementCode::get()->map(function ($item) {
+            $label = $item->code;
+
+            if (!empty($item->title)) {
+                $label .= ' - ' . $item->title;
+            }
+
             return [
                 'value' => $item->id,
                 'code' => $item->code,
+                'title' => $item->title,
+                'label' => $label,
             ];
         });
         return $data;
@@ -462,26 +470,19 @@ class DropdownClass
 
     public function supply_officers()
     {
-        $data = User::with('roles', 'profile')
+        return User::with('roles', 'profile')
             ->whereHas('roles', function ($query) {
-                $query->whereIn('list_roles.name', [
-                    'Supply Officer',
-                ]);
+                $query->where('list_roles.name', 'Supply Officer')
+                    ->where('user_roles.is_active', 1);
             })
+            ->orderBy('id')
             ->get()
             ->map(function ($item) {
                 return [
                     'value' => $item->id,
-                    'name' => $item->profile?->fullname ?? 'User #' . $item->id,
+                    'name' => $item->profile?->full_name ?? ('User #' . $item->id),
                 ];
             });
-
-        return $data->isEmpty()
-            ? User::with('profile')->get()->map(fn($item) => [
-                'value' => $item->id,
-                'name' => $item->profile?->fullname ?? 'User #' . $item->id,
-            ])
-            : $data;
     }
 
     public function suppliers()

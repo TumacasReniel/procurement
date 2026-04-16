@@ -136,6 +136,17 @@ class ProcurementClass
         ]);
 
         try {
+            if (!$request->filled('classification_id')) {
+                $procurement = Procurement::findOrFail($id);
+
+                return [
+                    'data' => new ProcurementResource($procurement),
+                    'message' => 'Procurement classification is required.',
+                    'info' => 'Please select whether this PR is for Goods and Services, Infrastructure Projects, or Consulting Services before reviewing.',
+                    'status' => 'warning',
+                ];
+            }
+
             // update Procurement
             $data = $this->updatePR($id , $request);
 
@@ -218,6 +229,7 @@ class ProcurementClass
             'division_id',
             'unit_id',
             'fund_cluster_id',
+            'classification_id',
             'requested_by_id',
             'approved_by_id'
         )));

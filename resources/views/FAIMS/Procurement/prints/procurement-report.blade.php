@@ -10,7 +10,8 @@
 
         body {
             font-family: Arial, sans-serif;
-            font-size: 9px;
+            font-size: 12px;
+            line-height: 1;
             color: #000;
             margin: 0;
         }
@@ -47,7 +48,7 @@
             border: 1px solid #222;
             background: #fff;
             text-align: center;
-            line-height: 1.1;
+            line-height: 1;
             font-size: 10px;
         }
 
@@ -92,7 +93,7 @@
 
         .report-table th {
             font-weight: 700;
-            line-height: 1.15;
+            line-height: 1;
         }
 
         .band {
@@ -347,7 +348,7 @@
     <script type="text/php">
         if (isset($pdf)) {
             $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-            $size = 8;
+            $size = 12;
             $text = "Page {PAGE_NUM} of {PAGE_COUNT}";
             $pdf->page_text(780, 2, $text, $font, $size, [0, 0, 0]);
         }

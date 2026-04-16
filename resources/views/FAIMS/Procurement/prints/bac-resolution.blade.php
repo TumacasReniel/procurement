@@ -10,7 +10,8 @@ y<!DOCTYPE html>
             margin: 15px 15px 15px 15px;
             padding: 0;
             height: 100%;
-            font-size: 10px;
+            font-size: 12px;
+            line-height: 1;
         }
 
         .header {
@@ -28,11 +29,11 @@ y<!DOCTYPE html>
         }
         .text-right{
             text-align: right ;
-            line-height: 0.1;
+            line-height: 1;
         }
         .text-left{
             text-align: left ;
-            line-height: 0.5;
+            line-height: 1;
         }
 
 
@@ -40,7 +41,7 @@ y<!DOCTYPE html>
             text-align: left;
             position:absolute;
             right:0;
-            line-height: 0.5;
+            line-height: 1;
         }
         .border-container {
             margin-top: 0px;
@@ -221,19 +222,21 @@ y<!DOCTYPE html>
     <script type="text/php">
         if ( isset($pdf) ) {
             $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-            $size = 8;
+            $size = 12;
             $width = $pdf->get_width();
             $height = $pdf->get_height();
+            $left_margin = 35;
+            $right_margin = 35;
             $y_axis = $height - 25; 
 
             // LEFT: bac_resolution Code
             $text_code = "{{ $bac_resolution->code }}";
-            $pdf->page_text(35, $y_axis, $text_code, $font, $size, array(0,0,0));
+            $pdf->page_text($left_margin, $y_axis, $text_code, $font, $size, array(0,0,0));
 
             // RIGHT: Page Counter
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-            $pdf->page_text($width - $text_width + 50, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $text_width = $fontMetrics->get_text_width("Page 1 of 1", $font, $size);
+            $pdf->page_text($width - $text_width - $right_margin, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

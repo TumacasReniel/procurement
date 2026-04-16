@@ -51,6 +51,10 @@
             Please type "confirm" to proceed
           </small>
         </div>
+
+        <div v-if="form.errors.status" class="alert alert-warning mt-3 mb-0 text-start">
+          {{ form.errors.status }}
+        </div>
       </div>
     </form>
     <template v-slot:footer>
@@ -63,6 +67,7 @@
 </template>
 <script>
 import { useForm } from "@inertiajs/vue3";
+import axios from "axios";
 import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
 import TextInput from "@/Shared/Components/Forms/TextInput.vue";
 
@@ -123,14 +128,54 @@ export default {
         if (this.type == "PO Not Conformed") {
           this.form.option = "not_conformed";
         }
-        this.form.put("/faims/purchase-orders/" + this.form.id, {
-          preserveScroll: true,
-          onSuccess: (response) => {
-            this.$emit("add", true);
-            this.hide();
-          },
-        });
+        this.submitPoRequest("/faims/purchase-orders/" + this.form.id);
       }
+    },
+    submitPoRequest(url) {
+      this.form.clearErrors();
+      this.form.processing = true;
+
+      axios
+        .put(
+          url,
+          {
+            id: this.form.id,
+            code: this.form.code,
+            status: this.form.status,
+            comment: this.form.comment,
+            option: this.form.option,
+          },
+          {
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        )
+        .then((response) => {
+          const status = response?.data?.status;
+
+          if (status !== true && status !== "success") {
+            this.form.setError(
+              "status",
+              response?.data?.info || "Unable to update this Purchase Order."
+            );
+            return;
+          }
+
+          this.$emit("add", true);
+          this.hide();
+        })
+        .catch((error) => {
+          if (error.response?.status === 422 && error.response?.data?.errors) {
+            this.form.setError(error.response.data.errors);
+            return;
+          }
+
+          console.error(error);
+        })
+        .finally(() => {
+          this.form.processing = false;
+        });
     },
     handleInput(field) {
       this.form.errors[field] = false;

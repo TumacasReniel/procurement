@@ -8,30 +8,45 @@ use Illuminate\Support\Facades\Auth;
 
 class SupplierClass
 {
-    public function lists($request){
+    public function lists($request)
+    {
         $data = SupplierResource::collection(
-            Supplier::with(['address', 'conformes', 'attachments'])
+            Supplier::query()
+            ->with(['address', 'conformes', 'attachments', 'created_by.profile'])
+            ->withCount(['conformes', 'attachments'])
             ->when($request->keyword, function ($query, $keyword) {
-                $query->where('name', 'LIKE', "%{$keyword}%")
+                $query->where(function ($searchQuery) use ($keyword) {
+                    $searchQuery->where('name', 'LIKE', "%{$keyword}%")
                         ->orWhere('code', 'LIKE', "%{$keyword}%")
                         ->orWhereHas('address', function ($q) use ($keyword) {
                             $q->where('address', 'LIKE', "%{$keyword}%");
+                        })
+                        ->orWhereHas('conformes', function ($q) use ($keyword) {
+                            $q->where('name', 'LIKE', "%{$keyword}%")
+                                ->orWhere('position', 'LIKE', "%{$keyword}%")
+                                ->orWhere('contact_no', 'LIKE', "%{$keyword}%");
+                        })
+                        ->orWhereHas('created_by.profile', function ($q) use ($keyword) {
+                            $q->where('firstname', 'LIKE', "%{$keyword}%")
+                                ->orWhere('middlename', 'LIKE', "%{$keyword}%")
+                                ->orWhere('lastname', 'LIKE', "%{$keyword}%");
                         });
+                });
             })
-            ->when($request->status !== null, function ($query) use ($request) {
+            ->when($request->status !== null && $request->status !== '', function ($query) use ($request) {
                 $query->where('is_active', $request->status);
             })
-            ->orderBy('created_at','DESC')
-            ->paginate($request->count ?: 15)
+            ->orderBy('created_at', 'DESC')
+            ->paginate($request->count ?: 10)
         );
+
         return $data;
     }
 
     public function save($request)
     {
-
         $code = Supplier::generateCode();
-        // Create the supplier with basic fields
+
         $supplier = Supplier::create([
             'name' => $request->name,
             'code' => $code,
@@ -39,16 +54,10 @@ class SupplierClass
             'user_id' => Auth::id(),
         ]);
 
-        // dd($supplier);
-
-        // Handle address
         if ($request->address) {
-            $address = $supplier->address()->create(['address' => $request->address]);
+            $supplier->address()->create(['address' => $request->address]);
         }
 
-
-
-        // Handle conformes
         if ($request->conformes && is_array($request->conformes)) {
             foreach ($request->conformes as $conforme) {
                 if (!empty($conforme['name'])) {
@@ -61,8 +70,6 @@ class SupplierClass
             }
         }
 
-     
-        // Handle attachments
         if ($request->hasFile('attachments')) {
             $attachment_codes = $request->attachment_codes ?? [];
             $attachment_types = $request->attachment_types ?? [];
@@ -81,7 +88,7 @@ class SupplierClass
         }
 
         return [
-            'data' => new SupplierResource($supplier),
+            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments', 'created_by.profile'])),
             'message' => 'Supplier created successfully!',
             'info' => "You've successfully added new Supplier.",
         ];
@@ -89,18 +96,14 @@ class SupplierClass
 
     public function update($request)
     {
-
-        // Find the existing Supplier by ID
         $supplier = Supplier::findOrFail($request->id);
 
-        // Update the Supplier with the new data
         $supplier->update([
             'name' => $request->name,
             'code' => $request->code,
             'is_active' => $request->is_active ?? $supplier->is_active,
         ]);
 
-        // Handle address
         if ($request->address) {
             $supplier->address()->updateOrCreate(
                 ['supplier_id' => $supplier->id],
@@ -108,9 +111,8 @@ class SupplierClass
             );
         }
 
-        // Handle conformes - delete existing and create new ones
         if ($request->conformes && is_array($request->conformes)) {
-            $supplier->conformes()->delete(); // Delete existing conformes
+            $supplier->conformes()->delete();
             foreach ($request->conformes as $conforme) {
                 if (!empty($conforme['name'])) {
                     $supplier->conformes()->create([
@@ -122,15 +124,12 @@ class SupplierClass
             }
         }
 
-        // Handle attachments
         $existingAttachmentIds = $request->existing_attachments ?? [];
         $attachmentCodes = $request->attachment_codes ?? [];
         $attachmentTypes = $request->attachment_types ?? [];
 
-        // Delete attachments that are no longer present
         $supplier->attachments()->whereNotIn('id', $existingAttachmentIds)->delete();
 
-        // Update existing attachments
         foreach ($existingAttachmentIds as $index => $attachmentId) {
             if (isset($attachmentCodes[$index]) || isset($attachmentTypes[$index])) {
                 $supplier->attachments()->where('id', $attachmentId)->update([
@@ -140,7 +139,6 @@ class SupplierClass
             }
         }
 
-        // Add new attachments
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $index => $file) {
                 $path = $file->store('supplier_attachments', 'public');
@@ -156,7 +154,7 @@ class SupplierClass
         }
 
         return [
-            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments'])),
+            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments', 'created_by.profile'])),
             'message' => 'Supplier updated successfully!',
             'info' => "You've successfully updated the Supplier.",
         ];
@@ -170,7 +168,7 @@ class SupplierClass
         ]);
 
         return [
-            'data' => new SupplierResource($supplier),
+            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments', 'created_by.profile'])),
             'message' => 'Supplier status updated successfully!',
             'info' => "You've successfully " . ($request->is_active ? 'activated' : 'deactivated') . " the supplier.",
         ];

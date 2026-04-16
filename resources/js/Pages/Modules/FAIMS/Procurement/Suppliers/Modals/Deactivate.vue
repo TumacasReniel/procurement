@@ -136,8 +136,12 @@ export default {
         .patch(`/faims/suppliers/${this.supplier.id}/status`, {
           is_active: newStatus,
         })
-        .then(() => {
-          this.supplier.is_active = newStatus;
+        .then((response) => {
+          const updatedSupplier = response?.data?.data || {
+            ...this.supplier,
+            is_active: newStatus,
+          };
+
           this.showStatusModal = false;
           this.statusResult = {
             title: "Success",
@@ -146,7 +150,7 @@ export default {
           };
           this.showResultModal = true;
           this.statusChanging = false;
-          this.$emit('status-changed', this.supplier);
+          this.$emit('status-changed', updatedSupplier);
         })
         .catch((err) => {
           console.error(err);

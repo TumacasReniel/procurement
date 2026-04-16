@@ -21,125 +21,141 @@
         >
           <i class="bx bx-refresh search-icon"></i>
         </span>
-        <b-button
-          v-if="procurement.status_id == 44"
-          type="button"
-          variant="primary"
-          @click="openNOA()"
-        >
-          <i class="ri-add-circle-fill align-bottom me-1"></i> New
-        </b-button>
       </div>
     </b-col>
   </b-row>
     
   <b-card no-body>
-    <table class="table mb-0">
-      <thead class="table-light">
-        <tr class="fs-11">
-          <th>#</th>
-          <th>NOA No.</th>
-          <th>BAC No.</th>
-          <th>Date Created</th>
-          <th>Status</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
+    <div class="table-responsive">
+      <table class="table mb-0" style="min-width: 900px;">
+        <thead class="table-light">
+          <tr class="fs-11">
+            <th>#</th>
+            <th>NOA No.</th>
+            <th>BAC No.</th>
+            <th>Timeline</th>
+            <th>Status</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
 
-      <tbody>
-        <tr
-          class="custom-hover-row"
-          v-for="(list, index) in lists"
-          v-bind:key="index"
-          @click="selectRow(list.id)"
-          :class="{ 'bg-info-subtle': selectedRow === list.id }"
-        >
-          <td>{{ index + 1 }}</td>
-          <td>{{ list.code }}</td>
-          <td>{{ list.bac_resolution?.code }}</td>
-          <td>{{ list.created_at }}</td>
-          <td>
-            <b-badge :class="list.status.bg">{{ list.status?.name }}</b-badge>
-          </td>
-          <td class="text-center">
-            <div class="d-flex gap-1 justify-content-center flex-wrap">
-              <button
-                v-if="
-                  (list.status.name == 'Pending' ||
-                  list.status.name == 'Served to Supplier') &&
-                  ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))
-                "
-                @click="updateStatus(list)"
-                class="btn btn-warning btn-sm"
-                v-b-tooltip.hover
-                title="Update Status"
-              >
-                <i class="ri-edit-circle-fill"></i>
-              </button>
-              <button
-                v-if="
-                  ['Served to Supplier', 'Conformed', 'Delivered/For Inspection'].includes(list.status.name) &&
-                  ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))
-                "
-                @click="revertStatus(list)"
-                class="btn btn-warning btn-sm"
-                v-b-tooltip.hover
-                title="Revert Status"
-              >
-                <i class="ri-arrow-go-back-line"></i>
-              </button>
-              <button
-                v-if="(list.status.name == 'Served to Supplier') && ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))"
-                @click="notConformed(list)"
-                class="btn btn-danger btn-sm"
-                v-b-tooltip.hover
-                title="Not Conformed"
-              >
-                <i class="ri-close-circle-fill"></i>
-              </button>
-              <button
-                v-if="
-                  (list.status.name == 'Conformed' || list.status.name == 'Not Co nformed'||
-                  list.status.name == 'PO Conformed' ||
-                  list.status.name == 'PO Issued' ||
-                  list.status.name == 'PO Created' ||
-                  list.status.name == 'PO Conformed' ||
-                  list.status.name == 'Delivered/For Inspection' || list.status.name == 'PO Delivered/For Inspection' ||
-                  list.status.name == 'Completed') &&
-                  ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))
-                "
-                @click="goPOPage(list)"
-                class="btn btn-success btn-sm"
-                v-b-tooltip.hover
-                title="Purchase Order"
-              >
-                <i class="ri-file-2-fill"></i>
-              </button>
-              <button
-                @click="printNOA(list)"
-                class="btn btn-dark btn-sm"
-                v-b-tooltip.hover
-                title="Print"
-              >
-                <i class="ri-printer-fill"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-        <tr v-if="lists.length === 0">
-          <td colspan="6" class="text-center py-5">
-            <div class="empty-state">
-              <div class="empty-state-icon">
-                <i class="ri-trophy-line"></i>
+        <tbody>
+          <tr
+            class="custom-hover-row"
+            v-for="(list, index) in lists"
+            v-bind:key="index"
+            @click="selectRow(list.id)"
+            :class="{ 'bg-info-subtle': selectedRow === list.id }"
+          >
+            <td>{{ index + 1 }}</td>
+            <td>{{ list.code }}</td>
+            <td>{{ list.bac_resolution?.code }}</td>
+            <td>
+              <div class="date-stack">
+                <div class="date-stack-item">
+                  <span class="date-stack-label">Created</span>
+                  <span class="date-stack-value">{{ list.created_at }}</span>
+                </div>
+                <div class="date-stack-item">
+                  <span class="date-stack-label">Served</span>
+                  <span class="date-stack-value" :class="{ 'text-muted': !list.served_at }">
+                    {{ list.served_at || "Not yet" }}
+                  </span>
+                </div>
+                <div class="date-stack-item">
+                  <span class="date-stack-label">Conformed</span>
+                  <span
+                    class="date-stack-value"
+                    :class="{ 'text-muted': !list.conformed_at }"
+                  >
+                    {{ list.conformed_at || "Not yet" }}
+                  </span>
+                </div>
               </div>
-              <h6 class="empty-state-title">No Notice of Awards</h6>
-              <p class="empty-state-message">No notices of award have been created for this procurement yet.</p>
+            </td>
+            <td>
+              <b-badge :class="list.status.bg">{{ list.status?.name }}</b-badge>
+            </td>
+            <td class="text-center">
+              <div class="d-flex gap-1 justify-content-center flex-wrap">
+                <button
+                  v-if="canEditNOA(list)"
+                  @click.stop="editNOA(list)"
+                  class="btn btn-success btn-sm"
+                  v-b-tooltip.hover
+                  title="Edit NOA"
+                >
+                  <i class="ri-edit-2-fill"></i>
+                </button>
+                <button
+                  v-if="
+                    (list.status?.name == 'Pending' ||
+                    list.status?.name == 'Served to Supplier') &&
+                    ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))
+                  "
+                  @click="updateStatus(list)"
+                  class="btn btn-warning btn-sm"
+                  v-b-tooltip.hover
+                  title="Update Status"
+                >
+                  <i class="ri-edit-circle-fill"></i>
+                </button>
+                <button
+                  v-if="
+                    ['Served to Supplier', 'Conformed', 'Delivered/For Inspection'].includes(list.status?.name) &&
+                    ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))
+                  "
+                  @click="revertStatus(list)"
+                  class="btn btn-warning btn-sm"
+                  v-b-tooltip.hover
+                  title="Revert Status"
+                >
+                  <i class="ri-arrow-go-back-line"></i>
+                </button>
+                <button
+                  v-if="(list.status?.name == 'Served to Supplier') && ($page.props.roles.includes('Procurement Staff') || $page.props.roles.includes('Procurement Officer'))"
+                  @click="notConformed(list)"
+                  class="btn btn-danger btn-sm"
+                  v-b-tooltip.hover
+                  title="Not Conformed"
+                >
+                  <i class="ri-close-circle-fill"></i>
+                </button>
+                <button
+                  v-if="canOpenPO(list)"
+                  @click="goPOPage(list)"
+                  class="btn btn-success btn-sm"
+                  v-b-tooltip.hover
+                  title="Purchase Order"
+                >
+                  <i class="ri-file-2-fill"></i>
+                </button>
+                <button
+                  @click="printNOA(list)"
+                  class="btn btn-dark btn-sm"
+                  v-b-tooltip.hover
+                  title="Print"
+                >
+                  <i class="ri-printer-fill"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="lists.length === 0">
+            <td colspan="6" class="text-center py-5">
+              <div class="empty-state">
+                <div class="empty-state-icon">
+                  <i class="ri-trophy-line"></i>
+                </div>
+                <h6 class="empty-state-title">No Notice of Awards</h6>
+                <p class="empty-state-message">No notices of award have been created for this procurement yet.</p>
 
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <Pagination
       class="ms-2 me-2"
       v-if="meta"
@@ -150,7 +166,7 @@
     />
   </b-card>
 
-  <NOA :procurement="procurement" ref="NOA" />
+  <NOA :procurement="procurement" @update="fetch()" ref="NOA" />
 
   <UpdateStatus :procurement="procurement" @add="fetch()" ref="updateStatus" />
   <RevertResultModal
@@ -172,6 +188,15 @@ import RevertResultModal from "@/Shared/Components/RevertResultModal.vue";
 export default {
   props: ["bac_resolution", "procurement", "dropdowns"],
   components: { PageHeader, Pagination, NOA, UpdateStatus, RevertResultModal },
+  computed: {
+    canManageNOA() {
+      const roles = this.$page.props.roles || [];
+
+      return (
+        roles.includes("Procurement Staff") || roles.includes("Procurement Officer")
+      );
+    },
+  },
   data() {
     return {
       currentUrl: window.location.origin,
@@ -221,10 +246,23 @@ export default {
         .catch((err) => console.log(err));
     },
 
-    openNOA() {
-      this.$refs.NOA.show(type);
+    editNOA(data) {
+      this.$refs.NOA.edit(data);
     },
-
+    canEditNOA(data) {
+      return data?.status?.name === "Pending" && this.canManageNOA;
+    },
+    canOpenPO(data) {
+      return this.canManageNOA && [
+        "Conformed",
+        "PO Created",
+        "PO Issued",
+        "PO Conformed",
+        "Delivered/For Inspection",
+        "PO Delivered/For Inspection",
+        "Completed",
+      ].includes(data?.status?.name);
+    },
 
     updateStatus(data) {
       let type = "NOA";
@@ -253,6 +291,10 @@ export default {
     selectRow(selected_id) {
       this.selectedRow = selected_id;
     },
+    refresh() {
+      this.filter.keyword = null;
+      this.fetch();
+    },
   },
 };
 </script>
@@ -260,5 +302,32 @@ export default {
 <style scoped>
 .custom-hover-row:hover {
   background-color: hsl(0, 29%, 97%);
+}
+
+.date-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+.date-stack-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.date-stack-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.date-stack-value {
+  font-weight: 500;
+  text-align: right;
 }
 </style>

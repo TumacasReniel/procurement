@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\ListStatus;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
 
 class ProcurementBac extends Model
 {
@@ -14,7 +15,12 @@ class ProcurementBac extends Model
         'body',
         'created_by_id',
         'approved_by_id',
+        'approved_at',
         'status_id',
+    ];
+
+    protected $casts = [
+        'approved_at' => 'datetime',
     ];
 
     public function procurement()
@@ -224,7 +230,7 @@ class ProcurementBac extends Model
 
     public function getActivitylogOptions(): LogOptions {
         return LogOptions::defaults()
-        ->logOnly(['procurement_id','code','type','body','created_by_id','approved_by_id','status_id'])
+        ->logOnly(['procurement_id','code','type','body','created_by_id','approved_by_id','approved_at','status_id'])
         ->setDescriptionForEvent(fn(string $eventName) => "BAC Resolution {$eventName}")
         ->useLogName('BAC Resolution')
         ->logOnlyDirty()

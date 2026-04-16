@@ -3,6 +3,7 @@
 namespace App\Services\FAIMS\Procurement;
 
 use App\Services\DropdownClass;
+use App\Models\OrgSignatory;
 use App\Models\Procurement;
 use App\Models\ProcurementQuotation;
 use App\Models\ProcurementBac;
@@ -15,6 +16,7 @@ use Spatie\Activitylog\Models\Activity;
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
 use App\Http\Resources\FAIMS\Procurement\ProcurementQuotationResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 use NumberFormatter;
 
 
@@ -28,13 +30,22 @@ class ViewClass
 
     public function procurements($request)
     {
+        $canSeeAllProcurements =
+            auth()->user()->hasRole('Procurement Officer') ||
+            auth()->user()->hasRole('Procurement Staff') ||
+            auth()->user()->hasRole('Administrator');
+
+        $procurementApprovalUserIds = $this->procurementApprovalUserIds();
+
         $data = ProcurementResource::collection(
             Procurement::with('status')
                 ->when($request->keyword, function ($query, $keyword) {
-                    $query->where('code', 'LIKE', "%{$keyword}%")
-                        ->orWhere('date', 'LIKE', "%{$keyword}%")
-                        ->orWhere('created_at', 'LIKE', "%{$keyword}%")
-                        ->orWhere('updated_at', 'LIKE', "%{$keyword}%");
+                    $query->where(function ($searchQuery) use ($keyword) {
+                        $searchQuery->where('code', 'LIKE', "%{$keyword}%")
+                            ->orWhere('date', 'LIKE', "%{$keyword}%")
+                            ->orWhere('created_at', 'LIKE', "%{$keyword}%")
+                            ->orWhere('updated_at', 'LIKE', "%{$keyword}%");
+                    });
                 })
                 ->when($request->report_type, function ($query, $reportType) {
                     $modeNames = $this->modeNamesForReportType($reportType);
@@ -55,19 +66,35 @@ class ViewClass
                 ->when($request->status, function ($query, $status) {
                     $query->where('status_id', $status);
                 })
-                // Only restrict to own requests for Employees; Procurement Officer/Staff and Administrator see all
-                ->when(
-                    auth()->user()->hasRole('Employee') &&
-                    !auth()->user()->hasRole('Procurement Officer') &&
-                    !auth()->user()->hasRole('Procurement Staff'),
-                    function ($query) {
-                        $query->where('created_by_id', auth()->id());
-                    }
-                )
+                // Employees only see their own PRs, while assigned signatories can also see PRs routed to them.
+                ->when(!$canSeeAllProcurements, function ($query) use ($procurementApprovalUserIds) {
+                    $query->where(function ($visibilityQuery) use ($procurementApprovalUserIds) {
+                        $visibilityQuery->where('created_by_id', auth()->id());
+
+                        if ($procurementApprovalUserIds->isNotEmpty()) {
+                            $visibilityQuery->orWhereIn('approved_by_id', $procurementApprovalUserIds);
+                        }
+                    });
+                })
                 ->orderBy('created_at', 'DESC')
                 ->paginate($request->count)
         );
         return $data;
+    }
+
+    protected function procurementApprovalUserIds(): Collection
+    {
+        return OrgSignatory::query()
+            ->where(function ($query) {
+                $query->where('user_id', auth()->id())
+                    ->orWhere('oic_id', auth()->id());
+            })
+            ->where('is_active', 1)
+            ->pluck('user_id')
+            ->push(auth()->id())
+            ->filter()
+            ->unique()
+            ->values();
     }
 
     private function modeNamesForReportType($reportType)
@@ -287,6 +314,7 @@ class ViewClass
         $procurement = Procurement::with(
             'division',
             'unit',
+            'classification',
             'codes',
             'items',
             'approved_by.profile',
@@ -360,8 +388,10 @@ class ViewClass
                     'dropdowns' => [
                         'divisions' => $this->dropdown->dropdowns('Division'),
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
+                        'classifications' => $this->dropdown->dropdowns('Classification'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
+                        'statuses' => $this->dropdown->statuses('Procurement'),
                         'requesters' => $this->dropdown->requesters(),
                         'approvers' => $this->dropdown->approvers(),
                         'supply_officers' => $this->dropdown->supply_officers(),
@@ -385,6 +415,7 @@ class ViewClass
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
+                        'statuses' => $this->dropdown->statuses('Procurement'),
                         'requesters' => $this->dropdown->requesters(),
                         'approvers' => $this->dropdown->approvers(),
                         'supply_officers' => $this->dropdown->supply_officers(),
@@ -403,6 +434,7 @@ class ViewClass
                 $procurement = Procurement::with(
                     'division',
                     'unit',
+                    'classification',
                     'codes',
                     'items',
                     'approved_by.profile',
@@ -428,6 +460,7 @@ class ViewClass
                     'dropdowns' => [
                         'divisions' => $this->dropdown->dropdowns('Division'),
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
+                        'classifications' => $this->dropdown->dropdowns('Classification'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
                         'requesters' => $this->dropdown->requesters(),
@@ -501,6 +534,7 @@ class ViewClass
                 return inertia('Modules/FAIMS/Procurement/View', [
                     'dropdowns' => [
                         'delivery_places' => $this->dropdown->dropdowns('Place of Delivery'),
+                        'statuses' => $this->dropdown->statuses('Procurement'),
                     ],
                     'tab' => 5,
                     'procurement' => $procurement,

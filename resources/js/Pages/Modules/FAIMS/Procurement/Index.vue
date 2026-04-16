@@ -241,17 +241,7 @@
                                                 </b-button>
 
                                                 <b-button
-                                                    v-if="
-                                                        list.status.name ==
-                                                            'Reviewed' &&
-                                                        ($page.props.roles.includes(
-                                                            'Procurement Officer',
-                                                        ) ||
-                                                            $page.props.roles.includes(
-                                                                'Procurement Staff',
-                                                            ) ||
-                                                            $page.props.is_regional_director)
-                                                    "
+                                                    v-if="canApproveProcurement(list)"
                                                     @click="goApprovePage(list)"
                                                     size="sm"
                                                     variant="success"
@@ -396,6 +386,19 @@ export default {
         this.fetch();
     },
     methods: {
+        canApproveProcurement(list) {
+            const roles = this.$page.props.roles || [];
+            const procurementApprovalUserIds =
+                this.$page.props.procurement_approval_user_ids || [];
+
+            return (
+                list?.status?.name === "Reviewed" &&
+                (roles.includes("Procurement Officer") ||
+                    roles.includes("Procurement Staff") ||
+                    roles.includes("Administrator") ||
+                    procurementApprovalUserIds.includes(list.approved_by_id))
+            );
+        },
         checkSearchStr: _.debounce(function (string) {
             this.fetch();
         }, 300),

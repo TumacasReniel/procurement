@@ -20,11 +20,19 @@ const appName = import.meta.env.VITE_APP_NAME || 'DOST-IX';
 createInertiaApp({
     resolve: name => {
         const pages = import.meta.glob('./Pages/**/*.vue', { eager: true });
-        let page = pages[`./Pages/${name}.vue`].default;
+        const pagePath = `./Pages/${name}.vue`;
+        const matchedPage = pages[pagePath]
+            ?? pages[Object.keys(pages).find((path) => path.toLowerCase() === pagePath.toLowerCase())];
+
+        if (!matchedPage) {
+            throw new Error(`Inertia page not found: ${name}`);
+        }
+
+        let page = matchedPage.default;
         if (page.layout === undefined) {
             page.layout = Layout;
         }
-        return pages[`./Pages/${name}.vue`]
+        return page;
     },
     setup({ el, App, props, plugin }) {
         return createApp({ render: () => h(App, props) })

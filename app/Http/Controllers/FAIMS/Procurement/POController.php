@@ -36,6 +36,9 @@ class POController extends Controller
             case 'purchase_order':
                   return $this->po->purchase_order($request);
             break;
+            case 'iar_selection':
+                  return $this->po->iarSelection($request);
+            break;
             default:
                 return inertia('Modules/FAIMS/Procurement/PurchaseOrder/List', [
                     'dropdowns' => [
@@ -59,7 +62,7 @@ class POController extends Controller
             'data' => $result['data'],
             'message' => $result['message'],
             'info' => $result['info'],
-            'status' => $result['status'],
+            'status' => $result['status'] ?? 'success',
         ]);
         
     }
@@ -72,6 +75,12 @@ class POController extends Controller
                     $option = 'not_conformed';
                 } elseif ($request->filled('status')) {
                     $option = 'update_status';
+                } elseif ($request->filled('iar_id')) {
+                    $option = 'update_iar_status';
+                } elseif ($request->filled('ntp_id') || $request->has('ntp_body')) {
+                    $option = 'update_ntp';
+                } elseif ($request->has('selected_item_ids') || $request->has('delivered_items')) {
+                    $option = 'update_iar_selection';
                 } else {
                     $option = 'revert_status';
                 }
@@ -83,6 +92,18 @@ class POController extends Controller
                 break;
                 case 'update_status':
                     return $this->po->updateStatus($id, $request);
+                break;
+                case 'update_ntp':
+                    return $this->po->updateNTP($id, $request);
+                break;
+                case 'update_iar_selection':
+                    return $this->po->updateIARSelection($id, $request);
+                break;
+                case 'update_iar_status':
+                    return $this->po->updateIARStatus($id, $request);
+                break;
+                case 'revert_iar_status':
+                    return $this->po->revertIARStatus($id, $request);
                 break;
                 case 'not_conformed':
                     return $this->po->notConformed($id, $request);
@@ -102,11 +123,17 @@ class POController extends Controller
            
         });
 
+        $isInertiaRequest = (bool) $request->header('X-Inertia');
+
+        if (($request->expectsJson() || $request->ajax()) && !$isInertiaRequest) {
+            return response()->json($result);
+        }
+
         return back()->with([
             'data' => $result['data'],
             'message' => $result['message'],
             'info' => $result['info'],
-            'status' => $result['status'],
+            'status' => $result['status'] ?? 'success',
         ]);
         
     }

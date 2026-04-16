@@ -9,7 +9,7 @@
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Dashboard</span>
                 </Link>
             </li>
-            <template v-if="$page.props.user.data.signatory">
+            <template v-if="$page.props.approvals?.has_access">
                 <li class="nav-item">
                     <Link href="/approvals" class="nav-link menu-link"
                         :class="{'active': $page.component.startsWith('Modules/Portal/Approvals') }">
@@ -68,8 +68,13 @@
             </li>
             <li
                 class="nav-item"
+                v-if="
+                    $page.props.roles.includes('Procurement Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
             >
                 <Link
+                
                 href="/faims/procurement-assignments"
                 class="nav-link menu-link"
                 :class="{ active: $page.component.startsWith('Modules/FAIMS/Procurement/Assignments') }"
@@ -195,7 +200,7 @@
                 }"
                 >
                 <i class="ri-file-paper-2-line"></i>
-                <span class="fw-semibold fs-14" data-key="t-dashboards">Procurement Results</span>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Procurement Reports</span>
                 </Link>
             </li>
   
