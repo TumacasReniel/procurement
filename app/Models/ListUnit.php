@@ -17,4 +17,14 @@ class ListUnit extends Model
     {
         return $this->belongsTo('App\Models\ListDropdown', 'division_id', 'id');
     }
+
+    public function responsibility_center()
+    {
+        return $this->hasOne(ResponsibilityCenter::class, 'list_unit_id');
+    }
+
+    public function getResponsibilityCenterCodeAttribute()
+    {
+        return $this->responsibility_center?->code;
+    }
 }

@@ -4,9 +4,23 @@
         $totalAmount += ($item->item_quantity * $item->item_unit_cost);
     }
 
-    $latestComment = $procurement->comments
-        ? $procurement->comments->sortByDesc('created_at')->first()
-        : null;
+    /**
+     * ADAPTABLE FILLER LOGIC
+     * Determines the space needed on the LAST page to push the TOTAL row
+     * to the bottom of the content area.
+     */
+    $basePageHeight = 500; 
+    $estimatedContentHeight = 0;
+    foreach ($items as $item) {
+        $charCount = strlen($item->item_description);
+        $lines = max(substr_count($item->item_description, "\n") + 1, ceil($charCount / 65));
+        $estimatedContentHeight += ($lines * 16) + 10; 
+    }
+    
+    // Calculate filler for the final page
+    $fillerHeight = ($estimatedContentHeight < $basePageHeight) 
+        ? ($basePageHeight - $estimatedContentHeight) 
+        : 0;
 @endphp
 <!DOCTYPE html>
 <html>
@@ -14,270 +28,131 @@
     <meta charset="UTF-8">
     <style>
         @page { 
-              margin: 6px 12px 18px 12px;
+              margin: 50px 50px 50px 50px;
         }
-        body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1; margin: 0; color: #000; }
+        body { font-family: Arial, sans-serif; font-size: 9px; margin: 0; }
 
         .content {
-            margin-bottom: 4px;
+            margin-bottom: 20px; /* Space for the footer */
         }
-
-        .page-header {
-            position: relative;
-            margin-bottom: 4px;
-            min-height: 38px;
-        }
-
-        .page-header img {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 28px;
-            height: 28px;
-        }
-
-        .page-header-text {
-            text-align: center;
-            line-height: 1;
-            padding-top: 2px;
-        }
-
-        .page-header-text .line-1 {
-            font-size: 6px;
-            text-transform: uppercase;
-        }
-
-        .page-header-text .line-2 {
-            font-size: 7px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .page-header-text .line-3 {
-            font-size: 6px;
-        }
-
-        .document-code-box {
-            position: absolute;
-            top: 0;
-            right: 0;
-            border: 1px solid black;
-            padding: 1px 5px;
-            font-size: 7px;
-            line-height: 1;
-            text-align: left;
-            min-width: 62px;
-        }
-
-        .page-title {
-            text-align: center;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 10px;
-            margin: 4px 0 4px;
-        }
-
-        .details-table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-            margin-bottom: 0;
-        }
-
-        .details-table td {
-            border: 1px solid black;
-            padding: 2px 4px;
-            vertical-align: top;
-        }
-
+        
         .main-table {
             width: 100%;
             border-collapse: collapse;
+            /* Outer border of the table */
             border: 1.5px solid black; 
             table-layout: fixed;
-            border-top: 0;
         }
 
+        /* REPEATING HEADER */
         thead { display: table-header-group; }
+        
+        /* REPEATING "CLOSING" LINE */
+        /* This forces the table to draw a bottom border at every page break */
+        tfoot { display: table-footer-group; }
+        .tfoot-spacer { height: 0px; border-top: 1.5px solid black; }
 
         .main-table th { 
             border: 1px solid black; 
-            padding: 2px; 
+            padding: 5px; 
             background: #ffffff; 
             text-align: center;
-            font-weight: bold;
         }
 
         .main-table td {
+            /* Full borders ensure the table looks "closed" on all sides */
             border: 1px solid black;
-            padding: 2px 4px;
+            padding: 4px 8px;
             vertical-align: top;
             word-wrap: break-word;
         }
 
+    
+        /* .total-row td {
+            border-top: 1.5px solid black !important;
+            border-bottom: 1.5px solid black !important;
+            font-weight: bold;
+        } */
+
+        .sig-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid black;
+            background-color: white;
+        }
+        .sig-table td { padding: 5px; border: none; }
+        .border-bottom { border-bottom: 1px solid black !important; }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .bold { font-weight: bold; }
-        .description-cell {
-            font-size: 7px;
-            line-height: 1;
-            white-space: pre-line;
-        }
-        .row-fragment-start td {
-            border-bottom: 1px solid black;
-        }
-        .row-fragment-middle td {
-            border-top: 0;
-            border-bottom: 1px solid black;
-        }
-        .row-fragment-end td {
-            border-top: 0;
-            border-bottom: 1px solid black;
+
+         input[type=checkbox] { display: inline; }
+        input[type=checkbox]:before { font-family: DejaVu Sans; }
+        label {
+            display: inline-block;
         }
 
-        .footer-table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-            border-top: 1px solid black;
-        }
-
-        .footer-table td {
-            padding: 2px 4px;
-            vertical-align: top;
-        }
-
-        .purpose-cell {
-            min-height: 34px;
-            height: 34px;
-            border-bottom: 1px solid black;
-        }
-
-        .signature-line {
-            display: block;
-            width: 92%;
-            margin: 0;
-            border-bottom: 1px solid black;
-            height: 10px;
-        }
-
-        .signatory-name {
-            font-weight: bold;
-            text-transform: uppercase;
-            text-decoration: underline;
-        }
-
-        .footer-label-cell {
-            width: 18%;
-            white-space: nowrap;
-            padding-left: 2px !important;
-            padding-right: 2px !important;
-        }
-
-        .footer-party-heading {
-            text-align: center;
-            font-weight: normal;
-        }
-
-        .footer-party-cell {
-            width: 41%;
-            text-align: left;
-        }
-
-        .footer-name-cell {
-            vertical-align: bottom;
-        }
-
-        .footer-designation-cell {
-            vertical-align: top;
-        }
-
-        .footer-heading-row td {
-            border-bottom: 0;
-            padding-top: 4px;
-            padding-bottom: 2px;
-        }
-
-        .footer-signature-row td {
-            border-bottom: 0;
-            padding-top: 0;
-            padding-bottom: 2px;
-        }
-
-        .footer-name-row td {
-            border-bottom: 0;
-            padding-top: 0;
-            padding-bottom: 1px;
-        }
-
-        .footer-designation-row td {
-            padding-top: 0;
-        }
-
-        .floating-comment {
+        .footer {
             position: fixed;
-            right: 12px;
-            bottom: 28px;
-            z-index: 999;
-        }
-
-        .floating-comment-icon {
-            width: 26px;
-            height: 26px;
+            bottom: 0;
+            width: 100%;
+            left: 0;
             margin-left: auto;
-            border: 1px solid #000;
-            border-radius: 50%;
-            background: #fff;
-            text-align: center;
-            line-height: 24px;
+            margin-right: auto;
+        }
+        .page-break {
+            page-break-after: always;
         }
 
-        .floating-comment-icon svg {
-            width: 12px;
-            height: 12px;
-            vertical-align: middle;
-        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
     </style>
 </head>
 <body>
-    @if ($latestComment && filled($latestComment->content))
-        <div class="floating-comment" title="{{ $latestComment->content }}">
-            <div class="floating-comment-icon">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 7.5H18M6 11.5H15M8 16.5H6V5.5H18V16.5H12.5L8 20V16.5Z" stroke="#000" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-        </div>
-    @endif
+      <!-- <div class="footer">
+        <table style="margin-top: -5px; border-bottom-style: hidden; border-right-style: hidden; border-top-style: hidden; border-left-style: hidden;">
+            <tr>
+                <td style="border-right-style: hidden; width: 3%; text-align: right;">-</td>
+                <td style="border-right-style: hidden;" style="width: 50%; text-align: left; font-size: 10px;"><br/> <span style="font-weight: bold; color: #072388;">{{ $procurement->code }}</span></td>
+                
+            </tr>
+        </table>
+    </div> -->
 
     <div class="content">
-        <div class="page-header">
-            <img src="{{ public_path('images/logo-sm.png') }}" alt="tag">
-            <div class="page-header-text">
-                <div class="line-1">Republic of the Philippines</div>
-                <div class="line-2">Department of Science and Technology</div>
-                <div class="line-3">Regional Office No. IX</div>
-            </div>
-            <div class="document-code-box">
-                <div><strong>FASS-PUR F08</strong></div>
-                <div>Rev. 1/07-01-23</div>
-            </div>
+            <div style="font-family:Arial;">
+                <img src="{{ public_path('images/logo-sm.png') }}" alt="tag" style="position: absolute; top: -4; left: 60; width: 50px; height: 50px;">
+                <center style="font-size: 10px; margin-bottom: 0px; text-transform: uppercase;">Republic of the Philippines</center>
+                <center style="font-size: 11px; margin-bottom: 0px; font-weight: bold;">DEPARTMENT OF SCIENCE AND TECHNOLOGY</center>
+                <!-- <center style="font-size: 11px;">Pettit Baracks, Zamboanga City | (062) 991-1024 | dost9info@gmail.com</center> -->
+                <br/>
+                <!-- <center style="margin-top: 8px; font-size: 11px;  color:#000; font-weight: bold; padding: 2px;">DOST Region Office No. IX</center> -->
+                 <div style="float: right; border: 1px solid black; padding: 2px 8px; font-size: 10px; margin-top: -30px; text-align: center;">
+                        <span class="bold">FASS-PUR F08</span><br>
+                        <span>Rev. 1/07-01-23</span>
+                </div>
+                <center style="font-size: 11px;  font-weight: bold; padding: 2px; text-transform: uppercase;margin-top: 10px">
+                    Procurement Request
+                </center>
+                
+            </div> 
         </div>
-        <div class="page-title">Purchase Request</div>
-    </div>
 
-    <table class="details-table">
+    <table style="width: 100%; border-collapse: collapse; border: 1.5px solid black; ">
         <tr>
-            <td colspan="4">Entity Name: <u>Department of Science and Technology - IX</u></td>
-            <td colspan="2">Fund Cluster: <u>{{ $procurement->fund_cluster?->name ?? 'Regular Fund' }}</u></td>
+            <td colspan="4" style="border: 1px solid black; padding: 4px;">Entity Name: <u>Department of Science and Technology - IX</u></td>
+            <td colspan="2" style="border: 1px solid black; padding: 4px;">Fund Cluster: <u>{{ $procurement->fund_cluster?->name ?? 'Regular Fund' }}</u></td>
         </tr>
         <tr>
-            <td colspan="2">Office/Section: <u>{{ $procurement->division->name }}</u></td>
-            <td colspan="2">PR No. <strong>{{ $procurement->code }}</strong></td>
-            <td colspan="2" rowspan="2">Date : <strong>{{ date('m-d-Y', strtotime($procurement->date)) }}</strong></td>
+            <td colspan="2" style="border: 1px solid black; padding: 4px;">Office/Section: {{ $procurement->division->name }}</td>
+            <td colspan="2" style="border: 1px solid black; padding: 4px;">PR No: <strong>{{ $procurement->code }}</strong></td>
+            <td colspan="2"  rowspan="2" style="border: 1px solid black; padding: 4px;">Date: <strong>{{ date('m-d-Y', strtotime($procurement->date)) }}</strong></td>
         </tr>
         <tr>
-            <td colspan="4">Responsibility Center Code :<br>{{ $procurement->unit->responsibility_center_code }}</td>
+            <td colspan="4" style="border: 1px solid black; padding: 4px;">
+                Responsibility Center Code:
+                <u>{{ $procurement->unit?->responsibility_center_code ?? 'N/A' }}</u>
+            </td>
         </tr>
     </table>
 
@@ -292,74 +167,34 @@
                 <th width="13%">Total Cost</th>
             </tr>
         </thead>
+        
+
         <tbody>
-            @php
-                $splitDescriptionChunks = function ($html) use ($items) {
-                    $text = (string) $html;
-                    $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
-                    $text = preg_replace('/<\/p>/i', "\n", $text);
-                    $text = preg_replace('/<\/div>/i', "\n", $text);
-                    $text = preg_replace('/<\/li>/i', "\n", $text);
-                    $text = preg_replace('/<li[^>]*>/i', '- ', $text);
-                    $text = strip_tags($text);
-                    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    $text = preg_replace("/\r\n|\r/", "\n", $text);
-
-                    $lines = collect(explode("\n", $text))
-                        ->map(fn ($line) => trim(preg_replace('/\s+/', ' ', $line)))
-                        ->filter(fn ($line) => $line !== '')
-                        ->values();
-
-                    if ($lines->isEmpty()) {
-                        return collect(['']);
-                    }
-
-                    if ($items->count() === 1 && $lines->count() <= 110) {
-                        return collect([$lines->implode("\n")]);
-                    }
-
-                    return $lines->chunk(110)->map(fn ($chunk) => $chunk->implode("\n"))->values();
-                };
-            @endphp
-
             @foreach ($items as $item)
-                @php
-                    $descriptionChunks = $splitDescriptionChunks($item->item_description);
-                @endphp
-
-                @foreach ($descriptionChunks as $chunkIndex => $descriptionChunk)
-                    @php
-                        $rowClass = '';
-
-                        if ($descriptionChunks->count() > 1) {
-                            if ($chunkIndex === 0) {
-                                $rowClass = 'row-fragment-start';
-                            } elseif ($chunkIndex === $descriptionChunks->count() - 1) {
-                                $rowClass = 'row-fragment-end';
-                            } else {
-                                $rowClass = 'row-fragment-middle';
-                            }
-                        }
-                    @endphp
-                    <tr class="{{ $rowClass }}">
-                        @if ($chunkIndex === 0)
-                            <td class="text-center">{{ $item->item_no }}</td>
-                            <td class="text-center">{{ $item->item_unit_type->name_short }}</td>
-                            <td class="description-cell">{{ $descriptionChunk }}</td>
-                            <td class="text-center">{{ $item->item_quantity }}</td>
-                            <td class="text-center">{{ number_format($item->item_unit_cost, 2) }}</td>
-                            <td class="text-center bold">{{ number_format($item->item_quantity * $item->item_unit_cost, 2) }}</td>
-                        @else
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td class="description-cell">{{ $descriptionChunk }}</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                        @endif
-                    </tr>
-                @endforeach
+                <tr>
+                    <td class="text-center">{{ $item->item_no }}</td>
+                    <td class="text-center">{{ $item->item_unit_type->name_short }}</td>
+                    <td>
+                        <div>
+                            {!! $item->item_description !!}
+                        </div>
+                    </td>
+                    <td class="text-center">{{ $item->item_quantity }}</td>
+                    <td class="text-center">{{ number_format($item->item_unit_cost, 2) }}</td>
+                    <td class="text-center bold">{{ number_format($item->item_quantity * $item->item_unit_cost, 2) }}</td>
+                </tr>
             @endforeach
+
+            @if($fillerHeight > 0)
+                <tr>
+                    <td style="height: {{ $fillerHeight }}px; border-bottom: none;"></td>
+                    <td style="border-bottom: none;"></td>
+                    <td style="border-bottom: none;"></td>
+                    <td style="border-bottom: none;"></td>
+                    <td style="border-bottom: none;"></td>
+                    <td style="border-bottom: none;"></td>
+                </tr>
+            @endif
 
             <tr class="total-row">
                 <td colspan="5" class="bold">TOTAL</td>
@@ -367,58 +202,53 @@
             </tr>
         </tbody>
     </table>
+    <table class="sig-table">
+            <tr>
+                <td colspan="6" class="border-bottom" style="padding: 10px;">
+                    <strong>Purpose:</strong> {{ $procurement->purpose }}
+                </td>
+            </tr>
+            <tr class="text-center bold">
+                <td width="15%"></td>
+                <td colspan="2">Requested By:</td>
+                <td colspan="3">Approved By:</td>
+            </tr>
+            <tr style="height: 35px;">
+                <td>Signature:</td>
+                <td colspan="2" class="text-center">__________________________</td>
+                <td colspan="3" class="text-center">__________________________</td>
+            </tr>
+            <tr class="text-center bold">
+                <td>Printed Name:</td>
+                <td colspan="2"><u>{{ strtoupper($procurement->requested_by->profile->fullname) }}</u></td>
+                <td colspan="3"><u>{{ strtoupper($procurement->approved_by->profile->fullname) }}</u></td>
+            </tr>
+            <tr class="text-center">
+                <td>Designation:</td>
+                <td colspan="2">{{ $procurement->requested_by->designation ?? 'Division Head' }}</td>
+                <td colspan="3">{{ $procurement->approved_by->designation ?? 'Regional Director' }}</td>
+            </tr>
+        </table>
 
-    <table class="footer-table">
-        <tr>
-            <td colspan="3" class="purpose-cell">
-                [{{ $procurement->purpose }}]
-            </td>
-        </tr>
-        <tr class="text-center footer-heading-row">
-            <td class="footer-label-cell">&nbsp;</td>
-            <td class="footer-party-heading">Requested By:</td>
-            <td class="footer-party-heading">Approved By:</td>
-        </tr>
-        <tr class="footer-signature-row">
-            <td class="footer-label-cell">Signature:</td>
-            <td class="footer-party-cell"><span class="signature-line"></span></td>
-            <td class="footer-party-cell"><span class="signature-line"></span></td>
-        </tr>
-        <tr class="footer-name-row">
-            <td class="footer-label-cell">Printed Name:</td>
-            <td class="footer-party-cell footer-name-cell">
-                <span class="signatory-name">{{ strtoupper($procurement->requested_by->profile->fullname) }}</span>
-            </td>
-            <td class="footer-party-cell footer-name-cell">
-                <span class="signatory-name">{{ strtoupper($procurement->approved_by->profile->fullname) }}</span>
-            </td>
-        </tr>
-        <tr class="footer-designation-row">
-            <td class="footer-label-cell">Designation:</td>
-            <td class="footer-party-cell footer-designation-cell">{{ $procurement->requested_by->designation ?? 'Division Head' }}</td>
-            <td class="footer-party-cell footer-designation-cell">{{ $procurement->approved_by->designation ?? 'Regional Director' }}</td>
-        </tr>
-    </table>
 
+  
+    
     <script type="text/php">
         if ( isset($pdf) ) {
             $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-            $size = 12;
+            $size = 8;
             $width = $pdf->get_width();
             $height = $pdf->get_height();
-            $left_margin = 18;
-            $right_margin = 18;
-            $bottom_margin = 12;
-            $y_axis = $height - $bottom_margin; 
+            $y_axis = $height - 25; 
 
             // LEFT: Procurement Code
             $text_code = "{{ $procurement->code }}";
-            $pdf->page_text($left_margin, $y_axis, $text_code, $font, $size, array(0,0,0));
+            $pdf->page_text(35, $y_axis, $text_code, $font, $size, array(0,0,0));
 
             // RIGHT: Page Counter
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width("Page 1 of 1", $font, $size);
-            $pdf->page_text($width - $text_width - $right_margin, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
+            $pdf->page_text($width - $text_width + 50, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

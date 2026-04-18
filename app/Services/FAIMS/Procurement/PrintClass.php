@@ -167,7 +167,7 @@ class PrintClass
     }
 
     public function printPR($id){
-        $procurement = Procurement::with('division','unit','fund_cluster','items.item_unit_type' , 'items' , 'requested_by.org_chart' , 'approved_by.org_chart', 'comments.user.profile' )->findOrFail($id); // 
+        $procurement = Procurement::with('division','unit.responsibility_center','fund_cluster','items.item_unit_type' , 'items' , 'requested_by.org_chart' , 'approved_by.org_chart', 'comments.user.profile' )->findOrFail($id); // 
         $items = $procurement->items;
         $regional_director = $this->dropdown->regional_director();
 

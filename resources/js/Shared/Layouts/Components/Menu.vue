@@ -353,11 +353,11 @@
                 </li>
 
                 <li class="nav-item">
-                    <Link
+                <Link
                         href="/inventory-stocks"
                         class="nav-link menu-link"
                         :class="{
-                            active: $page.component.startsWith('Modules/Inventory'),
+                            active: $page.component.startsWith('Modules/Inventory/Index'),
                         }"
                     >
                         <i class="ri-dashboard-line"></i>

@@ -297,7 +297,7 @@ export default {
       isRightCollapsed: true,
       modalLogs: [],
       currentPage: 1,
-      contentPages: [],
+      contentPages: [""],
     };
   },
 
@@ -321,7 +321,7 @@ export default {
     },
 
     "form.body": function (value) {
-      this.splitContentIntoPages(value);
+      this.splitContentIntoPages(value, this.currentPage);
     },
   },
 
@@ -334,12 +334,9 @@ export default {
         return this.contentPages[this.currentPage - 1] || this.form.body;
       },
       set(value) {
-        if (this.contentPages.length > 1) {
-          this.contentPages[this.currentPage - 1] = value;
-          this.form.body = this.contentPages.join("\n\n---PAGE BREAK---\n\n");
-        } else {
-          this.form.body = value;
-        }
+        const pages = [...this.contentPages];
+        pages[this.currentPage - 1] = value;
+        this.form.body = this.serializePages(pages);
       },
     },
   },
@@ -352,6 +349,8 @@ export default {
   methods: {
     show(type) {
       this.showModal = true;
+      this.currentPage = 1;
+      this.contentPages = [""];
       this.form.type = type;
       this.editable = false;
       this.modalLogs = this.logs;
@@ -362,6 +361,8 @@ export default {
       this.form.id = data.id;
       this.form.code = data.code;
       this.form.procurement_id = data.procurement_id;
+      this.currentPage = 1;
+      this.contentPages = [""];
       this.form.body = data.body;
       this.form.type = data.type;
       this.showModal = true;
@@ -371,6 +372,8 @@ export default {
 
     hide() {
       this.showModal = false;
+      this.currentPage = 1;
+      this.contentPages = [""];
     },
 
     numberToWords(num) {
@@ -1170,34 +1173,200 @@ export default {
         .catch((err) => console.log(err));
     },
 
-    splitContentIntoPages(content) {
+    getPageBreakHtml() {
+      return '<div class="bac-page-break" data-page-break="true"></div>';
+    },
+
+    normalizePageBreaks(content) {
+      return String(content || "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\n\s*\n---PAGE BREAK---\n\s*\n/g, "__BAC_PAGE_BREAK__")
+        .replace(/<div[^>]*data-page-break=(['"])true\1[^>]*>\s*<\/div>/gi, "__BAC_PAGE_BREAK__")
+        .replace(/<div[^>]*class=(['"])[^'"]*bac-page-break[^'"]*\1[^>]*>\s*<\/div>/gi, "__BAC_PAGE_BREAK__");
+    },
+
+    extractStoredPages(content) {
+      const pages = this.normalizePageBreaks(content)
+        .split("__BAC_PAGE_BREAK__")
+        .map((page) => this.normalizePageContent(page));
+
+      return pages.filter((page, index) => page.length > 0 || pages.length === 1);
+    },
+
+    serializePages(pages) {
+      const cleanedPages = (pages || [])
+        .map((page) => this.normalizePageContent(page))
+        .filter((page, index, allPages) => page.length > 0 || allPages.length === 1);
+
+      if (cleanedPages.length <= 1) {
+        return cleanedPages[0] || "";
+      }
+
+      return cleanedPages.join(this.getPageBreakHtml());
+    },
+
+    normalizePageContent(content) {
+      return String(content || "").trim();
+    },
+
+    getMeaningfulNodes(nodeList) {
+      return Array.from(nodeList).filter(
+        (node) => !(node.nodeType === Node.TEXT_NODE && !node.textContent.trim())
+      );
+    },
+
+    serializeNode(node) {
+      return node.nodeType === Node.TEXT_NODE ? node.textContent : node.outerHTML;
+    },
+
+    getOpeningTag(element) {
+      const clone = element.cloneNode(false);
+      const closingTag = `</${element.tagName.toLowerCase()}>`;
+
+      return clone.outerHTML.endsWith(closingTag)
+        ? clone.outerHTML.slice(0, -closingTag.length)
+        : clone.outerHTML;
+    },
+
+    extractPageStructure(content) {
+      const container = document.createElement("div");
+      container.innerHTML = content;
+
+      let nodes = this.getMeaningfulNodes(container.childNodes);
+
+      if (nodes.length === 1 && nodes[0].nodeType === Node.ELEMENT_NODE) {
+        const root = nodes[0];
+        const childBlocks = this.getMeaningfulNodes(root.childNodes);
+
+        if (childBlocks.length > 1) {
+          return {
+            wrapperOpen: this.getOpeningTag(root),
+            wrapperClose: `</${root.tagName.toLowerCase()}>`,
+            blocks: childBlocks.map((node) => this.serializeNode(node)),
+          };
+        }
+      }
+
+      return {
+        wrapperOpen: "",
+        wrapperClose: "",
+        blocks: nodes.map((node) => this.serializeNode(node)),
+      };
+    },
+
+    buildPageHtml(wrapperOpen, wrapperClose, blocks) {
+      const pageBlocks = Array.isArray(blocks) ? blocks : [];
+
+      return `${wrapperOpen}${pageBlocks.join("")}${wrapperClose}`;
+    },
+
+    createPageMeasurer() {
+      const measurer = document.createElement("div");
+      measurer.style.position = "fixed";
+      measurer.style.left = "-99999px";
+      measurer.style.top = "0";
+      measurer.style.width = "210mm";
+      measurer.style.height = "297mm";
+      measurer.style.padding = "2cm";
+      measurer.style.boxSizing = "border-box";
+      measurer.style.overflow = "hidden";
+      measurer.style.visibility = "hidden";
+      measurer.style.pointerEvents = "none";
+      measurer.style.background = "#fff";
+      measurer.style.fontFamily = '"Calibri", "Times New Roman", serif';
+      measurer.style.fontSize = "12pt";
+      measurer.style.lineHeight = "1.5";
+      measurer.style.color = "#222";
+      measurer.style.whiteSpace = "normal";
+      measurer.style.wordBreak = "break-word";
+
+      document.body.appendChild(measurer);
+
+      return measurer;
+    },
+
+    fitsOnPage(measurer, html) {
+      measurer.innerHTML = html || "";
+
+      return measurer.scrollHeight <= measurer.clientHeight + 2;
+    },
+
+    paginateByA4Height(content, depth = 0) {
+      const normalizedContent = this.normalizePageContent(content);
+
+      if (!normalizedContent) {
+        return [""];
+      }
+
+      const { wrapperOpen, wrapperClose, blocks } = this.extractPageStructure(normalizedContent);
+
+      if (!blocks.length) {
+        return [normalizedContent];
+      }
+
+      const measurer = this.createPageMeasurer();
+      const pages = [];
+      let currentBlocks = [];
+
+      try {
+        for (const block of blocks) {
+          const candidateBlocks = [...currentBlocks, block];
+          const candidateHtml = this.buildPageHtml(wrapperOpen, wrapperClose, candidateBlocks);
+
+          if (this.fitsOnPage(measurer, candidateHtml)) {
+            currentBlocks = candidateBlocks;
+            continue;
+          }
+
+          if (currentBlocks.length) {
+            pages.push(this.buildPageHtml(wrapperOpen, wrapperClose, currentBlocks));
+            currentBlocks = [];
+          }
+
+          const singleBlockHtml = this.buildPageHtml(wrapperOpen, wrapperClose, [block]);
+
+          if (this.fitsOnPage(measurer, singleBlockHtml) || depth >= 2) {
+            currentBlocks = [block];
+            continue;
+          }
+
+          const nestedPages = this.paginateByA4Height(block, depth + 1);
+
+          if (
+            nestedPages.length === 1 &&
+            this.normalizePageContent(nestedPages[0]) === this.normalizePageContent(block)
+          ) {
+            currentBlocks = [block];
+            continue;
+          }
+
+          pages.push(...nestedPages);
+        }
+
+        if (currentBlocks.length || !pages.length) {
+          pages.push(this.buildPageHtml(wrapperOpen, wrapperClose, currentBlocks));
+        }
+      } finally {
+        measurer.remove();
+      }
+
+      return pages
+        .map((page) => this.normalizePageContent(page))
+        .filter((page, index) => page.length > 0 || pages.length === 1);
+    },
+
+    splitContentIntoPages(content, preferredPage = 1) {
       if (!content) {
         this.contentPages = [""];
         this.currentPage = 1;
         return;
       }
 
-      // First, try to split by the delimiter
-      let pages = content.split("\n\n---PAGE BREAK---\n\n");
+      const storedPages = this.extractStoredPages(content);
+      const pages = storedPages.flatMap((page) => this.paginateByA4Height(page));
 
-      // If no delimiters, split by length (approximately 10000 characters per page for maximum fit)
-      if (pages.length === 1) {
-        const maxLength = 10000;
-        pages = [];
-        let remaining = content;
-        while (remaining.length > maxLength) {
-          let splitIndex = remaining.lastIndexOf(" ", maxLength);
-          if (splitIndex === -1) splitIndex = maxLength;
-          pages.push(remaining.substring(0, splitIndex));
-          remaining = remaining.substring(splitIndex).trim();
-        }
-        if (remaining.length > 0) {
-          pages.push(remaining);
-        }
-      }
-
-      this.contentPages = pages;
-      this.currentPage = 1;
+      this.contentPages = pages.length ? pages : [""];
+      this.currentPage = Math.min(preferredPage || 1, this.contentPages.length);
     },
   },
 };

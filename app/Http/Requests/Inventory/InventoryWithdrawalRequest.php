@@ -14,7 +14,7 @@ class InventoryWithdrawalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'item_id' => ['required', 'exists:inventory_items,id'],
+            'inventory_id' => ['required', 'exists:inventory_items,id'],
             'requested_by_id' => ['required', 'exists:users,id'],
             'approved_by_id' => ['nullable', 'exists:users,id'],
             'status_id' => ['required', 'exists:list_statuses,id'],

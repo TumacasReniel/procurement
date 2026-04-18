@@ -725,3 +725,488 @@ File: Custom Css File
   background-color: #fff; /* Set the background color for the fixed header */
   z-index: 1; /* Ensure the fixed header is above the scrolling content */
 }
+
+[data-bs-theme="dark"] {
+  --module-surface: #1f2631;
+  --module-surface-alt: #262f3b;
+  --module-surface-soft: #2d3746;
+  --module-border: #394250;
+  --module-text: #e5edf7;
+  --module-muted: #9aa7b8;
+
+  .thead-fixed {
+    background-color: var(--module-surface-soft) !important;
+  }
+
+  .tfoot-fixed {
+    background-color: var(--module-surface) !important;
+  }
+
+  .table-responsive.table-card {
+    background: var(--module-surface) !important;
+    border: 1px solid var(--module-border);
+    border-radius: 16px;
+  }
+
+  .table-responsive.table-card .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--module-text);
+    --bs-table-border-color: var(--module-border);
+    --bs-table-hover-bg: rgba(148, 163, 184, 0.08);
+    --bs-table-striped-bg: rgba(148, 163, 184, 0.04);
+  }
+
+  .table-responsive.table-card .table-light,
+  .table-responsive.table-card thead.table-light,
+  .table-responsive.table-card .thead-fixed {
+    color: var(--module-text) !important;
+    background: var(--module-surface-soft) !important;
+  }
+
+  .table-responsive.table-card td,
+  .table-responsive.table-card th {
+    border-color: var(--module-border) !important;
+  }
+
+  .white .multiselect-search {
+    color: var(--module-text) !important;
+    background: var(--module-surface-alt) !important;
+    border-top-color: var(--module-border) !important;
+    border-bottom-color: var(--module-border) !important;
+  }
+
+  .v-modal-custom .modal-content {
+    background: var(--module-surface) !important;
+    border: 1px solid var(--module-border) !important;
+    color: var(--module-text);
+  }
+
+  .v-modal-custom .modal-header.bg-light,
+  .v-modal-custom .modal-footer.bg-light {
+    background: var(--module-surface-alt) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .v-modal-custom .modal-title,
+  .v-modal-custom .text-body,
+  .v-modal-custom .text-dark,
+  .v-modal-custom label,
+  .v-modal-custom .record-view-value {
+    color: var(--module-text) !important;
+  }
+
+  .v-modal-custom .record-view-item {
+    background: var(--module-surface-alt) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .v-modal-custom .record-view-label {
+    color: var(--module-muted) !important;
+  }
+
+  .v-modal-custom .form-control,
+  .v-modal-custom .form-select,
+  .v-modal-custom .input-group-text,
+  .v-modal-custom .multiselect,
+  .v-modal-custom .multiselect-search,
+  .v-modal-custom .multiselect-wrapper {
+    background: #1b212b !important;
+    color: var(--module-text) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .inventory-page,
+  .inventory-dashboard-page,
+  .procurement-dashboard-page,
+  .procurement-index-page,
+  .procurement-view-page,
+  .procurement-create-container,
+  .procurement-detail-container,
+  .po-tab-shell {
+    color: var(--module-text);
+  }
+
+  .inventory-page .text-dark,
+  .inventory-dashboard-page .text-dark,
+  .procurement-dashboard-page .text-dark,
+  .procurement-index-page .text-dark,
+  .procurement-view-page .text-dark,
+  .procurement-create-container .text-dark,
+  .procurement-detail-container .text-dark,
+  .po-tab-shell .text-dark {
+    color: var(--module-text) !important;
+  }
+
+  .inventory-page .inv-shell,
+  .inventory-page .module-sidebar,
+  .inventory-page .module-tile,
+  .inventory-page .ledger-card,
+  .inventory-page .ledger-pill,
+  .inventory-page .inv-table-wrap,
+  .inventory-page .ledger-table-wrap,
+  .inventory-page .ledger-search-shell,
+  .inventory-page .ledger-refresh-btn {
+    background: var(--module-surface) !important;
+    border-color: var(--module-border) !important;
+    box-shadow: none !important;
+  }
+
+  .inventory-page .module-sidebar {
+    background: linear-gradient(180deg, #1d2430, #242d39) !important;
+  }
+
+  .inventory-page .module-tile:hover,
+  .inventory-page .module-tile.active {
+    background: linear-gradient(180deg, rgba(75, 91, 147, 0.24), rgba(75, 91, 147, 0.16)) !important;
+    border-color: rgba(123, 145, 216, 0.55) !important;
+  }
+
+  .inventory-page .module-sidebar-title,
+  .inventory-page .module-tile-copy small,
+  .inventory-page .ledger-header-copy p,
+  .inventory-page .ledger-pill small {
+    color: var(--module-muted) !important;
+  }
+
+  .inventory-page .module-tile,
+  .inventory-page .ledger-header-copy h5,
+  .inventory-page .ledger-pill strong,
+  .inventory-page .inv-table tbody td,
+  .inventory-page .ledger-table tbody td {
+    color: var(--module-text) !important;
+  }
+
+  .inventory-page .inv-table thead th,
+  .inventory-page .ledger-table thead th {
+    color: var(--module-text) !important;
+    background: var(--module-surface-soft) !important;
+  }
+
+  .inventory-page .form-control,
+  .inventory-page .input-group-text,
+  .inventory-page .ledger-search-input {
+    background: transparent !important;
+    color: var(--module-text) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .inventory-page .inventory-hero .text-muted {
+    color: rgba(255, 255, 255, 0.86) !important;
+  }
+
+  .inventory-dashboard-page .metric-card,
+  .inventory-dashboard-page .panel-card,
+  .inventory-dashboard-page .movement-card {
+    background: var(--module-surface) !important;
+    border-color: var(--module-border) !important;
+    box-shadow: none !important;
+  }
+
+  .inventory-dashboard-page .panel-header,
+  .inventory-dashboard-page .latest-table-wrap {
+    border-color: var(--module-border) !important;
+  }
+
+  .inventory-dashboard-page .metric-value,
+  .inventory-dashboard-page .panel-title,
+  .inventory-dashboard-page .movement-card strong,
+  .inventory-dashboard-page .latest-table td {
+    color: var(--module-text) !important;
+  }
+
+  .inventory-dashboard-page .metric-label,
+  .inventory-dashboard-page .metric-note,
+  .inventory-dashboard-page .panel-copy,
+  .inventory-dashboard-page .movement-label,
+  .inventory-dashboard-page .movement-card p {
+    color: var(--module-muted) !important;
+  }
+
+  .inventory-dashboard-page .latest-table thead th {
+    color: var(--module-text) !important;
+    background: var(--module-surface-soft) !important;
+  }
+
+  .procurement-dashboard-page .filter-card,
+  .procurement-dashboard-page .metric-card,
+  .procurement-dashboard-page .panel-card {
+    background: var(--module-surface) !important;
+    border-color: var(--module-border) !important;
+    box-shadow: none !important;
+  }
+
+  .procurement-dashboard-page .procurement-hero .badge.bg-white {
+    background: rgba(15, 23, 42, 0.35) !important;
+    color: #e5edf7 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .procurement-dashboard-page .procurement-hero .btn-light,
+  .procurement-dashboard-page .procurement-hero .btn-outline-light {
+    background: rgba(15, 23, 42, 0.16) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+  }
+
+  .procurement-dashboard-page .section-title,
+  .procurement-dashboard-page .fs-22,
+  .procurement-dashboard-page .panel-card td,
+  .procurement-dashboard-page .panel-card th,
+  .procurement-dashboard-page .metric-card h4 {
+    color: var(--module-text) !important;
+  }
+
+  .procurement-dashboard-page .section-meta,
+  .procurement-dashboard-page .section-kicker,
+  .procurement-dashboard-page .text-muted,
+  .procurement-dashboard-page .text-uppercase.fw-medium {
+    color: var(--module-muted) !important;
+  }
+
+  .procurement-dashboard-page .unit-row:hover {
+    background: rgba(148, 163, 184, 0.08) !important;
+  }
+
+  .procurement-dashboard-page .table-responsive.table-card {
+    background: var(--module-surface) !important;
+  }
+
+  .procurement-index-page .card.bg-light-subtle.shadow-none.border,
+  .procurement-index-page .card-header.bg-light-subtle,
+  .procurement-index-page .card-body.bg-white,
+  .procurement-index-page .card-footer {
+    background: var(--module-surface) !important;
+    border-color: var(--module-border) !important;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-index-page .input-group-text,
+  .procurement-index-page .form-control,
+  .procurement-index-page .multiselect,
+  .procurement-index-page .multiselect-wrapper {
+    background: var(--module-surface-alt) !important;
+    color: var(--module-text) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-index-page .table td,
+  .procurement-index-page .table th {
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-index-page .table-active > * {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-index-page .bg-soft-primary {
+    background: rgba(59, 130, 246, 0.18) !important;
+    color: #93c5fd !important;
+  }
+
+  .procurement-index-page .text-primary,
+  .procurement-index-page .fs-14.fw-semibold.text-primary {
+    color: #93c5fd !important;
+  }
+
+  .procurement-view-page .card.shadow-lg.border-0 {
+    background: linear-gradient(135deg, #1b2230 0%, #232c3a 100%) !important;
+    border: 1px solid var(--module-border) !important;
+    box-shadow: none !important;
+  }
+
+  .procurement-view-page .card-header.bg-gradient-primary {
+    background: linear-gradient(135deg, #314062 0%, #40527f 100%) !important;
+  }
+
+  .procurement-view-page .bg-white.text-dark.hover-bg-light {
+    background: var(--module-surface-alt) !important;
+    color: var(--module-text) !important;
+    border: 1px solid var(--module-border) !important;
+  }
+
+  .procurement-view-page .bg-white.text-dark.hover-bg-light:hover {
+    background: rgba(59, 130, 246, 0.14) !important;
+    color: #dbeafe !important;
+  }
+
+  .procurement-view-page .tab-done-light-success {
+    background: rgba(16, 185, 129, 0.18) !important;
+    color: #86efac !important;
+  }
+
+  .procurement-view-page .progress-modal-body {
+    background: linear-gradient(135deg, #1b2230 0%, #232c3a 100%) !important;
+  }
+
+  .procurement-create-container,
+  .procurement-detail-container {
+    background: linear-gradient(135deg, #141a23 0%, #1a2230 100%) !important;
+  }
+
+  .procurement-create-container .hero-gradient,
+  .procurement-detail-container .hero-gradient {
+    background: linear-gradient(135deg, #314062 0%, #40527f 100%) !important;
+  }
+
+  .procurement-create-container .info-card,
+  .procurement-detail-container .info-card,
+  .procurement-create-container .content-card,
+  .procurement-detail-container .content-card {
+    background: var(--module-surface) !important;
+    border-color: var(--module-border) !important;
+    box-shadow: none !important;
+  }
+
+  .procurement-create-container .card-header-custom,
+  .procurement-detail-container .card-header-custom,
+  .procurement-create-container .stat-item,
+  .procurement-detail-container .stat-item,
+  .procurement-create-container .personnel-item,
+  .procurement-detail-container .personnel-item {
+    background: var(--module-surface-alt) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-create-container .card-title,
+  .procurement-detail-container .card-title,
+  .procurement-create-container .card-value,
+  .procurement-detail-container .card-value,
+  .procurement-create-container .card-header-title,
+  .procurement-detail-container .card-header-title,
+  .procurement-create-container .stat-number,
+  .procurement-detail-container .stat-number,
+  .procurement-create-container .personnel-name,
+  .procurement-detail-container .personnel-name,
+  .procurement-create-container .empty-state-title,
+  .procurement-detail-container .empty-state-title {
+    color: var(--module-text) !important;
+  }
+
+  .procurement-create-container .hero-subtitle,
+  .procurement-detail-container .hero-subtitle {
+    color: rgba(255, 255, 255, 0.82) !important;
+  }
+
+  .procurement-create-container .items-table,
+  .procurement-detail-container .items-table {
+    background: transparent !important;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-create-container .items-table td,
+  .procurement-detail-container .items-table td,
+  .procurement-create-container .items-table th,
+  .procurement-detail-container .items-table th {
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-create-container .form-control,
+  .procurement-create-container .form-select,
+  .procurement-create-container .input-group-text,
+  .procurement-create-container .multiselect,
+  .procurement-create-container .multiselect-search,
+  .procurement-create-container .multiselect-wrapper {
+    background: #1b212b !important;
+    color: var(--module-text) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .po-tab-shell .details-card,
+  .po-tab-shell .details-table-card,
+  .po-tab-shell .delivery-rule-card,
+  .po-tab-shell .delivery-summary-card,
+  .po-tab-shell .delivery-table-card,
+  .po-tab-shell .inspection-note-card,
+  .po-tab-shell .inspection-table-card,
+  .po-tab-shell .details-list-item,
+  .po-tab-shell .delivery-total-strip {
+    background: var(--module-surface) !important;
+    border-color: var(--module-border) !important;
+    box-shadow: none !important;
+  }
+
+  .po-tab-shell .details-hero,
+  .po-tab-shell .delivery-hero {
+    background: linear-gradient(135deg, #1b2230 0%, #232c3a 100%) !important;
+    border-color: var(--module-border) !important;
+    box-shadow: none !important;
+  }
+
+  .po-tab-shell .details-title,
+  .po-tab-shell h3,
+  .po-tab-shell h4,
+  .po-tab-shell .details-value,
+  .po-tab-shell .delivery-summary-value,
+  .po-tab-shell .delivery-money,
+  .po-tab-shell .inspection-item-no,
+  .po-tab-shell .inspection-table td,
+  .po-tab-shell .delivery-table td,
+  .po-tab-shell .details-table td {
+    color: var(--module-text) !important;
+  }
+
+  .po-tab-shell .details-subtitle,
+  .po-tab-shell p,
+  .po-tab-shell small,
+  .po-tab-shell .details-label,
+  .po-tab-shell .movement-label,
+  .po-tab-shell .delivery-summary-label,
+  .po-tab-shell .delivery-rule-label,
+  .po-tab-shell .delivery-detail-text,
+  .po-tab-shell .inspection-item-description {
+    color: var(--module-muted) !important;
+  }
+
+  .po-tab-shell .details-table,
+  .po-tab-shell .delivery-table,
+  .po-tab-shell .inspection-table {
+    background: transparent !important;
+    color: var(--module-text) !important;
+  }
+
+  .po-tab-shell .details-table td,
+  .po-tab-shell .delivery-table td,
+  .po-tab-shell .inspection-table td,
+  .po-tab-shell .details-table th,
+  .po-tab-shell .delivery-table th,
+  .po-tab-shell .inspection-table th {
+    border-color: var(--module-border) !important;
+  }
+
+  .po-tab-shell .details-table thead,
+  .po-tab-shell .delivery-table thead,
+  .po-tab-shell .inspection-table thead {
+    background: var(--module-surface-soft) !important;
+    color: var(--module-text) !important;
+  }
+
+  .po-tab-shell .details-table tfoot tr,
+  .po-tab-shell .delivery-table tfoot tr {
+    background: rgba(148, 163, 184, 0.06) !important;
+  }
+
+  .po-tab-shell .delivery-table-row--attention {
+    background: rgba(245, 158, 11, 0.08) !important;
+  }
+
+  .po-tab-shell .inspection-header-action,
+  .po-tab-shell .inspection-table-action {
+    background: var(--module-surface-alt) !important;
+    border-color: var(--module-border) !important;
+    color: var(--module-text) !important;
+  }
+
+  .inventory-dashboard-page .apexcharts-text,
+  .inventory-dashboard-page .apexcharts-legend-text,
+  .procurement-dashboard-page .apexcharts-text,
+  .procurement-dashboard-page .apexcharts-legend-text {
+    fill: var(--module-muted) !important;
+    color: var(--module-muted) !important;
+  }
+
+  .inventory-dashboard-page .apexcharts-gridline,
+  .procurement-dashboard-page .apexcharts-gridline {
+    stroke: rgba(148, 163, 184, 0.16) !important;
+  }
+}

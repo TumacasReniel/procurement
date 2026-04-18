@@ -15,7 +15,7 @@
               <span class="text-body">Item Withdrawals</span>
             </h5>
             <p class="text-muted text-truncate-two-lines fs-12 mb-0">
-              A running withdrawal ledger for released inventory stocks.
+              A running withdrawal ledger for released inventory items.
             </p>
           </div>
         </div>
@@ -113,16 +113,24 @@
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        v-if="meta && meta.total"
+        :links="links"
+        :pagination="meta"
+        :lists="filteredRows.length"
+        @fetch="(pageUrl) => $emit('fetch', pageUrl)"
+      />
     </div>
   </div>
 </template>
 
 <script>
-import Multiselect from '@vueform/multiselect';
+import Pagination from '@/Shared/Components/Pagination.vue';
 
 export default {
   name: 'WithdrawalLedger',
-  components: { Multiselect },
+  components: { Pagination },
   props: {
     rows: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
@@ -134,7 +142,6 @@ export default {
     return {
       filters: {
         keyword: '',
-        status: '',
       },
     };
   },
@@ -176,7 +183,6 @@ export default {
   display: flex;
   align-items: stretch;
   flex-wrap: nowrap;
-  align-items: stretch;
   gap: 0;
   width: 100%;
 }
@@ -188,23 +194,6 @@ export default {
 
 .ledger-search-group {
   height: 100%;
-}
-
-.ledger-status-select {
-  flex: 0 0 230px;
-  min-width: 230px;
-  margin-left: -1px;
-}
-
-.ledger-status-select :deep(.multiselect-wrapper),
-.ledger-status-select :deep(.multiselect-search),
-.ledger-status-select :deep(.multiselect-single-label) {
-  min-height: 49px;
-}
-
-.ledger-toolbar :deep(.multiselect) {
-  min-width: 0;
-  border-radius: 0;
 }
 
 .ledger-refresh-btn {
@@ -265,6 +254,10 @@ export default {
   background: #364273;
   border-color: #364273;
   color: #fff;
+}
+
+.ledger-card :deep(.pagination) {
+  margin-top: 1rem;
 }
 
 @media (max-width: 768px) {

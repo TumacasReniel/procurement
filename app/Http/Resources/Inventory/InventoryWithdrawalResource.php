@@ -11,7 +11,8 @@ class InventoryWithdrawalResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'item_id' => $this->item_id,
+            'inventory_id' => $this->inventory_id,
+            'item_id' => $this->inventory_id,
             'item_name' => $this->item?->name ?? '-',
             'requested_by_id' => $this->requested_by_id,
             'requested_by' => $this->requestedBy?->profile?->fullname ?? '-',

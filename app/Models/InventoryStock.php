@@ -12,7 +12,6 @@ class InventoryStock extends Model
     protected $fillable = [
         'code',
         'name',
-        'inventory_id',
         'entry_date',
     ];
 

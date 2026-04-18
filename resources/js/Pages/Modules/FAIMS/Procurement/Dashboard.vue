@@ -1,4 +1,5 @@
-tin<template>
+<template>
+	<div class="procurement-dashboard-page">
 	<Head title="Procurement Dashboard" />
 	<PageHeader title="Procurement Dashboard" pageTitle="Overview" />
 
@@ -549,6 +550,7 @@ tin<template>
 		</BCol>
 	</BRow>
 
+	</div>
 </template>
 
 <script>

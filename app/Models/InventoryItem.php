@@ -40,6 +40,6 @@ class InventoryItem extends Model
 
     public function withdrawals()
     {
-        return $this->hasMany(InventoryWithdrawal::class, 'item_id');
+        return $this->hasMany(InventoryWithdrawal::class, 'inventory_id');
     }
 }

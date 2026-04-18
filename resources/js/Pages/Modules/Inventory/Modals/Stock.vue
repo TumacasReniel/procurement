@@ -12,31 +12,14 @@
   >
     <form class="customform" @submit.prevent="$emit('submit')">
       <BRow class="g-3">
-        <BCol lg="12" class="mt-0">
+        <BCol lg="6" class="mt-0">
           <InputLabel for="stock_code" value="Code" :message="errors.code" />
           <TextInput id="stock_code" :model-value="form.code" type="text" class="form-control" :light="true" @update:modelValue="updateField('code', $event)" />
         </BCol>
-        <BCol lg="12" class="mt-0">
+        <BCol lg="6" class="mt-0">
           <InputLabel for="stock_name" value="Name" :message="errors.name" />
           <TextInput id="stock_name" :model-value="form.name" type="text" class="form-control" :light="true" @update:modelValue="updateField('name', $event)" />
         </BCol>
-        <BCol lg="12" class="mt-0">
-          <InputLabel for="inventory_id" value="Inventory Item" :message="errors.inventory_id" />
-          <select
-            id="inventory_id"
-            :value="form.inventory_id"
-            class="form-select"
-            :class="{ 'is-invalid': errors.inventory_id }"
-            @change="updateField('inventory_id', $event.target.value)"
-          >
-            <option value="">Select Inventory Item</option>
-            <option v-for="item in inventories" :key="item.id" :value="String(item.id)">
-              {{ item.name || item.inventory_name }} ({{ item.unit || item.unit_type || 'Unit' }})
-            </option>
-          </select>
-          <div class="invalid-feedback d-block" v-if="errors.inventory_id">{{ errors.inventory_id }}</div>
-        </BCol>
-
         <BCol lg="12" class="mt-0">
           <InputLabel for="entry_date" value="Entry Date" :message="errors.entry_date" />
           <TextInput
@@ -75,7 +58,6 @@ export default {
     form: { type: Object, default: () => ({}) },
     errors: { type: Object, default: () => ({}) },
     saving: { type: Boolean, default: false },
-    inventories: { type: Array, default: () => [] },
   },
   emits: ['update:modelValue', 'update:form', 'submit'],
   methods: {

@@ -12,9 +12,35 @@ class InventoryReceivingController extends Controller
 {
     public function index(Request $request)
     {
+        if ($request->header('X-Inertia')) {
+            return redirect('/inventory-stocks?tab=receivings');
+        }
+
+        if (!$request->wantsJson() && !$request->ajax() && !$request->boolean('json')) {
+            return redirect('/inventory-stocks?tab=receivings');
+        }
+
         $receivings = InventoryReceiving::with(['item', 'approvedBy.profile', 'status'])
+            ->when($request->filled('keyword'), function ($query) use ($request) {
+                $keyword = trim((string) $request->input('keyword'));
+
+                $query->where(function ($inner) use ($keyword) {
+                    $inner->where('remarks', 'like', "%{$keyword}%")
+                        ->orWhereHas('item', function ($item) use ($keyword) {
+                            $item->where('name', 'like', "%{$keyword}%")
+                                ->orWhere('code', 'like', "%{$keyword}%");
+                        })
+                        ->orWhereHas('approvedBy', function ($user) use ($keyword) {
+                            $user->where('username', 'like', "%{$keyword}%");
+                        })
+                        ->orWhereHas('status', function ($status) use ($keyword) {
+                            $status->where('name', 'like', "%{$keyword}%");
+                        });
+                });
+            })
+            ->orderByDesc('received_at')
             ->orderByDesc('id')
-            ->paginate((int) $request->input('count', 10));
+            ->paginate(max((int) $request->input('count', 10), 1));
 
         return InventoryReceivingResource::collection($receivings);
     }

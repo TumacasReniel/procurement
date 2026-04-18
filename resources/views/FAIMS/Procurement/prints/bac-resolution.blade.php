@@ -1,4 +1,11 @@
-y<!DOCTYPE html>
+@php
+    $bacResolutionBody = str_replace(
+        "\n\n---PAGE BREAK---\n\n",
+        '<div class="bac-page-break" data-page-break="true"></div>',
+        $bac_resolution['body']
+    );
+@endphp
+<!DOCTYPE html>
 <html>
 <head>
     <title>BAC Resolution</title>
@@ -93,6 +100,11 @@ y<!DOCTYPE html>
             page-break-before: always; /* Forces a new page when printing */
         }
 
+        .bac-page-break {
+            page-break-before: always;
+            break-before: page;
+        }
+
         . text-left{
             background: gray;
             color: white;
@@ -125,6 +137,11 @@ y<!DOCTYPE html>
             border: none; 
         }
 
+        .signature-section {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
     </style>
 </head>
 <body>
@@ -148,75 +165,73 @@ y<!DOCTYPE html>
         </div>
 
         <div>
-            {!! $bac_resolution['body'] !!}
+            {!! $bacResolutionBody !!}
         </div>
 
-
-        <p style="text-align: left;margin-bottom:40px">Recommended by:</p>  
-       <table style="text-align:center;margin-bottom:50px">
-         @foreach ($bac_members as $member)
-            <th>
-                {{  strtoupper($member['name']) }}        
-            </th>
-        @endforeach
-        <tr>
-            <td>
-                Member, BAC
-            </td>
-            <td>
-                Member, BAC
-            </td>
-            <td>
-                Member, BAC
-            </td>
-        </tr>
-
-      
-        </table>
-        <br>
-        <table style="margin-bottom:20px">
-            <tr>
-                <th style="text-align: center;">
-                    {{ $bac_vice_chairperson['name'] }}
-                </th>
-                <th style="text-align: center; ">
-                   {{ $bac_chairperson['name'] }}
-                </th>
+        <div class="signature-section">
+            <p style="text-align: left;margin-bottom:40px">Recommended by:</p>  
+            <table style="text-align:center;margin-bottom:50px">
+                @foreach ($bac_members as $member)
+                    <th>
+                        {{  strtoupper($member['name']) }}        
+                    </th>
+                @endforeach
+                <tr>
+                    <td>
+                        Member, BAC
+                    </td>
+                    <td>
+                        Member, BAC
+                    </td>
+                    <td>
+                        Member, BAC
+                    </td>
                 </tr>
-            <tr>
-                <td style="text-align: center">
-                    Vice Chairperson, BAC
-                </td >
-                <td style="text-align: center">
-                    Chairperson, BAC
-                </td>
-            </tr>
-        </table>
+            </table>
+            <br>
+            <table style="margin-bottom:20px">
+                <tr>
+                    <th style="text-align: center;">
+                        {{ $bac_vice_chairperson['name'] }}
+                    </th>
+                    <th style="text-align: center; ">
+                        {{ $bac_chairperson['name'] }}
+                    </th>
+                    </tr>
+                <tr>
+                    <td style="text-align: center">
+                        Vice Chairperson, BAC
+                    </td >
+                    <td style="text-align: center">
+                        Chairperson, BAC
+                    </td>
+                </tr>
+            </table>
 
-      <table>
-        <br>
-        <tr style="padding-bottom:40px ">
-            <td colspan="3" style="text-align:center;padding-bottom:40px">
-                Approved by:
-            </td>
-        </tr>
-   
-        <tr>
-            <th colspan="3">   {{ $regional_director['name'] }}</th>
-        </tr>
-        <tr>
-            <td colspan="3" style="text-align:center">
-                {{  $regional_director['designation']->name }}
-                
-            </td>
-        </tr>
-        <tr>
-            <td colspan="3" style="text-align:center">
-                Date:_________<
-            </td>
-        </tr>
-
-       </table>
+            <table>
+                <br>
+                <tr style="padding-bottom:40px ">
+                    <td colspan="3" style="text-align:center;padding-bottom:40px">
+                        Approved by:
+                    </td>
+                </tr>
+        
+                <tr>
+                    <th colspan="3">   {{ $regional_director['name'] }}</th>
+                </tr>
+                <tr>
+                    <td colspan="3" style="text-align:center">
+                        {{  $regional_director['designation']->name }}
+                        
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="text-align:center">
+                        Date:_________<
+                    </td>
+                </tr>
+            </table>
+        </div>
 
     </div>
     <script type="text/php">

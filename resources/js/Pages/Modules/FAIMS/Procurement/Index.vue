@@ -1,7 +1,7 @@
 <template>
     <Head title="Requests" />
     <PageHeader title="Procurement Requests" pageTitle="List" />
-    <BRow>
+    <BRow class="procurement-index-page">
         <div class="col-md-12">
             <div class="card bg-light-subtle shadow-none border">
                 <div class="card-header bg-light-subtle">
@@ -108,8 +108,7 @@
                                         </th>
                                         <th style="width: 12%">Requested By</th>
                                         <th style="width: 10%">PAP Code</th>
-                                        <th style="width: 10%">Status</th>
-                                        <th style="width: 10%">Sub-status</th>
+                                        <th style="width: 14%">Status / Sub-status</th>
                                         <th
                                             style="width: 10%"
                                             class="text-center"
@@ -183,25 +182,22 @@
                                         </td>
 
                                         <td>
-                                            <b-badge
-                                                :class="list.status.bg"
-                                                class="fs-11"
-                                                >{{
-                                                    list.status?.name
-                                                }}</b-badge
-                                            >
-                                        </td>
-                                        <td>
-                                            <b-badge
-                                                :class="list.sub_status?.bg"
-                                                class="fs-11"
-                                                v-if="list.sub_status"
-                                            >
-                                                {{ list.sub_status?.name }}
-                                            </b-badge>
-                                            <span v-else class="text-muted"
-                                                >-</span
-                                            >
+                                            <div class="d-flex align-items-center flex-wrap gap-1">
+                                                <b-badge
+                                                    :class="list.status.bg"
+                                                    class="fs-11 me-1"
+                                                >
+                                                    {{ list.status?.name }}
+                                                </b-badge>
+                                                <b-badge
+                                                    :class="list.sub_status?.bg"
+                                                    class="fs-11"
+                                                    v-if="list.sub_status"
+                                                >
+                                                    {{ list.sub_status?.name }}
+                                                </b-badge>
+                                                <span v-else class="text-muted fs-12"></span>
+                                            </div>
                                         </td>
                                         <td>
                                             <div

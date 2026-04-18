@@ -12,16 +12,31 @@ class InventoryItemController extends Controller
 {
     public function index(Request $request)
     {
-        $items = InventoryItem::with(['stock', 'category'])
+        if ($request->header('X-Inertia')) {
+            return redirect('/inventory-stocks?tab=items');
+        }
+
+        if (!$request->wantsJson() && !$request->ajax() && !$request->boolean('json')) {
+            return redirect('/inventory-stocks?tab=items');
+        }
+
+        $items = InventoryItem::with(['stock:id,code,name', 'category:id,name'])
             ->when($request->filled('keyword'), function ($query) use ($request) {
                 $keyword = trim((string) $request->input('keyword'));
                 $query->where(function ($inner) use ($keyword) {
                     $inner->where('code', 'like', "%{$keyword}%")
-                        ->orWhere('name', 'like', "%{$keyword}%");
+                        ->orWhere('name', 'like', "%{$keyword}%")
+                        ->orWhereHas('stock', function ($stock) use ($keyword) {
+                            $stock->where('code', 'like', "%{$keyword}%")
+                                ->orWhere('name', 'like', "%{$keyword}%");
+                        })
+                        ->orWhereHas('category', function ($category) use ($keyword) {
+                            $category->where('name', 'like', "%{$keyword}%");
+                        });
                 });
             })
             ->orderByDesc('id')
-            ->paginate((int) $request->input('count', 10));
+            ->paginate(max((int) $request->input('count', 10), 1));
 
         return InventoryItemResource::collection($items);
     }

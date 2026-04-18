@@ -13,8 +13,8 @@
     <form class="customform" @submit.prevent="$emit('submit')">
       <BRow class="g-3">
         <BCol lg="12">
-          <InputLabel for="withdraw_item_id" value="Item" :message="errors.item_id" />
-          <select id="withdraw_item_id" :value="form.item_id" class="form-select" @change="updateField('item_id', $event.target.value)">
+          <InputLabel for="withdraw_item_id" value="Item" :message="errors.inventory_id" />
+          <select id="withdraw_item_id" :value="form.inventory_id" class="form-select" @change="updateField('inventory_id', $event.target.value)">
             <option value="">Select Item</option>
             <option v-for="item in items" :key="item.id" :value="String(item.id)">{{ item.name }} ({{ item.code }})</option>
           </select>

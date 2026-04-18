@@ -205,7 +205,7 @@
     "src": "public/images/logo-sm.png"
   },
   "resources/js/app.js": {
-    "file": "assets/app-B8Ypzjhp.js",
+    "file": "assets/app-BDJNzQ-t.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -222,7 +222,7 @@
       "node_modules/leaflet/dist/leaflet-src.esm.js"
     ],
     "css": [
-      "assets/app-4qfJwE3P.css"
+      "assets/app-D-ZtbMjO.css"
     ],
     "assets": [
       "assets/logo-sm-BMbbSDmV.png",

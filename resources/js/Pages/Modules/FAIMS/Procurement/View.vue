@@ -2,7 +2,7 @@
   <Head title="Profile" />
   <PageHeader title="Procurement Overview" pageTitle="User" />
 
-  <div class="row">
+  <div class="row procurement-view-page">
     <div
       :class="['transition-all', isCollapsed ? 'col-md-1' : 'col-md-3']"
       style="transition: all 0.3s ease"

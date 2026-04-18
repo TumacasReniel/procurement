@@ -30,6 +30,7 @@ export default {
   emits: ['update:modelValue'],
   computed: {
     title() {
+      if (this.type === 'item') return 'View Item';
       if (this.type === 'stock') return 'View Stock';
       if (this.type === 'receiving') return 'View Receiving';
       if (this.type === 'withdrawal') return 'View Withdrawal';
