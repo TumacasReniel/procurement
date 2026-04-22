@@ -1,4 +1,5 @@
 <template>
+  <div class="procurement-bids-page">
   <div class="aob-page-header mt-2">
     <div class="aob-header-bar">
       <div class="aob-header-left">
@@ -24,14 +25,7 @@
       </div>
       <div class="aob-header-right d-flex flex-wrap justify-content-end gap-1">
         <button
-          v-if="
-            !isForApprovalOfBACResolution &&
-            (((this.procurement.status?.name == 'For BAC Resolution' ||
-              (this.procurement.status?.name === 'Rebid' &&
-                this.procurement.sub_status?.name === 'For BAC Resolution')) &&
-              $page.props.roles.includes('Procurement Officer')) ||
-              $page.props.roles.includes('Procurement Staff'))
-          "
+          v-if="canGenerateBACResolution"
           @click="openBACReso(procurement)"
           class="btn btn-outline-primary btn-sm me-2"
           v-b-tooltip.hover
@@ -43,12 +37,8 @@
 
         <button
           v-if="
-            !isForBACResolution &&
-            hasCheckedBidItems &&
-            (((procurement?.status.name == 'For Bids' ||
-              procurement?.sub_status?.name == 'For Bids') &&
-              $page.props.roles.includes('Procurement Officer')) ||
-              $page.props.roles.includes('Procurement Staff'))
+            canRecommendBidForAward &&
+            hasCheckedBidItems
           "
           class="btn btn-primary btn-sm me-2"
           @click="openRecommendAward()"
@@ -131,14 +121,7 @@
 
                     <th
                       class="aob-col-check"
-                      v-if="
-                        !isForBACResolution &&
-                        (this.procurement.status.name === 'For Bids' ||
-                          (this.procurement.status.name === 'Rebid' &&
-                            this.procurement.sub_status?.name === 'For Bids' &&
-                            $page.props.roles.includes('Procurement Officer')) ||
-                          $page.props.roles.includes('Procurement Staff'))
-                      "
+                      v-if="canRecommendBidForAward"
                     >
                       Recommend Bid For Award?
                     </th>
@@ -203,6 +186,12 @@
                       <span v-if="item.is_free" class="aob-price aob-price-free">
                         free
                       </span>
+                      <span v-else-if="item.is_no_offer" class="aob-price aob-price-mutedstate">
+                        no offer
+                      </span>
+                      <span v-else-if="item.is_not_applicable" class="aob-price aob-price-mutedstate">
+                        not applicable
+                      </span>
                       <span
                         v-else-if="Number(item.bid_price) > 0"
                         :class="[
@@ -230,6 +219,12 @@
                       <span v-if="item.is_free" class="aob-price aob-price-free">
                         free
                       </span>
+                      <span v-else-if="item.is_no_offer" class="aob-price aob-price-mutedstate">
+                        no offer
+                      </span>
+                      <span v-else-if="item.is_not_applicable" class="aob-price aob-price-mutedstate">
+                        not applicable
+                      </span>
                       <span v-else-if="!(Number(item.bid_price) > 0)" class="aob-price aob-price-pending">
                         not set
                       </span>
@@ -253,28 +248,19 @@
 
                     <td
                       class="aob-cell-check"
-                      v-if="
-                        !isForBACResolution &&
-                        (((procurement.status.name == 'For Bids' ||
-                          (this.procurement.status.name === 'Rebid' &&
-                            this.procurement.sub_status?.name === 'For Bids')) &&
-                          $page.props.roles.includes('Procurement Officer')) ||
-                          $page.props.roles.includes('Procurement Staff'))
-                      "
+                      v-if="canRecommendBidForAward"
                     >
                       <span class="d-flex justify-content-center">
-                        <b-form-checkbox
+                        <input
                           v-model="item.is_checked"
-                          name="checkbox"
-                          class="border-primary bg-primary"
-                          :value="true"
+                          type="checkbox"
+                          class="form-check-input aob-award-checkbox"
                           :disabled="
                             isOtherSupplierChecked(itemIndex, bid) ||
-                            (!item.is_free && !(Number(item.bid_price) > 0))
+                            !hasAwardableOffer(item)
                           "
                           @change="handleCheckboxChange(itemIndex, bid)"
-                        >
-                        </b-form-checkbox>
+                        />
                       </span>
                     </td>
                   </tr>
@@ -365,69 +351,79 @@
     v-model="showItemDescriptionModal"
     title="Item Description"
     :size="itemDescriptionModalSize"
+    header-class="p-3 bg-light"
+    class="v-modal-custom procurement-bids-modal"
     centered
     hide-footer
   >
-    <div class="mb-2 fw-semibold">
-      {{ selectedItemName || "-" }}
+    <div class="offer-modal-content">
+      <div class="mb-2 fw-semibold">
+        {{ selectedItemName || "-" }}
+      </div>
+      <div v-html="selectedItemDescription"></div>
     </div>
-    <div v-html="selectedItemDescription"></div>
   </b-modal>
 
   <b-modal
     v-model="showOfferModal"
     title="Offer Details"
     :size="offerModalSize"
+    header-class="p-3 bg-light"
+    class="v-modal-custom procurement-bids-modal"
     centered
     hide-footer
   >
-    <div class="mb-2 fw-semibold">
-      {{ selectedItemName || "-" }}
-    </div>
-    <div v-if="selectedOfferDetails" class="offer-detail-summary mb-3">
-      <div class="offer-detail-grid">
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Supplier</span>
-          <span class="offer-detail-value">{{ selectedOfferDetails.supplier_name }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Status</span>
-          <span class="offer-detail-value">{{ selectedOfferDetails.status_name }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Bid Price</span>
-          <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.bid_price, selectedOfferDetails.is_free) }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Total Bid Price</span>
-          <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.total_bid_price, selectedOfferDetails.is_free) }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Delivery Term</span>
-          <span class="offer-detail-value">{{ selectedOfferDetails.delivery_term }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Quantity / Unit</span>
-          <span class="offer-detail-value">{{ selectedOfferDetails.quantity_label }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Unit Cost</span>
-          <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.unit_cost) }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">ABC</span>
-          <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.abc) }}</span>
+    <div class="offer-modal-content">
+      <div class="mb-2 fw-semibold">
+        {{ selectedItemName || "-" }}
+      </div>
+      <div v-if="selectedOfferDetails" class="offer-detail-summary mb-3">
+        <div class="offer-detail-grid">
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Supplier</span>
+            <span class="offer-detail-value">{{ selectedOfferDetails.supplier_name }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Status</span>
+            <span class="offer-detail-value">{{ selectedOfferDetails.status_name }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Bid Price</span>
+            <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.bid_price, selectedOfferDetails) }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Total Bid Price</span>
+            <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.total_bid_price, selectedOfferDetails) }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Delivery Term</span>
+            <span class="offer-detail-value">{{ selectedOfferDetails.delivery_term }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Quantity / Unit</span>
+            <span class="offer-detail-value">{{ selectedOfferDetails.quantity_label }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Unit Cost</span>
+            <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.unit_cost) }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">ABC</span>
+            <span class="offer-detail-value">{{ offerDisplayValue(selectedOfferDetails.abc) }}</span>
+          </div>
         </div>
       </div>
+      <div class="offer-detail-section-label">Technical Proposal / Offer</div>
+      <div class="offer-modal-content" v-html="selectedOfferDescription"></div>
     </div>
-    <div class="offer-detail-section-label">Technical Proposal / Offer</div>
-    <div v-html="selectedOfferDescription"></div>
   </b-modal>
 
   <b-modal
     v-model="showAllOffersModal"
     title="All Offers For Item"
     size="xl"
+    header-class="p-3 bg-light"
+    class="v-modal-custom procurement-bids-modal"
     centered
     hide-footer
   >
@@ -485,11 +481,15 @@
               <td class="fw-semibold">{{ offer.supplier_name }}</td>
               <td>
                 <span v-if="offer.is_free"><b><i class="text-primary">free</i></b></span>
+                <span v-else-if="offer.is_no_offer"><b><i class="text-muted">no offer</i></b></span>
+                <span v-else-if="offer.is_not_applicable"><b><i class="text-muted">not applicable</i></b></span>
                 <span v-else-if="offer.bid_price > 0">{{ formatCurrency(offer.bid_price) }}</span>
                 <span v-else>-</span>
               </td>
               <td>
                 <span v-if="offer.is_free"><b><i class="text-primary">free</i></b></span>
+                <span v-else-if="offer.is_no_offer"><b><i class="text-muted">no offer</i></b></span>
+                <span v-else-if="offer.is_not_applicable"><b><i class="text-muted">not applicable</i></b></span>
                 <span v-else-if="offer.total_bid_price > 0">{{ formatCurrency(offer.total_bid_price) }}</span>
                 <span v-else>-</span>
               </td>
@@ -527,54 +527,59 @@
     v-model="showComparedOfferModal"
     title="Supplier Offer Details"
     :size="comparedOfferModalSize"
+    header-class="p-3 bg-light"
+    class="v-modal-custom procurement-bids-modal"
     centered
     hide-footer
   >
-    <div class="mb-2 fw-semibold">
-      {{ selectedComparedOfferSupplier || "-" }}
-    </div>
-    <div class="small text-muted mb-3">
-      {{ selectedItemName || "-" }}
-    </div>
-    <div v-if="selectedComparedOfferDetails" class="offer-detail-summary mb-3">
-      <div class="offer-detail-grid">
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Status</span>
-          <span class="offer-detail-value">{{ selectedComparedOfferDetails.status_name }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Bid Price</span>
-          <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.bid_price, selectedComparedOfferDetails.is_free) }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Total Bid Price</span>
-          <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.total_bid_price, selectedComparedOfferDetails.is_free) }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Delivery Term</span>
-          <span class="offer-detail-value">{{ selectedComparedOfferDetails.delivery_term }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Quantity / Unit</span>
-          <span class="offer-detail-value">{{ selectedComparedOfferDetails.quantity_label }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">Unit Cost</span>
-          <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.unit_cost) }}</span>
-        </div>
-        <div class="offer-detail-card">
-          <span class="offer-detail-label">ABC</span>
-          <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.abc) }}</span>
+    <div class="offer-modal-content">
+      <div class="mb-2 fw-semibold">
+        {{ selectedComparedOfferSupplier || "-" }}
+      </div>
+      <div class="small text-muted mb-3">
+        {{ selectedItemName || "-" }}
+      </div>
+      <div v-if="selectedComparedOfferDetails" class="offer-detail-summary mb-3">
+        <div class="offer-detail-grid">
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Status</span>
+            <span class="offer-detail-value">{{ selectedComparedOfferDetails.status_name }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Bid Price</span>
+            <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.bid_price, selectedComparedOfferDetails) }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Total Bid Price</span>
+            <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.total_bid_price, selectedComparedOfferDetails) }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Delivery Term</span>
+            <span class="offer-detail-value">{{ selectedComparedOfferDetails.delivery_term }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Quantity / Unit</span>
+            <span class="offer-detail-value">{{ selectedComparedOfferDetails.quantity_label }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">Unit Cost</span>
+            <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.unit_cost) }}</span>
+          </div>
+          <div class="offer-detail-card">
+            <span class="offer-detail-label">ABC</span>
+            <span class="offer-detail-value">{{ offerDisplayValue(selectedComparedOfferDetails.abc) }}</span>
+          </div>
         </div>
       </div>
+      <div class="offer-detail-section-label">Technical Proposal / Offer</div>
+      <div class="offer-modal-content" v-html="selectedComparedOfferDescription"></div>
     </div>
-    <div class="offer-detail-section-label">Technical Proposal / Offer</div>
-    <div class="offer-modal-content" v-html="selectedComparedOfferDescription"></div>
   </b-modal>
 
   <Offer ref="editOffer" />
   <Award ref="award" :procurement="procurement" />
   <BACResolution ref="BACReso" :procurement="procurement" :action="'Award'" />
+  </div>
 </template>
 <script>
 import Checkbox from "@/Shared/Components/Forms/Checkbox.vue";
@@ -635,6 +640,9 @@ export default {
   },
 
   computed: {
+    currentRoles() {
+      return this.$page?.props?.roles || [];
+    },
     availableBids() {
       return (this.procurement?.quotations || []).filter((bid) => this.isPendingBid(bid));
     },
@@ -669,6 +677,41 @@ export default {
     },
     bidTabStorageKey() {
       return `procurement-bids-active-tab-${this.procurement?.id || "default"}`;
+    },
+    isAtBACResolutionStep() {
+      return (
+        this.procurement?.status?.name === "For BAC Resolution" ||
+        (this.procurement?.status?.name === "Rebid" &&
+          this.procurement?.sub_status?.name === "For BAC Resolution")
+      );
+    },
+    canGenerateBACResolution() {
+      const roles = this.$page?.props?.roles || [];
+
+      return (
+        this.isAtBACResolutionStep &&
+        (roles.includes("Procurement Officer") ||
+          roles.includes("Procurement Staff"))
+      );
+    },
+    isAtBidEvaluationStep() {
+      return (
+        this.procurement?.status?.name === "For Bids" ||
+        this.procurement?.sub_status?.name === "For Bids"
+      );
+    },
+    canManageBidAwardActions() {
+      return (
+        this.currentRoles.includes("Procurement Officer") ||
+        this.currentRoles.includes("Procurement Staff")
+      );
+    },
+    canRecommendBidForAward() {
+      return (
+        !this.isForBACResolution &&
+        this.isAtBidEvaluationStep &&
+        this.canManageBidAwardActions
+      );
     },
     isForBACResolution() {
       return (
@@ -721,13 +764,15 @@ export default {
             status_name: matchedItem.status?.name || null,
             bid_price: Number(matchedItem.bid_price) || 0,
             total_bid_price:
-              matchedItem.is_free
+              matchedItem.is_free || matchedItem.is_no_offer || matchedItem.is_not_applicable
                 ? 0
                 : (Number(matchedItem.bid_price) || 0) *
                   (Number(matchedItem.item?.item_quantity) || 0),
             technical_proposal: matchedItem.technical_proposal,
             delivery_term: bid.delivery_term,
             is_free: Boolean(matchedItem.is_free),
+            is_no_offer: Boolean(matchedItem.is_no_offer),
+            is_not_applicable: Boolean(matchedItem.is_not_applicable),
           };
         })
         .filter(Boolean);
@@ -756,11 +801,7 @@ export default {
       this.activeBidTab = 0;
     },
     canEditOffer() {
-      return (
-        this.procurement.status?.name === "For Bids" ||
-        (this.procurement.status?.name === "Rebid" &&
-          this.procurement.sub_status?.name === "For Bids")
-      );
+      return this.isAtBidEvaluationStep;
     },
     openEditOffer(item, bid) {
       if (this.canEditOffer()) {
@@ -786,9 +827,20 @@ export default {
         currency: "PHP",
       }).format(value);
     },
-    offerDisplayValue(value, isFree = false) {
-      if (isFree) {
+    hasAwardableOffer(item) {
+      return Boolean(item?.is_free) || Number(item?.bid_price) > 0;
+    },
+    offerDisplayValue(value, options = {}) {
+      if (options?.is_free) {
         return "free";
+      }
+
+      if (options?.is_no_offer) {
+        return "no offer";
+      }
+
+      if (options?.is_not_applicable) {
+        return "not applicable";
       }
 
       const amount = Number(value);
@@ -797,6 +849,17 @@ export default {
       }
 
       return "not set";
+    },
+    getOfferDescriptionFallback(offer) {
+      if (offer?.is_no_offer) {
+        return "<p>No offer was submitted for this item.</p>";
+      }
+
+      if (offer?.is_not_applicable) {
+        return "<p>This item was marked not applicable for this supplier.</p>";
+      }
+
+      return "<p>No offer available.</p>";
     },
     formatQuantityLabel(quantity, unitType) {
       const qty = Number(quantity);
@@ -818,12 +881,17 @@ export default {
         supplier_name: bid?.supplier?.name || "-",
         status_name: item?.status?.name || "-",
         bid_price: bidPrice,
-        total_bid_price: item?.is_free ? 0 : bidPrice * quantity,
+        total_bid_price:
+          item?.is_free || item?.is_no_offer || item?.is_not_applicable
+            ? 0
+            : bidPrice * quantity,
         delivery_term: bid?.delivery_term || "-",
         quantity_label: this.formatQuantityLabel(quantity, procurementItem?.item_unit_type),
         unit_cost: Number(procurementItem?.item_unit_cost) || 0,
         abc: Number(procurementItem?.total_cost) || 0,
         is_free: Boolean(item?.is_free),
+        is_no_offer: Boolean(item?.is_no_offer),
+        is_not_applicable: Boolean(item?.is_not_applicable),
       };
     },
     buildComparedOfferDetails(offer) {
@@ -836,6 +904,8 @@ export default {
         unit_cost: Number(this.selectedItemUnitCost) || 0,
         abc: Number(this.selectedItemAbc) || 0,
         is_free: Boolean(offer?.is_free),
+        is_no_offer: Boolean(offer?.is_no_offer),
+        is_not_applicable: Boolean(offer?.is_not_applicable),
       };
     },
 
@@ -911,14 +981,15 @@ export default {
     },
     openOfferDescription(item, bid) {
       this.selectedItemName = item?.item?.item_name || "";
-      this.selectedOfferDescription = item?.technical_proposal || "<p>No offer available.</p>";
+      this.selectedOfferDescription =
+        item?.technical_proposal || this.getOfferDescriptionFallback(item);
       this.selectedOfferDetails = this.buildOfferDetails(item, bid);
       this.showOfferModal = true;
     },
     openComparedOfferModal(offer) {
       this.selectedComparedOfferSupplier = offer?.supplier_name || "";
       this.selectedComparedOfferDescription =
-        offer?.technical_proposal || "<p>No offer available.</p>";
+        offer?.technical_proposal || this.getOfferDescriptionFallback(offer);
       this.selectedComparedOfferDetails = this.buildComparedOfferDetails(offer);
       this.showComparedOfferModal = true;
     },
@@ -1199,19 +1270,242 @@ export default {
 .aob-header-right {
   margin-left: auto;
 }
+
+[data-bs-theme="dark"] .procurement-bids-modal .offer-detail-summary,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-summary,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-table-wrap {
+  background: #1b2230;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-modal .offer-detail-card,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-meta-pill {
+  background: #232c3a;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-modal .offer-detail-label,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-detail-section-label,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-meta-label,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-description,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-modal-content,
+[data-bs-theme="dark"] .procurement-bids-modal .small.text-muted {
+  color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] .procurement-bids-modal .offer-detail-value,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-title,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-meta-value,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-table tbody td,
+[data-bs-theme="dark"] .procurement-bids-modal .fw-semibold {
+  color: #e5edf7 !important;
+}
+
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-table thead th {
+  background: #232c3a;
+  color: #e5edf7;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-table td,
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-table th {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-modal .offer-compare-table tbody tr:hover td {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+[data-bs-theme="dark"] .procurement-bids-modal .btn-outline-secondary {
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.28);
+  background: transparent;
+}
+
+[data-bs-theme="dark"] .procurement-bids-modal .btn-outline-secondary:hover {
+  color: #e5edf7;
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page {
+  color: #e5edf7;
+  --aob-table-wrap-bg: #1b2230;
+  --aob-table-border: rgba(148, 163, 184, 0.18);
+  --aob-table-head-bg: #232c3a;
+  --aob-table-head-text: #e5edf7;
+  --aob-table-cell-bg: #1b2230;
+  --aob-table-cell-bg-alt: #202937;
+  --aob-table-cell-hover: rgba(148, 163, 184, 0.06);
+  --aob-table-text: #e5edf7;
+  --aob-table-index: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-page-header {
+  background: #1b2230;
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-header-title,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-title,
+[data-bs-theme="dark"] .procurement-bids-page .offer-meta-value,
+[data-bs-theme="dark"] .procurement-bids-page .aob-item-title,
+[data-bs-theme="dark"] .procurement-bids-page .aob-qty-value,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table tbody td {
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .horizontal-scroll-tabs,
+[data-bs-theme="dark"] .procurement-bids-page .bg-white {
+  background: transparent !important;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .horizontal-scroll-tabs .nav-tabs .nav-link {
+  background-color: #1b2230 !important;
+  color: #cbd5e1 !important;
+  border-top-color: #334155;
+  border-bottom-color: #334155;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .horizontal-scroll-tabs .nav-tabs .nav-link:hover:not(.active) {
+  background: rgba(59, 130, 246, 0.1) !important;
+  color: #e5edf7 !important;
+  border-top-color: #475569;
+  border-bottom-color: #475569;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .horizontal-scroll-tabs .nav-tabs .nav-link.active {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #bfdbfe !important;
+  border-top-color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.28), 0 0 14px rgba(59, 130, 246, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table-wrap,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-summary,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table-wrap {
+  background: #1b2230;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .offer-meta-pill {
+  background: #232c3a;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .offer-meta-label,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-description,
+[data-bs-theme="dark"] .procurement-bids-page .aob-qty-unit,
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-mutedstate,
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-pending,
+[data-bs-theme="dark"] .procurement-bids-page .aob-delivery-pill,
+[data-bs-theme="dark"] .procurement-bids-page .aob-muted-text,
+[data-bs-theme="dark"] .procurement-bids-page .aob-empty-row {
+  color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-delivery-pill {
+  background: #232c3a;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table thead th,
+[data-bs-theme="dark"] .procurement-bids-page .aob-table thead th {
+  background: #232c3a;
+  color: #e5edf7;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table td,
+[data-bs-theme="dark"] .procurement-bids-page .aob-table th,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table td,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table th {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table tbody tr:hover td,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table tbody tr:hover td {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-link {
+  color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-over {
+  color: #fca5a5;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-free {
+  color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-action-btn-muted,
+[data-bs-theme="dark"] .procurement-bids-page .btn-outline-secondary,
+[data-bs-theme="dark"] .procurement-bids-page .btn-outline-dark {
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.28);
+  background: transparent;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-action-btn-muted:hover,
+[data-bs-theme="dark"] .procurement-bids-page .btn-outline-secondary:hover,
+[data-bs-theme="dark"] .procurement-bids-page .btn-outline-dark:hover {
+  color: #e5edf7;
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(148, 163, 184, 0.08);
+}
+</style>
+
+<style>
+[data-bs-theme="dark"] .procurement-bids-page .aob-table-wrap {
+  background: #1b2230 !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table tbody td {
+  background: #1b2230 !important;
+  color: #e5edf7 !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table tbody tr:nth-child(even) td {
+  background: #202937 !important;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table tbody tr:hover td {
+  background: rgba(148, 163, 184, 0.06) !important;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-cell-index {
+  color: #cbd5e1 !important;
+}
 </style>
 
 <style scoped>
+.procurement-bids-page {
+  --aob-table-wrap-bg: #ffffff;
+  --aob-table-border: #e2e8f0;
+  --aob-table-head-bg: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+  --aob-table-head-text: #334155;
+  --aob-table-cell-bg: #ffffff;
+  --aob-table-cell-bg-alt: #fbfdff;
+  --aob-table-cell-hover: #f5f8ff;
+  --aob-table-text: #1e293b;
+  --aob-table-index: #475569;
+}
+
 .aob-scroll-area {
   padding: 1rem 0;
 }
 
 .aob-table-wrap {
-  border: 1px solid #dbe4f0;
+  border: 1px solid var(--aob-table-border);
   border-radius: 16px;
   overflow: auto;
   max-width: 100%;
-  background: #ffffff;
+  background: var(--aob-table-wrap-bg);
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 #eef2f7;
@@ -1252,8 +1546,8 @@ export default {
   padding: 0.9rem 0.85rem;
   vertical-align: top;
   text-align: center;
-  border-right: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid var(--aob-table-border);
+  border-bottom: 1px solid var(--aob-table-border);
 }
 
 .aob-table th:last-child,
@@ -1269,8 +1563,8 @@ export default {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
-  color: #334155;
+  background: var(--aob-table-head-bg);
+  color: var(--aob-table-head-text);
   font-size: 0.76rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -1279,16 +1573,16 @@ export default {
 }
 
 .aob-table tbody td {
-  color: #1e293b;
-  background: #ffffff;
+  color: var(--aob-table-text);
+  background: var(--aob-table-cell-bg);
 }
 
 .aob-table tbody tr:nth-child(even) td {
-  background: #fbfdff;
+  background: var(--aob-table-cell-bg-alt);
 }
 
 .aob-table tbody tr:hover td {
-  background: #f5f8ff;
+  background: var(--aob-table-cell-hover);
 }
 
 .aob-col-item-no {
@@ -1353,13 +1647,27 @@ export default {
 
 .aob-cell-index {
   font-weight: 700;
-  color: #475569;
+  color: var(--aob-table-index);
 }
 
 .aob-cell-status,
 .aob-cell-action,
 .aob-cell-check {
   vertical-align: middle;
+}
+
+.aob-award-checkbox {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  float: none;
+  cursor: pointer;
+  accent-color: #0d6efd;
+}
+
+.aob-award-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .aob-cell-item {
@@ -1429,6 +1737,12 @@ export default {
   text-transform: lowercase;
 }
 
+.aob-price-mutedstate {
+  color: #475569;
+  font-style: italic;
+  text-transform: lowercase;
+}
+
 .aob-price-pending {
   color: #64748b;
   font-style: italic;
@@ -1494,6 +1808,126 @@ export default {
   text-align: center;
   color: #64748b;
   font-weight: 500;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page {
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-page-header {
+  background: #1b2230;
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-header-title,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-title,
+[data-bs-theme="dark"] .procurement-bids-page .offer-meta-value,
+[data-bs-theme="dark"] .procurement-bids-page .aob-item-title,
+[data-bs-theme="dark"] .procurement-bids-page .aob-qty-value,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table tbody td {
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .horizontal-scroll-tabs,
+[data-bs-theme="dark"] .procurement-bids-page .bg-white {
+  background: transparent !important;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .horizontal-scroll-tabs .nav-tabs .nav-link {
+  background-color: #1b2230 !important;
+  color: #cbd5e1 !important;
+  border-top-color: #334155;
+  border-bottom-color: #334155;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .horizontal-scroll-tabs .nav-tabs .nav-link:hover:not(.active) {
+  background: rgba(59, 130, 246, 0.1) !important;
+  color: #e5edf7 !important;
+  border-top-color: #475569;
+  border-bottom-color: #475569;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .horizontal-scroll-tabs .nav-tabs .nav-link.active {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #bfdbfe !important;
+  border-top-color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.28), 0 0 14px rgba(59, 130, 246, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table-wrap,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-summary,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table-wrap {
+  background: #1b2230;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .offer-meta-pill {
+  background: #232c3a;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .offer-meta-label,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-description,
+[data-bs-theme="dark"] .procurement-bids-page .aob-qty-unit,
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-mutedstate,
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-pending,
+[data-bs-theme="dark"] .procurement-bids-page .aob-delivery-pill,
+[data-bs-theme="dark"] .procurement-bids-page .aob-muted-text,
+[data-bs-theme="dark"] .procurement-bids-page .aob-empty-row {
+  color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-delivery-pill {
+  background: #232c3a;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table thead th,
+[data-bs-theme="dark"] .procurement-bids-page .aob-table thead th {
+  background: #232c3a;
+  color: #e5edf7;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table td,
+[data-bs-theme="dark"] .procurement-bids-page .aob-table th,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table td,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table th {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-table tbody tr:hover td,
+[data-bs-theme="dark"] .procurement-bids-page .offer-compare-table tbody tr:hover td {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-link {
+  color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-over {
+  color: #fca5a5;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-price-free {
+  color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-action-btn-muted,
+[data-bs-theme="dark"] .procurement-bids-page .btn-outline-secondary,
+[data-bs-theme="dark"] .procurement-bids-page .btn-outline-dark {
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.28);
+  background: transparent;
+}
+
+[data-bs-theme="dark"] .procurement-bids-page .aob-action-btn-muted:hover,
+[data-bs-theme="dark"] .procurement-bids-page .btn-outline-secondary:hover,
+[data-bs-theme="dark"] .procurement-bids-page .btn-outline-dark:hover {
+  color: #e5edf7;
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(148, 163, 184, 0.08);
 }
 
 @media (max-width: 992px) {

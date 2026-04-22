@@ -40,6 +40,28 @@
         {{ dialogOptions.infoMessage }}
       </div>
 
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold fs-12 mb-1">Invoice No.</label>
+          <input
+            v-model="form.invoice_no"
+            type="text"
+            class="form-control"
+            placeholder="Enter invoice number"
+          />
+          <InputError :message="form.errors.invoice_no" class="mt-1" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold fs-12 mb-1">Invoice Date</label>
+          <input
+            v-model="form.invoice_date"
+            type="date"
+            class="form-control"
+          />
+          <InputError :message="form.errors.invoice_date" class="mt-1" />
+        </div>
+      </div>
+
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div class="form-check mb-0">
           <input
@@ -162,11 +184,20 @@ const emptySelection = () => ({
   po_code: null,
   iar_id: null,
   iar_code: null,
+  invoice_no: null,
+  invoice_date: null,
   saved_item_ids: [],
   selected_item_ids: [],
   delivered_items: [],
   items: [],
 });
+
+const defaultInvoiceDate = () => {
+  const now = new Date();
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+
+  return localDate.toISOString().slice(0, 10);
+};
 
 const defaultDialogOptions = () => ({
   title: "Select Delivered Items",
@@ -187,6 +218,8 @@ export default {
       dialogOptions: defaultDialogOptions(),
       form: useForm({
         id: null,
+        invoice_no: "",
+        invoice_date: defaultInvoiceDate(),
         delivered_items: [],
         option: "update_iar_selection",
       }),
@@ -240,6 +273,8 @@ export default {
     show(data, options = {}) {
       this.form.reset();
       this.form.clearErrors();
+      this.form.invoice_no = "";
+      this.form.invoice_date = defaultInvoiceDate();
       this.selection = emptySelection();
       this.dialogOptions = {
         ...defaultDialogOptions(),
@@ -265,6 +300,8 @@ export default {
             ...payload,
             items: Array.isArray(payload.items) ? payload.items : [],
           };
+          this.form.invoice_no = this.selection.invoice_no || "";
+          this.form.invoice_date = this.selection.invoice_date || defaultInvoiceDate();
           this.form.delivered_items = this.selection.items.map((item) => ({
             item_id: Number(item.id),
             item_no: item.item_no,
@@ -292,6 +329,8 @@ export default {
       this.selection = emptySelection();
       this.dialogOptions = defaultDialogOptions();
       this.form.reset();
+      this.form.invoice_no = "";
+      this.form.invoice_date = defaultInvoiceDate();
       this.form.clearErrors();
     },
     toggleItem(itemId, checked) {
@@ -394,6 +433,8 @@ export default {
           `/faims/purchase-orders/${this.form.id}`,
           {
             iar_id: this.selection.iar_id || this.dialogOptions.iarId || null,
+            invoice_no: this.form.invoice_no || null,
+            invoice_date: this.form.invoice_date || null,
             delivered_items: deliveredItems,
             option: "update_iar_selection",
           },

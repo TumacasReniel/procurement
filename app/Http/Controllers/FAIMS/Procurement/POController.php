@@ -4,6 +4,7 @@ namespace App\Http\Controllers\FAIMS\Procurement;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\ProcurementNoaPo;
 use App\Services\FAIMS\Procurement\ProcurementPOClass;
 use App\Services\FAIMS\Procurement\ViewClass;
 use App\Services\FAIMS\Procurement\PrintClass;
@@ -142,6 +143,12 @@ class POController extends Controller
 
         if($request->type){
             return $this->print->print($id, $request);
+        }
+        else if ($request->option === 'purchase_order') {
+            $purchaseOrder = ProcurementNoaPo::findOrFail($id);
+            $procurementId = $purchaseOrder->procurement_id;
+
+            return redirect("/faims/procurements/{$procurementId}?option=view&tab=6&noa_id={$purchaseOrder->noa_id}");
         }
         else{
             return $this->view->show($id, $request);

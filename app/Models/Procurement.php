@@ -116,9 +116,19 @@ class Procurement extends Model
         return $this->morphMany('App\Models\RequestComment', 'commentable');
     }
 
+    public function latest_comment()
+    {
+        return $this->morphOne('App\Models\RequestComment', 'commentable')->latestOfMany();
+    }
+
     public function assignments()
     {
         return $this->hasMany(\App\Models\ProcurementAssignment::class, 'procurement_id');
+    }
+
+    public function budget_logs()
+    {
+        return $this->hasMany(ProcurementCodeBudgetLog::class, 'procurement_id');
     }
 
     

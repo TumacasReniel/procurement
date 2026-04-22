@@ -820,6 +820,12 @@ File: Custom Css File
   .procurement-dashboard-page,
   .procurement-index-page,
   .procurement-view-page,
+  .procurement-bids-page,
+  .procurement-noa-page,
+  .procurement-quotation-page,
+  .procurement-bac-resolution-page,
+  .procurement-purchase-order-page,
+  .procurement-po-workflow-page,
   .procurement-create-container,
   .procurement-detail-container,
   .po-tab-shell {
@@ -831,6 +837,12 @@ File: Custom Css File
   .procurement-dashboard-page .text-dark,
   .procurement-index-page .text-dark,
   .procurement-view-page .text-dark,
+  .procurement-bids-page .text-dark,
+  .procurement-noa-page .text-dark,
+  .procurement-quotation-page .text-dark,
+  .procurement-bac-resolution-page .text-dark,
+  .procurement-purchase-order-page .text-dark,
+  .procurement-po-workflow-page .text-dark,
   .procurement-create-container .text-dark,
   .procurement-detail-container .text-dark,
   .po-tab-shell .text-dark {
@@ -973,11 +985,29 @@ File: Custom Css File
 
   .procurement-index-page .card.bg-light-subtle.shadow-none.border,
   .procurement-index-page .card-header.bg-light-subtle,
+  .procurement-index-page .car-body.bg-white.border-bottom.shadow-none,
+  .procurement-index-page .card.bg-white.border-bottom.shadow-none,
   .procurement-index-page .card-body.bg-white,
+  .procurement-index-page .card-body.bg-white.rounded-bottom,
+  .procurement-index-page .card-body.border.rounded-4.text-center,
   .procurement-index-page .card-footer {
     background: var(--module-surface) !important;
     border-color: var(--module-border) !important;
     color: var(--module-text) !important;
+  }
+
+  .procurement-index-page .text-body,
+  .procurement-index-page .text-muted,
+  .procurement-index-page .card-body.border.rounded-4.text-center p,
+  .procurement-index-page .card-body.border.rounded-4.text-center h4,
+  .procurement-index-page .card-body.border.rounded-4.text-center h5,
+  .procurement-index-page .card-body.border.rounded-4.text-center h6 {
+    color: var(--module-text) !important;
+  }
+
+  .procurement-index-page .text-muted,
+  .procurement-index-page .card-body.border.rounded-4.text-center p {
+    color: var(--module-muted) !important;
   }
 
   .procurement-index-page .input-group-text,
@@ -994,6 +1024,21 @@ File: Custom Css File
     border-color: var(--module-border) !important;
   }
 
+  .procurement-index-page .table,
+  .procurement-index-page .table-responsive,
+  .procurement-index-page .table-responsive.table-card {
+    background: transparent !important;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-index-page .table-light,
+  .procurement-index-page .table-light > *,
+  .procurement-index-page .thead-fixed th {
+    background: var(--module-surface-soft) !important;
+    color: var(--module-text) !important;
+    border-color: var(--module-border) !important;
+  }
+
   .procurement-index-page .table-active > * {
     background-color: rgba(59, 130, 246, 0.14) !important;
     color: var(--module-text) !important;
@@ -1007,6 +1052,108 @@ File: Custom Css File
   .procurement-index-page .text-primary,
   .procurement-index-page .fs-14.fw-semibold.text-primary {
     color: #93c5fd !important;
+  }
+
+  .procurement-index-page .badge.bg-soft-secondary.text-secondary {
+    background: rgba(148, 163, 184, 0.16) !important;
+    color: #cbd5e1 !important;
+  }
+
+  .procurement-index-page .nav-tabs-custom {
+    background: var(--module-surface-alt) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-index-page .nav-tabs-custom .nav-link {
+    color: var(--module-muted) !important;
+    border-color: transparent !important;
+  }
+
+  .procurement-index-page .nav-tabs-custom .nav-link.active {
+    background: var(--module-surface) !important;
+    color: #93c5fd !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-index-page .custom-hover-row:hover > *,
+  .procurement-index-page .table-hover > tbody > tr:hover > * {
+    background: rgba(148, 163, 184, 0.08) !important;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-index-page .avatar-title.bg-white.rounded-circle,
+  .procurement-index-page .img-thumbnail {
+    background: var(--module-surface-alt) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-index-page .card-body.border.rounded-4.text-center {
+    box-shadow: none !important;
+  }
+
+  .procurement-noa-page .input-group-text,
+  .procurement-noa-page .form-control,
+  .procurement-quotation-page .input-group-text,
+  .procurement-quotation-page .form-control,
+  .procurement-bac-resolution-page .input-group-text,
+  .procurement-bac-resolution-page .form-control {
+    background: var(--module-surface-alt) !important;
+    color: var(--module-text) !important;
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-noa-page .card,
+  .procurement-quotation-page .card,
+  .procurement-bac-resolution-page .card,
+  .procurement-noa-page .table-responsive,
+  .procurement-quotation-page .table-responsive,
+  .procurement-bac-resolution-page .table-responsive {
+    background: var(--module-surface) !important;
+    border-color: var(--module-border) !important;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-noa-page .table,
+  .procurement-quotation-page .table,
+  .procurement-bac-resolution-page .table {
+    --bs-table-bg: transparent;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-noa-page .table td,
+  .procurement-noa-page .table th,
+  .procurement-quotation-page .table td,
+  .procurement-quotation-page .table th,
+  .procurement-bac-resolution-page .table td,
+  .procurement-bac-resolution-page .table th {
+    border-color: var(--module-border) !important;
+  }
+
+  .procurement-noa-page .table-light,
+  .procurement-noa-page .table-light > *,
+  .procurement-quotation-page .table-light,
+  .procurement-quotation-page .table-light > *,
+  .procurement-bac-resolution-page .table-light,
+  .procurement-bac-resolution-page .table-light > * {
+    background: var(--module-surface-soft) !important;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-noa-page .custom-hover-row:hover > *,
+  .procurement-quotation-page .custom-hover-row:hover > *,
+  .procurement-bac-resolution-page .custom-hover-row:hover > * {
+    background: rgba(148, 163, 184, 0.08) !important;
+    color: var(--module-text) !important;
+  }
+
+  .procurement-noa-page .date-stack-label {
+    color: var(--module-muted) !important;
+  }
+
+  .procurement-noa-page .date-stack-value,
+  .procurement-quotation-page .table tbody td,
+  .procurement-bac-resolution-page .table tbody td {
+    color: var(--module-text) !important;
   }
 
   .procurement-view-page .card.shadow-lg.border-0 {

@@ -19,14 +19,6 @@
             table-layout: fixed;
         }
 
-        .meta-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1.5px solid black;
-            table-layout: fixed;
-            margin-bottom: 5px;
-        }
-
         /* Forces header to repeat on every page */
         thead { display: table-header-group; }
         
@@ -37,12 +29,6 @@
             border: 1px solid black; 
             padding: 3px; 
             vertical-align: top;
-            word-wrap: break-word;
-        }
-
-        .meta-table td {
-            border: 1px solid black;
-            padding: 3px;
             word-wrap: break-word;
         }
 
@@ -59,21 +45,31 @@
             background-color: white;
             margin-top: 20px;
         }
+
+        .aob-document {
+            position: relative;
+            min-height: 525px;
+            padding-bottom: 96px;
+            box-sizing: border-box;
+        }
         
         /* Prevents signatures from splitting across pages */
         .footer-assig {
             page-break-inside: avoid;
             line-height: 1; 
             font-size: 10px;
-            margin-top: 18px;
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 36px;
         }
 
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .bold { font-weight: bold; }
         .description-cell {
-            font-size: 7px;
-            line-height: 1;
+            font-size: 12px;
+            line-height: 1.15;
         }
 
         .description-continuation {
@@ -99,15 +95,142 @@
             border-bottom: 1px solid black;
         }
 
+        .header-shell {
+            margin-bottom: 8px;
+        }
+
+        .document-code-wrap {
+            text-align: right;
+            margin-bottom: -34px;
+        }
+
+        .document-code-box {
+            display: inline-block;
+            border: 1px solid #000;
+            padding: 5px 10px 4px;
+            text-align: center;
+            font-size: 10px;
+            line-height: 1.2;
+            min-width: 110px;
+        }
+
+        .document-code-title {
+            font-weight: bold;
+            font-style: italic;
+        }
+
+        .document-code-subtitle {
+            font-style: italic;
+        }
+
+        .agency-header {
+            text-align: center;
+            color: #555;
+            line-height: 1.15;
+        }
+
+        .agency-header .country {
+            font-size: 13px;
+        }
+
+        .agency-header .department {
+            margin: 3px 0;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 0.4px;
+        }
+
+        .agency-header .office {
+            font-size: 14px;
+        }
+
+        .report-title {
+            margin: 22px 0 12px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #666;
+            letter-spacing: 0.6px;
+        }
+
+        .header-meta {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2px;
+            color: #666;
+            font-size: 11px;
+        }
+
+        .header-meta td {
+            padding: 1px 0;
+            vertical-align: top;
+            line-height: 1;
+        }
+
+        .header-meta-left {
+            width: 33%;
+            padding-right: 16px;
+        }
+
+        .header-meta-spacer {
+            width: 20%;
+        }
+
+        .header-meta-right {
+            width: 47%;
+            padding-left: 16px;
+            text-align: right;
+        }
+
+        .meta-label {
+            display: inline-block;
+            min-width: 102px;
+        }
+
+        .meta-label-compact {
+            min-width: 0;
+        }
+
+        .meta-divider {
+            display: inline-block;
+            width: 10px;
+            text-align: center;
+        }
+
+        .meta-divider-compact {
+            width: auto;
+            margin: 0 6px 0 0;
+        }
+
+        .meta-value {
+            display: inline-block;
+        }
+
+        .meta-line-value {
+            display: inline-block;
+            min-width: 170px;
+            border-bottom: 1px solid #888;
+            padding: 0 6px 2px;
+            line-height: 1.1;
+            text-align: left;
+        }
+
     </style>
 </head>
 <body>
+    <div class="aob-document">
 
     @php
         $quotationChunks = collect($quotations)->chunk(5);
-        $items = count($quotations) > 0 ? $quotations[0]->items : collect();
+        $items = count($quotations) > 0
+            ? $quotations[0]->items
+                ->sortBy(fn ($quotationItem) => (int) ($quotationItem->item->item_no ?? 0))
+                ->values()
+            : collect();
+        $projectName = $procurement->title ?: $procurement->purpose ?: '________________________';
+        $projectLocation = $procurement->unit?->name ?: $procurement->division?->name ?: '________________________';
 
-        $splitDescriptionChunks = function ($html, $preferSingleRow = false) {
+        $normalizeDescriptionLines = function ($html) {
             $text = (string) $html;
             $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
             $text = preg_replace('/<\/p>/i', "\n", $text);
@@ -118,10 +241,14 @@
             $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $text = preg_replace("/\r\n|\r/", "\n", $text);
 
-            $lines = collect(explode("\n", $text))
+            return collect(explode("\n", $text))
                 ->map(fn ($line) => trim(preg_replace('/\s+/', ' ', $line)))
                 ->filter(fn ($line) => $line !== '')
                 ->values();
+        };
+
+        $splitDescriptionChunks = function ($html, $preferSingleRow = false) use ($normalizeDescriptionLines) {
+            $lines = $normalizeDescriptionLines($html);
 
             if ($lines->isEmpty()) {
                 return collect(['']);
@@ -133,30 +260,102 @@
 
             return $lines->chunk(55)->map(fn ($chunk) => $chunk->implode("\n"))->values();
         };
+
+        $resolveDescriptionFontSize = function ($itemName, $html, $chunkCount = 1) use ($normalizeDescriptionLines) {
+            $descriptionText = $normalizeDescriptionLines($html)->implode(' ');
+            $fullText = trim(collect([$itemName, $descriptionText])->filter()->implode(' '));
+            $characterCount = mb_strlen($fullText);
+
+            if ($chunkCount > 1 || $characterCount > 1200) {
+                return 7;
+            }
+
+            if ($characterCount > 900) {
+                return 8;
+            }
+
+            if ($characterCount > 650) {
+                return 9;
+            }
+
+            if ($characterCount > 420) {
+                return 10;
+            }
+
+            if ($characterCount > 220) {
+                return 11;
+            }
+
+            return 12;
+        };
+
+        $resolveDescriptionLineHeight = function ($fontSize) {
+            if ($fontSize <= 8) {
+                return 1.0;
+            }
+
+            if ($fontSize <= 10) {
+                return 1.08;
+            }
+
+            return 1.15;
+        };
     @endphp
 
     @foreach ($quotationChunks as $chunkIndex => $quotationChunk)
-        <div class="text-center">
-            <img src="{{ public_path('/images/logo-sm.png') }}" alt="Logo Left" style="float:left; height:42px; width: 42px" >
-            <div style="line-height: 1">
-                <p>Republic of the Philippines</p>
-                <h3>Department of Science and Technology</h3>
-                <p>Regional Office No. IX</p>
+        <div class="header-shell">
+            <div class="document-code-wrap">
+                <div class="document-code-box">
+                    <div class="document-code-title">FASS-PUR F07</div>
+                    <div class="document-code-subtitle">Rev. 0/08-16-07</div>
+                </div>
             </div>
+
+            <div class="agency-header">
+                <div class="country">Republic of The Philippines</div>
+                <div class="department">DEPARTMENT OF SCIENCE AND TECHNOLOGY</div>
+                <div class="office">Regional Office No. IX</div>
+            </div>
+
+            <div class="report-title">ABSTRACT OF BIDS</div>
         </div>
 
-        <center style="margin-right:-20px"> <h2 style="margin: 4px 0 6px;">ABSTRACT OF BIDS</h2></center>
-
-        <table class="meta-table">
+        <table class="header-meta">
             <tbody>
                 <tr>
-                    <td style="text-align: left;" colspan="2">Standard Form Number:</td>
-                    <td style="text-align: left;" colspan="{{ $quotationChunk->count() + 1 }}">Project Reference No.:</td>
+                    <td class="header-meta-left">
+                        <span class="meta-label meta-label-compact">Standard Form Number</span>
+                        <span class="meta-divider meta-divider-compact">:</span>
+                        <span class="meta-value">SF-GOOD-40</span>
+                    </td>
+                    <td class="header-meta-spacer"></td>
+                    <td class="header-meta-right">
+                        <span class="meta-label">Project Reference No.</span>
+                        <span class="meta-divider">:</span>
+                        <span class="meta-line-value"></span>
+                    </td>
                 </tr>
                 <tr>
-                    <td style="text-align: left;" colspan="2">Revised Date:</td>
-                    <td style="text-align: left;" colspan="2">Name of the Project:</td>
-                    <td style="text-align: left;" colspan="{{ max($quotationChunk->count() - 1, 1) }}">Location of the Project:</td>
+                    <td class="header-meta-left">
+                        <span class="meta-label meta-label-compact">Revised</span>
+                        <span class="meta-divider meta-divider-compact">:</span>
+                        <span class="meta-value">May 24, 2004</span>
+                    </td>
+                    <td class="header-meta-spacer"></td>
+                    <td class="header-meta-right">
+                        <span class="meta-label">Name of the Project</span>
+                        <span class="meta-divider">:</span>
+                        <span class="meta-line-value"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="header-meta-left">&nbsp;</td>
+                    <td class="header-meta-spacer"></td>
+                    <td class="header-meta-right">
+                        <span class="meta-label">Location of the Project</span>
+                        <span class="meta-divider">:</span>
+                        <span class="meta-line-value"></span>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -175,15 +374,24 @@
             <tbody>
                 @foreach ($items as $index => $item)
                     @php
+                        $currentProcurementItemId = $item->procurement_item_id ?? $item->item?->id;
                         $descriptionChunks = $splitDescriptionChunks(
                             $item->item->item_description,
                             $items->count() === 1
                         );
+                        $descriptionFontSize = $resolveDescriptionFontSize(
+                            $item->item->item_name,
+                            $item->item->item_description,
+                            $descriptionChunks->count()
+                        );
+                        $descriptionLineHeight = $resolveDescriptionLineHeight($descriptionFontSize);
+                        $descriptionCellStyle = "font-size: {$descriptionFontSize}px; line-height: {$descriptionLineHeight};";
                     @endphp
 
                     @foreach ($descriptionChunks as $chunkIndex => $descriptionChunk)
                         @php
                             $rowClass = '';
+                            $descriptionText = ltrim((string) $descriptionChunk);
 
                             if ($descriptionChunks->count() > 1) {
                                 if ($chunkIndex === 0) {
@@ -196,6 +404,17 @@
                             } elseif ($chunkIndex > 0) {
                                 $rowClass = 'continuation-row';
                             }
+
+                            if ($chunkIndex === 0) {
+                                $itemName = trim((string) ($item->item->item_name ?? ''));
+                                $descriptionText = $itemName;
+
+                                if (ltrim((string) $descriptionChunk) !== '') {
+                                    $descriptionText = $descriptionText === ''
+                                        ? ltrim((string) $descriptionChunk)
+                                        : $descriptionText."\n".ltrim((string) $descriptionChunk);
+                                }
+                            }
                         @endphp
                         <tr class="{{ $rowClass }}">
                             @if ($chunkIndex === 0)
@@ -205,17 +424,25 @@
                                     {{ $item->item->item_quantity > 1 ? $item->item->item_unit_type->name_long : $item->item->item_unit_type->name_short }}
                                 </td>
 
-                                <td class="description-cell description-continuation">{{ $descriptionChunk }}</td>
+                                <td class="description-cell description-continuation" style="{{ $descriptionCellStyle }}">{{ $descriptionText }}</td>
 
                                 @foreach ($quotationChunk as $quotation)
                                     <td class="text-center">
                                         @php
-                                            $quotationItem = $quotation->items[$index] ?? null;
+                                            $quotationItem = $quotation->items
+                                                ->firstWhere('procurement_item_id', $currentProcurementItemId);
                                             $price = $quotationItem?->bid_price;
+                                            $isFree = (bool) ($quotationItem?->is_free);
+                                            $isNoOffer = (bool) ($quotationItem?->is_no_offer);
+                                            $isNotApplicable = (bool) ($quotationItem?->is_not_applicable);
                                         @endphp
 
-                                        @if ($quotationItem?->is_free)
+                                        @if ($isFree)
                                             free
+                                        @elseif ($isNoOffer)
+                                            No Offer
+                                        @elseif ($isNotApplicable)
+                                            Not Applicable
                                         @elseif (is_null($price) || (float) $price <= 0)
                                             No Bid
                                         @else
@@ -226,7 +453,7 @@
                             @else
                                 <td>&nbsp;</td>
                                 <td>&nbsp;</td>
-                                <td class="description-cell description-continuation">{{ $descriptionChunk }}</td>
+                                <td class="description-cell description-continuation" style="{{ $descriptionCellStyle }}">{{ $descriptionText }}</td>
                                 @foreach ($quotationChunk as $quotation)
                                     <td>&nbsp;</td>
                                 @endforeach
@@ -244,8 +471,17 @@
 
 
     <div class="footer-assig">
-        <div style="margin: 15px 0; text-align: left;">Awarding Committee:</div>
-        <table style="width:100%; text-align:center; margin-bottom:30px; border-collapse: collapse; border: none;">
+        <table style="width:100%; margin: 15px 0 10px; border-collapse: collapse; border: none; table-layout: fixed;">
+            <tr>
+                <td style="border: none; text-align: left;">Awarding Committee:</td>
+                <td style="border: none;"></td>
+                @foreach ($bac_members as $member)
+                    <td style="border: none;"></td>
+                @endforeach
+                <td style="border: none; text-align: start;">Approved by:</td>
+            </tr>
+        </table>
+        <table style="width:100%; text-align:center; margin-bottom:30px; border-collapse: collapse; border: none; table-layout: fixed;">
             <tr>
                 <th style="border: none;"><u>{{ $bac_chairperson['name'] }}</u></th>
                 <th style="border: none;"><u>{{ $bac_vice_chairperson['name'] }}</u></th>
@@ -263,6 +499,7 @@
                 <td style="border: none;">Regional Director</td>
             </tr>
         </table>
+    </div>
     </div>
 
     <script type="text/php">

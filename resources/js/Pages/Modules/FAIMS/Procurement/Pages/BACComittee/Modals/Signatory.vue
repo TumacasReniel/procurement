@@ -1,13 +1,13 @@
 <template>
-    <b-modal v-model="showModal" style="--vz-modal-width: 600px;" header-class="p-3 bg-light" title="Assign Officer-in-Charge (OIC) / Signatory" class="v-modal-custom" modal-class="zoomIn" centered no-close-on-backdrop>
+    <b-modal v-model="showModal" style="--vz-modal-width: 600px;" header-class="p-3 bg-light" title="Assign Temporary Signatory" class="v-modal-custom" modal-class="zoomIn" centered no-close-on-backdrop>
         <form class="customform">
             <BRow class="p-3">
                 <BCol lg="12">
                     <div class="alert alert-warning alert-dismissible alert-label-icon label-arrow fade show material-shadow fs-12" role="alert">
                         <i class="ri-alert-line label-icon"></i>
                         <strong>Notice:</strong>
-                        This action will assign an <strong>Officer-in-Charge (OIC)</strong> or <strong>temporary signatory</strong>
-                        while the currently designated employee is out of office.
+                        This action will assign a <strong>temporary signatory</strong> while the currently designated employee
+                        is out of office.
                     </div>
                 </BCol>
                 <BCol lg="12" class="mt-4">

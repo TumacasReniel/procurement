@@ -23,6 +23,7 @@ return new class extends Migration
             $table->tinyInteger('mode_of_procurement_id')->unsigned()->index();
             $table->foreign('mode_of_procurement_id')->references('id')->on('list_dropdowns')->onDelete('cascade');;
             $table->boolean('is_active')->default(1);
+            $table->decimal('remaining_budget', 12, 2)->nullable();
             $table->timestamps();
         });
     }

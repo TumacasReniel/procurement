@@ -13,13 +13,13 @@
                   </div>
                   <div>
                     <h1 class="hero-title mb-1">
-                      {{ option === 'create' ? 'Create Procurement Request' :
-                         option === 'edit' ? 'Edit Procurement Request' :
-                         option === 'review' ? 'Review Procurement Request' :
-                         option === 'approve' ? 'Approve Procurement Request' :
+                      {{ option === 'create' ? 'Create Purchase Request' :
+                         option === 'edit' ? 'Edit Purchase Request' :
+                         option === 'review' ? 'Review Purchase Request' :
+                         option === 'approve' ? 'Approve Purchase Request' :
                          'View Procurement Request' }}
                     </h1>
-                    <p class="hero-subtitle mb-0">Manage procurement request details and items</p>
+                    <p class="hero-subtitle mb-0">Manage purchase request details and items</p>
                   </div>
                 </div>
               </div>
@@ -43,11 +43,10 @@
     </div>
 
     <!-- Main Content -->
-    <div class="container-fluid">
+    <div>
       <div class="row d-flex">
         <div class="col-12" style="transition: all 0.3s ease; height: 100%; overflow: hidden;">
 
-          <div class="content-wrapper">
             <form class="customform">
               <!-- Basic Information Section -->
               <div class="row g-3 mb-4">
@@ -76,7 +75,6 @@
                               v-model="form.date"
                               type="date"
                               class="form-control modern-input"
-                              :light="true"
                             />
                           </div>
                         </div>
@@ -113,7 +111,7 @@
                           <div class="form-group">
                             <InputLabel value="PAP Code" :message="form.errors.procurement_code_ids" />
                             <Multiselect
-                              :options="dropdowns.procurement_codes"
+                              :options="availableProcurementCodes"
                               v-model="form.procurement_code_ids"
                               :searchable="true"
                               label="label"
@@ -121,6 +119,13 @@
                               mode="tags"
                               class="modern-select"
                             />
+                            <small
+                              v-if="procurementCodeBalanceHelper"
+                              :class="procurementCodeBalanceHelperClass"
+                              class="classification-helper-text"
+                            >
+                              {{ procurementCodeBalanceHelper }}
+                            </small>
                           </div>
                         </div>
 
@@ -195,7 +200,7 @@
                       <h5 class="card-header-title">Procurement Items</h5>
                       <div class="ms-auto">
                         <b-button
-                          v-if="option == 'create' || option == 'edit'"
+                          v-if="canManageRequestDetails"
                           :disabled="!form.division_id || !form.unit_id || !form.fund_cluster_id || !form.purpose"
                           @click="openAddItem()"
                           variant="primary"
@@ -214,9 +219,8 @@
                             <thead>
                               <tr>
                                 <th class="text-center">#</th>
-                                <th>Item Name</th>
                                 <th>Unit</th>
-                                <th>Description</th>
+                                <th>Name/Description</th>
                                 <th class="text-center">Qty</th>
                                 <th class="text-end">Unit Cost</th>
                                 <th class="text-end">Total</th>
@@ -226,9 +230,6 @@
                             <tbody>
                               <tr v-for="(item, index) in form.items" :key="index" class="item-row">
                                 <td class="text-center item-number">{{ index + 1 }}</td>
-                                <td class="item-name">
-                                  {{ item.item_name || "-" }}
-                                </td>
                                 <td class="item-unit">
                                   <span class="unit-badge">
                                     {{
@@ -239,6 +240,7 @@
                                   </span>
                                 </td>
                                 <td class="item-description">
+                                  <span>  {{ item.item_name || "-" }}</span>
                                   <div v-html="item.item_description"></div>
                                 </td>
                                 <td class="text-center item-quantity">{{ item.item_quantity }}</td>
@@ -247,7 +249,7 @@
                                 <td class="text-center">
                                   <div class="d-flex justify-content-center gap-1">
                                     <b-button
-                                      v-if="option == 'create' || option == 'edit'"
+                                      v-if="canManageRequestDetails"
                                       @click="editItem(index)"
                                       variant="success"
                                       size="sm"
@@ -259,7 +261,7 @@
                                     </b-button>
 
                                       <b-button
-                                        v-if="option == 'create' || option == 'edit'"
+                                        v-if="canManageRequestDetails"
                                       @click="removeItem(index)"
                                       variant="danger"
                                       size="sm"
@@ -337,7 +339,7 @@
                          <div class="action-buttons-group">
                       <b-button
                         v-if="option == 'create'"
-                        :disabled="!isFormValid"
+                        :disabled="!canCreateRequest"
                         @click="submit()"
                         variant="primary"
                         size="sm"
@@ -397,7 +399,7 @@
                 </div>
               </div>
             </form>
-          </div>
+      
         </div>
       </div>
     </div>
@@ -497,6 +499,9 @@ export default {
   },
 
   computed: {
+    canManageRequestDetails() {
+      return ["create", "edit", "review"].includes(this.option);
+    },
     totalCostSum() {
       if (!Array.isArray(this.form.items)) return 0;
 
@@ -515,8 +520,99 @@ export default {
 
       return Array.isArray(options) ? options : Object.values(options);
     },
+    normalizedProcurementCodes() {
+      const options = Array.isArray(this.dropdowns?.procurement_codes)
+        ? this.dropdowns.procurement_codes
+        : [];
+
+      return options.map((option) => {
+        const remainingBudget = Number(
+          option.remaining_budget ?? option.allocated_budget ?? 0
+        );
+        const baseLabel = option.label || option.code || option.title || "";
+
+        return {
+          ...option,
+          remaining_budget: remainingBudget,
+          label:
+            this.option === "create"
+              ? `${baseLabel} (${this.formatCurrency(remainingBudget)} remaining)`
+              : baseLabel,
+        };
+      });
+    },
+    availableProcurementCodes() {
+      if (this.option !== "create") {
+        return this.normalizedProcurementCodes;
+      }
+
+      const selectedIds = new Set(
+        Array.isArray(this.form.procurement_code_ids)
+          ? this.form.procurement_code_ids.map((id) => Number(id))
+          : []
+      );
+
+      return this.normalizedProcurementCodes.filter((option) => {
+        return selectedIds.has(Number(option.value)) || option.remaining_budget > 0;
+      });
+    },
+    selectedProcurementCodeBalance() {
+      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+        return 0;
+      }
+
+      const selectedIds = new Set(this.form.procurement_code_ids.map((id) => Number(id)));
+
+      return this.normalizedProcurementCodes.reduce((sum, option) => {
+        if (!selectedIds.has(Number(option.value))) {
+          return sum;
+        }
+
+        return sum + (Number(option.remaining_budget) || 0);
+      }, 0);
+    },
+    hasEnoughSelectedProcurementCodeBalance() {
+      if (this.option !== "create") {
+        return true;
+      }
+
+      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+        return true;
+      }
+
+      if (this.totalCostSum <= 0) {
+        return true;
+      }
+
+      return this.selectedProcurementCodeBalance + 0.009 >= this.totalCostSum;
+    },
+    procurementCodeBalanceHelper() {
+      if (this.option !== "create") {
+        return null;
+      }
+
+      if (this.totalCostSum <= 0) {
+        return "Only PAP codes with available remaining balance are shown.";
+      }
+
+      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+        return `Select PAP code(s) with enough combined remaining balance for the current total of ${this.formatCurrency(this.totalCostSum)}.`;
+      }
+
+      if (!this.hasEnoughSelectedProcurementCodeBalance) {
+        return `Selected PAP codes only cover ${this.formatCurrency(this.selectedProcurementCodeBalance)} of the ${this.formatCurrency(this.totalCostSum)} request total.`;
+      }
+
+      return `Selected PAP codes cover ${this.formatCurrency(this.selectedProcurementCodeBalance)} for the current total of ${this.formatCurrency(this.totalCostSum)}.`;
+    },
+    procurementCodeBalanceHelperClass() {
+      return this.hasEnoughSelectedProcurementCodeBalance ? "text-muted" : "text-danger";
+    },
     canReviewRequest() {
       return Boolean(this.form.classification_id);
+    },
+    canCreateRequest() {
+      return this.isFormValid && this.hasEnoughSelectedProcurementCodeBalance;
     },
 
     isFormValid() {
@@ -728,7 +824,35 @@ export default {
 <style scoped>
 /* Container */
 .procurement-create-container {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  --procurement-create-page-bg: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  --procurement-create-content-bg: #ffffff;
+  --procurement-create-card-bg: #ffffff;
+  --procurement-create-card-border: rgba(255, 255, 255, 0.8);
+  --procurement-create-card-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  --procurement-create-card-hover-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+  --procurement-create-text: #2c3e50;
+  --procurement-create-muted: #64748b;
+  --procurement-create-header-bg: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  --procurement-create-header-border: rgba(0, 0, 0, 0.05);
+  --procurement-create-input-bg: #ffffff;
+  --procurement-create-input-border: #ced4da;
+  --procurement-create-input-text: #334155;
+  --procurement-create-placeholder: #94a3b8;
+  --procurement-create-table-bg: #ffffff;
+  --procurement-create-table-row-alt: #f8fafc;
+  --procurement-create-table-row-hover: #eef2ff;
+  --procurement-create-table-border: rgba(0, 0, 0, 0.05);
+  --procurement-create-unit-badge-bg: linear-gradient(135deg, #e9ecef, #dee2e6);
+  --procurement-create-unit-badge-text: #495057;
+  --procurement-create-empty-icon-bg: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  --procurement-create-empty-icon-text: #6c757d;
+  --procurement-create-action-surface-bg: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  --procurement-create-back-btn-bg: transparent;
+  --procurement-create-back-btn-border: #6c757d;
+  --procurement-create-back-btn-text: #6c757d;
+  --procurement-create-back-btn-hover-bg: #6c757d;
+  --procurement-create-back-btn-hover-text: #ffffff;
+  background: var(--procurement-create-page-bg);
   min-height: 100vh;
   padding: 0 0 2rem 0;
 }
@@ -800,40 +924,42 @@ export default {
 
 /* Content Wrapper */
 .content-wrapper {
-  background: white;
+  background: var(--procurement-create-content-bg);
   border-radius: 15px;
   padding: 2rem;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--procurement-create-card-shadow);
   margin-bottom: 2rem;
+  color: var(--procurement-create-text);
 }
 
 /* Content Cards */
 .content-card {
-  background: white;
+  background: var(--procurement-create-card-bg);
   border-radius: 15px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: var(--procurement-create-card-shadow);
+  border: 1px solid var(--procurement-create-card-border);
   overflow: visible;
   transition: all 0.3s ease;
+  color: var(--procurement-create-text);
 }
 
 .content-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--procurement-create-card-hover-shadow);
 }
 
 .classification-helper-text {
   display: inline-block;
   margin-top: 0.45rem;
-  color: #64748b;
+  color: var(--procurement-create-muted);
   font-size: 0.76rem;
   line-height: 1.5;
 }
 
 .card-header-custom {
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  background: var(--procurement-create-header-bg);
   padding: 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--procurement-create-header-border);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -849,7 +975,7 @@ export default {
 
 .card-header-title {
   font-size: 1.25rem;
-  color: #2c3e50;
+  color: var(--procurement-create-text);
   margin: 0;
 }
 
@@ -866,7 +992,7 @@ export default {
 /* Modern Select */
 .modern-select {
   border-radius: 8px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--procurement-create-input-border);
   transition: all 0.3s ease;
 }
 
@@ -878,7 +1004,9 @@ export default {
 /* Modern Input */
 .modern-input {
   border-radius: 8px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--procurement-create-input-border);
+  background: var(--procurement-create-input-bg);
+  color: var(--procurement-create-input-text);
   padding: 0.5rem 1rem;
   transition: all 0.3s ease;
 }
@@ -886,12 +1014,16 @@ export default {
 .modern-input:focus {
   border-color: #667eea;
   box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+  background: var(--procurement-create-input-bg);
+  color: var(--procurement-create-input-text);
 }
 
 /* Modern Textarea */
 .modern-textarea {
   border-radius: 8px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--procurement-create-input-border);
+  background: var(--procurement-create-input-bg);
+  color: var(--procurement-create-input-text);
   resize: vertical;
   transition: all 0.3s ease;
 }
@@ -899,6 +1031,13 @@ export default {
 .modern-textarea:focus {
   border-color: #667eea;
   box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+  background: var(--procurement-create-input-bg);
+  color: var(--procurement-create-input-text);
+}
+
+.modern-input::placeholder,
+.modern-textarea::placeholder {
+  color: var(--procurement-create-placeholder);
 }
 
 /* Add Item Button */
@@ -919,12 +1058,13 @@ export default {
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--procurement-create-table-border);
 }
 
 .items-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--procurement-create-table-bg);
 }
 
 .items-table thead {
@@ -944,10 +1084,20 @@ export default {
   transition: all 0.3s ease;
 }
 
+.items-table tbody tr:nth-child(even) td {
+  background: var(--procurement-create-table-row-alt);
+}
+
+.items-table tbody tr:hover td {
+  background: var(--procurement-create-table-row-hover);
+}
+
 .items-table td {
   padding: 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--procurement-create-table-border);
   vertical-align: top;
+  background: var(--procurement-create-table-bg);
+  color: var(--procurement-create-text);
 }
 
 .item-number {
@@ -956,8 +1106,8 @@ export default {
 }
 
 .unit-badge {
-  background: linear-gradient(135deg, #e9ecef, #dee2e6);
-  color: #495057;
+  background: var(--procurement-create-unit-badge-bg);
+  color: var(--procurement-create-unit-badge-text);
   padding: 0.25rem 0.75rem;
   border-radius: 15px;
   font-size: 0.8rem;
@@ -966,13 +1116,13 @@ export default {
 
 .item-description {
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--procurement-create-text);
   max-width: 300px;
 }
 
 .item-quantity, .item-unit {
   font-weight: 600;
-  color: #495057;
+  color: var(--procurement-create-text);
 }
 
 .item-cost, .item-total {
@@ -982,13 +1132,13 @@ export default {
 }
 
 .grand-total-row {
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  background: var(--procurement-create-header-bg);
   border-top: 2px solid #667eea;
 }
 
 .grand-total-label {
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--procurement-create-text);
   font-size: 0.9rem;
 }
 
@@ -1024,30 +1174,30 @@ export default {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  background: var(--procurement-create-empty-icon-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  color: #6c757d;
+  color: var(--procurement-create-empty-icon-text);
   margin: 0 auto 1rem;
 }
 
 .empty-state-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--procurement-create-text);
   margin-bottom: 0.5rem;
 }
 
 .empty-state-text {
-  color: #6c757d;
+  color: var(--procurement-create-muted);
   font-size: 0.9rem;
 }
 
 /* Action Buttons Container */
 .action-buttons-container {
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  background: var(--procurement-create-action-surface-bg);
   border-radius: 15px;
   padding: 2rem;
 }
@@ -1091,14 +1241,14 @@ export default {
 }
 
 .back-btn {
-  border: 2px solid #6c757d;
-  color: #6c757d;
-  background: transparent;
+  border: 2px solid var(--procurement-create-back-btn-border);
+  color: var(--procurement-create-back-btn-text);
+  background: var(--procurement-create-back-btn-bg);
 }
 
 .back-btn:hover {
-  background: #6c757d;
-  color: white;
+  background: var(--procurement-create-back-btn-hover-bg);
+  color: var(--procurement-create-back-btn-hover-text);
   transform: translateY(-3px);
   box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
 }
@@ -1173,5 +1323,104 @@ export default {
   .action-buttons-container {
     padding: 1rem;
   }
+}
+</style>
+
+<style>
+[data-bs-theme="dark"] .procurement-create-container {
+  --procurement-create-page-bg: linear-gradient(180deg, #161d27 0%, #111827 100%);
+  --procurement-create-content-bg: linear-gradient(180deg, #202937 0%, #1a2230 100%);
+  --procurement-create-card-bg: linear-gradient(180deg, #232c3a 0%, #1d2531 100%);
+  --procurement-create-card-border: rgba(148, 163, 184, 0.18);
+  --procurement-create-card-shadow: 0 18px 38px rgba(2, 6, 23, 0.34);
+  --procurement-create-card-hover-shadow: 0 22px 42px rgba(2, 6, 23, 0.42);
+  --procurement-create-text: #e5edf7;
+  --procurement-create-muted: #9fb0c7;
+  --procurement-create-header-bg: linear-gradient(135deg, #202937, #1b2230);
+  --procurement-create-header-border: rgba(148, 163, 184, 0.14);
+  --procurement-create-input-bg: #1b2230;
+  --procurement-create-input-border: rgba(148, 163, 184, 0.22);
+  --procurement-create-input-text: #e5edf7;
+  --procurement-create-placeholder: #94a3b8;
+  --procurement-create-table-bg: #1b2230;
+  --procurement-create-table-row-alt: #202937;
+  --procurement-create-table-row-hover: rgba(96, 165, 250, 0.12);
+  --procurement-create-table-border: rgba(148, 163, 184, 0.14);
+  --procurement-create-unit-badge-bg: linear-gradient(135deg, #263346, #1d2838);
+  --procurement-create-unit-badge-text: #dbe7f5;
+  --procurement-create-empty-icon-bg: linear-gradient(135deg, #263346, #1d2838);
+  --procurement-create-empty-icon-text: #a8b9cf;
+  --procurement-create-action-surface-bg: linear-gradient(135deg, #202937, #1b2230);
+  --procurement-create-back-btn-bg: rgba(30, 41, 59, 0.6);
+  --procurement-create-back-btn-border: rgba(148, 163, 184, 0.28);
+  --procurement-create-back-btn-text: #dbe7f5;
+  --procurement-create-back-btn-hover-bg: #475569;
+  --procurement-create-back-btn-hover-text: #ffffff;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .card-header-icon {
+  color: #9cb7ff;
+  background: rgba(140, 164, 255, 0.14);
+}
+
+[data-bs-theme="dark"] .procurement-create-container .grand-total-amount,
+[data-bs-theme="dark"] .procurement-create-container .item-cost,
+[data-bs-theme="dark"] .procurement-create-container .item-total {
+  color: #4ade80;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select.multiselect,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-wrapper,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-tags {
+  background: var(--procurement-create-input-bg) !important;
+  border-color: var(--procurement-create-input-border) !important;
+  color: var(--procurement-create-input-text) !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select.multiselect.is-active,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect.is-active {
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.2) !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-search,
+[data-bs-theme="dark"] .procurement-create-container .modern-select.multiselect .multiselect-search,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-tags-search {
+  background: var(--procurement-create-input-bg) !important;
+  color: var(--procurement-create-input-text) !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-placeholder,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-single-label,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-multiple-label {
+  color: var(--procurement-create-input-text) !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-caret,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-clear {
+  color: #cbd5e1 !important;
+  background-color: transparent !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-dropdown {
+  background: #232c3a !important;
+  border-color: var(--procurement-create-input-border) !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-option {
+  background: #232c3a !important;
+  color: #dbe7f5 !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-option.is-pointed,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-option.is-selected,
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-option.is-selected.is-pointed {
+  background: rgba(96, 165, 250, 0.18) !important;
+  color: #eff6ff !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-tag {
+  background: linear-gradient(135deg, #4f6bdc, #6378ff) !important;
+  color: #ffffff !important;
 }
 </style>

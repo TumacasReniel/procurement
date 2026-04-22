@@ -1,7 +1,7 @@
 <template>
   <Head title="Notice of Awards" />
   <PageHeader title="Notice of Awards" pageTitle="All" />
-  <BRow>
+  <BRow class="procurement-index-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
         <div class="card-header bg-light-subtle">

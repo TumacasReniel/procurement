@@ -529,16 +529,6 @@ class ListDropdownsTableSeeder extends Seeder
                 'others' => 'IAR-CHAIR',
                 'is_active' => 1,
             ),
-            51 => 
-            array (
-                'id' => 53,
-                'name' => 'IAR Vice Chairperson',
-                'classification' => 'Designation',
-                'type' => 'n/a',
-                'color' => 'n/a',
-                'others' => 'IAR-VICE',
-                'is_active' => 1,
-            ),
             52 => 
             array (
                 'id' => 54,

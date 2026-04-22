@@ -43,6 +43,12 @@ class SignatoryController extends Controller
                 case 'designate':
                     return $this->save->designate($request);
                 break;
+                case 'create_bac_member':
+                    return $this->save->bacMember($request);
+                break;
+                case 'create_iar_member':
+                    return $this->save->iarMember($request);
+                break;
             }
         });
 

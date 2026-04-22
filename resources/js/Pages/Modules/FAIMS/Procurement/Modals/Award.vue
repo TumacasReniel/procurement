@@ -249,7 +249,7 @@ export default {
           is_free: item.is_free,
           total_bid_price: item.bid_price * item.item.item_quantity,
           technical_proposal: item.technical_proposal,
-          delivery_term: item.delivery_term,
+          delivery_term: quotation.delivery_term,
           status: item.status_id,
           rank: 1,
           is_checked: item.is_checked,

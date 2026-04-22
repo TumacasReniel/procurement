@@ -1,42 +1,42 @@
 <template>
-  <div class="po-tab-shell inspection-tab">
-
-    <section class="inspection-note-card">
-      <div class="inspection-note-icon">
-        <i class="ri-shield-check-line"></i>
-      </div>
+  <div class="d-grid gap-2 fs-12">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
       <div>
-        <h4>Generated IAR reports</h4>
-        <p>
-          This section shows the IAR reports already generated for this purchase order. Use the button on the right
-          to create a new report for each delivery batch, print it, update its inspection status, and revert a
-          completed report if the PO is moved back to Conformed.
-        </p>
-      </div>
-    </section>
-
-    <section class="inspection-table-card">
-      <div class="inspection-table-header">
-        <div>
-          <span class="inspection-eyebrow">Generated Reports</span>
-          <h4>List of Generated IAR Reports</h4>
-          <p>Review each generated report here, print it, complete it when ready, or revert it back to Generated when allowed.</p>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+          <div class="text-uppercase fw-semibold text-primary small">
+            Inspection Reports
+          </div>
         </div>
 
-        <button
-          v-if="canGenerateIarReport"
-          type="button"
-          class="inspection-header-action"
+      </div>
+    </div>
+
+    <b-card no-body class="border-0 shadow-sm">
+      <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 p-3 border-bottom">
+        <div>
+          <div class="text-uppercase fw-semibold text-primary small mb-1">
+            Inspection Reports
+          </div>
+          <h4 class="h6 fw-bold mb-1">{{ reports_section_title }}</h4>
+          <p class="text-muted small mb-0">
+            {{ reports_section_description }}
+          </p>
+        </div>
+
+        <b-button
+          v-if="can_show_generate_button"
+          variant="primary"
+          size="sm"
           @click="$emit('open-iar')"
         >
-          <i class="ri-add-line"></i>
-          Generate New IAR Report
-        </button>
+          <i class="ri-add-line me-1"></i>
+          Generate New IAR
+        </b-button>
       </div>
 
-      <div v-if="iarReports.length" class="table-responsive">
-        <table class="inspection-table">
-          <thead>
+      <div v-if="iar_reports.length" class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
             <tr>
               <th class="text-center">#</th>
               <th>IAR Report</th>
@@ -44,79 +44,87 @@
               <th class="text-center">Last Updated</th>
               <th class="text-center">Selected Items</th>
               <th class="text-center">Report Status</th>
-              <th class="text-center">Action</th>
+              <th v-if="show_action_column" class="text-center">{{ action_column_label }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(report, index) in iarReports" :key="report.id || index">
-              <td class="text-center inspection-table-number">{{ index + 1 }}</td>
-              <td class="inspection-table-item">
-                <div class="inspection-item-no">{{ report.code || "IAR" }}</div>
-                <div class="inspection-item-description">
+            <tr v-for="(report, index) in iar_reports" :key="report.id || index">
+              <td class="text-center fw-semibold">{{ index + 1 }}</td>
+              <td>
+                <div class="fw-semibold">{{ report.code || "IAR" }}</div>
+                <div class="text-muted small">
                   {{ report.description }}
                 </div>
               </td>
               <td class="text-center">
-                {{ formatDateTime(report.created_at) }}
+                {{ format_date_time(report.created_at) }}
               </td>
               <td class="text-center">
-                {{ formatDateTime(report.updated_at) }}
+                {{ format_date_time(report.updated_at) }}
               </td>
               <td class="text-center">{{ report.selected_items_count }}</td>
               <td class="text-center">
-                <span :class="badgeClass(report.status_variant)">
+                <b-badge pill :variant="badge_variant(report.status_variant)">
                   {{ report.status_label }}
-                </span>
+                </b-badge>
               </td>
-              <td class="text-center">
-                <div class="inspection-row-actions">
-                  <button
+              <td v-if="show_action_column" class="text-center">
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                  <b-button
                     v-if="report.can_edit"
                     type="button"
-                    class="inspection-table-action inspection-table-action--icon inspection-table-action--info"
-                    :disabled="processingIarId === report.id"
+                    variant="outline-info"
+                    size="sm"
+                    class="px-2"
+                    :disabled="processing_iar_id === report.id"
                     @click="$emit('edit-iar', report)"
                     v-b-tooltip.hover
                     title="Edit generated IAR report"
                     aria-label="Edit generated IAR report"
                   >
                     <i class="ri-pencil-line"></i>
-                  </button>
-                  <button
+                  </b-button>
+                  <b-button
                     v-if="report.can_update_status"
                     type="button"
-                    class="inspection-table-action inspection-table-action--icon inspection-table-action--primary"
-                    :disabled="processingIarId === report.id"
+                    variant="outline-primary"
+                    size="sm"
+                    class="px-2"
+                    :disabled="processing_iar_id === report.id"
                     @click="$emit('inspect-iar', report)"
                     v-b-tooltip.hover
                     title="Mark as Inspected/Completed"
                     aria-label="Mark as Inspected/Completed"
                   >
-                    <i :class="processingIarId === report.id ? 'ri-loader-4-line' : 'ri-shield-check-line'"></i>
-                  </button>
-                  <button
+                    <i :class="processing_iar_id === report.id ? 'ri-loader-4-line' : 'ri-shield-check-line'"></i>
+                  </b-button>
+                  <b-button
                     v-if="report.can_revert_status"
                     type="button"
-                    class="inspection-table-action inspection-table-action--icon inspection-table-action--warning"
-                    :disabled="processingIarId === report.id"
+                    variant="outline-warning"
+                    size="sm"
+                    class="px-2"
+                    :disabled="processing_iar_id === report.id"
                     @click="$emit('revert-iar', report)"
                     v-b-tooltip.hover
                     title="Revert to Generated"
                     aria-label="Revert to Generated"
                   >
-                    <i :class="processingIarId === report.id ? 'ri-loader-4-line' : 'ri-arrow-go-back-line'"></i>
-                  </button>
-                  <button
+                    <i :class="processing_iar_id === report.id ? 'ri-loader-4-line' : 'ri-arrow-go-back-line'"></i>
+                  </b-button>
+                  <b-button
                     v-if="report.can_print"
                     type="button"
-                    class="inspection-table-action inspection-table-action--icon inspection-table-action--secondary"
-                    @click="printIarReport(report)"
+                    variant="outline-secondary"
+                    size="sm"
+                    class="px-2"
+                    @click="print_iar_report(report)"
                     v-b-tooltip.hover
                     title="Print IAR report"
                     aria-label="Print IAR report"
                   >
                     <i class="ri-printer-line"></i>
-                  </button>
+                  </b-button>
                 </div>
               </td>
             </tr>
@@ -124,125 +132,209 @@
         </table>
       </div>
 
-      <div v-else class="inspection-empty-state">
-        <div class="inspection-empty-icon">
-          <i class="ri-inbox-archive-line"></i>
+      <div v-else class="text-center py-5 px-4">
+        <div class="text-primary mb-3">
+          <i class="ri-inbox-archive-line fs-1"></i>
         </div>
-        <h4>No generated IAR reports yet</h4>
-        <p>Generate the first IAR report from the delivered items, and it will appear in this list.</p>
+        <h4 class="h6 fw-bold mb-2">{{ empty_state_title }}</h4>
+        <p class="text-muted mb-0">
+          {{ empty_state_description }}
+        </p>
       </div>
-    </section>
+    </b-card>
   </div>
 </template>
 
 <script>
 export default {
   emits: ["open-iar", "edit-iar", "print-iar", "inspect-iar", "revert-iar"],
-  props: {
-    purchaseOrder: {
-      type: Object,
-      default: null,
-    },
-    deliveredMonitoringItems: {
-      type: Array,
-      default: () => [],
-    },
-    deliverySummary: {
-      type: Object,
-      default: () => ({}),
-    },
-    canGenerateIarReport: {
-      type: Boolean,
-      default: false,
-    },
-    canPrintIarReport: {
-      type: Boolean,
-      default: false,
-    },
-    processingIarId: {
-      type: [Number, String],
-      default: null,
-    },
-  },
+  props: [
+    "purchase_order",
+    "delivered_monitoring_items",
+    "delivery_summary",
+    "can_generate_iar_report",
+    "can_print_iar_report",
+    "processing_iar_id",
+  ],
   computed: {
-    iarReports() {
-      const reports = Array.isArray(this.purchaseOrder?.iars)
-        ? this.purchaseOrder.iars
-        : (this.purchaseOrder?.iar ? [this.purchaseOrder.iar] : []);
+    current_roles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    is_employee_only_role() {
+      return this.current_roles.length === 1 && this.current_roles.includes("Employee");
+    },
+    can_manage_iar_reports() {
+      return this.current_roles.some((role) => {
+        return ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role);
+      });
+    },
+    view_mode_label() {
+      if (this.is_employee_only_role) {
+        return "Employee View";
+      }
 
-      return reports.map((report, index) => ({
-        ...report,
-        id: report?.id ?? index,
-        code: report?.code || "IAR",
-        can_print: Boolean(report?.code && this.purchaseOrder?.id),
-        created_at: report?.created_at,
-        updated_at: report?.updated_at,
-        selected_items_count: Array.isArray(report?.selected_item_ids)
-          ? report.selected_item_ids.length
-          : 0,
-        delivered_quantity_total: Array.isArray(report?.selected_item_ids)
-          ? report.selected_item_ids.reduce((sum, item) => sum + (Number(item?.delivered_quantity) || 0), 0)
-          : 0,
-        can_edit: ["Generated", "Pending"].includes(String(report?.status?.name || "").trim()),
-        can_update_status: ["Generated", "Pending"].includes(String(report?.status?.name || "").trim()),
-        can_revert_status:
-          this.normalizedPurchaseOrderStatus === "Conformed"
-          && String(report?.status?.name || "").trim() === "Completed",
-        status_label: this.resolveReportStatusLabel(report),
-        status_variant: this.resolveReportStatusVariant(report),
-        description: this.resolveReportDescription(report),
-      }));
+      if (this.current_roles.includes("Administrator")) {
+        return "Admin View";
+      }
+
+      if (this.current_roles.includes("Procurement Officer")) {
+        return "Procurement Officer";
+      }
+
+      if (this.current_roles.includes("Procurement Staff")) {
+        return "Procurement Staff";
+      }
+
+      return "Purchase Order View";
     },
-    latestIarCode() {
-      return this.iarReports[0]?.code || "To be generated";
+    hero_title() {
+      return this.is_employee_only_role
+        ? "Inspection and Acceptance Reports"
+        : "Generated IAR Reports";
     },
-    normalizedPurchaseOrderStatus() {
-      const statusName = String(this.purchaseOrder?.status?.name || "").trim();
+
+    reports_section_title() {
+      return this.is_employee_only_role
+        ? "Inspection and Acceptance Report List"
+        : "List of Generated Inspection and Acceptance Reports";
+    },
+    reports_section_description() {
+      if (this.is_employee_only_role) {
+        return "Review the reports generated for this purchase order and print them when a copy is available.";
+      }
+
+      return "Review each generated report here, print it, complete it when ready, edit it while it is still generated, or revert it back to Generated when allowed.";
+    },
+    can_show_generate_button() {
+      return this.can_manage_iar_reports && this.can_generate_iar_report;
+    },
+    action_column_label() {
+      return this.is_employee_only_role ? "Available Copy" : "Actions";
+    },
+    iar_reports() {
+      const reports = Array.isArray(this.purchase_order?.iars)
+        ? this.purchase_order.iars
+        : (this.purchase_order?.iar ? [this.purchase_order.iar] : []);
+
+      return reports.map((report, index) => {
+        const status_name = String(report?.status?.name || "").trim();
+        const can_update_status = typeof report?.can_update_status === "boolean"
+          ? report.can_update_status
+          : ["Generated", "Pending"].includes(status_name);
+        const can_revert_status = typeof report?.can_revert_status === "boolean"
+          ? report.can_revert_status
+          : (
+            this.normalized_purchase_order_status === "Conformed"
+            && status_name === "Completed"
+          );
+
+        return {
+          ...report,
+          id: report?.id ?? index,
+          code: report?.code || "IAR",
+          can_print: Boolean(report?.code && this.purchase_order?.id && this.can_print_iar_report),
+          created_at: report?.created_at,
+          updated_at: report?.updated_at,
+          selected_items_count: Number(report?.selected_items_count) > 0
+            ? Number(report.selected_items_count)
+            : (Array.isArray(report?.selected_item_ids) ? report.selected_item_ids.length : 0),
+          delivered_quantity_total: Number(report?.delivered_quantity_total) > 0
+            ? Number(report.delivered_quantity_total)
+            : (Array.isArray(report?.selected_item_ids)
+                ? report.selected_item_ids.reduce(
+                    (sum, item) => sum + (Number(item?.delivered_quantity) || 0),
+                    0
+                  )
+                : 0),
+          can_edit: this.can_manage_iar_reports && ["Generated", "Pending"].includes(status_name),
+          can_update_status: this.can_manage_iar_reports && can_update_status,
+          can_revert_status: this.can_manage_iar_reports && can_revert_status,
+          status_label: this.resolve_report_status_label(report),
+          status_variant: this.resolve_report_status_variant(report),
+          description: this.resolve_report_description(report),
+        };
+      });
+    },
+    show_action_column() {
+      return this.iar_reports.some((report) => {
+        return report.can_edit || report.can_update_status || report.can_revert_status || report.can_print;
+      });
+    },
+    empty_state_title() {
+      return this.is_employee_only_role
+        ? "No Inspection Reports Available Yet"
+        : "No Generated IAR Reports Yet";
+    },
+    empty_state_description() {
+      if (this.is_employee_only_role) {
+        return "Once an IAR report is generated for this purchase order, it will appear in this list.";
+      }
+
+      return "Generate the first IAR report from the delivered items, and it will appear in this list.";
+    },
+    normalized_purchase_order_status() {
+      const status_name = String(this.purchase_order?.status?.name || "").trim();
 
       if (
-        ["Partially Delivered/For Inspection", "PO Delivered/For Inspection", "PO Partially Delivered/For Inspection"].includes(statusName)
+        [
+          "Items Delivered",
+          "PO Items Delivered",
+          "Partially Delivered/For Inspection",
+          "PO Delivered/For Inspection",
+          "PO Partially Delivered/For Inspection",
+          "Items Partially Delivered",
+          "PO Items Partially Delivered",
+        ].includes(status_name)
       ) {
-        return "Delivered/For Inspection";
+        return "Items Delivered";
       }
 
       if (
-        ["PO Conformed", "Partially Conformed", "PO Partially Conformed"].includes(statusName)
+        ["PO Conformed", "Partially Conformed", "PO Partially Conformed"].includes(status_name)
       ) {
         return "Conformed";
       }
 
-      return statusName;
+      return status_name;
     },
   },
   methods: {
-    formatQuantity(value) {
-      const numericValue = Number(value ?? 0);
+    format_quantity(value) {
+      const numeric_value = Number(value ?? 0);
 
-      if (!Number.isFinite(numericValue)) {
+      if (!Number.isFinite(numeric_value)) {
         return "-";
       }
 
-      return Number.isInteger(numericValue)
-        ? numericValue.toLocaleString("en-PH")
-        : numericValue.toLocaleString("en-PH", {
+      return Number.isInteger(numeric_value)
+        ? numeric_value.toLocaleString("en-PH")
+        : numeric_value.toLocaleString("en-PH", {
             minimumFractionDigits: 0,
             maximumFractionDigits: 4,
           });
     },
-    badgeClass(variant) {
-      return [
-        "inspection-pill",
-        `inspection-pill--${variant || "secondary"}`,
+    badge_variant(variant) {
+      const allowed_variants = [
+        "primary",
+        "secondary",
+        "success",
+        "danger",
+        "warning",
+        "info",
+        "light",
+        "dark",
       ];
+
+      return allowed_variants.includes(variant) ? variant : "secondary";
     },
-    formatDateTime(value) {
+    format_date_time(value) {
       if (!value) {
         return "-";
       }
 
-      const parsedDate = new Date(value);
+      const parsed_date = new Date(value);
 
-      if (Number.isNaN(parsedDate.getTime())) {
+      if (Number.isNaN(parsed_date.getTime())) {
         return value;
       }
 
@@ -252,23 +344,23 @@ export default {
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
-      }).format(parsedDate);
+      }).format(parsed_date);
     },
-    resolveReportStatusLabel(report) {
-      const statusName = String(report?.status?.name || "").trim();
+    resolve_report_status_label(report) {
+      const status_name = String(report?.status?.name || "").trim();
 
-      if (statusName === "Completed") {
+      if (status_name === "Completed") {
         return "Inspected/Completed";
       }
 
-      if (["Generated", "Pending"].includes(statusName)) {
+      if (["Generated", "Pending"].includes(status_name)) {
         return "Generated";
       }
 
-      return statusName || "Generated";
+      return status_name || "Generated";
     },
-    resolveReportStatusVariant(report) {
-      const label = this.resolveReportStatusLabel(report);
+    resolve_report_status_variant(report) {
+      const label = this.resolve_report_status_label(report);
 
       if (label === "Inspected/Completed") {
         return "success";
@@ -276,18 +368,22 @@ export default {
 
       return "secondary";
     },
-    resolveReportDescription(report) {
-      const count = Array.isArray(report?.selected_item_ids) ? report.selected_item_ids.length : 0;
+    resolve_report_description(report) {
+      const count = Number(report?.selected_items_count) || 0;
       const quantity = Number(report?.delivered_quantity_total || 0);
 
       if (!count) {
         return "No delivered items selected yet.";
       }
 
-      return `${count} delivered item${count === 1 ? "" : "s"} with ${this.formatQuantity(quantity)} total quantity included in this report.`;
+      if (quantity <= 0) {
+        return `${count} delivered item${count === 1 ? "" : "s"} included in this report.`;
+      }
+
+      return `${count} delivered item${count === 1 ? "" : "s"} with ${this.format_quantity(quantity)} total quantity included in this report.`;
     },
-    printIarReport(report) {
-      if (!report?.can_print || !this.purchaseOrder?.id) {
+    print_iar_report(report) {
+      if (!report?.can_print || !this.purchase_order?.id) {
         return;
       }
 
@@ -296,315 +392,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-.po-tab-shell {
-  --po-table-header-bg: #4a5b93;
-  display: grid;
-  gap: 1.25rem;
-  font-size: 0.92rem;
-}
-
-.inspection-eyebrow {
-  display: inline-flex;
-  margin-bottom: 0.55rem;
-  padding: 0.28rem 0.75rem;
-  border-radius: 999px;
-  background: rgba(74, 91, 147, 0.12);
-  color: #4a5b93;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.inspection-note-card,
-.inspection-table-card {
-  border-radius: 24px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.94);
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.07);
-}
-
-.inspection-note-card {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-  padding: 1.3rem 1.4rem;
-  background: linear-gradient(135deg, #f8fbff, #ffffff);
-}
-
-.inspection-note-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 16px;
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
-  font-size: 1.05rem;
-  flex-shrink: 0;
-}
-
-.inspection-note-card h4,
-.inspection-table-header h4 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.96rem;
-  font-weight: 800;
-}
-
-.inspection-note-card p,
-.inspection-table-header p {
-  margin: 0.3rem 0 0;
-  color: #64748b;
-  font-size: 0.84rem;
-  line-height: 1.6;
-}
-
-.inspection-table-card {
-  overflow: hidden;
-}
-
-.inspection-table-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding: 1.4rem 1.45rem 1rem;
-}
-
-.inspection-header-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 42px;
-  padding: 0.75rem 1rem;
-  border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
-  color: #ffffff;
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-}
-
-.inspection-header-action:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.24);
-}
-
-.inspection-header-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-  box-shadow: none;
-}
-
-.inspection-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.inspection-table thead {
-  background: var(--po-table-header-bg);
-  color: #ffffff;
-}
-
-.inspection-table th {
-  padding: 1rem 0.8rem;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.inspection-table td {
-  padding: 1rem 0.8rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.84);
-  vertical-align: top;
-  font-size: 0.82rem;
-}
-
-.inspection-table tbody tr:hover {
-  background: rgba(37, 99, 235, 0.03);
-}
-
-.inspection-table-number {
-  color: #1d4ed8;
-  font-weight: 800;
-}
-
-.inspection-table-item {
-  min-width: 290px;
-}
-
-.inspection-item-no {
-  display: inline-flex;
-  margin-bottom: 0.45rem;
-  padding: 0.24rem 0.65rem;
-  border-radius: 999px;
-  background: rgba(37, 99, 235, 0.08);
-  color: #1d4ed8;
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-.inspection-item-description {
-  color: #0f172a;
-  font-weight: 600;
-  font-size: 0.84rem;
-  line-height: 1.6;
-}
-
-.inspection-row-actions {
-  display: inline-flex;
-  justify-content: center;
-  gap: 0.5rem;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
-
-.inspection-table-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 80px;
-  padding: 0.45rem 0.75rem;
-  border-radius: 999px;
-  border: 0;
-  font-size: 0.7rem;
-  font-weight: 800;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.inspection-table-action:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-
-.inspection-table-action:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.inspection-table-action--icon {
-  min-width: 42px;
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  border-radius: 14px;
-}
-
-.inspection-table-action--icon i {
-  font-size: 1rem;
-}
-
-.inspection-table-action--primary {
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
-}
-
-.inspection-table-action--secondary {
-  background: rgba(15, 23, 42, 0.08);
-  color: #0f172a;
-}
-
-.inspection-table-action--info {
-  background: rgba(14, 165, 233, 0.12);
-  color: #0369a1;
-}
-
-.inspection-table-action--warning {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
-}
-
-.inspection-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 116px;
-  padding: 0.42rem 0.72rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.inspection-pill--success {
-  background: rgba(16, 185, 129, 0.12);
-  color: #047857;
-}
-
-.inspection-pill--warning {
-  background: rgba(245, 158, 11, 0.15);
-  color: #b45309;
-}
-
-.inspection-pill--danger {
-  background: rgba(239, 68, 68, 0.12);
-  color: #b91c1c;
-}
-
-.inspection-pill--info {
-  background: rgba(14, 165, 233, 0.12);
-  color: #0369a1;
-}
-
-.inspection-pill--secondary {
-  background: rgba(148, 163, 184, 0.18);
-  color: #475569;
-}
-
-.inspection-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.7rem;
-  min-height: 280px;
-  padding: 2rem 1.5rem;
-  text-align: center;
-}
-
-.inspection-empty-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 72px;
-  height: 72px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
-  color: #1d4ed8;
-  font-size: 1.8rem;
-}
-
-.inspection-empty-state h4 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.98rem;
-  font-weight: 800;
-}
-
-.inspection-empty-state p {
-  max-width: 460px;
-  margin: 0;
-  color: #64748b;
-  font-size: 0.84rem;
-  line-height: 1.6;
-}
-
-@media (max-width: 767px) {
-  .inspection-note-card,
-  .inspection-table-header {
-    padding: 1.2rem;
-  }
-
-  .inspection-table-item {
-    min-width: 230px;
-  }
-}
-</style>

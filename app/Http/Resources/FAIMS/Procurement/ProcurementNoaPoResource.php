@@ -19,6 +19,8 @@ class ProcurementNoaPoResource extends JsonResource
         return [
             'id' => $this->id,
             'code'  => $this->code,
+            'noa_id' => $this->noa_id,
+            'procurement_id' => $this->procurement_id,
             'po_date'  => $this->po_date->format('F j, Y'),
             'released_at' => $this->released_at?->format('F j, Y'),
             'conformed_at' => $this->conformed_at?->format('F j, Y'),

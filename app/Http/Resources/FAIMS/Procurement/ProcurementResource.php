@@ -37,6 +37,7 @@ class ProcurementResource extends JsonResource
             'quotation_count'  => $this->quotation_count,
             'reawarded_count'  => $this->reawarded_count,
             'rebidded_count'  => $this->rebidded_count,
+            'comments_count' => $this->comments_count ?? 0,
             'status' =>  $this->status,
             'sub_status' =>  $this->sub_status,
         ];

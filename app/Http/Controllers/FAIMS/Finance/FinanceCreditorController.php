@@ -38,7 +38,11 @@ class FinanceCreditorController extends Controller
             default:
                 return inertia('Modules/FAIMS/Finance/Creditors/Index', [
                     'dropdowns' => [
-                        'supplier_options' => Supplier::select('id', 'name', 'code as account_code')->get()->toArray(),
+                        'supplier_options' => Supplier::where('approval_status', 'Approved')
+                            ->where('is_active', 1)
+                            ->select('id', 'name', 'code as account_code')
+                            ->get()
+                            ->toArray(),
                         'user_options' => User::select('id', 'username as name')->get()->toArray(),
                         'roles'  =>  \Auth::user()->roles,
                     ],
@@ -98,4 +102,3 @@ class FinanceCreditorController extends Controller
     }
 }
 ?>
-

@@ -11,12 +11,16 @@ class procurementPoIar extends Model
         'procurement_id',
         'po_id',
         'code',
+        'invoice_no',
+        'invoice_date',
         'selected_item_ids',
         'status_id',
+        'inspected_by_id',
     ];
 
     protected $casts = [
         'selected_item_ids' => 'array',
+        'invoice_date' => 'date',
     ];
 
     public function procurement()
@@ -32,6 +36,11 @@ class procurementPoIar extends Model
     public function status()
     {
         return $this->belongsTo('App\Models\ListStatus', 'status_id');
+    }
+
+    public function inspected_by()
+    {
+        return $this->belongsTo('App\Models\User', 'inspected_by_id')->with('profile');
     }
 
     public function normalizedDeliveredItems($noaItems): Collection

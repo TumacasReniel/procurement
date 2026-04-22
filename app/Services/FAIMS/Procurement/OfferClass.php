@@ -12,12 +12,24 @@ class OfferClass
     public function save($request){
         $item = ProcurementQuotationItem::with('quotation')->findOrFail($request->id);
         if($item){
+            $isFree = $request->boolean('is_free');
+            $isNoOffer = !$isFree && $request->boolean('is_no_offer');
+            $isNotApplicable = !$isFree && !$isNoOffer && $request->boolean('is_not_applicable');
+
             // update bid offer for bid_item
-            $item->bid_price = $request->boolean('is_free') ? 0 : $request->bid_price;
+            $item->bid_price = $isFree ? 0 : ($isNoOffer || $isNotApplicable ? null : $request->bid_price);
             if (Schema::hasColumn('procurement_quotation_items', 'is_free')) {
-                $item->is_free = $request->boolean('is_free');
+                $item->is_free = $isFree;
             }
-            $item->technical_proposal = $request->technical_proposal;
+            if (Schema::hasColumn('procurement_quotation_items', 'is_no_offer')) {
+                $item->is_no_offer = $isNoOffer;
+            }
+            if (Schema::hasColumn('procurement_quotation_items', 'is_not_applicable')) {
+                $item->is_not_applicable = $isNotApplicable;
+            }
+            $item->technical_proposal = ($isNoOffer || $isNotApplicable)
+                ? null
+                : $request->technical_proposal;
             $item->save();
         }
 

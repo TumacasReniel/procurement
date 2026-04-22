@@ -185,9 +185,9 @@ class ProcurementBacNoaClass
         }
         elseif($currentStatusName == "Conformed"){
             $noa->update([
-                'status_id' => ListStatus::getID('Delivered/For Inspection','Procurement'), // set status to "Delivered/For Inspection"
+                'status_id' => ListStatus::getID('Items Delivered','Procurement'), // set status to "Items Delivered"
             ]);
-            activity()->performedOn($noa)->causedBy($user)->log('NOA status updated to Delivered/For Inspection');
+            activity()->performedOn($noa)->causedBy($user)->log('NOA status updated to Items Delivered');
         }
 
         // Refresh NOA to get the new status
@@ -341,7 +341,7 @@ class ProcurementBacNoaClass
         $currentStatusName = $noa->status?->name;
         $revertedTo = null;
 
-        if ($currentStatusName === 'Delivered/For Inspection') {
+        if ($currentStatusName === 'Items Delivered') {
             $revertedTo = 'Conformed';
         } elseif ($currentStatusName === 'Conformed') {
             $revertedTo = 'Served to Supplier';

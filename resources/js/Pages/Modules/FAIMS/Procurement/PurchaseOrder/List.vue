@@ -1,7 +1,7 @@
  <template>
   <Head title="Requests" />
   <PageHeader title="Purchase Orders" pageTitle="List" />
-  <BRow>
+  <BRow class="procurement-index-page purchase-order-list-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
         <div class="car-body bg-white border-bottom shadow-none">
@@ -138,7 +138,7 @@
                   <td>
                     <div class="d-flex justify-content-center gap-1">
                       <b-button
-                        @click="goViewPage(list)"
+                        @click="viewPO(list)"
                         size="sm"
                         variant="info"
                         class="btn-icon"
@@ -150,7 +150,7 @@
                       </b-button>
 
                       <b-button
-                        v-if="list.status.name == 'Delivered/For Inspection'"
+                        v-if="['Items Delivered', 'Delivered/For Inspection'].includes(list.status.name)"
                         @click="updateStatus(list)"
                         size="sm"
                         variant="success"
@@ -187,7 +187,7 @@
                       </b-button>
 
                       <b-button
-                        v-if="list.status.name == 'Delivered/For Inspection' || list.status.name == 'Completed'"
+                        v-if="['Items Delivered', 'Delivered/For Inspection', 'Completed'].includes(list.status.name)"
                         @click="openPrintIAR(list)"
                         size="sm"
                         variant="secondary"
@@ -342,6 +342,17 @@ export default {
       this.filter.status = status;
       this.fetch();
     },
+
+    viewPO(data) {
+      const noaId = data?.noa_id ?? data?.noa?.id;
+      const procurementId = data?.procurement_id ?? data?.noa?.procurement_id;
+
+      if (!procurementId || !noaId) {
+        return;
+      }
+
+      router.visit(`/faims/procurements/${procurementId}?option=view&tab=5&noa_id=${noaId}`);
+    },
  
     openPrint(data) {
       window.open(`/faims/purchase-orders/${data.id}?option=print&type=purchase_order`);
@@ -360,3 +371,11 @@ export default {
   },
 };
 </script>
+
+<style>
+[data-bs-theme="dark"] .purchase-order-list-page .nav-tabs-custom .nav-link:hover:not(.active) {
+  background: rgba(148, 163, 184, 0.12) !important;
+  color: #e5edf7 !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+</style>

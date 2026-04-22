@@ -1,638 +1,383 @@
 <template>
-  <div class="po-tab-shell delivery-tab">
-    <section class="delivery-hero">
-      <div class="delivery-hero-copy">
-        <span class="delivery-eyebrow">Delivery Tracking</span>
-        <h3>Monitor Delivered and Pending Items</h3>
-        <p>
+  <div class="d-grid gap-2">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+      <div>
+        <div class="text-uppercase fw-semibold text-primary small mb-1">
+          Delivery Tracking
+        </div>
+        <h4 class="h6 fw-bold mb-1">Monitor Delivered and Pending Items</h4>
+        <p class="text-muted small mb-0">
           Check what was delivered, what is still needed, and whether the supplier delivered on time.
         </p>
       </div>
 
-      <div class="delivery-rule-card">
-        <div class="delivery-rule-icon">
-          <i class="ri-timer-flash-line"></i>
+      <div class="border rounded bg-light px-3 py-2">
+        <div class="text-uppercase fw-semibold text-warning small mb-1">
+          Late Delivery Rule
         </div>
-        <div>
-          <span class="delivery-rule-label">Late Delivery Rule</span>
-          <strong>1% deduction per day from the delivered amount</strong>
+        <div class="fw-semibold small">
+          1% deduction per day from the delivered amount
         </div>
       </div>
-    </section>
+    </div>
 
-    <section class="delivery-summary-grid">
-      <article class="delivery-summary-card">
-        <div class="delivery-summary-icon delivery-summary-icon--emerald">
-          <i class="ri-checkbox-circle-line"></i>
-        </div>
-        <span class="delivery-summary-label">Delivered</span>
-        <strong class="delivery-summary-value">{{ deliverySummary.delivered_items || 0 }}</strong>
-        <small>Items fully delivered</small>
-      </article>
+    <b-row class="g-2">
+      <b-col md="6" xl="3">
+        <b-card class="border-0 shadow-sm h-100">
+          <div
+            class="rounded-circle bg-light border text-success d-inline-flex align-items-center justify-content-center p-2 mb-2"
+          >
+            <i class="ri-checkbox-circle-line"></i>
+          </div>
+          <div class="text-uppercase fw-semibold text-muted small">Delivered</div>
+          <div class="fs-4 fw-bold mt-1">{{ delivery_summary.delivered_items || 0 }}</div>
+          <div class="small text-muted mt-1">Items fully delivered</div>
+        </b-card>
+      </b-col>
 
-      <article class="delivery-summary-card">
-        <div class="delivery-summary-icon delivery-summary-icon--amber">
-          <i class="ri-loader-4-line"></i>
-        </div>
-        <span class="delivery-summary-label">Partial Delivery</span>
-        <strong class="delivery-summary-value">{{ deliverySummary.partial_items || 0 }}</strong>
-        <small>Items with incomplete delivery</small>
-      </article>
+      <b-col md="6" xl="3">
+        <b-card class="border-0 shadow-sm h-100">
+          <div
+            class="rounded-circle bg-light border text-warning d-inline-flex align-items-center justify-content-center p-2 mb-2"
+          >
+            <i class="ri-loader-4-line"></i>
+          </div>
+          <div class="text-uppercase fw-semibold text-muted small">Partial Delivery</div>
+          <div class="fs-4 fw-bold mt-1">{{ delivery_summary.partial_items || 0 }}</div>
+          <div class="small text-muted mt-1">Items with incomplete delivery</div>
+        </b-card>
+      </b-col>
 
-      <article class="delivery-summary-card">
-        <div class="delivery-summary-icon delivery-summary-icon--blue">
-          <i class="ri-truck-line"></i>
-        </div>
-        <span class="delivery-summary-label">Still Needed</span>
-        <strong class="delivery-summary-value">{{ deliverySummary.needs_delivery_items || 0 }}</strong>
-        <small>Items still waiting for delivery</small>
-      </article>
+      <b-col md="6" xl="3">
+        <b-card class="border-0 shadow-sm h-100">
+          <div
+            class="rounded-circle bg-light border text-primary d-inline-flex align-items-center justify-content-center p-2 mb-2"
+          >
+            <i class="ri-truck-line"></i>
+          </div>
+          <div class="text-uppercase fw-semibold text-muted small">Still Needed</div>
+          <div class="fs-4 fw-bold mt-1">{{ delivery_summary.needs_delivery_items || 0 }}</div>
+          <div class="small text-muted mt-1">Items still waiting for delivery</div>
+        </b-card>
+      </b-col>
 
-      <article class="delivery-summary-card">
-        <div class="delivery-summary-icon delivery-summary-icon--rose">
-          <i class="ri-alarm-warning-line"></i>
-        </div>
-        <span class="delivery-summary-label">Late / Overdue</span>
-        <strong class="delivery-summary-value">
-          {{ (deliverySummary.late_items || 0) + (deliverySummary.overdue_items || 0) }}
-        </strong>
-        <small>Items needing attention</small>
-      </article>
-    </section>
+      <b-col md="6" xl="3">
+        <b-card class="border-0 shadow-sm h-100">
+          <div
+            class="rounded-circle bg-light border text-danger d-inline-flex align-items-center justify-content-center p-2 mb-2"
+          >
+            <i class="ri-alarm-warning-line"></i>
+          </div>
+          <div class="text-uppercase fw-semibold text-muted small">Late / Overdue</div>
+          <div class="fs-4 fw-bold mt-1">
+            {{ (delivery_summary.late_items || 0) + (delivery_summary.overdue_items || 0) }}
+          </div>
+          <div class="small text-muted mt-1">Items needing attention</div>
+        </b-card>
+      </b-col>
+    </b-row>
 
-    <section class="delivery-table-card">
-      <div class="delivery-table-header">
+    <b-card no-body class="border-0 shadow-sm">
+      <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 p-3 border-bottom">
         <div>
-          <span class="delivery-eyebrow">Item Status Table</span>
-          <h4>Delivery Progress Per Item</h4>
-          <p>Use this table to review quantities, dates, on-time status, and late deductions.</p>
+          <div class="text-uppercase fw-semibold text-primary small mb-1">
+            Item
+          </div>
+          <h4 class="h6 fw-bold mb-1">Delivery Progress Per Item</h4>
+          <p class="text-muted small mb-0">
+            Use this table to review quantities, dates, on-time status, and late deductions.
+          </p>
         </div>
-
       </div>
 
-      <div class="delivery-total-strip-wrap">
-        <div class="delivery-total-strip">
-          <div>
-            <span>Delivered Amount</span>
-            <strong>{{ formatCurrency(deliverySummary.delivered_amount_total) }}</strong>
+      <div class="row g-2 p-3 border-bottom bg-light">
+        <div class="col-md-4">
+          <div class="border rounded bg-white px-3 py-2 h-100">
+            <div class="small text-uppercase text-muted fw-semibold">Delivered Amount</div>
+            <div class="fw-bold mt-1">{{ format_currency(delivery_summary.delivered_amount_total) }}</div>
           </div>
-          <div>
-            <span>Late Deduction</span>
-            <strong class="text-danger">{{ formatCurrency(deliverySummary.penalty_amount_total) }}</strong>
+        </div>
+        <div class="col-md-4">
+          <div class="border rounded bg-white px-3 py-2 h-100">
+            <div class="small text-uppercase text-muted fw-semibold">Late Deduction</div>
+            <div class="fw-bold text-danger mt-1">{{ format_currency(delivery_summary.penalty_amount_total) }}</div>
           </div>
-          <div>
-            <span>Final Amount</span>
-            <strong class="text-success">{{ formatCurrency(deliverySummary.adjusted_amount_total) }}</strong>
+        </div>
+        <div class="col-md-4">
+          <div class="border rounded bg-white px-3 py-2 h-100">
+            <div class="small text-uppercase text-muted fw-semibold">Final Amount</div>
+            <div class="fw-bold text-success mt-1">{{ format_currency(delivery_summary.adjusted_amount_total) }}</div>
           </div>
         </div>
       </div>
 
       <div class="table-responsive">
-        <table class="delivery-table">
-          <thead>
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
             <tr>
               <th class="text-center">#</th>
               <th>Item</th>
-              <th class="text-center">Ordered</th>
-              <th class="text-center">Delivered</th>
-              <th class="text-center">Still Needed</th>
-              <th class="text-center">Unit</th>
-              <th class="text-center">Target Date</th>
-              <th class="text-center">Delivered On</th>
-              <th class="text-center">Delivery</th>
-              <th class="text-center">On-Time</th>
-              <th class="text-end">Delivered Amount</th>
-              <th class="text-end">Late Deduction</th>
-              <th class="text-end">Final Amount</th>
+              <th>Quantity Overview</th>
+              <th>Schedule</th>
+              <th>Delivery Status</th>
+              <th>Amount Summary</th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="(item, index) in deliveryMonitoringItems"
+              v-for="(item, index) in delivery_monitoring_items"
               :key="item.id || index"
-              :class="{ 'delivery-table-row--attention': item.needs_delivery }"
+              :class="{ 'table-warning': item.needs_delivery }"
             >
-              <td class="text-center delivery-table-number">
-               {{ item.item_no }}
+              <td class="text-center fw-semibold">
+                {{ item.item_no }}
               </td>
-              <td class="delivery-table-item">
-                <div class="delivery-item-description" v-html="item.description || '-'" />
+              <td>
+                <div class="d-grid gap-2">
+                  <div class="fw-semibold text-dark">
+                    {{ resolve_item_name(item) }}
+                  </div>
+                  <div v-if="item.needs_delivery" class="d-flex flex-wrap gap-2">
+                    <span class="badge rounded-pill text-bg-warning">
+                      Needs Delivery
+                    </span>
+                  </div>
+                </div>
+                <div
+                  v-if="has_extra_description(item)"
+                  class="small text-muted mt-1"
+                  v-html="item.description"
+                ></div>
               </td>
-              <td class="text-center">{{ formatQuantity(item.ordered_quantity) }}</td>
-              <td class="text-center">{{ formatQuantity(item.delivered_quantity) }}</td>
-              <td class="text-center">{{ formatQuantity(item.remaining_quantity) }}</td>
-              <td class="text-center">{{ item.unit || "-" }}</td>
-              <td class="text-center">{{ item.expected_delivery_date_display || "-" }}</td>
-              <td class="text-center">{{ item.actual_delivery_date_display || "-" }}</td>
-              <td class="text-center">
-                <span :class="badgeClass(item.delivery_status_variant)">
-                  {{ item.delivery_status || "-" }}
-                </span>
+              <td>
+                <div class="row g-2">
+                  <div class="col-12 col-xl-4">
+                    <div class="border rounded bg-light px-3 py-2 h-100">
+                      <div class="small text-uppercase text-muted fw-semibold">
+                        Ordered
+                      </div>
+                      <div class="fw-bold">
+                        {{ format_quantity(item.ordered_quantity) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-12 col-xl-4">
+                    <div class="border rounded bg-light px-3 py-2 h-100">
+                      <div class="small text-uppercase text-muted fw-semibold">
+                        Delivered
+                      </div>
+                      <div class="fw-bold text-success">
+                        {{ format_quantity(item.delivered_quantity) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-12 col-xl-4">
+                    <div class="border rounded bg-light px-3 py-2 h-100">
+                      <div class="small text-uppercase text-muted fw-semibold">
+                        Still Needed
+                      </div>
+                      <div
+                        class="fw-bold"
+                        :class="Number(item.remaining_quantity || 0) > 0 ? 'text-warning' : 'text-success'"
+                      >
+                        {{ format_quantity(item.remaining_quantity) }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="small text-muted mt-2">
+                  Unit: <span class="fw-semibold text-dark">{{ item.unit || "-" }}</span>
+                </div>
               </td>
-              <td class="text-center">
-                <span :class="badgeClass(item.timeliness_variant)">
-                  {{ item.timeliness || "-" }}
-                </span>
-                <small v-if="item.timeliness_detail" class="delivery-detail-text">
-                  {{ item.timeliness_detail }}
-                </small>
+              <td>
+                <div class="d-grid gap-2">
+                  <div class="border rounded px-3 py-2 bg-light">
+                    <div class="small text-uppercase text-muted fw-semibold">
+                      Target Date
+                    </div>
+                    <div class="fw-semibold">
+                      {{ item.expected_delivery_date_display || "-" }}
+                    </div>
+                  </div>
+                  <div class="border rounded px-3 py-2 bg-light">
+                    <div class="small text-uppercase text-muted fw-semibold">
+                      Delivered On
+                    </div>
+                    <div class="fw-semibold">
+                      {{ item.actual_delivery_date_display || "-" }}
+                    </div>
+                  </div>
+                </div>
               </td>
-              <td class="text-end delivery-money">{{ formatCurrency(item.delivered_amount) }}</td>
-              <td class="text-end delivery-money">
-                <div>{{ formatCurrency(item.penalty_amount) }}</div>
-                <small v-if="item.penalty_days > 0" class="delivery-detail-text delivery-detail-text--right">
-                  1% x {{ item.penalty_days }} day<span v-if="item.penalty_days !== 1">s</span>
-                </small>
+              <td>
+                <div class="d-grid gap-2">
+                  <div>
+                    <div class="small text-uppercase text-muted fw-semibold mb-1">
+                      Delivery
+                    </div>
+                    <b-badge pill :variant="badge_variant(item.delivery_status_variant)">
+                      {{ item.delivery_status || "-" }}
+                    </b-badge>
+                  </div>
+                  <div>
+                    <div class="small text-uppercase text-muted fw-semibold mb-1">
+                      On-Time Status
+                    </div>
+                    <b-badge pill :variant="badge_variant(item.timeliness_variant)">
+                      {{ item.timeliness || "-" }}
+                    </b-badge>
+                    <div v-if="item.timeliness_detail" class="small text-muted mt-1">
+                      {{ item.timeliness_detail }}
+                    </div>
+                  </div>
+                </div>
               </td>
-              <td class="text-end delivery-money delivery-money--final">
-                {{ formatCurrency(item.adjusted_amount) }}
+              <td>
+                <div class="d-grid gap-2">
+                  <div class="border rounded px-3 py-2 bg-light">
+                    <div class="small text-uppercase text-muted fw-semibold">
+                      Delivered Amount
+                    </div>
+                    <div class="fw-bold">
+                      {{ format_currency(item.delivered_amount) }}
+                    </div>
+                  </div>
+                  <div class="border rounded px-3 py-2 bg-light">
+                    <div class="small text-uppercase text-muted fw-semibold">
+                      Late Deduction
+                    </div>
+                    <div class="fw-bold text-danger">
+                      {{ format_currency(item.penalty_amount) }}
+                    </div>
+                    <div v-if="item.penalty_days > 0" class="small text-muted mt-1">
+                      1% x {{ item.penalty_days }} day<span v-if="item.penalty_days !== 1">s</span>
+                    </div>
+                  </div>
+                  <div class="border rounded px-3 py-2 bg-light">
+                    <div class="small text-uppercase text-muted fw-semibold">
+                      Final Amount
+                    </div>
+                    <div class="fw-bold text-success">
+                      {{ format_currency(item.adjusted_amount) }}
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
 
-            <tr v-if="!deliveryMonitoringItems.length">
-              <td colspan="13" class="text-center py-5 text-muted">
+            <tr v-if="!delivery_monitoring_items.length">
+              <td colspan="6" class="text-center py-5 text-muted">
                 No delivery tracking data is available for this purchase order yet.
               </td>
             </tr>
           </tbody>
-          <tfoot v-if="deliveryMonitoringItems.length">
+          <tfoot v-if="delivery_monitoring_items.length" class="table-light">
             <tr>
-              <td colspan="10" class="text-end delivery-table-footer-label">Total</td>
-              <td class="text-end delivery-money">{{ formatCurrency(deliverySummary.delivered_amount_total) }}</td>
-              <td class="text-end delivery-money text-danger">
-                {{ formatCurrency(deliverySummary.penalty_amount_total) }}
-              </td>
-              <td class="text-end delivery-money delivery-money--final">
-                {{ formatCurrency(deliverySummary.adjusted_amount_total) }}
+              <td colspan="5" class="text-end fw-semibold align-middle">Total</td>
+              <td>
+                <div class="d-grid gap-2">
+                  <div class="border rounded px-3 py-2 bg-white">
+                    <div class="small text-uppercase text-muted fw-semibold">
+                      Delivered Amount
+                    </div>
+                    <div class="fw-bold">
+                      {{ format_currency(delivery_summary.delivered_amount_total) }}
+                    </div>
+                  </div>
+                  <div class="border rounded px-3 py-2 bg-white">
+                    <div class="small text-uppercase text-muted fw-semibold">
+                      Late Deduction
+                    </div>
+                    <div class="fw-bold text-danger">
+                      {{ format_currency(delivery_summary.penalty_amount_total) }}
+                    </div>
+                  </div>
+                  <div class="border rounded px-3 py-2 bg-white">
+                    <div class="small text-uppercase text-muted fw-semibold">
+                      Final Amount
+                    </div>
+                    <div class="fw-bold text-success">
+                      {{ format_currency(delivery_summary.adjusted_amount_total) }}
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
           </tfoot>
         </table>
       </div>
-    </section>
+    </b-card>
   </div>
 </template>
 
 <script>
 export default {
   emits: ["update-delivered-items"],
-  props: {
-    deliverySummary: {
-      type: Object,
-      default: () => ({}),
-    },
-    deliveryMonitoringItems: {
-      type: Array,
-      default: () => [],
-    },
-    canUpdateDeliveredItems: {
-      type: Boolean,
-      default: false,
-    },
-  },
+  props: ["delivery_summary", "delivery_monitoring_items", "can_update_delivered_items"],
   methods: {
-    formatCurrency(value) {
+    strip_html(value) {
+      return String(value || "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    },
+    resolve_item_name(item) {
+      const item_name = String(item?.item_name || "").trim();
+      if (item_name) {
+        return item_name;
+      }
+
+      const description_text = this.strip_html(item?.description);
+      return description_text || "-";
+    },
+    has_extra_description(item) {
+      const description_html = String(item?.description || "").trim();
+      if (!description_html) {
+        return false;
+      }
+
+      const description_text = this.strip_html(description_html);
+      if (!description_text) {
+        return false;
+      }
+
+      return description_text !== this.resolve_item_name(item);
+    },
+    format_currency(value) {
       return new Intl.NumberFormat("en-PH", {
         style: "currency",
         currency: "PHP",
       }).format(Number(value || 0));
     },
-    formatQuantity(value) {
-      const numericValue = Number(value ?? 0);
+    format_quantity(value) {
+      const numeric_value = Number(value ?? 0);
 
-      if (!Number.isFinite(numericValue)) {
+      if (!Number.isFinite(numeric_value)) {
         return "-";
       }
 
-      return Number.isInteger(numericValue)
-        ? numericValue.toLocaleString("en-PH")
-        : numericValue.toLocaleString("en-PH", {
+      return Number.isInteger(numeric_value)
+        ? numeric_value.toLocaleString("en-PH")
+        : numeric_value.toLocaleString("en-PH", {
             minimumFractionDigits: 0,
             maximumFractionDigits: 4,
           });
     },
-    badgeClass(variant) {
-      return [
-        "delivery-pill",
-        `delivery-pill--${variant || "secondary"}`,
+    badge_variant(variant) {
+      const allowed_variants = [
+        "primary",
+        "secondary",
+        "success",
+        "danger",
+        "warning",
+        "info",
+        "light",
+        "dark",
       ];
+
+      return allowed_variants.includes(variant) ? variant : "secondary";
     },
   },
 };
 </script>
-
-<style scoped>
-.po-tab-shell {
-  --po-table-header-bg: #4a5b93;
-  display: grid;
-  gap: 1.25rem;
-  font-size: 0.92rem;
-}
-
-.delivery-hero {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding: 1.5rem 1.65rem;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.2), transparent 32%),
-    linear-gradient(135deg, #ffffff, #eef8ff 58%, #f8fbff);
-  border: 1px solid rgba(191, 219, 254, 0.85);
-  box-shadow: 0 22px 40px rgba(15, 23, 42, 0.08);
-}
-
-.delivery-eyebrow {
-  display: inline-flex;
-  margin-bottom: 0.5rem;
-  padding: 0.28rem 0.75rem;
-  border-radius: 999px;
-  background: rgba(8, 145, 178, 0.12);
-  color: #0f766e;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.delivery-hero-copy h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1.4rem;
-  font-weight: 800;
-}
-
-.delivery-hero-copy p {
-  max-width: 620px;
-  margin: 0.55rem 0 0;
-  color: #475569;
-  font-size: 0.86rem;
-  line-height: 1.6;
-}
-
-.delivery-rule-card {
-  display: flex;
-  gap: 0.9rem;
-  align-items: center;
-  min-width: min(100%, 320px);
-  padding: 1rem 1.1rem;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #fff7ed, #ffffff);
-  border: 1px solid rgba(251, 191, 36, 0.4);
-}
-
-.delivery-rule-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
-  background: rgba(251, 146, 60, 0.16);
-  color: #c2410c;
-  font-size: 1.25rem;
-}
-
-.delivery-rule-label {
-  display: block;
-  color: #9a3412;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.delivery-rule-card strong {
-  color: #7c2d12;
-  font-size: 0.86rem;
-  line-height: 1.5;
-}
-
-.delivery-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.delivery-summary-card {
-  padding: 1.2rem;
-  border-radius: 22px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
-}
-
-.delivery-summary-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 0.85rem;
-  border-radius: 15px;
-  font-size: 1.15rem;
-}
-
-.delivery-summary-icon--emerald {
-  background: rgba(16, 185, 129, 0.15);
-  color: #047857;
-}
-
-.delivery-summary-icon--amber {
-  background: rgba(245, 158, 11, 0.14);
-  color: #b45309;
-}
-
-.delivery-summary-icon--blue {
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
-}
-
-.delivery-summary-icon--rose {
-  background: rgba(244, 63, 94, 0.12);
-  color: #be123c;
-}
-
-.delivery-summary-label {
-  display: block;
-  color: #64748b;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.delivery-summary-value {
-  display: block;
-  margin-top: 0.35rem;
-  color: #0f172a;
-  font-size: 1.35rem;
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.delivery-summary-card small {
-  display: block;
-  margin-top: 0.45rem;
-  color: #64748b;
-  font-size: 0.8rem;
-  line-height: 1.45;
-}
-
-.delivery-table-card {
-  overflow: hidden;
-  border-radius: 24px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.92);
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.07);
-}
-
-.delivery-table-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding: 1.45rem 1.45rem 1rem;
-}
-
-.delivery-table-header h4 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.96rem;
-  font-weight: 800;
-}
-
-.delivery-table-header p {
-  margin: 0.28rem 0 0;
-  color: #64748b;
-  font-size: 0.84rem;
-  line-height: 1.55;
-}
-
-.delivery-header-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 42px;
-  padding: 0.75rem 1rem;
-  border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #4a5b93, #5a6ba6);
-  color: #ffffff;
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  box-shadow: 0 12px 24px rgba(74, 91, 147, 0.2);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-}
-
-.delivery-header-action:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 28px rgba(74, 91, 147, 0.24);
-}
-
-.delivery-header-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-  box-shadow: none;
-}
-
-.delivery-total-strip-wrap {
-  padding: 0 1.45rem 1rem;
-}
-
-.delivery-total-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(130px, 1fr));
-  gap: 0.75rem;
-}
-
-.delivery-total-strip > div {
-  padding: 0.9rem 1rem;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #f8fbff, #ffffff);
-  border: 1px solid rgba(191, 219, 254, 0.9);
-}
-
-.delivery-total-strip span {
-  display: block;
-  color: #64748b;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.delivery-total-strip strong {
-  display: block;
-  margin-top: 0.3rem;
-  color: #0f172a;
-  font-size: 0.9rem;
-}
-
-.delivery-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.delivery-table thead {
-  background: var(--po-table-header-bg);
-  color: #ffffff;
-}
-
-.delivery-table th {
-  padding: 1rem 0.8rem;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.delivery-table td {
-  padding: 1rem 0.8rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.82);
-  vertical-align: top;
-  font-size: 0.82rem;
-}
-
-.delivery-table tbody tr:hover {
-  background: rgba(37, 99, 235, 0.035);
-}
-
-.delivery-table-row--attention {
-  background: rgba(251, 191, 36, 0.08);
-}
-
-.delivery-table-number {
-  color: #1d4ed8;
-  font-weight: 800;
-}
-
-.delivery-table-item {
-  min-width: 270px;
-}
-
-.delivery-item-no {
-  display: inline-flex;
-  margin-bottom: 0.4rem;
-  padding: 0.24rem 0.65rem;
-  border-radius: 999px;
-  background: rgba(37, 99, 235, 0.09);
-  color: #1d4ed8;
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-.delivery-item-description {
-  color: #0f172a;
-  font-weight: 600;
-  font-size: 0.84rem;
-  line-height: 1.6;
-}
-
-.delivery-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 118px;
-  padding: 0.42rem 0.72rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.delivery-pill--success {
-  background: rgba(16, 185, 129, 0.12);
-  color: #047857;
-}
-
-.delivery-pill--warning {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
-}
-
-.delivery-pill--danger {
-  background: rgba(239, 68, 68, 0.12);
-  color: #b91c1c;
-}
-
-.delivery-pill--info {
-  background: rgba(14, 165, 233, 0.13);
-  color: #0369a1;
-}
-
-.delivery-pill--secondary {
-  background: rgba(148, 163, 184, 0.18);
-  color: #475569;
-}
-
-.delivery-detail-text {
-  display: block;
-  margin-top: 0.4rem;
-  color: #64748b;
-  font-size: 0.68rem;
-  line-height: 1.4;
-}
-
-.delivery-detail-text--right {
-  text-align: right;
-}
-
-.delivery-money {
-  color: #0f172a;
-  font-weight: 700;
-}
-
-.delivery-money--final {
-  color: #047857;
-  font-weight: 800;
-}
-
-.delivery-table tfoot tr {
-  background: linear-gradient(135deg, #f8fafc, #eef4ff);
-}
-
-.delivery-table-footer-label {
-  font-size: 0.86rem;
-  font-weight: 800;
-  color: #334155;
-}
-
-@media (max-width: 1100px) {
-  .delivery-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 767px) {
-  .delivery-hero,
-  .delivery-table-header {
-    padding: 1.2rem;
-  }
-
-  .delivery-summary-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .delivery-header-action {
-    width: 100%;
-  }
-
-  .delivery-total-strip-wrap {
-    padding: 0 1.2rem 1rem;
-  }
-
-  .delivery-total-strip {
-    grid-template-columns: 1fr;
-    width: 100%;
-  }
-
-  .delivery-table-item {
-    min-width: 230px;
-  }
-}
-</style>

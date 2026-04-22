@@ -56,37 +56,6 @@
                 <BCol lg="12" class="mt-n1 mb-n3" v-if="user">
                     <hr class="text-muted"/>
                 </BCol>
-                <BCol lg="12" style="margin-top: 13px; margin-bottom: -10px;">
-                    <div class="d-flex position-relative">
-                        <div class="flex-shrink-0 fs-12" :class="(form.errors.is_oic) ? 'text-danger' : ''">
-                           Is the employee designated as Officer-in-Charge (OIC)?
-                        </div>
-                        <div class="flex-grow-1 ms-2"></div>
-                        <div class="flex-shrink-0">
-                            <div class="d-inline-block">
-                                <div class="custom-control custom-radio mb-3 ms-4">
-                                    <input type="radio" id="customRadio1" class="custom-control-input me-2" @input="handleInput('is_active')" :value="true" v-model="form.is_oic">
-                                    <label class="custom-control-label fs-12 fw-normal" for="customRadio1">Yes</label>
-                                </div>
-                            </div>
-                            <div class="d-inline-block">
-                                <div class="custom-control custom-radio mb-3 ms-4">
-                                    <input type="radio" id="customRadio1" class="custom-control-input me-2" @input="handleInput('is_active')" :value="false" v-model="form.is_oic">
-                                    <label class="custom-control-label fs-12 fw-normal" for="customRadio1">No</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </BCol>
-                <BCol v-if="form.is_oic" lg="12"><hr class="text-muted mt-2 mb-0"/></BCol>
-                <BCol v-if="form.is_oic" lg="6" class="mt-2">
-                    <InputLabel for="name" value="Start Date" :message="form.errors.start_at"/>
-                    <TextInput id="name" v-model="form.start_at" type="date" class="form-control" placeholder="Please enter contact no." @input="handleInput('start_at')" :light="true"/>
-                </BCol>
-                <BCol v-if="form.is_oic" lg="6" class="mt-2">
-                    <InputLabel for="name" value="End Date" :message="form.errors.end_at"/>
-                    <TextInput id="name" v-model="form.end_at" type="date" class="form-control" placeholder="Please enter contact no." @input="handleInput('end_at')" :light="true"/>
-                </BCol>
             </BRow>
         </form>
         <template v-slot:footer>
@@ -98,18 +67,14 @@
 <script>
 import _ from 'lodash';
 import { useForm } from '@inertiajs/vue3';
-import Multiselect from "@vueform/multiselect";
-import InputLabel from '@/Shared/Components/Forms/InputLabel.vue';
-import TextInput from '@/Shared/Components/Forms/TextInput.vue';
 export default {
-    components: {InputLabel, TextInput, Multiselect },
     props: ['divisions'],
     data(){
         return {
             form: useForm({
                 signatory_id: null,
                 user_id: null,
-                is_oic: null,
+                is_oic: false,
                 start_at: null,
                 end_at: null,
                 option: 'designate'
@@ -132,6 +97,7 @@ export default {
             this.names = [];
             this.selected = data;
             this.form.signatory_id = this.selected.signatory.id;
+            this.form.is_oic = false;
             this.showModal = true;
         },
         checkSearchStr: _.debounce(function (string) {

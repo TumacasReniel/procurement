@@ -9,6 +9,7 @@ use App\Services\DropdownClass;
 use App\Services\FAIMS\Procurement\ViewClass;
 use App\Services\FAIMS\Procurement\ProcurementCodeClass;
 use  App\Http\Requests\Procurement\ProcurementCodeRequest;
+use App\Http\Requests\Procurement\ProcurementCodeBudgetIncreaseRequest;
 
 class ProcurementCodeController extends Controller
 {
@@ -24,6 +25,7 @@ class ProcurementCodeController extends Controller
     }
 
     public function index(Request $request){
+        $this->ensureCanView();
     
         switch($request->option){     
             case 'lists':
@@ -47,6 +49,8 @@ class ProcurementCodeController extends Controller
     }
 
     public function store(ProcurementCodeRequest $request) {
+        $this->ensureCanManage();
+
         $result = $this->handleTransaction(function () use ($request) {
             return $this->pap_codes->save($request);
         });
@@ -62,6 +66,8 @@ class ProcurementCodeController extends Controller
 
     
     public function update(ProcurementCodeRequest $request , $id) {
+        $this->ensureCanManage();
+
         $result = $this->handleTransaction(function () use ($request ,$id) {
             return $this->pap_codes->update($request, $id);
         });
@@ -75,4 +81,94 @@ class ProcurementCodeController extends Controller
 
     }
 
+    public function show($id)
+    {
+        $this->ensureCanView();
+
+        return response()->json($this->pap_codes->profile($id));
+    }
+
+    public function requestBudgetIncrease(ProcurementCodeBudgetIncreaseRequest $request, $id)
+    {
+        $this->ensureCanRequestBudgetIncrease();
+
+        $result = $this->handleTransaction(function () use ($request, $id) {
+            return $this->pap_codes->requestBudgetIncrease($id, $request);
+        });
+
+        return back()->with([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
+        ]);
+    }
+
+    public function approveBudgetIncrease($id, $budgetLog)
+    {
+        $this->ensureCanReviewBudgetIncrease();
+
+        $result = $this->handleTransaction(function () use ($id, $budgetLog) {
+            return $this->pap_codes->approveBudgetIncrease($id, $budgetLog);
+        });
+
+        return back()->with([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
+        ]);
+    }
+
+    public function rejectBudgetIncrease($id, $budgetLog)
+    {
+        $this->ensureCanReviewBudgetIncrease();
+
+        $result = $this->handleTransaction(function () use ($id, $budgetLog) {
+            return $this->pap_codes->rejectBudgetIncrease($id, $budgetLog);
+        });
+
+        return back()->with([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
+        ]);
+    }
+
+    protected function ensureCanManage(): void
+    {
+        abort_unless(
+            $this->pap_codes->canManageProcurementCodes(auth()->user()),
+            403,
+            'Only Procurement Officer or Administrator can manage PAP codes.'
+        );
+    }
+
+    protected function ensureCanView(): void
+    {
+        abort_unless(
+            $this->pap_codes->canViewProcurementCodes(auth()->user()),
+            403,
+            'You do not have permission to access PAP codes.'
+        );
+    }
+
+    protected function ensureCanReviewBudgetIncrease(): void
+    {
+        abort_unless(
+            $this->pap_codes->canReviewBudgetIncrease(auth()->user()),
+            403,
+            'Only Budget Officer or Administrator can review PAP code budget increase requests.'
+        );
+    }
+
+    protected function ensureCanRequestBudgetIncrease(): void
+    {
+        abort_unless(
+            $this->pap_codes->canRequestBudgetIncrease(auth()->user()),
+            403,
+            'Only Procurement Staff, Procurement Officer, or Administrator can request PAP code budget increases.'
+        );
+    }
 }

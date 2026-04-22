@@ -19,7 +19,7 @@
           
           <span class="text-danger flex">{{ form.code }}</span></b>
           <br>
-        <span v-if="actionType !== 'revert' && form.status?.name === 'Delivered/For Inspection'">
+        <span v-if="actionType !== 'revert' && ['Items Delivered', 'Delivered/For Inspection'].includes(form.status?.name)">
             Update status from
             <span :class="form.status?.color">"{{ form.status?.name }}"</span>
             to
@@ -201,8 +201,8 @@ export default {
       return this.confirmText.toLowerCase() === "confirm";
     },
     revertTargetStatus() {
-      if (this.form.status?.name === "Completed") return "Delivered/For Inspection";
-      if (this.form.status?.name === "Delivered/For Inspection") return "Conformed";
+      if (this.form.status?.name === "Completed") return "Items Delivered";
+      if (["Items Delivered", "Delivered/For Inspection"].includes(this.form.status?.name)) return "Conformed";
       return "Previous Status";
     },
   },

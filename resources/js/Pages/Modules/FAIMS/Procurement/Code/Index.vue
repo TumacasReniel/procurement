@@ -1,7 +1,7 @@
 <template>
   <Head title="PAP Codes" />
   <PageHeader title="PAP Codes" pageTitle="Libraries" />
-  <BRow>
+  <BRow class="procurement-index-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
         <div class="card-header bg-light-subtle">
@@ -46,7 +46,12 @@
                 >
                   <i class="bx bx-refresh search-icon"></i>
                 </span>
-                <b-button type="button" variant="primary" @click="openPAPCodModal()">
+                <b-button
+                  v-if="canManagePapCodes"
+                  type="button"
+                  variant="primary"
+                  @click="openPAPCodModal()"
+                >
                   <i class="ri-add-circle-fill align-bottom me-1"></i> New
                 </b-button>
               </div>
@@ -65,11 +70,11 @@
                     <th style="width: 4%" class="text-center">#</th>
                     <th style="width: 15%">PAP Codes</th>
                     <th style="width: 18%">Project Description/Title</th>
-                    <th style="width: 12%">Allocated Budget</th>
+                    <th style="width: 14%">Budget</th>
                     <th style="width: 15%">Mode of Procurement / APP Type</th>
                     <th style="width: 12%">End Users</th>
                     <th style="width: 12%">Year</th>
-                    <th style="width: 10%" class="text-center">Actions</th>
+                    <th style="width: 12%" class="text-center">Actions</th>
                   </tr>
                 </thead>
 
@@ -90,18 +95,36 @@
                       </div>
                     </td>
                     <td>
-                      <div class="text-truncate" style="max-width: 200px;" v-b-tooltip.hover :title="list.title">
+                      <div
+                        class="text-truncate"
+                        style="max-width: 200px"
+                        v-b-tooltip.hover
+                        :title="list.title"
+                      >
                         {{ list.title }}
                       </div>
                     </td>
-                    <td>{{ formatCurrency(list.allocated_budget) }}</td>
+                    <td>
+                      <div class="fw-semibold">{{ formatCurrency(list.allocated_budget) }}</div>
+                      <small
+                        class="d-block"
+                        :class="remainingBudget(list) < 0 ? 'text-danger' : 'text-muted'"
+                      >
+                        Remaining: {{ formatCurrency(remainingBudget(list)) }}
+                      </small>
+                      <small
+                        v-if="Number(list.pending_budget_increase_requests_count) > 0"
+                        class="d-block text-primary fw-medium mt-1"
+                      >
+                        Pending top-ups: {{ list.pending_budget_increase_requests_count }}
+                      </small>
+                    </td>
                     <td>
                       <span>{{ list.mode_of_procurement.name }}</span> <br />
                       <span class="text-muted">{{ list.app_type.name }}</span>
                     </td>
                     <td>
-                    
-                      <div v-for="(end_user, index) in list.end_users" :key="index">
+                      <div v-for="(end_user, endUserIndex) in list.end_users" :key="endUserIndex">
                         <b-badge class="me-1">
                           {{ end_user.end_user.name }}
                         </b-badge>
@@ -113,15 +136,39 @@
                     <td>
                       <div class="d-flex justify-content-center gap-1">
                         <b-button
-                          @click="editPAP(list)"
+                          @click.stop="openProfile(list)"
+                          size="sm"
+                          variant="primary"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="View Profile"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-eye-line"></i>
+                        </b-button>
+                        <b-button
+                          v-if="canManagePapCodes && list.can_edit"
+                          @click.stop="editPAP(list)"
                           size="sm"
                           variant="success"
                           class="btn-icon"
                           v-b-tooltip.hover
                           title="Edit"
-                          style="border-radius: 8px;"
+                          style="border-radius: 8px"
                         >
                           <i class="ri-edit-line"></i>
+                        </b-button>
+                        <b-button
+                          v-if="canRequestBudgetIncrease"
+                          @click.stop="openBudgetIncrease(list)"
+                          size="sm"
+                          variant="warning"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Request Additional Budget"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-funds-line"></i>
                         </b-button>
                       </div>
                     </td>
@@ -153,16 +200,33 @@
     :end_users="dropdowns.end_users"
     ref="create"
   />
+  <ProcurementCodeProfile
+    ref="profile"
+    @request-budget-increase="openBudgetIncrease"
+    @updated="handleProfileUpdated"
+  />
+  <ProcurementCodeBudgetIncrease
+    ref="budgetIncrease"
+    @submitted="handleBudgetIncreaseSubmitted"
+  />
 </template>
 <script>
 import _ from "lodash";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import ProcurementCodeModal from "@/Pages/Modules/FAIMS/Procurement/Modals/ProcurementCode.vue";
+import ProcurementCodeProfile from "@/Pages/Modules/FAIMS/Procurement/Modals/ProcurementCodeProfile.vue";
+import ProcurementCodeBudgetIncrease from "@/Pages/Modules/FAIMS/Procurement/Modals/ProcurementCodeBudgetIncrease.vue";
 
 export default {
   props: ["dropdowns"],
-  components: { ProcurementCodeModal, Pagination, PageHeader },
+  components: {
+    ProcurementCodeModal,
+    ProcurementCodeProfile,
+    ProcurementCodeBudgetIncrease,
+    Pagination,
+    PageHeader,
+  },
   data() {
     return {
       currentUrl: window.location.origin,
@@ -174,7 +238,23 @@ export default {
       },
       mode_of_procurements: {},
       index: null,
+      selectedRow: null,
     };
+  },
+  computed: {
+    currentRoles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    canManagePapCodes() {
+      return this.currentRoles.some((role) => {
+        return ["Procurement Officer", "Administrator"].includes(role);
+      });
+    },
+    canRequestBudgetIncrease() {
+      return this.currentRoles.some((role) => {
+        return ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role);
+      });
+    },
   },
   watch: {
     "filter.keyword"(newVal) {
@@ -182,15 +262,11 @@ export default {
     },
   },
 
-  mounted() {
-    // this.getModeOfProcurements();
-  },
-
   created() {
     this.fetch();
   },
   methods: {
-    checkSearchStr: _.debounce(function (string) {
+    checkSearchStr: _.debounce(function () {
       this.fetch();
     }, 300),
     fetch(page_url) {
@@ -220,15 +296,32 @@ export default {
       this.$refs.create.edit(data);
     },
 
-    viewPAP(data) {
-      this.$refs.create.view(data);
+    openProfile(data) {
+      this.$refs.profile.show(data.id);
+    },
+
+    openBudgetIncrease(data) {
+      this.$refs.budgetIncrease.show(data);
+    },
+
+    handleBudgetIncreaseSubmitted(payload) {
+      this.fetch();
+      this.$refs.profile.applyPayload(payload);
+    },
+
+    handleProfileUpdated() {
+      this.fetch();
     },
 
     formatCurrency(value) {
       return new Intl.NumberFormat("en-PH", {
         style: "currency",
         currency: "PHP",
-      }).format(value);
+      }).format(Number(value || 0));
+    },
+
+    remainingBudget(list) {
+      return Number(list.remaining_budget ?? list.allocated_budget ?? 0);
     },
 
     selectRow(index) {

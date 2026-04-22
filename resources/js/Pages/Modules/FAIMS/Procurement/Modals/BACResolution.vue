@@ -1,12 +1,14 @@
 <template>
   <b-modal
     v-model="showModal"
-    header-class="p-3"
+    header-class="p-3 bac-resolution-modal-header"
     :title="editable ? 'Update BAC Resolution' : 'Create BAC Resolution'"
     size="xl"
     centered
     no-close-on-backdrop
-    body-class="modal-body-scroll"
+    content-class="bac-resolution-modal-content"
+    body-class="modal-body-scroll bac-resolution-modal-body"
+    footer-class="bac-resolution-modal-footer"
   >
     <b-row>
       <b-col
@@ -19,8 +21,7 @@
               <InputLabel value="BAC Resolution Number" />
               <TextInput
                 v-model="form.code"
-                class="form-control"
-                :light="true"
+                class="form-control bac-resolution-input"
                 readonly
               />
             </BCol>
@@ -28,8 +29,7 @@
               <InputLabel value="Type" />
               <TextInput
                 v-model="form.type"
-                class="form-control"
-                :light="true"
+                class="form-control bac-resolution-input"
                 readonly
               />
             </BCol>
@@ -38,8 +38,7 @@
               <InputLabel value="Procurement Number" />
               <TextInput
                 v-model="procurement.code"
-                class="form-control"
-                :light="true"
+                class="form-control bac-resolution-input"
                 disabled
               />
             </BCol>
@@ -69,19 +68,13 @@
         style="transition: all 0.3s ease"
       >
         <div
-          class="card shadow-lg border-0"
-          style="
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
-            height: 100vh;
-          "
+          class="card shadow-lg border-0 bac-resolution-sidebar"
         >
           <div
-            class="card-header bg-gradient-primary border-0 d-flex align-items-center justify-content-between"
-            style="border-radius: 15px 15px 0 0 !important; padding: 1rem"
+            class="card-header bg-gradient-primary border-0 d-flex align-items-center justify-content-between bac-resolution-sidebar__header"
           >
             <div v-if="!isRightCollapsed">
-              <h6 class="card-title mb-0 text-dark">
+              <h6 class="card-title mb-0 bac-resolution-sidebar__title">
                 <span class="position-relative me-2">
                   <i class="ri-file-list-line"></i>
                   <span
@@ -96,33 +89,24 @@
             </div>
             <button
               @click="toggleRightSidebar"
-              class="btn btn-sm btn-light rounded-circle p-2 ms-2"
-              style="width: 40px; height: 40px"
+              class="btn btn-sm rounded-circle p-2 ms-2 bac-resolution-sidebar__toggle"
             >
               <i
                 :class="isRightCollapsed ? 'ri-arrow-left-line' : 'ri-arrow-right-line'"
-                class="text-primary fs-6"
+                class="fs-6 bac-resolution-sidebar__toggle-icon"
               ></i>
             </button>
           </div>
           <div
             v-if="!isRightCollapsed"
-            class="card-body p-0"
-            style="height: 100vh; overflow: auto; border-radius: 0 0 15px 15px"
+            class="card-body p-0 bac-resolution-sidebar__body"
           >
             <div class="p-3">
               <div
-                class="nav nav-tabs nav-justified mb-3"
-                style="
-                  border-bottom: 2px solid #007bff;
-                  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-                  border-radius: 10px;
-                  padding: 5px;
-                  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                "
+                class="nav nav-tabs nav-justified mb-3 bac-resolution-log-tabs"
               >
                 <button
-                  :class="['nav-link', activeRightTab === 1 ? 'active' : '']"
+                  :class="['nav-link bac-resolution-log-tab', activeRightTab === 1 ? 'active' : '']"
                   @click="showRightTab(1)"
                 >
                   <i class="ri-file-list-line me-1"></i>Logs
@@ -133,12 +117,7 @@
                   <div
                     v-for="log in modalLogs"
                     :key="log.id"
-                    class="log-item p-3 mb-3"
-                    style="
-                      background: #f8f9fa;
-                      border-left: 4px solid #007bff;
-                      transition: all 0.3s ease;
-                    "
+                    class="log-item p-3 mb-3 bac-resolution-log-item"
                   >
                     <div class="d-flex justify-content-between align-items-start">
                       <div class="flex-grow-1">
@@ -157,39 +136,16 @@
                         </div>
                         <div
                           v-if="log.changes && Object.keys(log.changes).length > 0"
-                          class="log-changes mt-2"
-                          style="
-                            background: #ffffff;
-                            padding: 0.5rem;
-                            border-radius: 4px;
-                            border: 1px solid #dee2e6;
-                          "
+                          class="log-changes mt-2 bac-resolution-log-changes"
                         >
                           <div class="small fw-bold text-muted mb-1">Changes:</div>
                           <div
                             v-for="(value, key) in log.changes"
                             :key="key"
-                            class="change-item"
-                            style="
-                              display: flex;
-                              justify-content: space-between;
-                              margin-bottom: 0.25rem;
-                            "
+                            class="change-item bac-resolution-change-item"
                           >
-                            <span
-                              class="change-key"
-                              style="font-weight: 600; color: #495057"
-                              >{{ key }}:</span
-                            >
-                            <span
-                              class="change-value"
-                              style="
-                                color: #007bff;
-                                font-family: monospace;
-                                font-size: 0.85rem;
-                              "
-                              >{{ value }}</span
-                            >
+                            <span class="change-key bac-resolution-change-key">{{ key }}:</span>
+                            <span class="change-value bac-resolution-change-value">{{ value }}</span>
                           </div>
                         </div>
                       </div>
@@ -209,20 +165,16 @@
           </div>
           <div
             v-else
-            class="card-body p-0"
-            style="height: 100vh; overflow: auto; border-radius: 0 0 15px 15px"
+            class="card-body p-0 bac-resolution-sidebar__body"
           >
             <div class="p-2 d-flex flex-column align-items-center">
               <div class="position-relative">
                 <button
                   :class="[
-                    'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-                    activeRightTab === 1
-                      ? 'bg-primary text-white shadow-sm'
-                      : 'bg-white text-dark hover-bg-light',
+                    'nav-link mb-2 rounded-pill border-0 transition-all p-2 bac-resolution-log-tab-icon',
+                    { 'is-active': activeRightTab === 1 },
                   ]"
                   @click="showRightTab(1)"
-                  style="transition: all 0.3s ease; width: 50px; height: 50px"
                   v-b-tooltip.hover
                   title="Logs"
                 >
@@ -248,7 +200,7 @@
     </b-row>
 
     <template v-slot:footer>
-      <b-button @click="hide()" variant="light" block>Cancel</b-button>
+      <b-button @click="hide()" variant="light" class="bac-resolution-cancel-btn" block>Cancel</b-button>
       <b-button @click="submit(form)" variant="success" v-if="editable" block
         >Update</b-button
       >
@@ -536,33 +488,199 @@ export default {
       return `${n}<sup>${suffix}</sup>`;
     },
 
+    uniqueTextValues(values = []) {
+      return [...new Set(
+        values
+          .map((value) => (typeof value === "string" ? value.trim() : value))
+          .filter(
+            (value) =>
+              typeof value === "string" &&
+              value.length > 0 &&
+              value.toLowerCase() !== "n/a"
+          )
+      )];
+    },
+
+    joinWithAnd(values = []) {
+      if (values.length === 0) return "";
+      if (values.length === 1) return values[0];
+      if (values.length === 2) return `${values[0]} and ${values[1]}`;
+
+      return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
+    },
+
+    sumNumericValues(values = []) {
+      return values.reduce((sum, value) => sum + (Number(value) || 0), 0);
+    },
+
+    normalizeSupplierLocation(location = "") {
+      const trimmedLocation = String(location || "").trim();
+      if (!trimmedLocation) return null;
+
+      const normalizedLocation = trimmedLocation
+        .toLowerCase()
+        .replace(/\./g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const locationMap = {
+        "zamboanga city": "Zamboanga City",
+        zamboanga: "Zamboanga City",
+        "pagadian city": "Pagadian City",
+        pagadian: "Pagadian City",
+        "dipolog city": "Dipolog City",
+        dipolog: "Dipolog City",
+        "isabela city": "Isabela City",
+        isabela: "Isabela City",
+        ipil: "Ipil",
+      };
+
+      return locationMap[normalizedLocation] || trimmedLocation;
+    },
+
+    extractSupplierLocation(address = "") {
+      const cleanedAddress = String(address || "").trim();
+      if (!cleanedAddress) return null;
+
+      const segments = cleanedAddress
+        .split(",")
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+      const reversedSegments = [...segments].reverse();
+
+      const citySegment = reversedSegments.find((segment) => /\bcity\b/i.test(segment));
+      if (citySegment) {
+        return this.normalizeSupplierLocation(citySegment);
+      }
+
+      const municipalitySegment = reversedSegments.find((segment) =>
+        /\bmunicipality\b/i.test(segment)
+      );
+      if (municipalitySegment) {
+        return this.normalizeSupplierLocation(municipalitySegment);
+      }
+
+      const provinceSegment = reversedSegments.find((segment) =>
+        /\bprovince\b/i.test(segment)
+      );
+      if (provinceSegment) {
+        return this.normalizeSupplierLocation(provinceSegment);
+      }
+
+      const genericPlaceSegment = reversedSegments.find(
+        (segment) =>
+          /[A-Za-z]/.test(segment) &&
+          !/^\d+$/.test(segment) &&
+          segment.length <= 40
+      );
+
+      return this.normalizeSupplierLocation(genericPlaceSegment);
+    },
+
+    procurementQuotationContext() {
+      const quotations = this.procurement.quotations || [];
+      const supplierNames = this.uniqueTextValues(
+        quotations.map((quotation) => quotation.supplier?.name)
+      );
+      const supplierLocations = this.uniqueTextValues(
+        quotations.map((quotation) =>
+          this.extractSupplierLocation(quotation.supplier?.address?.address)
+        )
+      );
+
+      const quotationCount = quotations.length;
+      const supplierCount = supplierNames.length;
+
+      return {
+        quotation_count: quotationCount,
+        quotation_label:
+          quotationCount === 1
+            ? "request for quotation (RFQ)"
+            : "requests for quotation (RFQs)",
+        supplier_count: supplierCount,
+        supplier_label: supplierCount === 1 ? "supplier" : "suppliers",
+        supplier_location_phrase: supplierLocations.length
+          ? ` in ${this.joinWithAnd(supplierLocations)}`
+          : "",
+        supplier_names: this.joinWithAnd(supplierNames),
+      };
+    },
+
+    procurementSectionNumber(modeName) {
+      const normalizedMode = (modeName || "").trim().toLowerCase();
+      const sectionMap = {
+        "competitive public bidding": "10",
+        "limited source bidding": "49",
+        "direct contracting": "50",
+        "repeat order": "51",
+        shopping: "52",
+        "negotiated procurement": "53",
+        "two failed biddings": "53.1",
+        "emergency cases": "53.2",
+        "take-over of contracts": "53.3",
+        "take over of contracts": "53.3",
+        "adjacent or contiguous": "53.4",
+        "agency-to-agency": "53.5",
+        "agency to agency": "53.5",
+        "scientific, scholarly or artistic work": "53.6",
+        "scientific, scholarly or artistic work, exclusive technology and media services":
+          "53.6",
+        "exclusive technology and media services": "53.6",
+        "highly technical consultant": "53.7",
+        "highly technical consultants": "53.7",
+        "small value procurement": "53.9",
+        "lease of venue and community facilities": "53.10",
+        "lease of real property and venue": "53.10",
+        "lease of real property or venue": "53.10",
+      };
+
+      return sectionMap[normalizedMode] || null;
+    },
+
+    procurementModeContext() {
+      const codes = this.procurement.codes || [];
+      const modeNames = this.uniqueTextValues(
+        codes.map((code) => code.procurement_code?.mode_of_procurement?.name)
+      );
+      const sectionNumbers = this.uniqueTextValues(
+        modeNames.map((modeName) => this.procurementSectionNumber(modeName))
+      );
+
+      let sectionLabel = "the applicable procurement section";
+      if (sectionNumbers.length === 1) {
+        sectionLabel = `Section ${sectionNumbers[0]}`;
+      } else if (sectionNumbers.length > 1) {
+        sectionLabel = `Sections ${this.joinWithAnd(sectionNumbers)}`;
+      }
+
+      return {
+        mode_of_procurement_names: this.joinWithAnd(modeNames).toUpperCase(),
+        mode_of_procurement_ra_nos: "R.A. 12009",
+        mode_of_procurement_sections: sectionLabel,
+      };
+    },
+
     Content() {
       const current_date = this.getFormattedDate();
 
-      const mode_of_procurement_names = this.procurement.codes
-        .map((code) => code.procurement_code?.mode_of_procurement?.name)
-        .filter(Boolean)
-        .join(", ")
-        .toUpperCase();
-      const mode_of_procurement_ra_nos = this.procurement.codes
-        .map((code) => code.procurement_code?.mode_of_procurement?.others)
-        .filter(Boolean)
-        .join(", ")
-        .toUpperCase();
+      const {
+        mode_of_procurement_names,
+        mode_of_procurement_ra_nos,
+        mode_of_procurement_sections,
+      } = this.procurementModeContext();
       const app_types = this.procurement.codes
         .map((code) => code.procurement_code?.app_type?.name)
         .filter(Boolean)
         .join(", ");
-      const allocated_budget = this.procurement.codes
-        .map((code) => code.procurement_code?.allocated_budget)
-        .filter(Boolean)
-        .join(", ");
+      const allocated_budget = this.sumNumericValues(
+        this.procurement.codes.map((code) => code.procurement_code?.allocated_budget)
+      );
       const budget_in_words = this.numberToWords(allocated_budget);
-
-      const all_pr_supplier_names = this.procurement.quotations
-        .map((quotation) => quotation.supplier?.name)
-        .filter(Boolean)
-        .join(", ");
+      const approved_budget = this.sumNumericValues(
+        (this.procurement.items || []).map((item) => item?.total_cost)
+      );
+      const approved_budget_in_words = this.numberToWords(approved_budget);
+      const quotation_context = this.procurementQuotationContext();
 
       // Filter bidders
       const bidders = this.procurement.quotations.filter((quotation) =>
@@ -584,10 +702,13 @@ export default {
         current_date,
         mode_of_procurement_names,
         mode_of_procurement_ra_nos,
+        mode_of_procurement_sections,
         app_types,
         allocated_budget,
         budget_in_words,
-        all_pr_supplier_names,
+        approved_budget,
+        approved_budget_in_words,
+        quotation_context,
         pr_date,
         submission_not_later_than_with_format,
         bidders
@@ -597,10 +718,13 @@ export default {
         current_date,
         mode_of_procurement_names,
         mode_of_procurement_ra_nos,
+        mode_of_procurement_sections,
         app_types,
         allocated_budget,
         budget_in_words,
-        all_pr_supplier_names,
+        approved_budget,
+        approved_budget_in_words,
+        quotation_context,
         pr_date,
         submission_not_later_than_with_format,
         bidders
@@ -610,10 +734,13 @@ export default {
         current_date,
         mode_of_procurement_names,
         mode_of_procurement_ra_nos,
+        mode_of_procurement_sections,
         app_types,
         allocated_budget,
         budget_in_words,
-        all_pr_supplier_names,
+        approved_budget,
+        approved_budget_in_words,
+        quotation_context,
         pr_date,
         submission_not_later_than_with_format,
         bidders
@@ -624,10 +751,13 @@ export default {
       current_date,
       mode_of_procurement_names,
       mode_of_procurement_ra_nos,
+      mode_of_procurement_sections,
       app_types,
       allocated_budget,
       budget_in_words,
-      all_pr_supplier_names,
+      approved_budget,
+      approved_budget_in_words,
+      quotation_context,
       pr_date,
       submission_not_later_than_with_format,
       bidders
@@ -731,7 +861,7 @@ export default {
           <p style="text-align: justify ;   text-align-last: center;  margin-bottom: 2em; ">
             <b>
               RECOMMENDING AWARD OF CONTRACT TO ${awarded_supplier_names}, AS THE ${bid_type_label_cap} CALCULATED AND RESPONSIVE BIDDER FOR THE PROCUREMENT
-              "${this.procurement.title.toUpperCase()}" UNDERTAKEN THROUGH SECTION 53.9 (${mode_of_procurement_names})
+              "${this.procurement.title.toUpperCase()}" UNDERTAKEN THROUGH ${mode_of_procurement_sections.toUpperCase()} (${mode_of_procurement_names})
               OF THE REVISED IMPLEMENTING RULES AND REGULATIONS OF (${mode_of_procurement_ra_nos})
             </b>
           </p>
@@ -748,8 +878,9 @@ export default {
             <i style="font-size:12px">"${this.procurement.title.toUpperCase()}"</i>
             with allocated budget of ${budget_in_words} (PHP ${Number(
         allocated_budget || 0
-      ).toLocaleString()}),
-            to be procured through Section 53.9 of the revised Implementing Rules and Regulations (IRR) of ${mode_of_procurement_ra_nos} ;
+      ).toLocaleString()}), and an Approved Budget for the Contract (ABC) of ${approved_budget_in_words}
+            (PHP ${Number(approved_budget || 0).toLocaleString()}),
+            to be procured through ${mode_of_procurement_sections} of the revised Implementing Rules and Regulations (IRR) of ${mode_of_procurement_ra_nos} ;
           </p>
 
           <p style="text-align: justify; margin-bottom: 1em; ">
@@ -761,8 +892,9 @@ export default {
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
             <b>WHEREAS</b>, the BAC initiated the procurement through its secretariat through dissemination
-            of the request for quotation to at least four suppliers of known qualifications in
-            Zamboanga City to wit: ${all_pr_supplier_names};
+            of ${quotation_context.quotation_count} ${quotation_context.quotation_label} to ${quotation_context.supplier_count}
+            ${quotation_context.supplier_label} of known qualifications${quotation_context.supplier_location_phrase},
+            to wit: ${quotation_context.supplier_names};
           </p>
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
@@ -795,10 +927,13 @@ export default {
       current_date,
       mode_of_procurement_names,
       mode_of_procurement_ra_nos,
+      mode_of_procurement_sections,
       app_types,
       allocated_budget,
       budget_in_words,
-      all_pr_supplier_names,
+      approved_budget,
+      approved_budget_in_words,
+      quotation_context,
       pr_date,
       submission_not_later_than_with_format,
       bidders
@@ -908,7 +1043,7 @@ export default {
               RECOMMENDING FOR RE-AWARD OF CONTRACT TO ${reawarded_supplier_names}, AS THE ${this.toOrdinal(
         this.procurement.reawarded_count + 1
       )} ${bid_type_cap} CALCULATED AND RESPONSIVE BIDDER FOR THE PROCUREMENT
-              "${this.procurement.title.toUpperCase()}" UNDERTAKEN THROUGH SECTION 53.9 (${mode_of_procurement_names})
+              "${this.procurement.title.toUpperCase()}" UNDERTAKEN THROUGH ${mode_of_procurement_sections.toUpperCase()} (${mode_of_procurement_names})
               OF THE REVISED IMPLEMENTING RULES AND REGULATIONS OF (${mode_of_procurement_ra_nos})
             </b>
           </p>
@@ -925,8 +1060,9 @@ export default {
             <i style="font-size:12px">"${this.procurement.title.toUpperCase()}"</i>
             with allocated budget of ${budget_in_words} (PHP ${Number(
         allocated_budget
-      ).toLocaleString()}),
-            to be procured through Section 53.9 of the revised Implementing Rules and Regulations (IRR) of ${mode_of_procurement_ra_nos} ;
+      ).toLocaleString()}), and an Approved Budget for the Contract (ABC) of ${approved_budget_in_words}
+            (PHP ${Number(approved_budget || 0).toLocaleString()}),
+            to be procured through ${mode_of_procurement_sections} of the revised Implementing Rules and Regulations (IRR) of ${mode_of_procurement_ra_nos} ;
           </p>
 
           <p style="text-align: justify; margin-bottom: 1em; ">
@@ -938,8 +1074,9 @@ export default {
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
             <b>WHEREAS</b>, the BAC initiated the procurement through its secretariat through dissemination
-            of the request for quotation to at least four suppliers of known qualifications in
-            Zamboanga City to wit: ${all_pr_supplier_names};
+            of ${quotation_context.quotation_count} ${quotation_context.quotation_label} to ${quotation_context.supplier_count}
+            ${quotation_context.supplier_label} of known qualifications${quotation_context.supplier_location_phrase},
+            to wit: ${quotation_context.supplier_names};
           </p>
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
@@ -978,10 +1115,13 @@ export default {
       current_date,
       mode_of_procurement_names,
       mode_of_procurement_ra_nos,
+      mode_of_procurement_sections,
       app_types,
       allocated_budget,
       budget_in_words,
-      all_pr_supplier_names,
+      approved_budget,
+      approved_budget_in_words,
+      quotation_context,
       pr_date,
       submission_not_later_than_with_format,
       bidders
@@ -1059,21 +1199,24 @@ export default {
             <i style="font-size:12px">"${this.procurement.title.toUpperCase()}"</i>
             with allocated budget of ${budget_in_words} (PHP ${Number(
         allocated_budget
-      ).toLocaleString()}),
-            to be procured through Section 53.9 of the revised IRR of ${mode_of_procurement_ra_nos};
+      ).toLocaleString()}), and an Approved Budget for the Contract (ABC) of ${approved_budget_in_words}
+            (PHP ${Number(approved_budget || 0).toLocaleString()}),
+            to be procured through ${mode_of_procurement_sections} of the revised IRR of ${mode_of_procurement_ra_nos};
           </p>
           <p style="text-align: justify">
             <b>WHEREAS</b>, the BAC received an approved Purchase Request (PR No. ${
               this.procurement.code
             }, dated ${pr_date})
             from the end-user for the <b>"${this.procurement.title.toUpperCase()}"</b>, with a total Approved Budget for the Contract (ABC) of
-            <b>${total_amount_contract_in_words}</b> (PHP ${Number(
-        award_bid_total_price
+            <b>${approved_budget_in_words}</b> (PHP ${Number(
+        approved_budget || 0
       ).toLocaleString()}), to be procured on a per-item basis and following detailed technical specifications (Annex “B”);
           </p>
           <p style="text-align: justify">
-            <b>WHEREAS</b>, the BAC, in full compliance with  ${mode_of_procurement_ra_nos}; and its IRR, initiated the procurement process by issuing Requests for Quotation (RFQs)
-            to at least three (3) suppliers with established qualifications, namely: ${all_pr_supplier_names};
+            <b>WHEREAS</b>, the BAC, in full compliance with  ${mode_of_procurement_ra_nos}; and its IRR, initiated the procurement process by issuing
+            ${quotation_context.quotation_count} ${quotation_context.quotation_label} to ${quotation_context.supplier_count}
+            ${quotation_context.supplier_label} with established qualifications${quotation_context.supplier_location_phrase},
+            namely: ${quotation_context.supplier_names};
           </p>
           <p style="text-align: justify">
             <b>WHEREAS</b>, upon opening and evaluation of the bid documents, the BAC found that ${awarded_supplier_names} met the legal requirements but failed to comply with the technical specifications; thus, no responsive and eligible bid was identified;
@@ -1096,10 +1239,7 @@ export default {
             <b>II.</b> To recommend to the Head of the Procuring Entity (HOPE), the Regional Director of DOST-IX,
             the immediate review and evaluation of the causes of the bidding failure and to undertake appropriate
             measures or revisions in accordance with the IRR of
-            ${
-              this.procurement.pap_codes?.[0]?.pap_code?.mode_of_procurement
-                ?.republic_act_number
-            };
+            ${mode_of_procurement_ra_nos};
           </li>
 
           <div style="height:1em;"></div>
@@ -1376,5 +1516,250 @@ export default {
 .modal-body-scroll {
   max-height: 100vh;
   overflow-y: auto;
+}
+</style>
+
+<style>
+.bac-resolution-modal-content {
+  --bac-resolution-surface: #ffffff;
+  --bac-resolution-surface-alt: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  --bac-resolution-panel: #f8fafc;
+  --bac-resolution-panel-inner: #ffffff;
+  --bac-resolution-border: rgba(148, 163, 184, 0.22);
+  --bac-resolution-text: #1e293b;
+  --bac-resolution-muted: #64748b;
+  --bac-resolution-accent: #3b82f6;
+  background: var(--bac-resolution-surface);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+}
+
+.bac-resolution-modal-header,
+.bac-resolution-modal-body,
+.bac-resolution-modal-footer {
+  background: transparent;
+  color: var(--bac-resolution-text);
+  border-color: var(--bac-resolution-border);
+}
+
+.bac-resolution-modal-header .modal-title,
+.bac-resolution-modal-footer {
+  color: var(--bac-resolution-text);
+}
+
+.bac-resolution-input {
+  background: var(--bac-resolution-panel-inner) !important;
+  border-color: var(--bac-resolution-border) !important;
+  color: var(--bac-resolution-text) !important;
+}
+
+.bac-resolution-input[readonly],
+.bac-resolution-input:disabled {
+  background: var(--bac-resolution-panel) !important;
+  color: var(--bac-resolution-text) !important;
+  opacity: 1;
+}
+
+.bac-resolution-sidebar {
+  background: var(--bac-resolution-surface-alt);
+  border-radius: 15px;
+  height: 100vh;
+  border: 1px solid var(--bac-resolution-border);
+  overflow: hidden;
+}
+
+.bac-resolution-sidebar__header {
+  border-radius: 15px 15px 0 0 !important;
+  padding: 1rem;
+}
+
+.bac-resolution-sidebar__title {
+  color: var(--bac-resolution-text);
+}
+
+.bac-resolution-sidebar__toggle {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.bac-resolution-sidebar__toggle-icon {
+  color: var(--bac-resolution-accent);
+}
+
+.bac-resolution-sidebar__body {
+  height: 100vh;
+  overflow: auto;
+  border-radius: 0 0 15px 15px;
+  background: transparent;
+}
+
+.bac-resolution-log-tabs {
+  border-bottom: 2px solid var(--bac-resolution-accent);
+  background: var(--bac-resolution-surface-alt);
+  border-radius: 10px;
+  padding: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bac-resolution-log-tab {
+  color: var(--bac-resolution-muted);
+  border-radius: 8px;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.bac-resolution-log-tab:hover {
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: var(--bac-resolution-text) !important;
+}
+
+.bac-resolution-log-tab.active {
+  background: rgba(59, 130, 246, 0.14) !important;
+  color: var(--bac-resolution-text) !important;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+.bac-resolution-log-item {
+  background: var(--bac-resolution-panel);
+  border-left: 4px solid var(--bac-resolution-accent);
+  transition: all 0.3s ease;
+  border-radius: 10px;
+  color: var(--bac-resolution-text);
+}
+
+.bac-resolution-log-changes {
+  background: var(--bac-resolution-panel-inner);
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--bac-resolution-border);
+}
+
+.bac-resolution-change-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+  gap: 0.75rem;
+}
+
+.bac-resolution-change-key {
+  font-weight: 600;
+  color: var(--bac-resolution-text);
+}
+
+.bac-resolution-change-value {
+  color: var(--bac-resolution-accent);
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.bac-resolution-log-tab-icon {
+  transition: all 0.3s ease;
+  width: 50px;
+  height: 50px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--bac-resolution-text);
+}
+
+.bac-resolution-log-tab-icon:hover {
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: var(--bac-resolution-text) !important;
+}
+
+.bac-resolution-log-tab-icon.is-active {
+  background: var(--bac-resolution-accent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.28);
+}
+
+.bac-resolution-cancel-btn {
+  border-color: var(--bac-resolution-border);
+}
+
+[data-bs-theme="dark"] .bac-resolution-modal-content {
+  --bac-resolution-surface: linear-gradient(180deg, #161d27 0%, #111827 100%);
+  --bac-resolution-surface-alt: linear-gradient(135deg, #1b2230 0%, #232c3a 100%);
+  --bac-resolution-panel: #202937;
+  --bac-resolution-panel-inner: #1b2230;
+  --bac-resolution-border: rgba(148, 163, 184, 0.18);
+  --bac-resolution-text: #e5edf7;
+  --bac-resolution-muted: #9fb0c7;
+  --bac-resolution-accent: #60a5fa;
+  border-color: rgba(148, 163, 184, 0.2);
+  box-shadow: 0 26px 52px rgba(2, 6, 23, 0.42);
+}
+
+[data-bs-theme="dark"] .bac-resolution-modal-header,
+[data-bs-theme="dark"] .bac-resolution-modal-body,
+[data-bs-theme="dark"] .bac-resolution-modal-footer {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .bac-resolution-sidebar__title,
+[data-bs-theme="dark"] .bac-resolution-modal-header .modal-title,
+[data-bs-theme="dark"] .bac-resolution-log-item,
+[data-bs-theme="dark"] .bac-resolution-log-empty {
+  color: #e5edf7 !important;
+}
+
+[data-bs-theme="dark"] .bac-resolution-sidebar__toggle {
+  background: rgba(15, 23, 42, 0.38);
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+[data-bs-theme="dark"] .bac-resolution-sidebar__toggle-icon {
+  color: #bfdbfe;
+}
+
+[data-bs-theme="dark"] .bac-resolution-log-tabs {
+  border-bottom-color: rgba(96, 165, 250, 0.5) !important;
+  background: linear-gradient(135deg, #1b2230 0%, #232c3a 100%) !important;
+}
+
+[data-bs-theme="dark"] .bac-resolution-log-item {
+  background: #202937;
+}
+
+[data-bs-theme="dark"] .bac-resolution-log-changes {
+  background: #1b2230;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .bac-resolution-log-tab {
+  color: #cbd5e1 !important;
+}
+
+[data-bs-theme="dark"] .bac-resolution-log-tab:hover {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #e5edf7 !important;
+}
+
+[data-bs-theme="dark"] .bac-resolution-log-tab.active {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #e5edf7 !important;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.28);
+}
+
+[data-bs-theme="dark"] .bac-resolution-log-tab-icon {
+  background: rgba(15, 23, 42, 0.38);
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .bac-resolution-log-tab-icon:hover:not(.is-active) {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #e5edf7 !important;
+}
+
+[data-bs-theme="dark"] .bac-resolution-cancel-btn {
+  background: rgba(30, 41, 59, 0.78);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .bac-resolution-cancel-btn:hover {
+  background: rgba(51, 65, 85, 0.95);
+  color: #ffffff;
 }
 </style>

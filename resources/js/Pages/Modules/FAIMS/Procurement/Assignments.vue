@@ -2,10 +2,10 @@
     <Head title="Assignment Page" />
     <PageHeader title="Assignment Management" pageTitle="Procurement" />
 
-    <BRow>
+    <BRow class="procurement-index-page assignment-management-page">
         <BCol lg="12">
-                <BCard no-body>
-                <BCardBody>
+                <BCard no-body class="bg-light-subtle shadow-none border">
+                <BCardBody class="bg-white">
                     <div class="scope-tabs mb-3">
                         <button
                             type="button"
@@ -88,7 +88,7 @@
         style="--vz-modal-width: 600px"
         title="Assign Personnel"
         header-class="p-3 bg-light"
-        class="v-modal-custom"
+        class="v-modal-custom assignment-management-modal"
         modal-class="zoomIn"
         centered
         no-close-on-backdrop
@@ -100,13 +100,13 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Employee</label>
-                <div v-if="existingAssigned.length" class="alert alert-light border mb-2">
+                <div v-if="existingAssigned.length" class="alert alert-light border mb-2 assignment-summary">
                     <small class="text-muted d-block mb-1">Currently assigned</small>
                     <div class="d-flex flex-column gap-2">
                         <span
                             v-for="person in existingAssigned"
                             :key="person.user_id || person.name"
-                            class="badge rounded-pill bg-success-subtle text-success align-self-start"
+                            class="badge rounded-pill bg-success-subtle text-success align-self-start assignment-existing-chip"
                             :class="{ 'text-decoration-line-through opacity-75': isPendingRemovalPerson(person) }"
                         >
                             {{ person.name }}
@@ -126,12 +126,12 @@
                     placeholder="Type at least 2 characters"
                     @input="handleAssignSearch"
                 />
-                <div v-if="assignOptions.length" class="dropdown-menu show w-100">
+                <div v-if="assignOptions.length" class="dropdown-menu show w-100 assignment-search-dropdown">
                     <button
                         v-for="option in assignOptions"
                         :key="option.value ?? option.id"
                         type="button"
-                        class="dropdown-item"
+                        class="dropdown-item assignment-search-option"
                         @click="selectAssignee(option)"
                     >
                         {{ option.name }}
@@ -139,13 +139,13 @@
                 </div>
                 <small class="text-danger" v-if="assignErrors.user_ids">{{ assignErrors.user_ids }}</small>
             </div>
-            <div v-if="assignSelected.length" class="alert alert-light border mb-0">
+            <div v-if="assignSelected.length" class="alert alert-light border mb-0 assignment-summary">
                 <small class="text-muted d-block mb-2">Selected to add</small>
                 <div class="d-flex flex-column gap-2">
                     <span
                         v-for="person in assignSelected"
                         :key="person.value ?? person.id"
-                        class="badge rounded-pill bg-primary-subtle text-primary align-self-start"
+                        class="badge rounded-pill bg-primary-subtle text-primary align-self-start assignment-selected-chip"
                     >
                         {{ person.name }}
                         <i class="ri-close-line ms-1 cursor-pointer" @click="removeAssignee(person)"></i>
@@ -232,7 +232,7 @@ export default {
                 { step: "PO Created", match: ["PO Created"] },
                 { step: "PO Issued", match: ["PO Issued"] },
                 { step: "PO Conformed", match: ["PO Conformed"] },
-                { step: "Delivered", match: ["PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"] },
+                { step: "Items Delivered", match: ["PO Items Delivered", "Items Delivered", "PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"] },
                 { step: "Completed", match: ["Completed"] },
             ];
 
@@ -273,7 +273,7 @@ export default {
                 { step: "PO Created", match: ["PO Created"] },
                 { step: "PO Issued", match: ["PO Issued"] },
                 { step: "PO Conformed", match: ["PO Conformed"] },
-                { step: "Delivered", match: ["PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"] },
+                { step: "Items Delivered", match: ["PO Items Delivered", "Items Delivered", "PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"] },
                 { step: "Completed", match: ["Completed"] },
             ];
 
@@ -576,22 +576,78 @@ export default {
 </script>
 
 <style scoped>
+.assignment-management-page {
+    --assignment-surface: #ffffff;
+    --assignment-surface-soft: #f1f4f9;
+    --assignment-surface-soft-alt: #eef2fb;
+    --assignment-border: #d9dfeb;
+    --assignment-border-soft: #e3e8f2;
+    --assignment-text: #111827;
+    --assignment-muted: #6b7280;
+    --assignment-chip-bg: #e9effa;
+    --assignment-chip-border: #acbad6;
+    --assignment-chip-text: #344f83;
+    --assignment-tab-text: #3d4f8f;
+    --assignment-tab-active-bg: #3d4f8f;
+    --assignment-tab-active-text: #ffffff;
+    --assignment-button-bg: #3d4f8f;
+    --assignment-button-hover-bg: #33437b;
+    --assignment-button-text: #ffffff;
+    --assignment-row-hover: rgba(61, 79, 143, 0.05);
+    --assignment-dropdown-bg: #ffffff;
+    --assignment-dropdown-hover-bg: #f8fafc;
+}
+
+[data-bs-theme="dark"] .assignment-management-page {
+    --assignment-surface: #1f2630;
+    --assignment-surface-soft: #232b36;
+    --assignment-surface-soft-alt: #1d2430;
+    --assignment-border: #364152;
+    --assignment-border-soft: #313b48;
+    --assignment-text: #e5edf7;
+    --assignment-muted: #9fb0c7;
+    --assignment-chip-bg: rgba(96, 165, 250, 0.16);
+    --assignment-chip-border: rgba(148, 163, 184, 0.28);
+    --assignment-chip-text: #dbeafe;
+    --assignment-tab-text: #c7d2fe;
+    --assignment-tab-active-bg: #334155;
+    --assignment-tab-active-text: #e5edf7;
+    --assignment-button-bg: #2563eb;
+    --assignment-button-hover-bg: #1d4ed8;
+    --assignment-button-text: #eff6ff;
+    --assignment-row-hover: rgba(59, 130, 246, 0.12);
+    --assignment-dropdown-bg: #1f2630;
+    --assignment-dropdown-hover-bg: #27303d;
+}
+
+.assignment-table-wrap {
+    background: var(--assignment-surface);
+    border: 1px solid var(--assignment-border);
+    border-radius: 12px;
+}
+
 .assignment-table thead th {
-    background: #f1f4f9;
-    color: #0b1020;
+    background: var(--assignment-surface-soft);
+    color: var(--assignment-text);
     font-weight: 700;
-    border-bottom: 1px solid #d9dfeb;
+    border-bottom: 1px solid var(--assignment-border);
     padding: 14px 12px;
 }
 
 .assignment-table tbody td {
     padding: 14px 12px;
-    border-color: #e3e8f2;
+    border-color: var(--assignment-border-soft);
+    color: var(--assignment-text);
+    background: transparent;
+}
+
+.assignment-table tbody tr:hover td {
+    background: var(--assignment-row-hover);
 }
 
 .step-name {
     font-weight: 700;
-    color: #111827;
+    color: var(--assignment-text);
 }
 
 .indicator-wrap {
@@ -623,7 +679,7 @@ export default {
 }
 
 .indicator-text {
-    color: #6b7280;
+    color: var(--assignment-muted);
     font-weight: 500;
 }
 
@@ -638,9 +694,9 @@ export default {
     font-size: 12px;
     font-weight: 600;
     border-radius: 6px;
-    border: 1px solid #acbad6;
-    background: #e9effa;
-    color: #344f83;
+    border: 1px solid var(--assignment-chip-border);
+    background: var(--assignment-chip-bg);
+    color: var(--assignment-chip-text);
 }
 
 .state-current,
@@ -669,22 +725,22 @@ export default {
 }
 
 .assign-btn {
-    background: #3d4f8f;
-    color: #fff;
+    background: var(--assignment-button-bg);
+    color: var(--assignment-button-text);
     border: 0;
     border-radius: 6px;
     font-weight: 600;
 }
 
 .assign-btn:hover {
-    background: #33437b;
-    color: #fff;
+    background: var(--assignment-button-hover-bg);
+    color: var(--assignment-button-text);
 }
 
 .scope-tabs {
     display: inline-flex;
-    background: #eef2fb;
-    border: 1px solid #d6dff0;
+    background: var(--assignment-surface-soft-alt);
+    border: 1px solid var(--assignment-border);
     border-radius: 10px;
     padding: 4px;
     gap: 4px;
@@ -693,7 +749,7 @@ export default {
 .scope-tab-btn {
     border: 0;
     background: transparent;
-    color: #3d4f8f;
+    color: var(--assignment-tab-text);
     font-weight: 700;
     font-size: 13px;
     border-radius: 8px;
@@ -701,20 +757,20 @@ export default {
 }
 
 .scope-tab-btn.active {
-    background: #3d4f8f;
-    color: #fff;
+    background: var(--assignment-tab-active-bg);
+    color: var(--assignment-tab-active-text);
 }
 
 .flow-section {
-    border: 1px solid #dbe4f2;
+    border: 1px solid var(--assignment-border);
     border-radius: 10px;
     padding: 12px;
-    background: #f6f8fc;
+    background: var(--assignment-surface-soft);
 }
 
 .flow-title {
     font-weight: 700;
-    color: #213152;
+    color: var(--assignment-text);
 }
 
 .flow-strip {
@@ -728,21 +784,21 @@ export default {
     min-width: 105px;
     padding: 10px 8px;
     border-radius: 10px;
-    background: #d9dfef;
-    color: #66739a;
+    background: var(--assignment-surface-soft);
+    color: var(--assignment-muted);
     text-align: center;
     border: 1px solid transparent;
 }
 
 .flow-item.flow-past {
-    background: #c7d5f3;
-    color: #3d4f8f;
+    background: var(--assignment-chip-bg);
+    color: var(--assignment-tab-text);
 }
 
 .flow-item.flow-current {
-    background: #3d4f8f;
-    color: #fff;
-    border-color: #2b3a6f;
+    background: var(--assignment-tab-active-bg);
+    color: var(--assignment-tab-active-text);
+    border-color: var(--assignment-border);
 }
 
 .flow-item .flow-dot {
@@ -758,5 +814,34 @@ export default {
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
+}
+
+.assignment-summary {
+    background: var(--assignment-surface-soft) !important;
+    border-color: var(--assignment-border) !important;
+}
+
+.assignment-summary .text-muted {
+    color: var(--assignment-muted) !important;
+}
+
+.assignment-existing-chip,
+.assignment-selected-chip {
+    border: 1px solid var(--assignment-chip-border);
+}
+
+.assignment-search-dropdown {
+    background: var(--assignment-dropdown-bg);
+    border-color: var(--assignment-border);
+}
+
+.assignment-search-option {
+    color: var(--assignment-text);
+}
+
+.assignment-search-option:hover,
+.assignment-search-option:focus {
+    background: var(--assignment-dropdown-hover-bg);
+    color: var(--assignment-text);
 }
 </style>

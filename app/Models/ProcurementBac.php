@@ -85,8 +85,8 @@ class ProcurementBac extends Model
 
         // Define status hierarchy from highest to lowest
         $status_hierarchy = [
-            'Delivered/For Inspection' => ['full' => 'Delivered/For Inspection', 'partial' => 'Partially Delivered/For Inspection'],
-            'PO Delivered/For Inspection' => ['full' => 'PO Delivered/For Inspection', 'partial' => 'PO Partially Delivered/For Inspection'],
+            'Items Delivered' => ['full' => 'Items Delivered', 'partial' => 'Items Partially Delivered'],
+            'PO Items Delivered' => ['full' => 'PO Items Delivered', 'partial' => 'PO Items Partially Delivered'],
             'PO Conformed' => ['full' => 'PO Conformed', 'partial' => 'PO Partially Conformed'],
             'Conformed' => ['full' => 'NOA Conformed', 'partial' => 'NOA Partially Conformed'],
             'Served to Supplier' => ['full' => 'NOA Served to Supplier', 'partial' => 'NOA Partially Served to Supplier'],
@@ -183,8 +183,8 @@ class ProcurementBac extends Model
 
         // Define status hierarchy from highest to lowest
         $status_hierarchy = [
-            'Delivered/For Inspection' => 'Delivered/For Inspection',
-            'PO Delivered/For Inspection' => 'PO Delivered/For Inspection',
+            'Items Delivered' => 'Items Delivered',
+            'PO Items Delivered' => 'PO Items Delivered',
             'PO Conformed' => 'PO Conformed',
             'Conformed' => 'NOA Conformed',
             'Served to Supplier' => 'NOA Served to Supplier',

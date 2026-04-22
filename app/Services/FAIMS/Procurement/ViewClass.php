@@ -39,6 +39,7 @@ class ViewClass
 
         $data = ProcurementResource::collection(
             Procurement::with('status')
+                ->withCount('comments')
                 ->when($request->keyword, function ($query, $keyword) {
                     $query->where(function ($searchQuery) use ($keyword) {
                         $searchQuery->where('code', 'LIKE', "%{$keyword}%")
@@ -76,10 +77,96 @@ class ViewClass
                         }
                     });
                 })
-                ->orderBy('created_at', 'DESC')
+                ->when($request->sort === 'oldest', function ($query) {
+                    $query->orderBy('date', 'ASC')->orderBy('created_at', 'ASC');
+                })
+                ->when($request->sort === 'pr_asc', function ($query) {
+                    $query->orderBy('code', 'ASC');
+                })
+                ->when($request->sort === 'pr_desc', function ($query) {
+                    $query->orderBy('code', 'DESC');
+                })
+                ->when(!in_array($request->sort, ['oldest', 'pr_asc', 'pr_desc'], true), function ($query) {
+                    $query->orderBy('date', 'DESC')->orderBy('created_at', 'DESC');
+                })
                 ->paginate($request->count)
         );
         return $data;
+    }
+
+    public function chatProcurements($request)
+    {
+        $canSeeAllProcurements =
+            auth()->user()->hasRole('Procurement Officer') ||
+            auth()->user()->hasRole('Procurement Staff') ||
+            auth()->user()->hasRole('Administrator');
+
+        $procurementApprovalUserIds = $this->procurementApprovalUserIds();
+
+        $data = Procurement::query()
+            ->select(['id', 'code', 'purpose', 'title', 'created_at'])
+            ->withCount('comments')
+            ->withMax('comments', 'created_at')
+            ->with(['latest_comment.user.profile'])
+            ->when(!$canSeeAllProcurements, function ($query) use ($procurementApprovalUserIds) {
+                $query->where(function ($visibilityQuery) use ($procurementApprovalUserIds) {
+                    $visibilityQuery->where('created_by_id', auth()->id());
+
+                    if ($procurementApprovalUserIds->isNotEmpty()) {
+                        $visibilityQuery->orWhereIn('approved_by_id', $procurementApprovalUserIds);
+                    }
+                });
+            })
+            ->orderBy('created_at', 'DESC')
+            ->get()
+            ->map(function ($procurement) {
+                return [
+                    'id' => $procurement->id,
+                    'code' => $procurement->code,
+                    'purpose' => $procurement->purpose,
+                    'title' => $procurement->title,
+                    'created_at' => $procurement->created_at,
+                    'comments_count' => $procurement->comments_count ?? 0,
+                    'latest_comment_at' => $procurement->comments_max_created_at,
+                    'latest_comment' => $procurement->latest_comment ? [
+                        'id' => $procurement->latest_comment->id,
+                        'content' => $procurement->latest_comment->content,
+                        'created_at' => $procurement->latest_comment->created_at,
+                        'created_ago' => $procurement->latest_comment->created_ago,
+                        'user' => $procurement->latest_comment->user ? [
+                            'id' => $procurement->latest_comment->user->id,
+                            'username' => $procurement->latest_comment->user->username,
+                            'name' => $procurement->latest_comment->user->profile?->full_name
+                                ?? $procurement->latest_comment->user->username,
+                        ] : null,
+                    ] : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => $data,
+        ]);
+    }
+
+    public function commentThread($id)
+    {
+        $procurement = Procurement::with(
+            'division',
+            'status',
+            'sub_status',
+            'created_by.profile',
+            'requested_by.profile',
+            'approved_by.profile',
+            'comments.user.profile',
+            'comments.replies.user.profile'
+        )
+            ->withCount('comments')
+            ->findOrFail($id);
+
+        return response()->json([
+            'data' => $procurement,
+        ]);
     }
 
     protected function procurementApprovalUserIds(): Collection
@@ -310,6 +397,10 @@ class ViewClass
 
     public function show($id, $request)
     {
+        $selectedNoa = $request->noa_id
+            ? ProcurementBacNoa::with('purchase_order', 'procurement_quotation.supplier.address', 'items')
+                ->find($request->noa_id)
+            : null;
 
         $procurement = Procurement::with(
             'division',
@@ -321,6 +412,7 @@ class ViewClass
             'items.item_unit_type',
             'items.status',
             'quotations.supplier',
+            'quotations.supplier.address',
             'quotations.status',
             'quotations.items',
             'status',
@@ -332,6 +424,9 @@ class ViewClass
             'bac_resolutions.comments.replies.user.profile',
             'noas.comments.user.profile',
             'noas.comments.replies.user.profile',
+            'pos.status',
+            'pos.iars.status',
+            'pos.noa.items.item.item.item_unit_type',
             'pos.comments.user.profile',
             'pos.comments.replies.user.profile',
             'comments.user.profile',
@@ -396,11 +491,12 @@ class ViewClass
                         'approvers' => $this->dropdown->approvers(),
                         'supply_officers' => $this->dropdown->supply_officers(),
                         'suppliers' => $this->dropdown->suppliers(),
-                        'delivery_places' => $this->dropdown->dropdowns('Station'),
+                        'delivery_places' => $this->dropdown->dropdowns('Place of Delivery'),
                         'roles' => $this->dropdown->roles(),
                     ],
                     'tab' => $request->tab,
                     'procurement' => $procurement,
+                    'noa' => $selectedNoa,
                     'logs' => $logs,
                     'auth' => auth()->user()->load('profile'),
                     'option' => $request->option,
@@ -440,6 +536,7 @@ class ViewClass
                     'approved_by.profile',
                     'items.item_unit_type',
                     'quotations.supplier',
+                    'quotations.supplier.address',
                     'quotations.status',
                     'quotations.items',
                     'status',
@@ -530,13 +627,13 @@ class ViewClass
 
             case 'purchase_order':
                 $noa = ProcurementBacNoa::with('purchase_order', 'procurement_quotation.supplier.address', 'items', )->findOrFail($request->noa_id);
-                $procurement = Procurement::with('division', 'unit', 'codes', 'items', 'approved_by.profile', 'items.item_unit_type', 'quotations.supplier', 'quotations.status', 'quotations.items', 'status', 'sub_status', 'requested_by', 'created_by', 'comments.user.profile', 'comments.replies.user.profile')->findOrFail($id);
+                $procurement = Procurement::with('division', 'unit', 'codes', 'items', 'approved_by.profile', 'items.item_unit_type', 'quotations.supplier', 'quotations.supplier.address', 'quotations.status', 'quotations.items', 'status', 'sub_status', 'requested_by', 'created_by', 'comments.user.profile', 'comments.replies.user.profile')->findOrFail($id);
                 return inertia('Modules/FAIMS/Procurement/View', [
                     'dropdowns' => [
                         'delivery_places' => $this->dropdown->dropdowns('Place of Delivery'),
                         'statuses' => $this->dropdown->statuses('Procurement'),
                     ],
-                    'tab' => 5,
+                    'tab' => 6,
                     'procurement' => $procurement,
                     'noa' => $noa,
                     'option' => $request->option,

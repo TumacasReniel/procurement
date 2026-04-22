@@ -2,7 +2,7 @@
   <Head title="Suppliers" />
   <PageHeader title="Suppliers" pageTitle="Procurement" />
 
-  <BRow>
+  <BRow class="procurement-index-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
         <div class="card-header bg-light-subtle">
@@ -118,7 +118,22 @@
                     <td>
                       <h6 class="mb-0 fs-14 fw-semibold">{{ list.name }}</h6>
                       <p class="text-muted mb-0 fs-12">
+                        TIN: {{ list.tin || "-" }}
+                      </p>
+                      <p class="text-muted mb-0 fs-12">
                         Created {{ formatDate(list.created_at) }}
+                      </p>
+                      <p
+                        v-if="list.approval_status === 'Pending Approval'"
+                        class="text-warning mb-0 fs-12 fw-semibold"
+                      >
+                        Awaiting Procurement Officer approval
+                      </p>
+                      <p
+                        v-else-if="list.approved_by"
+                        class="text-muted mb-0 fs-12"
+                      >
+                        Approved by {{ list.approved_by }}
                       </p>
                     </td>
                     <td>
@@ -165,6 +180,9 @@
                       <p class="text-muted mb-0 fs-12">
                         {{ formatDate(list.created_at) }}
                       </p>
+                      <p v-if="list.approved_at" class="text-muted mb-0 fs-12">
+                        Approved {{ formatDate(list.approved_at) }}
+                      </p>
                     </td>
                     <td>
                       <b-badge :class="statusClass(list)" class="fs-11">
@@ -173,6 +191,19 @@
                     </td>
                     <td>
                       <div class="d-flex justify-content-center gap-1">
+                        <b-button
+                          v-if="canApproveSupplier(list)"
+                          size="sm"
+                          variant="success"
+                          class="btn-icon"
+                          style="border-radius: 8px"
+                          v-b-tooltip.hover
+                          title="Approve Supplier"
+                          @click.stop="requestApprove(list)"
+                        >
+                          <i class="ri-check-double-line"></i>
+                        </b-button>
+
                         <b-button
                           size="sm"
                           variant="primary"
@@ -186,6 +217,7 @@
                         </b-button>
 
                         <b-button
+                          v-if="canToggleStatus(list)"
                           size="sm"
                           :variant="list.is_active == 1 ? 'danger' : 'success'"
                           class="btn-icon"
@@ -233,6 +265,51 @@
     @close="closeDeactivateModal"
     @status-changed="onStatusChanged"
   />
+
+  <b-modal
+    v-model="showApproveModal"
+    style="--vz-modal-width: 600px"
+    title="Approve Supplier"
+    header-class="p-3 bg-light"
+    class="v-modal-custom"
+    modal-class="zoomIn"
+    centered
+    no-close-on-backdrop
+  >
+    <form class="customform">
+      <div class="m-5 text-center" v-if="selectedSupplierForApproval">
+        <div>
+          Are you sure you want to approve supplier
+          <span class="text-primary">"{{ selectedSupplierForApproval.name }}"</span>?
+        </div>
+
+        <div class="text-muted small mt-3">
+          Once approved, the supplier will follow its current active or inactive setting.
+        </div>
+      </div>
+    </form>
+
+    <template v-slot:footer>
+      <b-button
+        type="button"
+        variant="light"
+        :disabled="approvingSupplier"
+        @click="closeApproveModal()"
+        block
+      >
+        Close
+      </b-button>
+      <b-button
+        type="button"
+        variant="primary"
+        :disabled="approvingSupplier"
+        @click="confirmApproveSupplier()"
+        block
+      >
+        {{ approvingSupplier ? "Processing..." : "Approve Supplier" }}
+      </b-button>
+    </template>
+  </b-modal>
 </template>
 
 <script>
@@ -266,11 +343,24 @@ export default {
       links: {},
       selectedRow: null,
       selectedSupplierForStatus: null,
+      selectedSupplierForApproval: null,
+      showApproveModal: false,
+      approvingSupplier: false,
       filter: {
         keyword: null,
         status: null,
       },
     };
+  },
+  computed: {
+    current_roles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    canApproveSuppliers() {
+      return this.current_roles.some((role) => {
+        return ["Procurement Officer", "Administrator"].includes(role);
+      });
+    },
   },
   watch: {
     "filter.keyword"(value) {
@@ -312,6 +402,41 @@ export default {
     editSupplier(data) {
       this.$refs.create.edit(data);
     },
+    requestApprove(supplier) {
+      this.selectedSupplierForApproval = supplier;
+      this.showApproveModal = true;
+    },
+    closeApproveModal() {
+      this.showApproveModal = false;
+      this.selectedSupplierForApproval = null;
+      this.approvingSupplier = false;
+    },
+    confirmApproveSupplier() {
+      if (!this.selectedSupplierForApproval) {
+        return;
+      }
+
+      this.approvingSupplier = true;
+
+      axios
+        .patch(`/faims/suppliers/${this.selectedSupplierForApproval.id}/approve`)
+        .then((response) => {
+          const updatedSupplier = response?.data?.data;
+          const index = this.lists.findIndex((item) => item.id === updatedSupplier?.id);
+
+          if (index !== -1 && updatedSupplier) {
+            this.lists[index] = updatedSupplier;
+          } else {
+            this.fetch();
+          }
+
+          this.closeApproveModal();
+        })
+        .catch((error) => {
+          console.error(error);
+          this.approvingSupplier = false;
+        });
+    },
     toggleStatus(supplier) {
       this.selectedSupplierForStatus = supplier;
     },
@@ -346,6 +471,12 @@ export default {
       const perPage = this.meta.per_page || this.lists.length || 0;
 
       return (currentPage - 1) * perPage + index + 1;
+    },
+    canApproveSupplier(supplier) {
+      return this.canApproveSuppliers && supplier?.approval_status === "Pending Approval";
+    },
+    canToggleStatus(supplier) {
+      return supplier?.approval_status === "Approved";
     },
     statusName(supplier) {
       return supplier.status?.name || (supplier.is_active == 1 ? "Active" : "Inactive");

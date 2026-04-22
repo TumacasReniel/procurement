@@ -9,14 +9,27 @@ class Supplier extends Model
     protected $fillable = [
         'name',
         'code',
+        'tin',
+        'approval_status',
+        'approved_by_id',
+        'approved_at',
         'is_active',
         'user_id',
 
     ];
 
+    protected $casts = [
+        'approved_at' => 'datetime',
+    ];
+
     public function created_by()
     {
         return $this->belongsTo('App\Models\User', 'user_id')->with('profile');
+    }
+
+    public function approved_by()
+    {
+        return $this->belongsTo('App\Models\User', 'approved_by_id')->with('profile');
     }
 
     public function address()

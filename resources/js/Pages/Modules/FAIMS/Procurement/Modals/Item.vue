@@ -29,12 +29,39 @@
       <BRow>
         <BCol lg="12" class="mt-3">
           <InputLabel value="Item Name" :message="form.errors.item_name" />
-          <TextInput
-            v-model="form.item_name"
-            type="text"
-            class="form-control"
-            placeholder="Enter item name"
-          />
+          <div class="item-name-autocomplete">
+            <TextInput
+              v-model="form.item_name"
+              type="text"
+              class="form-control"
+              placeholder="Enter item name"
+              autocomplete="off"
+              @focus="handleItemNameFocus"
+              @blur="handleItemNameBlur"
+              @keydown.down.prevent="moveSuggestionSelection(1)"
+              @keydown.up.prevent="moveSuggestionSelection(-1)"
+              @keydown.enter.prevent="confirmActiveSuggestion"
+              @keydown.esc.prevent="closeItemNameDropdown"
+            />
+
+            <div
+              v-if="shouldShowItemNameDropdown"
+              class="item-name-suggestions"
+            >
+              <button
+                v-for="(suggestion, index) in itemNameSuggestions"
+                :key="suggestion"
+                type="button"
+                :class="[
+                  'item-name-suggestion',
+                  { 'item-name-suggestion--active': index === activeSuggestionIndex },
+                ]"
+                @mousedown.prevent="selectItemNameSuggestion(suggestion)"
+              >
+                {{ suggestion }}
+              </button>
+            </div>
+          </div>
         </BCol>
 
         <BCol lg="12" class="mt-3">
@@ -117,10 +144,23 @@ export default {
       //editorData: "",
       //editor: ClassicEditor,
       isEditing: false,
+      itemNameSuggestions: [],
+      itemNameLookupTimeout: null,
+      itemNameBlurTimeout: null,
+      latestItemNameKeyword: "",
+      isItemNameFocused: false,
+      activeSuggestionIndex: -1,
     };
   },
 
   watch: {
+    "form.item_name": function (value) {
+      if (!this.showModal) {
+        return;
+      }
+
+      this.queueItemNameSuggestions(value);
+    },
     "form.item_unit_type_id": function (value) {
       if (value) {
         this.getItemUnitType(value);
@@ -134,6 +174,10 @@ export default {
   computed: {
     unitTypeLabel() {
       return this.form.item_quantity > 1 ? "name_long" : "name_short";
+    },
+
+    shouldShowItemNameDropdown() {
+      return this.isItemNameFocused && this.itemNameSuggestions.length > 0;
     },
 
     isItemFormValid() {
@@ -172,6 +216,7 @@ export default {
       this.form.reset();
       this.form.item_unit_cost = this.$refs.amountComponent.emitValue(0.0);
       this.showModal = true;
+      this.fetchItemNameSuggestions("");
     },
 
     edit(item, index) {
@@ -189,6 +234,7 @@ export default {
       this.calculateTotalCost();
       this.form.id = item.id;
       this.showModal = true;
+      this.fetchItemNameSuggestions(this.form.item_name);
     },
 
     addItem(item) {
@@ -232,14 +278,155 @@ export default {
         .catch((err) => console.log(err));
     },
 
+    handleItemNameFocus() {
+      clearTimeout(this.itemNameBlurTimeout);
+      this.isItemNameFocused = true;
+      this.activeSuggestionIndex = -1;
+      this.ensureItemNameSuggestions();
+    },
+
+    handleItemNameBlur() {
+      this.itemNameBlurTimeout = setTimeout(() => {
+        this.closeItemNameDropdown();
+      }, 120);
+    },
+
+    ensureItemNameSuggestions() {
+      if (!this.itemNameSuggestions.length) {
+        this.fetchItemNameSuggestions(this.form.item_name || "");
+      }
+    },
+
+    closeItemNameDropdown() {
+      this.isItemNameFocused = false;
+      this.activeSuggestionIndex = -1;
+    },
+
+    moveSuggestionSelection(direction) {
+      if (!this.itemNameSuggestions.length) {
+        return;
+      }
+
+      this.isItemNameFocused = true;
+
+      if (this.activeSuggestionIndex === -1) {
+        this.activeSuggestionIndex = direction > 0 ? 0 : this.itemNameSuggestions.length - 1;
+        return;
+      }
+
+      const nextIndex = this.activeSuggestionIndex + direction;
+
+      if (nextIndex < 0) {
+        this.activeSuggestionIndex = this.itemNameSuggestions.length - 1;
+      } else if (nextIndex >= this.itemNameSuggestions.length) {
+        this.activeSuggestionIndex = 0;
+      } else {
+        this.activeSuggestionIndex = nextIndex;
+      }
+    },
+
+    confirmActiveSuggestion() {
+      if (
+        this.activeSuggestionIndex < 0 ||
+        this.activeSuggestionIndex >= this.itemNameSuggestions.length
+      ) {
+        return;
+      }
+
+      this.selectItemNameSuggestion(
+        this.itemNameSuggestions[this.activeSuggestionIndex]
+      );
+    },
+
+    selectItemNameSuggestion(suggestion) {
+      this.form.item_name = suggestion;
+      this.closeItemNameDropdown();
+    },
+
+    queueItemNameSuggestions(keyword) {
+      clearTimeout(this.itemNameLookupTimeout);
+      this.itemNameLookupTimeout = setTimeout(() => {
+        this.fetchItemNameSuggestions(keyword);
+      }, 250);
+    },
+
+    fetchItemNameSuggestions(keyword = "") {
+      const searchKeyword = (keyword || "").trim();
+      this.latestItemNameKeyword = searchKeyword;
+
+      axios
+        .get("/faims/procurements/create", {
+          params: {
+            option: "item_names",
+            keyword: searchKeyword,
+          },
+        })
+        .then((response) => {
+          if (this.latestItemNameKeyword !== searchKeyword) {
+            return;
+          }
+
+          this.itemNameSuggestions = Array.isArray(response.data)
+            ? response.data
+            : [];
+          this.activeSuggestionIndex = this.itemNameSuggestions.length ? 0 : -1;
+        })
+        .catch((err) => console.log(err));
+    },
+
     hide() {
+      clearTimeout(this.itemNameLookupTimeout);
+      clearTimeout(this.itemNameBlurTimeout);
       this.form.reset();
       this.form.item_unit_cost = 0.0;
       this.isEditing = false;
       this.editItem = null;
       this.editIndex = null;
+      this.closeItemNameDropdown();
       this.showModal = false;
     },
   },
 };
 </script>
+
+<style scoped>
+.item-name-autocomplete {
+  position: relative;
+}
+
+.item-name-suggestions {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 0.45rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.14);
+}
+
+.item-name-suggestion {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #1e293b;
+  font-size: 0.95rem;
+  text-align: left;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.item-name-suggestion:hover,
+.item-name-suggestion--active {
+  background: #eaf2ff;
+  color: #2846a6;
+}
+</style>

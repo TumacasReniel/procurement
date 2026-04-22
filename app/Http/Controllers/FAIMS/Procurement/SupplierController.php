@@ -37,8 +37,9 @@ class SupplierController extends Controller
                     'dropdowns' => [
                         'roles'  =>  \Auth::user()->roles,
                         'statuses' => [
-                            ['value' => 1, 'name' => 'Active'],
-                            ['value' => 0, 'name' => 'Inactive'],
+                            ['value' => 'active', 'name' => 'Active'],
+                            ['value' => 'inactive', 'name' => 'Inactive'],
+                            ['value' => 'pending_approval', 'name' => 'Pending Approval'],
                         ],
                         'attachment_types' => $this->dropdown->attachment_types(),
                     ],
@@ -92,6 +93,20 @@ class SupplierController extends Controller
             'status' => $result['status'],
         ]);
 
+    }
+
+    public function approve($id)
+    {
+        $result = $this->handleTransaction(function () use ($id) {
+            return $this->supplier->approve($id);
+        });
+
+        return response()->json([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
+        ]);
     }
 
     public function status(Request $request, $id) {

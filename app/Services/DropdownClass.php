@@ -393,6 +393,7 @@ class DropdownClass
     {
         $data = ProcurementCode::get()->map(function ($item) {
             $label = $item->code;
+            $remainingBudget = (float) ($item->remaining_budget ?? $item->allocated_budget ?? 0);
 
             if (!empty($item->title)) {
                 $label .= ' - ' . $item->title;
@@ -402,6 +403,8 @@ class DropdownClass
                 'value' => $item->id,
                 'code' => $item->code,
                 'title' => $item->title,
+                'allocated_budget' => (float) $item->allocated_budget,
+                'remaining_budget' => $remainingBudget,
                 'label' => $label,
             ];
         });
@@ -487,7 +490,11 @@ class DropdownClass
 
     public function suppliers()
     {
-        $data = Supplier::with('conformes')->where('is_active', 1)->get()->map(function ($item) {
+        $data = Supplier::with('conformes')
+            ->where('is_active', 1)
+            ->where('approval_status', 'Approved')
+            ->get()
+            ->map(function ($item) {
             return [
                 'value' => $item->id,
                 'name' => $item->name,
@@ -601,35 +608,19 @@ class DropdownClass
 
     public function iar_chairperson()
     {
-        $data = OrgChart::where('designation_id', ListDropdown::getID('IAR Chairperson', 'Designation'))->first();
+        $data = OrgChart::with('user.profile', 'oic.profile', 'designation')
+            ->where('designation_id', ListDropdown::getID('IAR Chairperson', 'Designation'))
+            ->first();
 
         if (!$data) {
             return null; // or return an empty array []
         }
 
-        return [
-            'value' => $data->id,
-            'name' => strtoupper(
-                $data->user->profile->full_name ?? null,
-            ),
-            'designation' => $data->designation
-        ];
-    }
-
-    public function iar_vice_chairperson()
-    {
-        $data = OrgChart::where('designation_id', ListDropdown::getID('IAR Vice Chairperson', 'Designation'))->first();
-
-
-        if (!$data) {
-            return null; // or return an empty array []
-        }
+        $name = $this->resolveOrgChartDisplayName($data, true);
 
         return [
             'value' => $data->id,
-            'name' => strtoupper(
-                $data->user->profile->full_name ?? null,
-            ),
+            'name' => $name,
             'designation' => $data->designation
         ];
     }
@@ -637,15 +628,37 @@ class DropdownClass
 
     public function iar_members()
     {
-        $data = OrgChart::where('designation_id', ListDropdown::getID('IAR Member', 'Designation'))
+        $data = OrgChart::with('user.profile', 'oic.profile')
+            ->where('designation_id', ListDropdown::getID('IAR Member', 'Designation'))
             ->get()->map(function ($item) {
                 return [
                     'value' => $item->id,
-                    'name' => $item->user->profile->full_name,
+                    'name' => $this->resolveOrgChartDisplayName($item),
                 ];
-            });
+            })->filter(fn ($item) => filled($item['name']))->values();
 
         return $data;
+    }
+
+    private function resolveOrgChartDisplayName($item, $uppercase = false)
+    {
+        $person = null;
+
+        if ($item?->is_oic && $item?->oic) {
+            $person = $item->oic;
+        } elseif ($item?->user) {
+            $person = $item->user;
+        } elseif ($item?->oic) {
+            $person = $item->oic;
+        }
+
+        $name = $person?->profile?->full_name;
+
+        if (!filled($name)) {
+            return null;
+        }
+
+        return $uppercase ? strtoupper($name) : $name;
     }
 
     public function division_head($division_id)
@@ -710,7 +723,10 @@ class DropdownClass
 
     public function creditors()
     {
-        $suppliers = Supplier::where('is_active', 1)->get()->map(function ($item) {
+        $suppliers = Supplier::where('is_active', 1)
+            ->where('approval_status', 'Approved')
+            ->get()
+            ->map(function ($item) {
             return [
                 'value' => 'supplier_' . $item->id,
                 'label' => $item->name . ' (Supplier)',

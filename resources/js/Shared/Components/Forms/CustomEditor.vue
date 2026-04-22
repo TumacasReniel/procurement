@@ -64,10 +64,24 @@ export default {
 <style scoped>
 /* ==== Word Editor Layout ==== */
 .word-editor {
+  --word-editor-shell-bg: #f3f4f6;
+  --word-editor-toolbar-bg: #ffffff;
+  --word-editor-toolbar-border: #dcdcdc;
+  --word-editor-button-bg: #f8f9fa;
+  --word-editor-button-border: #d0d0d0;
+  --word-editor-button-text: #333333;
+  --word-editor-divider: #cccccc;
+  --word-editor-workspace-bg: #f3f4f6;
+  --word-editor-page-bg: #ffffff;
+  --word-editor-page-text: #222222;
+  --word-editor-page-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
-  background: #f3f4f6;
+  background: var(--word-editor-shell-bg);
   height: 100vh;
+  border: 1px solid var(--word-editor-toolbar-border);
+  border-radius: 14px;
+  overflow: hidden;
 }
 
 /* ==== Toolbar (Word Ribbon) ==== */
@@ -75,8 +89,8 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center; /* Center all icons horizontally */
-  background: #ffffff;
-  border-bottom: 2px solid #dcdcdc;
+  background: var(--word-editor-toolbar-bg);
+  border-bottom: 2px solid var(--word-editor-toolbar-border);
   padding: 8px 15px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   flex-wrap: wrap;
@@ -84,15 +98,15 @@ export default {
 }
 
 .toolbar button {
-  background: #f8f9fa;
-  border: 1px solid #d0d0d0;
+  background: var(--word-editor-button-bg);
+  border: 1px solid var(--word-editor-button-border);
   border-radius: 6px;
   width: 38px;
   height: 38px;
   display: flex;
   align-items: center; /* vertically center icon */
   justify-content: center; /* horizontally center icon */
-  color: #333;
+  color: var(--word-editor-button-text);
   font-size: 20px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -111,7 +125,7 @@ export default {
 .toolbar .divider {
   width: 1px;
   height: 30px;
-  background: #ccc;
+  background: var(--word-editor-divider);
   margin: 0 8px;
 }
 
@@ -122,19 +136,21 @@ export default {
   padding: 20px;
   overflow-y: auto;
   flex-grow: 1;
+  background: var(--word-editor-workspace-bg);
 }
 
 .page {
-  background: white;
+  background: var(--word-editor-page-bg);
   width: 210mm;
   min-height: 297mm;
   padding: 2cm;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--word-editor-page-shadow);
   font-family: "Calibri", "Times New Roman", serif;
   font-size: 12pt;
   line-height: 1.5;
-  color: #222;
+  color: var(--word-editor-page-text);
   outline: none;
+  border: 1px solid var(--word-editor-toolbar-border);
 }
 
 .page:focus {
@@ -142,3 +158,26 @@ export default {
 }
 </style>
 
+<style>
+[data-bs-theme="dark"] .word-editor {
+  --word-editor-shell-bg: #161d27;
+  --word-editor-toolbar-bg: #232c3a;
+  --word-editor-toolbar-border: rgba(148, 163, 184, 0.18);
+  --word-editor-button-bg: #1b2230;
+  --word-editor-button-border: rgba(148, 163, 184, 0.18);
+  --word-editor-button-text: #dbe7f5;
+  --word-editor-divider: rgba(148, 163, 184, 0.24);
+  --word-editor-workspace-bg: linear-gradient(180deg, #161d27 0%, #111827 100%);
+  --word-editor-page-bg: #202937;
+  --word-editor-page-text: #e5edf7;
+  --word-editor-page-shadow: 0 18px 34px rgba(2, 6, 23, 0.34);
+}
+
+[data-bs-theme="dark"] .word-editor .toolbar button:hover {
+  color: #eff6ff;
+}
+
+[data-bs-theme="dark"] .word-editor .page {
+  caret-color: #e5edf7;
+}
+</style>

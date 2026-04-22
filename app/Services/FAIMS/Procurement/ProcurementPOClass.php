@@ -15,6 +15,7 @@ use App\Models\ProcurementPoIar;
 use App\Models\Inventory;
 use App\Models\InventoryStock;
 use App\Models\ListDropdown;
+use App\Models\OrgChart;
 use App\Http\Resources\FAIMS\Procurement\ProcurementNoaPoResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -57,7 +58,9 @@ class ProcurementPOClass
         $data = ProcurementNoaPo::with(
             'status',
             'iar.status',
+            'iar.inspected_by.profile',
             'iars.status',
+            'iars.inspected_by.profile',
             'ntp',
             'place_of_delivery',
             'noa.procurement_quotation.supplier.address',
@@ -66,6 +69,7 @@ class ProcurementPOClass
         )->where('noa_id', $request->noa_id)->first();
 
         if ($data) {
+            $this->appendIarSummaries($data);
             $deliveryMonitoring = $this->buildDeliveryMonitoringData($data);
             $data->setAttribute('delivery_monitoring_items', $deliveryMonitoring['items']);
             $data->setAttribute('delivery_monitoring_summary', $deliveryMonitoring['summary']);
@@ -156,6 +160,8 @@ class ProcurementPOClass
             'po_code' => $po->code,
             'iar_id' => $editingIar?->id,
             'iar_code' => $editingIar?->code,
+            'invoice_no' => $editingIar?->invoice_no,
+            'invoice_date' => $editingIar?->invoice_date?->toDateString(),
             'saved_item_ids' => $savedDeliveries->pluck('item_id')->all(),
             'selected_item_ids' => $currentDeliveries->pluck('item_id')->all(),
             'delivered_items' => $currentDeliveries->all(),
@@ -364,13 +370,13 @@ class ProcurementPOClass
                 return [
                     'data' => new ProcurementNoaPoResource($po),
                     'message' => 'Purchase Order cannot be marked as delivered yet.',
-                    'info' => 'All items listed in the Purchase Order must be delivered before the PO status can be updated to Delivered/For Inspection.',
+                    'info' => 'All items listed in the Purchase Order must be delivered before the PO status can be updated to Items Delivered.',
                     'status' => 'warning',
                 ];
             }
 
             $poUpdateData = [
-                'status_id' => ListStatus::getID('Delivered/For Inspection','Procurement'), // set status to "Delivered/For Inspection"
+                'status_id' => ListStatus::getID('Items Delivered','Procurement'), // set status to "Items Delivered"
             ];
 
             if ($this->supportsActualDeliveryDateColumn()) {
@@ -382,10 +388,10 @@ class ProcurementPOClass
 
             $po->update($poUpdateData);
             $po->noa->update([
-                'status_id' => ListStatus::getID('PO Delivered/For Inspection','Procurement'), // set noa status to "PO Delivered/For Inspection"
+                'status_id' => ListStatus::getID('PO Items Delivered','Procurement'), // set noa status to "PO Items Delivered"
             ]);
         }
-        else if($currentStatusName == "Delivered/For Inspection"){
+        else if($currentStatusName == "Items Delivered"){
             if ($po->iars->isEmpty()) {
                 return [
                     'data' => new ProcurementNoaPoResource($po),
@@ -448,6 +454,9 @@ class ProcurementPOClass
         $po = ProcurementNoaPo::with('iar.status', 'iars.status', 'noa.items.item.item')->findOrFail($id);
         $iarId = (int) $request->input('iar_id');
         $editingIar = $iarId > 0 ? $po->iars->firstWhere('id', $iarId) : null;
+        $invoiceNo = trim((string) $request->input('invoice_no', ''));
+        $invoiceNo = $invoiceNo !== '' ? $invoiceNo : null;
+        $invoiceDate = $request->filled('invoice_date') ? $request->input('invoice_date') : null;
 
         if ($iarId > 0 && !$editingIar) {
             return [
@@ -463,6 +472,18 @@ class ProcurementPOClass
                 'data' => null,
                 'message' => 'IAR report can no longer be edited.',
                 'info' => 'Only generated IAR reports can still be edited.',
+                'status' => false,
+            ];
+        }
+
+        if ($invoiceDate && !strtotime($invoiceDate)) {
+            return [
+                'data' => null,
+                'message' => 'Invalid invoice date.',
+                'info' => 'Please enter a valid invoice date before saving the IAR report.',
+                'errors' => [
+                    'invoice_date' => 'Please enter a valid invoice date.',
+                ],
                 'status' => false,
             ];
         }
@@ -594,13 +615,23 @@ class ProcurementPOClass
                 $po->noa->items
             );
 
-            $editingIar->update([
+            $updatePayload = [
                 'selected_item_ids' => !empty($normalizedSelections) ? array_values($normalizedSelections) : null,
-            ]);
+            ];
+
+            if ($this->supportsIarInvoiceFields()) {
+                $updatePayload['invoice_no'] = $invoiceNo;
+                $updatePayload['invoice_date'] = $invoiceDate;
+            }
+
+            $editingIar->update($updatePayload);
 
             $iar = $editingIar->fresh('status');
         } else {
-            $iar = $this->createIAR($po, $deliveriesForStorage);
+            $iar = $this->createIAR($po, $deliveriesForStorage, [
+                'invoice_no' => $invoiceNo,
+                'invoice_date' => $invoiceDate,
+            ]);
         }
 
         return [
@@ -608,6 +639,8 @@ class ProcurementPOClass
                 'iar_id' => $iar->id,
                 'iar_code' => $iar->code,
                 'iar_status' => $iar->status?->name,
+                'invoice_no' => $iar->invoice_no,
+                'invoice_date' => $iar->invoice_date?->toDateString(),
                 'selected_item_ids' => collect($deliveriesForStorage)->pluck('item_id')->all(),
                 'delivered_items' => $iar->selected_item_ids ?? [],
             ],
@@ -627,7 +660,8 @@ class ProcurementPOClass
             'status',
             'noa.status',
             'noa.procurement_bac.procurement.items',
-            'iars.status'
+            'iars.status',
+            'iars.inspected_by.profile'
         )->findOrFail($id);
 
         $iarId = (int) $request->input('iar_id');
@@ -638,6 +672,18 @@ class ProcurementPOClass
                 'data' => null,
                 'message' => 'IAR report not found.',
                 'info' => 'The selected IAR report does not belong to this Purchase Order.',
+                'status' => 'warning',
+            ];
+        }
+
+        if (!$this->canCurrentUserManageIarInspection()) {
+            return [
+                'data' => [
+                    'iar_id' => $iar->id,
+                    'iar_status' => $iar->status?->name,
+                ],
+                'message' => 'IAR inspection permission denied.',
+                'info' => 'Only active IAR committee members can mark an IAR report as Inspected/Completed.',
                 'status' => 'warning',
             ];
         }
@@ -654,9 +700,15 @@ class ProcurementPOClass
             ];
         }
 
-        $iar->update([
+        $updatePayload = [
             'status_id' => ListStatus::getID('Completed', 'Procurement'),
-        ]);
+        ];
+
+        if ($this->supportsIarInspectedByField()) {
+            $updatePayload['inspected_by_id'] = Auth::id();
+        }
+
+        $iar->update($updatePayload);
 
         $po->load('iars.status');
         $deliveryMonitoring = $this->buildDeliveryMonitoringData($po);
@@ -693,7 +745,8 @@ class ProcurementPOClass
             'status',
             'noa.status',
             'noa.procurement_bac.procurement.items',
-            'iars.status'
+            'iars.status',
+            'iars.inspected_by.profile'
         )->findOrFail($id);
 
         $iarId = (int) $request->input('iar_id');
@@ -704,6 +757,18 @@ class ProcurementPOClass
                 'data' => null,
                 'message' => 'IAR report not found.',
                 'info' => 'The selected IAR report does not belong to this Purchase Order.',
+                'status' => 'warning',
+            ];
+        }
+
+        if (!$this->canCurrentUserManageIarInspection()) {
+            return [
+                'data' => [
+                    'iar_id' => $iar->id,
+                    'iar_status' => $iar->status?->name,
+                ],
+                'message' => 'IAR revert permission denied.',
+                'info' => 'Only active IAR committee members can revert an IAR report.',
                 'status' => 'warning',
             ];
         }
@@ -729,10 +794,16 @@ class ProcurementPOClass
             ];
         }
 
-        $iar->update([
+        $updatePayload = [
             'status_id' => ListStatus::getID('Generated', 'Procurement')
                 ?? ListStatus::getID('Pending', 'Procurement'),
-        ]);
+        ];
+
+        if ($this->supportsIarInspectedByField()) {
+            $updatePayload['inspected_by_id'] = null;
+        }
+
+        $iar->update($updatePayload);
 
         $po->load('iars.status');
         $deliveryMonitoring = $this->buildDeliveryMonitoringData($po);
@@ -754,7 +825,7 @@ class ProcurementPOClass
         ];
     }
 
-    public function createIAR($po, array $selectedItemIds = [])
+    public function createIAR($po, array $selectedItemIds = [], array $details = [])
     { 
         $po->loadMissing('noa.items.item.item');
         $normalizedSelections = ProcurementPoIar::normalizeDeliveredItemsForStorage(
@@ -762,14 +833,21 @@ class ProcurementPOClass
             $po->noa->items
         );
 
-        return ProcurementPoIar::create([
+        $createPayload = [
             'procurement_id' => $po->procurement_id,
             'po_id' => $po->id,
             'code' => ProcurementPoIar::generateIARNumber(),
             'selected_item_ids' => !empty($normalizedSelections) ? array_values($normalizedSelections) : null,
             'status_id' => ListStatus::getID('Generated', 'Procurement')
                 ?? ListStatus::getID('Pending', 'Procurement'),
-        ])->load('status');
+        ];
+
+        if ($this->supportsIarInvoiceFields()) {
+            $createPayload['invoice_no'] = data_get($details, 'invoice_no');
+            $createPayload['invoice_date'] = data_get($details, 'invoice_date');
+        }
+
+        return ProcurementPoIar::create($createPayload)->load('status');
     }
 
 
@@ -858,6 +936,58 @@ class ProcurementPOClass
         return floor($quantity) == $quantity ? (int) $quantity : $quantity;
     }
 
+    protected function supportsIarInvoiceFields(): bool
+    {
+        return Schema::hasColumn('procurement_po_iars', 'invoice_no')
+            && Schema::hasColumn('procurement_po_iars', 'invoice_date');
+    }
+
+    protected function appendIarSummaries(ProcurementNoaPo $po): void
+    {
+        $noaItems = $po->noa?->items ?? collect();
+        $userCanManageIarInspection = $this->canCurrentUserManageIarInspection();
+        $normalizedPoStatus = $this->normalizePurchaseOrderStatusName($po->status?->name);
+
+        $summarize = function ($iar) use ($noaItems, $userCanManageIarInspection, $normalizedPoStatus) {
+            if (!$iar) {
+                return $iar;
+            }
+
+            $normalizedDeliveries = $iar->normalizedDeliveredItems($noaItems);
+            $statusName = trim((string) $iar->status?->name);
+
+            $iar->setAttribute('selected_items_count', $normalizedDeliveries->count());
+            $iar->setAttribute(
+                'delivered_quantity_total',
+                (float) $normalizedDeliveries->sum(fn ($entry) => (float) data_get($entry, 'delivered_quantity', 0))
+            );
+            $iar->setAttribute('inspected_by_name', $this->resolveIarInspectorName($iar));
+            $iar->setAttribute(
+                'can_update_status',
+                $userCanManageIarInspection && $this->isEditableIarStatus($statusName)
+            );
+            $iar->setAttribute(
+                'can_revert_status',
+                $userCanManageIarInspection
+                    && $normalizedPoStatus === 'Conformed'
+                    && $statusName === 'Completed'
+            );
+
+            return $iar;
+        };
+
+        if ($po->relationLoaded('iar') && $po->iar) {
+            $summarize($po->iar);
+        }
+
+        if ($po->relationLoaded('iars') && $po->iars) {
+            $po->setRelation(
+                'iars',
+                $po->iars->map(fn ($iar) => $summarize($iar))
+            );
+        }
+    }
+
     protected function buildDeliveryMonitoringData(ProcurementNoaPo $po): array
     {
         $po->loadMissing(
@@ -913,6 +1043,7 @@ class ProcurementPOClass
                 'id' => (int) $noaItem->id,
                 'row_number' => $index + 1,
                 'item_no' => $procurementItem?->item_no,
+                'item_name' => $procurementItem?->item_name,
                 'description' => $procurementItem?->item_description,
                 'ordered_quantity' => $this->normalizeQuantity($orderedQuantity),
                 'delivered_quantity' => $this->normalizeQuantity($deliveredQuantity),
@@ -1091,9 +1222,13 @@ class ProcurementPOClass
             'PO Conformed',
             'Partially Conformed',
             'PO Partially Conformed' => 'Conformed',
-            'Partially Delivered/For Inspection',
-            'PO Delivered/For Inspection',
-            'PO Partially Delivered/For Inspection' => 'Delivered/For Inspection',
+            'Items Delivered',
+            'PO Items Delivered',
+            'Partially Items Delivered',
+            'PO Items Delivered',
+            'PO Partially Items Delivered',
+            'Items Partially Delivered',
+            'PO Items Partially Delivered' => 'Items Delivered',
             default => $normalized,
         };
     }
@@ -1103,6 +1238,52 @@ class ProcurementPOClass
         $po->loadMissing('iars.status');
 
         return $po->iars->contains(fn ($iar) => $iar->status?->name !== 'Completed');
+    }
+
+    protected function supportsIarInspectedByField(): bool
+    {
+        return Schema::hasColumn('procurement_po_iars', 'inspected_by_id');
+    }
+
+    protected function canCurrentUserManageIarInspection(): bool
+    {
+        $userId = Auth::id();
+
+        if (!$userId) {
+            return false;
+        }
+
+        $designationIds = array_values(array_filter([
+            ListDropdown::getID('IAR Chairperson', 'Designation'),
+            ListDropdown::getID('IAR Member', 'Designation'),
+        ]));
+
+        if (empty($designationIds)) {
+            return false;
+        }
+
+        return OrgChart::query()
+            ->where('is_active', 1)
+            ->whereIn('designation_id', $designationIds)
+            ->where(function ($query) use ($userId) {
+                $query->where(function ($subQuery) use ($userId) {
+                    $subQuery->where('is_oic', 1)
+                        ->where('oic_id', $userId);
+                })->orWhere(function ($subQuery) use ($userId) {
+                    $subQuery->where(function ($flagQuery) {
+                        $flagQuery->whereNull('is_oic')
+                            ->orWhere('is_oic', 0);
+                    })->where('user_id', $userId);
+                });
+            })
+            ->exists();
+    }
+
+    protected function resolveIarInspectorName($iar): ?string
+    {
+        return data_get($iar, 'inspected_by.profile.fullname')
+            ?: data_get($iar, 'inspected_by.profile.full_name')
+            ?: data_get($iar, 'inspected_by.username');
     }
 
     protected function isEditableIarStatus(?string $statusName): bool
@@ -1126,9 +1307,9 @@ class ProcurementPOClass
             $item_ids = $noa_items->pluck('item.procurement_item_id')->unique()->filter()->values();
             $this->rollbackCompletedItemsFromInventory($po, $item_ids);
 
-            $revertedPoStatus = 'Delivered/For Inspection';
-            $revertedNoaStatus = 'PO Delivered/For Inspection';
-        } elseif ($currentStatusName === 'Delivered/For Inspection') {
+            $revertedPoStatus = 'Items Delivered';
+            $revertedNoaStatus = 'PO Items Delivered';
+        } elseif ($currentStatusName === 'Items Delivered') {
             $revertedPoStatus = 'Conformed';
             $revertedNoaStatus = 'PO Conformed';
         } elseif ($currentStatusName === 'Conformed') {

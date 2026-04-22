@@ -1,6 +1,6 @@
 <template>
     <Head title="Requests" />
-    <PageHeader title="Procurement Requests" pageTitle="List" />
+    <PageHeader title="Procurement Management" pageTitle="List" />
     <BRow class="procurement-index-page">
         <div class="col-md-12">
             <div class="card bg-light-subtle shadow-none border">
@@ -20,11 +20,11 @@
                         <div class="flex-grow-1">
                             <h5 class="mb-0 fs-14">
                                 <span class="text-body"
-                                    >Procurement Requests</span
+                                    >Purchase Requests</span
                                 >
                             </h5>
                             <p class="text-muted text-truncate-two-lines fs-12">
-                                A detailed list of submitted procurement
+                                A detailed list of submitted purchase
                                 requests including code, purpose, title, and
                                 status.
                             </p>
@@ -56,6 +56,16 @@
                                     :searchable="true"
                                     placeholder="Select Status"
                                 />
+                                <select
+                                    v-model="filter.sort"
+                                    class="form-select"
+                                    style="width: 16%"
+                                >
+                                    <option value="latest">Latest Date</option>
+                                    <option value="oldest">Oldest Date</option>
+                                    <option value="pr_asc">PR Number A-Z</option>
+                                    <option value="pr_desc">PR Number Z-A</option>
+                                </select>
 
                                 <span
                                     @click="refresh()"
@@ -171,12 +181,10 @@
                                                     ) in list.codes"
                                                     :key="idx"
                                                     class="badge bg-soft-primary text-primary px-2 py-1 fs-12 fw-medium rounded-pill"
+                                                    v-b-tooltip.hover
+                                                    :title="formatPapCode(code)"
                                                 >
-                                                    {{
-                                                        code?.procurement_code
-                                                            ?.mode_of_procurement
-                                                            ?.name
-                                                    }}
+                                                    {{ formatPapCode(code) }}
                                                 </span>
                                             </div>
                                         </td>
@@ -203,6 +211,25 @@
                                             <div
                                                 class="d-flex justify-content-center gap-1"
                                             >
+                                                <b-button
+                                                    @click.stop="openChat(list)"
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    class="btn-icon position-relative overflow-visible"
+                                                    v-b-tooltip.hover
+                                                    :title="hasComments(list.comments_count) ? `${commentCountLabel(list.comments_count)} for ${list.code}` : 'Chat'"
+                                                    style="border-radius: 8px"
+                                                >
+                                                    <i class="ri-chat-1-line"></i>
+                                                    <span
+                                                        v-if="hasComments(list.comments_count)"
+                                                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger text-white"
+                                                        style="font-size: 10px; min-width: 18px;"
+                                                    >
+                                                        {{ list.comments_count }}
+                                                    </span>
+                                                </b-button>
+
                                                 <b-button
                                                     @click="goViewPage(list)"
                                                     size="sm"
@@ -326,18 +353,30 @@
         </div>
     </BRow>
     <Cancel @update="fetch()" ref="cancel" />
+    <FloatingRequestChat
+        :requests="chatRequests"
+        :requests-loading="chatRequestsLoading"
+        :selected-request-id="activeChatRequestId"
+        :selected-request="activeChatRequest"
+        :loading="chatLoading"
+        :open="isChatOpen"
+        @toggle="toggleChat"
+        @select-request="selectChatRequest"
+        @comment-added="appendChatComment"
+    />
 </template>
 <script>
 import _ from "lodash";
 
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
+import FloatingRequestChat from "./Pages/Components/FloatingRequestChat.vue";
 import { router } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
 import Cancel from "./Modals/Cancel.vue";
 export default {
-    components: { PageHeader, Pagination, Multiselect, Cancel },
-    props: ["dropdowns", "roles"],
+    components: { PageHeader, Pagination, Multiselect, Cancel, FloatingRequestChat },
+    props: ["dropdowns", "roles", "chat_request_id"],
     data() {
         return {
             currentUrl: window.location.origin,
@@ -348,6 +387,7 @@ export default {
                 keyword: null,
                 type: null,
                 status: null,
+                sort: "latest",
                 mode: null,
                 expense: null,
                 leave: null,
@@ -362,9 +402,22 @@ export default {
             view_type: "all",
             index: null,
             units: [],
+            isChatOpen: false,
+            chatLoading: false,
+            chatRequestsLoading: false,
+            chatRequests: [],
+            activeChatRequestId: null,
+            activeChatRequest: null,
+            pendingChatRequestId: this.chat_request_id ? Number(this.chat_request_id) : null,
         };
     },
     watch: {
+        chat_request_id: {
+            handler(newValue) {
+                this.pendingChatRequestId = newValue ? Number(newValue) : null;
+                this.tryOpenPendingChat();
+            },
+        },
         "filter.keyword"(newVal) {
             this.checkSearchStr(newVal);
         },
@@ -374,12 +427,16 @@ export default {
         "filter.mode"(newVal) {
             this.fetch();
         },
+        "filter.sort"(newVal) {
+            this.fetch();
+        },
         "filter.expense"(newVal) {
             this.fetch();
         },
     },
     created() {
         this.fetch();
+        this.fetchChatRequests();
     },
     methods: {
         canApproveProcurement(list) {
@@ -406,6 +463,7 @@ export default {
                         keyword: this.filter.keyword,
                         type: this.filter.type,
                         status: this.filter.status,
+                        sort: this.filter.sort,
                         mode: this.filter.mode,
                         count: 10,
                         option: "lists",
@@ -419,6 +477,36 @@ export default {
                     }
                 })
                 .catch((err) => console.log(err));
+        },
+        fetchChatRequests() {
+            this.chatRequestsLoading = true;
+
+            return axios
+                .get("/faims/procurements", {
+                    params: {
+                        option: "chat_lists",
+                    },
+                })
+                .then((response) => {
+                    this.chatRequests = Array.isArray(response.data?.data)
+                        ? response.data.data
+                        : [];
+                })
+                .catch((error) => {
+                    console.log(error);
+                    this.chatRequests = [];
+                })
+                .finally(() => {
+                    this.chatRequestsLoading = false;
+                    this.tryOpenPendingChat();
+                });
+        },
+        ensureChatRequestsLoaded() {
+            if (this.chatRequests.length || this.chatRequestsLoading) {
+                return;
+            }
+
+            this.fetchChatRequests();
         },
         formatDate(date) {
             return new Date(date).toLocaleDateString("en-US", {
@@ -448,6 +536,114 @@ export default {
 
             const year = startDate.getFullYear(); // assume same year
             return `${startStr}-${endStr}, ${year}`;
+        },
+
+        formatPapCode(codeGroup) {
+            const code = codeGroup?.procurement_code?.code;
+            const title = codeGroup?.procurement_code?.title;
+
+            if (code && title) {
+                return `${code} - ${title}`;
+            }
+
+            return (
+                code ||
+                title ||
+                codeGroup?.procurement_code?.mode_of_procurement?.name ||
+                "-"
+            );
+        },
+        commentCountLabel(count) {
+            const total = Number(count) || 0;
+
+            return `${total} ${total === 1 ? "chat" : "chats"}`;
+        },
+        hasComments(count) {
+            return Number(count) > 0;
+        },
+        getLatestChat(request) {
+            if (!request) {
+                return null;
+            }
+
+            if (request.latest_comment) {
+                return request.latest_comment;
+            }
+
+            const comments = Array.isArray(request.comments) ? request.comments : [];
+
+            if (!comments.length) {
+                return null;
+            }
+
+            return comments.reduce((latest, comment) => {
+                if (!comment?.created_at) {
+                    return latest;
+                }
+
+                if (!latest?.created_at) {
+                    return comment;
+                }
+
+                return new Date(comment.created_at) > new Date(latest.created_at)
+                    ? comment
+                    : latest;
+            }, null);
+        },
+        getLatestChatTimestamp(request) {
+            const latestComment = this.getLatestChat(request);
+
+            if (latestComment?.created_at) {
+                return latestComment.created_at;
+            }
+
+            if (request?.latest_comment_at) {
+                return request.latest_comment_at;
+            }
+
+            if (request?.comments_max_created_at) {
+                return request.comments_max_created_at;
+            }
+
+            return null;
+        },
+        syncRequestChatMeta(requestId, count, latestComment = null) {
+            const normalizedId = Number(requestId);
+            const normalizedCount = Number(count) || 0;
+            const normalizedLatestComment = latestComment || null;
+            const latestCommentAt =
+                normalizedLatestComment?.created_at || null;
+
+            this.lists = this.lists.map((list) =>
+                Number(list.id) === normalizedId
+                    ? {
+                        ...list,
+                        comments_count: normalizedCount,
+                        latest_comment_at: latestCommentAt || list.latest_comment_at || null,
+                        latest_comment: normalizedLatestComment || list.latest_comment || null,
+                    }
+                    : list,
+            );
+
+            this.chatRequests = this.chatRequests.map((request) =>
+                Number(request.id) === normalizedId
+                    ? {
+                        ...request,
+                        comments_count: normalizedCount,
+                        latest_comment_at: latestCommentAt || request.latest_comment_at || null,
+                        latest_comment: normalizedLatestComment || request.latest_comment || null,
+                    }
+                    : request,
+            );
+
+            if (Number(this.activeChatRequest?.id) === normalizedId) {
+                this.activeChatRequest = {
+                    ...this.activeChatRequest,
+                    comments_count: normalizedCount,
+                    latest_comment_at: latestCommentAt || this.activeChatRequest.latest_comment_at || null,
+                    latest_comment: normalizedLatestComment || this.activeChatRequest.latest_comment || null,
+                };
+            }
         },
 
         view(view_type) {
@@ -501,6 +697,142 @@ export default {
         openCancel(data) {
             this.$refs.cancel.show(data);
         },
+        toggleChat() {
+            this.isChatOpen = !this.isChatOpen;
+
+            if (this.isChatOpen) {
+                this.ensureChatRequestsLoaded();
+            }
+        },
+        openChat(data) {
+            if (!data?.id) {
+                return;
+            }
+
+            this.isChatOpen = true;
+            this.ensureChatRequestsLoaded();
+            this.selectChatRequest(data.id);
+        },
+        tryOpenPendingChat() {
+            const requestId = Number(this.pendingChatRequestId);
+
+            if (!requestId) {
+                return;
+            }
+
+            if (this.chatRequestsLoading) {
+                return;
+            }
+
+            if (!this.chatRequests.length) {
+                this.fetchChatRequests();
+                return;
+            }
+
+            const hasMatchingRequest = this.chatRequests.some(
+                (request) => Number(request.id) === requestId,
+            );
+
+            if (!hasMatchingRequest) {
+                this.pendingChatRequestId = null;
+                this.clearPendingChatQuery();
+                return;
+            }
+
+            this.isChatOpen = true;
+            this.selectChatRequest(requestId);
+            this.pendingChatRequestId = null;
+            this.clearPendingChatQuery();
+        },
+        clearPendingChatQuery() {
+            const url = new URL(window.location.href);
+
+            if (!url.searchParams.has("chat_request_id")) {
+                return;
+            }
+
+            url.searchParams.delete("chat_request_id");
+            const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+
+            window.history.replaceState({}, "", nextUrl);
+        },
+        selectChatRequest(requestId) {
+            if (!requestId) {
+                this.activeChatRequestId = null;
+                this.activeChatRequest = null;
+                this.chatLoading = false;
+                return;
+            }
+
+            const normalizedId = Number(requestId);
+
+            if (
+                this.activeChatRequestId === normalizedId &&
+                this.activeChatRequest?.id === normalizedId
+            ) {
+                return;
+            }
+
+            this.activeChatRequestId = normalizedId;
+            this.chatLoading = true;
+
+            axios
+                .get(`/faims/procurements/${normalizedId}`, {
+                    params: {
+                        option: "comments",
+                    },
+                })
+                .then((response) => {
+                    this.activeChatRequest = response.data?.data || null;
+
+                    if (this.activeChatRequest?.id) {
+                        const count = Array.isArray(this.activeChatRequest.comments)
+                            ? this.activeChatRequest.comments.length
+                            : Number(this.activeChatRequest.comments_count) || 0;
+                        const latestChat = this.getLatestChat(this.activeChatRequest);
+
+                        this.syncRequestChatMeta(
+                            this.activeChatRequest.id,
+                            count,
+                            latestChat,
+                        );
+                    }
+                })
+                .catch((error) => {
+                    console.log(error);
+                    this.activeChatRequest = null;
+                })
+                .finally(() => {
+                    this.chatLoading = false;
+                });
+        },
+        appendChatComment(comment) {
+            if (
+                !this.activeChatRequest ||
+                comment?.commentable_type !== "App\\Models\\Procurement" ||
+                Number(comment?.commentable_id) !== Number(this.activeChatRequest.id)
+            ) {
+                return;
+            }
+
+            if (!Array.isArray(this.activeChatRequest.comments)) {
+                this.activeChatRequest.comments = [];
+            }
+
+            const alreadyExists = this.activeChatRequest.comments.some(
+                (existingComment) => Number(existingComment.id) === Number(comment.id),
+            );
+
+            if (!alreadyExists) {
+                this.activeChatRequest.comments.push(comment);
+                this.activeChatRequest.latest_comment = comment;
+                this.syncRequestChatMeta(
+                    this.activeChatRequest.id,
+                    this.activeChatRequest.comments.length,
+                    comment,
+                );
+            }
+        },
 
         openPrint(data) {
             window.open(
@@ -516,6 +848,7 @@ export default {
             this.filter.expense = null;
             this.filter.mode = null;
             this.filter.keyword = null;
+            this.filter.sort = "latest";
             this.fetch();
         },
     },

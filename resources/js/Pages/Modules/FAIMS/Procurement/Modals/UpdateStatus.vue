@@ -325,12 +325,16 @@ export default {
 
       if (
         [
+          "Items Delivered",
+          "PO Items Delivered",
           "Partially Delivered/For Inspection",
           "PO Delivered/For Inspection",
           "PO Partially Delivered/For Inspection",
+          "Items Partially Delivered",
+          "PO Items Partially Delivered",
         ].includes(normalized)
       ) {
-        return "Delivered/For Inspection";
+        return "Items Delivered";
       }
 
       return normalized;
@@ -349,14 +353,14 @@ export default {
       if (this.type === "NOA") {
         if (current === "Pending") return "Served to Supplier";
         if (current === "Served to Supplier") return "Conformed";
-        if (current === "Conformed") return "Delivered/For Inspection";
+        if (current === "Conformed") return "Items Delivered";
       }
 
       if (this.type === "PO") {
         if (current === "Created") return "Issued";
         if (current === "Issued") return "Conformed";
-        if (current === "Conformed") return "Delivered/For Inspection";
-        if (current === "Delivered/For Inspection") return "Completed";
+        if (current === "Conformed") return "Items Delivered";
+        if (current === "Items Delivered") return "Completed";
       }
 
       return null;
@@ -371,12 +375,12 @@ export default {
     revertTargetStatus() {
       const current = this.normalizedCurrentStatus;
       if (this.type === "NOA") {
-        if (current === "Delivered/For Inspection") return "Conformed";
+        if (current === "Items Delivered") return "Conformed";
         if (current === "Conformed") return "Served to Supplier";
         if (current === "Served to Supplier") return "Pending";
       }
       if (this.type === "PO") {
-        if (current === "Delivered/For Inspection") return "Conformed";
+        if (current === "Items Delivered") return "Conformed";
         if (current === "Conformed") return "Issued";
         if (current === "Issued") return "Created";
       }

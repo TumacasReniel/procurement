@@ -3,8 +3,8 @@
   <PageHeader title="Purchase Order" class="m-3 mt-4" />
 
   <!-- Enhanced Action Buttons -->
-  <div class="d-flex justify-content-between align-items-center mb-4 mt-3">
-    <div class="d-flex gap-2">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 mt-2">
+    <div class="d-flex gap-2 flex-wrap">
       <b-button
         type="button"
         variant="outline-primary"
@@ -130,7 +130,7 @@
       <!-- Purchase Order Content -->
       <div
         v-if="purchase_order"
-        class="po-content po-content-scroll p-4"
+        class="po-content po-content-scroll px-3 py-2"
         ref="box"
       >
         <b-tabs v-model="activePOTab" class="po-view-tabs">
@@ -141,7 +141,7 @@
             </template>
 
             <PODetailsTab
-              class="pt-3"
+              class="pt-1"
               :purchase-order="purchase_order"
               :noa="noa"
               :procurement="procurement"
@@ -158,10 +158,10 @@
             </template>
 
             <PODeliveryTab
-              class="pt-3"
-              :delivery-summary="deliverySummary"
-              :delivery-monitoring-items="deliveryMonitoringItems"
-              :can-update-delivered-items="canUpdateDeliveredItems"
+              class="pt-1"
+              :delivery_summary="deliverySummary"
+              :delivery_monitoring_items="deliveryMonitoringItems"
+              :can_update_delivered_items="canUpdateDeliveredItems"
               @update-delivered-items="openDeliveredItemsEditor"
             />
           </b-tab>
@@ -176,13 +176,13 @@
             </template>
 
             <POInspectionTab
-              class="pt-3"
-              :purchase-order="purchase_order"
-              :delivered-monitoring-items="deliveredMonitoringItems"
-              :delivery-summary="deliverySummary"
-              :can-generate-iar-report="canGenerateIARReport"
-              :can-print-iar-report="canPrintIARReport"
-              :processing-iar-id="updatingIarId"
+              class="pt-1"
+              :purchase_order="purchase_order"
+              :delivered_monitoring_items="deliveredMonitoringItems"
+              :delivery_summary="deliverySummary"
+              :can_generate_iar_report="canGenerateIARReport"
+              :can_print_iar_report="canPrintIARReport"
+              :processing_iar_id="updatingIarId"
               @open-iar="openIARSelection"
               @edit-iar="editIAR"
               @print-iar="printIAR"
@@ -240,7 +240,7 @@
     style="--vz-modal-width: 500px"
     header-class="p-3 bg-light"
     :title="pendingInspectIarAction === 'revert' ? 'Revert IAR Status' : 'Update IAR Status'"
-    class="v-modal-custom"
+    class="v-modal-custom procurement-po-modal"
     modal-class="zoomIn"
     centered
     no-close-on-backdrop
@@ -321,7 +321,7 @@ export default {
 
   computed: {
     canAccessProgressTabs() {
-      return ["Conformed", "Delivered/For Inspection", "Completed"].includes(
+      return ["Conformed", "Items Delivered", "Completed"].includes(
         this.normalizedPurchaseOrderStatus
       );
     },
@@ -334,7 +334,7 @@ export default {
     canEditPO() {
       const status = this.normalizedPurchaseOrderStatus;
 
-      return status && !["Not Conformed", "Completed", "Delivered/For Inspection"].includes(status);
+      return status && !["Not Conformed", "Completed", "Items Delivered"].includes(status);
     },
     canUpdatePOStatus() {
       if (!this.purchase_order) {
@@ -351,7 +351,7 @@ export default {
           && this.pendingIarReportsCount === 0;
       }
 
-      if (this.normalizedPurchaseOrderStatus === "Delivered/For Inspection") {
+      if (this.normalizedPurchaseOrderStatus === "Items Delivered") {
         return !this.hasRemainingDeliveries
           && this.iarReports.length > 0
           && this.pendingIarReportsCount === 0;
@@ -360,12 +360,12 @@ export default {
       return false;
     },
     canRevertPOStatus() {
-      return ["Issued", "Conformed", "Delivered/For Inspection"].includes(
+      return ["Issued", "Conformed", "Items Delivered"].includes(
         this.normalizedPurchaseOrderStatus
       );
     },
     canPrintNTP() {
-      return ["Conformed", "Delivered/For Inspection", "Completed"].includes(
+      return ["Conformed", "Items Delivered", "Completed"].includes(
         this.normalizedPurchaseOrderStatus
       );
     },
@@ -414,7 +414,7 @@ export default {
       return this.iarReports.filter((report) => report?.status?.name !== "Completed").length;
     },
     inspectionAlertCount() {
-      if (this.normalizedPurchaseOrderStatus !== "Delivered/For Inspection") {
+      if (this.normalizedPurchaseOrderStatus !== "Items Delivered") {
         return 0;
       }
 
@@ -424,7 +424,7 @@ export default {
       return (
         Boolean(this.purchase_order)
         && this.hasRemainingDeliveries
-        && ["Conformed", "Delivered/For Inspection"].includes(this.normalizedPurchaseOrderStatus)
+        && ["Conformed", "Items Delivered"].includes(this.normalizedPurchaseOrderStatus)
       );
     },
     canPrintIARReport() {
@@ -437,7 +437,7 @@ export default {
     canUpdateDeliveredItems() {
       return Boolean(this.purchase_order)
         && this.hasRemainingDeliveries
-        && ["Conformed", "Delivered/For Inspection"].includes(
+        && ["Conformed", "Items Delivered"].includes(
           this.normalizedPurchaseOrderStatus
         );
     },
@@ -476,12 +476,16 @@ export default {
 
       if (
         [
+          "Items Delivered",
+          "PO Items Delivered",
           "Partially Delivered/For Inspection",
           "PO Delivered/For Inspection",
           "PO Partially Delivered/For Inspection",
+          "Items Partially Delivered",
+          "PO Items Partially Delivered",
         ].includes(normalized)
       ) {
-        return "Delivered/For Inspection";
+        return "Items Delivered";
       }
 
       return normalized;
@@ -590,6 +594,11 @@ export default {
         return;
       }
 
+      if (report?.can_update_status === false) {
+        window.alert("Only active IAR committee members can mark an IAR report as Inspected/Completed.");
+        return;
+      }
+
       this.pendingInspectIarAction = "complete";
       this.pendingInspectIar = report;
       this.showInspectIarModal = true;
@@ -606,6 +615,11 @@ export default {
 
       if (this.normalizedPurchaseOrderStatus !== "Conformed") {
         window.alert("IAR reports can only be reverted while the Purchase Order is Conformed.");
+        return;
+      }
+
+      if (report?.can_revert_status === false) {
+        window.alert("Only active IAR committee members can revert an IAR report.");
         return;
       }
 
@@ -690,7 +704,7 @@ export default {
     goBackPage() {
       router.get(`/faims/procurements/${this.procurement.id}`, {
         option: "view",
-        tab: 5,
+        tab: 6,
       });
     },
   },
@@ -699,6 +713,15 @@ export default {
 
 <style scoped>
 /* Modern Button Styles */
+.po-content {
+  --po-detail-surface: #ffffff;
+  --po-detail-surface-soft: #f8fbff;
+  --po-detail-surface-alt: #eef4ff;
+  --po-detail-border: rgba(148, 163, 184, 0.22);
+  --po-detail-text: #1e293b;
+  --po-detail-muted: #64748b;
+}
+
 .btn-modern {
   border-radius: 14px;
   font-weight: 700;
@@ -713,7 +736,7 @@ export default {
 
 /* Main Content Wrapper */
 .main-content-wrapper {
-  min-height: calc(100vh - 200px);
+  min-height: calc(100vh - 170px);
 }
 
 /* Modern Card */
@@ -730,12 +753,67 @@ export default {
 .po-content {
   background: transparent;
   font-size: 0.95rem;
+  color: var(--po-detail-text);
 }
 
 .po-content-scroll {
-  max-height: calc(90vh - 180px);
+  max-height: calc(100vh - 170px);
   overflow-y: auto;
-  padding-bottom: 0.6rem !important;
+  padding-bottom: 0.35rem !important;
+}
+
+:deep(.po-view-tabs .card) {
+  background: var(--po-detail-surface);
+  border: 1px solid var(--po-detail-border) !important;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06) !important;
+}
+
+:deep(.po-view-tabs .border),
+:deep(.po-view-tabs .border-bottom),
+:deep(.po-view-tabs .table td),
+:deep(.po-view-tabs .table th) {
+  border-color: var(--po-detail-border) !important;
+}
+
+:deep(.po-view-tabs .bg-light),
+:deep(.po-view-tabs .bg-white) {
+  background: var(--po-detail-surface-soft) !important;
+  color: var(--po-detail-text) !important;
+}
+
+:deep(.po-view-tabs .table) {
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(79, 109, 230, 0.035);
+  --bs-table-striped-color: var(--po-detail-text);
+  color: var(--po-detail-text);
+}
+
+:deep(.po-view-tabs .table-light),
+:deep(.po-view-tabs .table-light th),
+:deep(.po-view-tabs .table-light td) {
+  background: var(--po-detail-surface-soft) !important;
+  color: var(--po-detail-text) !important;
+}
+
+:deep(.po-view-tabs .table-warning),
+:deep(.po-view-tabs .table-warning td),
+:deep(.po-view-tabs .table-warning th) {
+  background: rgba(245, 158, 11, 0.14) !important;
+  color: var(--po-detail-text) !important;
+}
+
+:deep(.po-view-tabs .table-hover > tbody > tr:hover > *),
+:deep(.po-view-tabs .table tbody tr:hover td) {
+  background: var(--po-detail-surface-alt) !important;
+}
+
+:deep(.po-view-tabs .text-muted),
+:deep(.po-view-tabs .small.text-muted) {
+  color: var(--po-detail-muted) !important;
+}
+
+:deep(.po-view-tabs .text-dark) {
+  color: var(--po-detail-text) !important;
 }
 
 :deep(.po-view-tabs .nav-tabs) {
@@ -744,10 +822,10 @@ export default {
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
-  gap: 0.75rem;
+  gap: 0.5rem;
   border-bottom: 0;
   margin-bottom: 0;
-  padding: 0 0 0.75rem;
+  padding: 0 0 0.5rem;
 }
 
 :deep(.po-view-tabs .nav-link) {
@@ -759,10 +837,10 @@ export default {
   color: #475569 !important;
   border: 1px solid rgba(191, 219, 254, 0.9) !important;
   border-radius: 20px !important;
-  padding: 0.8rem 1.05rem !important;
+  padding: 0.68rem 0.95rem !important;
   font-size: 0.88rem;
   font-weight: 800;
-  min-width: 190px;
+  min-width: 170px;
   box-shadow: 0 14px 24px rgba(15, 23, 42, 0.06);
   backdrop-filter: blur(10px);
 }
@@ -777,7 +855,8 @@ export default {
 }
 
 :deep(.po-view-tabs .tab-content) {
-  padding-top: 1.15rem;
+  padding-top: 0.5rem;
+  color: var(--po-detail-text);
 }
 
 /* Empty State */
@@ -819,5 +898,197 @@ export default {
   color: #334155;
   font-size: 1rem;
   line-height: 1.7;
+}
+
+[data-bs-theme="dark"] .btn-modern {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .po-content {
+  --po-detail-surface: #1b2230;
+  --po-detail-surface-soft: #232c3a;
+  --po-detail-surface-alt: rgba(148, 163, 184, 0.08);
+  --po-detail-border: rgba(148, 163, 184, 0.18);
+  --po-detail-text: #e5edf7;
+  --po-detail-muted: #94a3b8;
+}
+
+[data-bs-theme="dark"] .btn-modern:hover {
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.28) !important;
+}
+
+[data-bs-theme="dark"] .modern-card {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.1), transparent 22%),
+    linear-gradient(135deg, #141b27, #1b2230 62%, #1f2937);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] :deep(.po-view-tabs .nav-link) {
+  background: rgba(27, 34, 48, 0.92) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  box-shadow: none;
+}
+
+[data-bs-theme="dark"] :deep(.po-view-tabs .nav-link.active) {
+  color: #e5edf7 !important;
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.72), rgba(30, 41, 59, 0.96)) !important;
+  border-color: rgba(96, 165, 250, 0.45) !important;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.28);
+}
+
+[data-bs-theme="dark"] :deep(.po-view-tabs .card) {
+  box-shadow: none !important;
+}
+
+[data-bs-theme="dark"] .empty-state-container {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(20, 27, 39, 0.96), rgba(27, 34, 48, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .empty-state-icon {
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.28), rgba(30, 41, 59, 0.94));
+  color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .empty-state-container .text-muted,
+[data-bs-theme="dark"] .inspect-iar-modal-message {
+  color: #94a3b8 !important;
+}
+</style>
+
+<style>
+[data-bs-theme="dark"] .po-content {
+  --po-detail-surface: #1b2230;
+  --po-detail-surface-soft: #232c3a;
+  --po-detail-surface-alt: rgba(148, 163, 184, 0.08);
+  --po-detail-border: rgba(148, 163, 184, 0.18);
+  --po-detail-text: #e5edf7;
+  --po-detail-muted: #94a3b8;
+  color: var(--po-detail-text);
+}
+
+[data-bs-theme="dark"] .po-content .card {
+  background: var(--po-detail-surface);
+  border: 1px solid var(--po-detail-border) !important;
+  box-shadow: none !important;
+}
+
+[data-bs-theme="dark"] .po-content .border,
+[data-bs-theme="dark"] .po-content .border-bottom,
+[data-bs-theme="dark"] .po-content .table td,
+[data-bs-theme="dark"] .po-content .table th {
+  border-color: var(--po-detail-border) !important;
+}
+
+[data-bs-theme="dark"] .po-content .bg-light,
+[data-bs-theme="dark"] .po-content .bg-white {
+  background: var(--po-detail-surface-soft) !important;
+  color: var(--po-detail-text) !important;
+}
+
+[data-bs-theme="dark"] .po-content .table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--po-detail-text);
+  --bs-table-striped-bg: rgba(147, 197, 253, 0.05);
+  --bs-table-striped-color: var(--po-detail-text);
+  color: var(--po-detail-text);
+}
+
+[data-bs-theme="dark"] .po-content .table-light,
+[data-bs-theme="dark"] .po-content .table-light th,
+[data-bs-theme="dark"] .po-content .table-light td {
+  background: var(--po-detail-surface-soft) !important;
+  color: var(--po-detail-text) !important;
+}
+
+[data-bs-theme="dark"] .po-content .table-warning,
+[data-bs-theme="dark"] .po-content .table-warning td,
+[data-bs-theme="dark"] .po-content .table-warning th {
+  background: rgba(245, 158, 11, 0.14) !important;
+  color: var(--po-detail-text) !important;
+}
+
+[data-bs-theme="dark"] .po-content .table-hover > tbody > tr:hover > *,
+[data-bs-theme="dark"] .po-content .table tbody tr:hover td {
+  background: var(--po-detail-surface-alt) !important;
+}
+
+[data-bs-theme="dark"] .po-content .text-muted,
+[data-bs-theme="dark"] .po-content .small.text-muted {
+  color: var(--po-detail-muted) !important;
+}
+
+[data-bs-theme="dark"] .po-content .text-dark {
+  color: var(--po-detail-text) !important;
+}
+
+[data-bs-theme="dark"] .po-view-tabs .nav-link {
+  background: rgba(27, 34, 48, 0.92) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  box-shadow: none;
+}
+
+[data-bs-theme="dark"] .po-view-tabs .nav-link:hover:not(.active) {
+  background: rgba(59, 130, 246, 0.1) !important;
+  color: #e5edf7 !important;
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+[data-bs-theme="dark"] .po-view-tabs .nav-link.active {
+  color: #e5edf7 !important;
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.72), rgba(30, 41, 59, 0.96)) !important;
+  border-color: rgba(96, 165, 250, 0.45) !important;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.28);
+}
+
+[data-bs-theme="dark"] .empty-state-container {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(20, 27, 39, 0.96), rgba(27, 34, 48, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .empty-state-icon {
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.28), rgba(30, 41, 59, 0.94));
+  color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .empty-state-container .text-muted,
+[data-bs-theme="dark"] .inspect-iar-modal-message {
+  color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] .procurement-po-modal .modal-content {
+  background: #1b2230;
+  color: #e5edf7;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-po-modal .modal-header,
+[data-bs-theme="dark"] .procurement-po-modal .modal-footer {
+  background: #1b2230 !important;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-po-modal .modal-title {
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .procurement-po-modal .btn-light {
+  background: #232c3a;
+  color: #e5edf7;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .procurement-po-modal .btn-light:hover {
+  background: #2b3646;
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.28);
 }
 </style>

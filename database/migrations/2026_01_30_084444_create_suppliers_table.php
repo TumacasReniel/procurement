@@ -19,6 +19,11 @@ return new class extends Migration
             $table->boolean('is_active')->default(1);
             $table->integer('user_id')->unsigned()->nullable();
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->string('approval_status')->default('Approved');
+            $table->unsignedInteger('approved_by_id')->nullable();
+            $table->timestamp('approved_at')->nullable();
+            $table->foreign('approved_by_id')->references('id')->on('users')->onCascade();
+            $table->string('tin')->nullable();
             $table->timestamps();
         });
     }

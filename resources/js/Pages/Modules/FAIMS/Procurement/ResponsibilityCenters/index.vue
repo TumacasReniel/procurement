@@ -1,7 +1,7 @@
 <template>
   <Head title="BAC Resolutions" />
   <PageHeader title="BAC Resolutions" pageTitle="All" />
-  <BRow>
+  <BRow class="procurement-index-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
         <div class="card-header bg-light-subtle">

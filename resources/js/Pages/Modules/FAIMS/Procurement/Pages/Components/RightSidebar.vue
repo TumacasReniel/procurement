@@ -281,7 +281,7 @@ export default {
           { name: 'NOA Conformed', isCurrent: false },
           { name: 'PO Issued', isCurrent: false },
           { name: 'PO Conformed', isCurrent: false },
-          { name: 'Delivered/For Inspection', isCurrent: false },
+          { name: 'Items Delivered', isCurrent: false },
           { name: 'Completed', isCurrent: false },
         ];
       } else {
@@ -298,7 +298,7 @@ export default {
           { name: 'NOA Conformed', isCurrent: currentStatus === 'NOA Conformed' },
           { name: 'PO Issued', isCurrent: currentStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentStatus === 'PO Conformed' },
-          { name: 'Delivered/For Inspection', isCurrent: currentStatus === 'Delivered/For Inspection' },
+          { name: 'Items Delivered', isCurrent: currentStatus === 'Items Delivered' || currentStatus === 'Delivered/For Inspection' },
           { name: 'Completed', isCurrent: currentStatus === 'Completed' },
         ];
       }
@@ -327,7 +327,7 @@ export default {
           { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
           { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'Delivered/For Inspection' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'Items Delivered' || currentSubStatus === 'Delivered/For Inspection' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       } else if (currentStatus === 'Re-award') {
@@ -337,7 +337,7 @@ export default {
           { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
           { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'Delivered/For Inspection' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'Items Delivered' || currentSubStatus === 'Delivered/For Inspection' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       } else {
@@ -351,7 +351,7 @@ export default {
           { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
           { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'Delivered/For Inspection' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'Items Delivered' || currentSubStatus === 'Delivered/For Inspection' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       }
@@ -420,6 +420,7 @@ export default {
           "PO Created": "Issue purchase order",
           "PO Issued": "Wait for supplier conformity",
           "PO Conformed": "Proceed to delivery and inspection",
+          "Items Delivered": "Complete inspection and acceptance",
           "Delivered/For Inspection": "Complete inspection and acceptance",
           Completed: "Process is completed",
         };
@@ -435,7 +436,8 @@ export default {
         "For Approval": ["For Approval of BAC Resolution"],
         "NOA Served": ["NOA Served to Supplier"],
         "NOA Confirmed": ["NOA Conformed"],
-        Delivered: ["PO Delivered/For Inspection", "Delivered/For Inspection"],
+        "Items Delivered": ["PO Items Delivered", "Items Delivered", "PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"],
+        Delivered: ["PO Items Delivered", "Items Delivered", "PO Delivered/For Inspection", "Delivered/For Inspection"],
       };
       return map[stepName] || [stepName];
     },

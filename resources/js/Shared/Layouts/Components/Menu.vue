@@ -39,7 +39,9 @@
             <li
                 class="nav-item"
                 v-if="
+                $page.props.roles.includes('Procurement Staff') ||
                 $page.props.roles.includes('Procurement Officer') ||
+                $page.props.roles.includes('Budget Officer') ||
                 $page.props.roles.includes('Administrator')
                 "
             >
@@ -93,6 +95,9 @@
                 <Link
                 href="/faims/procurement-codes"
                 class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Code'),
+                }"
                 >
                 <i class="ri-code-box-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">PAP Codes</span>
@@ -102,9 +107,23 @@
                 <Link
                 href="/faims/responsibility-centers"
                 class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/ResponsibilityCenters'),
+                }"
                 >
                 <i class="ri-code-box-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Responsibility Centers</span>
+                </Link>
+
+                <Link
+                href="/faims/modes-of-procurement"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/ModesOfProcurement'),
+                }"
+                >
+                <i class="ri-code-box-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Modes of Procurement</span>
                 </Link>
             </li>
 

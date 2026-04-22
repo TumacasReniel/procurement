@@ -190,7 +190,7 @@ class PrintClass
 
 
     public function printQuotations($id){
-        $quotation = ProcurementQuotation::with('supplier.address', 'supply_officer.profile', 'items' , 'procurement')->findOrFail($id); 
+        $quotation = ProcurementQuotation::with('supplier.address', 'supplier.attachments', 'supply_officer.profile', 'items' , 'procurement')->findOrFail($id); 
 
         $array = [
             'quotation' => $quotation,
@@ -217,7 +217,7 @@ class PrintClass
                                         ->whereNot('status_id', 71) // status is not  "Failed RFQs"
                                         ->where('procurement_id', $id)->get(); // 
 
-        $procurement = Procurement::findOrFail($id);
+        $procurement = Procurement::with('division', 'unit')->findOrFail($id);
 
         $regional_director = $this->dropdown->regional_director();
         $bac_chairperson = $this->dropdown->bac_chairperson();
@@ -382,10 +382,14 @@ class PrintClass
     public function printIAR($id, $request = null){
         $purchase_order = ProcurementNoaPo::with(
             'noa.procurement_bac.procurement.codes',
+            'noa.procurement_bac.procurement.unit.responsibility_center',
+            'noa.procurement_bac.procurement.division',
             'noa.procurement_quotation.supplier',
             'noa.items.item',
             'iar.status',
+            'iar.inspected_by.profile',
             'iars.status',
+            'iars.inspected_by.profile',
             'noa.procurement_quotation.supply_officer.profile'
         )->findOrFail($id); // 
         $procurement =  $purchase_order->noa->procurement_bac->procurement;
@@ -398,6 +402,8 @@ class PrintClass
         $savedDeliveries = $iar
             ? $iar->normalizedDeliveredItems($allItems)
             : collect();
+        $deliveryDate = $iar?->created_at?->copy()->startOfDay()
+            ?? $purchase_order->actual_delivery_date?->copy()->startOfDay();
         $savedDeliveryMap = $savedDeliveries->keyBy('item_id');
         $hasSavedDeliveries = $savedDeliveries->isNotEmpty();
         $items = $allItems
@@ -424,12 +430,21 @@ class PrintClass
         // Assignatories
         $iar_members = $this->dropdown->iar_members();
         $iar_chairperson = $this->dropdown->iar_chairperson();
-        $iar_vice_chairperson = $this->dropdown->iar_vice_chairperson();
         $regional_director = $this->dropdown->regional_director();
         $supply_officer =   $purchase_order->noa->procurement_quotation->supply_officer->profile;
+        $rcCode = $procurement->unit?->responsibility_center_code;
+        $inspectedByName = trim((string) (
+            data_get($iar, 'inspected_by.profile.fullname')
+            ?: data_get($iar, 'inspected_by.profile.full_name')
+            ?: data_get($iar, 'inspected_by.profile.name')
+            ?: data_get($iar, 'inspected_by.name')
+            ?: data_get($iar, 'inspected_by.username')
+            ?: ''
+        ));
 
         $array = [
             'iar' => $iar,
+            'delivery_date' => $deliveryDate,
             'purchase_order' => $purchase_order,
             'supplier' => $supplier, 
              'procurement' => $procurement, 
@@ -440,8 +455,9 @@ class PrintClass
             'amount_to_words' => $amount_to_words,
             'regional_director' => $regional_director, 
             'supply_officer' => $supply_officer,
+            'rc_code' => $rcCode,
+            'inspected_by_name' => $inspectedByName,
             'iar_chairperson' => $iar_chairperson, 
-            'iar_vice_chairperson' => $iar_vice_chairperson, 
             'iar_members' => $iar_members, 
         ];
 
