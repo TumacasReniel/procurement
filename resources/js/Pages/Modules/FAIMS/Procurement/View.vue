@@ -524,6 +524,14 @@ export default {
   },
 
   computed: {
+    currentRoles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    hasProcurementWorkflowRole() {
+      return this.currentRoles.some((role) =>
+        ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role)
+      );
+    },
     statusNameMap() {
       const statuses = Array.isArray(this.dropdowns?.statuses) ? this.dropdowns.statuses : [];
 
@@ -583,16 +591,10 @@ export default {
       return timeline;
     },
     canManageProcurementWorkflow() {
-      const roles = this.$page.props.roles || [];
-      return (
-        roles.includes("Procurement Staff") ||
-        roles.includes("Procurement Officer") ||
-        roles.includes("Administrator")
-      );
+      return this.hasProcurementWorkflowRole;
     },
     isEmployeeOnlyRole() {
-      const roles = this.$page.props.roles || [];
-      return roles.length === 1 && roles.includes("Employee");
+      return !this.hasProcurementWorkflowRole;
     },
     canShowPurchaseOrderTab() {
       return this.canAccessTab(6);

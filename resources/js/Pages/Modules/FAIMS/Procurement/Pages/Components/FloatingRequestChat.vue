@@ -246,33 +246,41 @@
                       v-if="showMentionMenu"
                       class="mention-picker border rounded shadow-sm floating-chat-surface"
                     >
-                      <button
-                        v-for="(user, index) in filteredMentionUsers"
-                        :key="user.id"
-                        type="button"
-                        class="mention-picker-item"
-                        :class="{ active: index === activeMentionIndex }"
-                        @mousedown.prevent="selectMentionUser(user)"
-                      >
-                        <img
-                          :src="resolveAvatar(user)"
-                          :alt="resolveName(user)"
-                          class="rounded-circle border floating-chat-avatar flex-shrink-0"
-                          :style="mentionAvatarStyle"
-                        />
-                        <span class="flex-grow-1 text-start overflow-hidden">
-                          <span class="d-block fw-semibold text-truncate">
-                            {{ resolveName(user) }}
+                      <div v-if="mentionSearchLoading" class="px-3 py-2 small text-muted">
+                        Searching employees...
+                      </div>
+                      <div v-else-if="!filteredMentionUsers.length" class="px-3 py-2 small text-muted">
+                        No employee found. Try a name or username.
+                      </div>
+                      <template v-else>
+                        <button
+                          v-for="(user, index) in filteredMentionUsers"
+                          :key="user.id"
+                          type="button"
+                          class="mention-picker-item"
+                          :class="{ active: index === activeMentionIndex }"
+                          @mousedown.prevent="selectMentionUser(user)"
+                        >
+                          <img
+                            :src="resolveAvatar(user)"
+                            :alt="resolveName(user)"
+                            class="rounded-circle border floating-chat-avatar flex-shrink-0"
+                            :style="mentionAvatarStyle"
+                          />
+                          <span class="flex-grow-1 text-start overflow-hidden">
+                            <span class="d-block fw-semibold text-truncate">
+                              {{ resolveName(user) }}
+                            </span>
+                            <span class="d-block small text-muted text-truncate">
+                              @{{ user.username }}
+                            </span>
                           </span>
-                          <span class="d-block small text-muted text-truncate">
-                            @{{ user.username }}
-                          </span>
-                        </span>
-                      </button>
+                        </button>
+                      </template>
                     </div>
                   </div>
                   <div class="small text-muted mt-2">
-                    Type <span class="fw-semibold">@</span> to tag a participant in this PR chat.
+                    Type <span class="fw-semibold">@</span> and search any employee by name or username.
                   </div>
                   <small v-if="form.errors.content" class="text-danger d-block mt-2">
                     {{ form.errors.content }}
@@ -397,6 +405,10 @@ export default {
       mentionStartIndex: null,
       mentionQuery: "",
       activeMentionIndex: 0,
+      mentionSearchResults: [],
+      mentionSearchLoading: false,
+      mentionSearchTimer: null,
+      mentionSearchRequestId: 0,
       form: useForm({
         content: "",
       }),
@@ -492,6 +504,7 @@ export default {
         : [];
 
       comments.forEach((comment) => appendUser(comment?.user));
+      this.mentionSearchResults.forEach((user) => appendUser(user));
 
       return Array.from(users.values()).sort((left, right) =>
         this.resolveName(left).localeCompare(this.resolveName(right)),
@@ -520,7 +533,9 @@ export default {
       return (
         this.selectedRequest &&
         this.mentionStartIndex !== null &&
-        this.filteredMentionUsers.length > 0
+        (this.filteredMentionUsers.length > 0 ||
+          this.mentionSearchLoading ||
+          this.mentionQuery.trim().length > 0)
       );
     },
     sortedComments() {
@@ -592,8 +607,12 @@ export default {
     requestSearch() {
       this.searchVisibleCount = 12;
     },
+    mentionQuery(newValue) {
+      this.queueMentionSearch(newValue);
+    },
   },
   beforeUnmount() {
+    this.clearMentionSearchTimer();
     this.teardownCommentChannel();
   },
   methods: {
@@ -635,7 +654,7 @@ export default {
       this.resetRequestSearch();
     },
     resolveAvatar(user) {
-      return user?.profile?.avatar || "/images/avatars/avatar.jpg";
+      return user?.profile?.avatar || user?.avatar || "/images/avatars/avatar.jpg";
     },
     resolveName(user) {
       return (
@@ -768,9 +787,77 @@ export default {
       return this.$refs.commentTextarea?.$el?.querySelector("textarea") || null;
     },
     resetMentionState() {
+      this.clearMentionSearchTimer();
+      this.mentionSearchRequestId += 1;
       this.mentionStartIndex = null;
       this.mentionQuery = "";
       this.activeMentionIndex = 0;
+      this.mentionSearchResults = [];
+      this.mentionSearchLoading = false;
+    },
+    clearMentionSearchTimer() {
+      if (!this.mentionSearchTimer) {
+        return;
+      }
+
+      window.clearTimeout(this.mentionSearchTimer);
+      this.mentionSearchTimer = null;
+    },
+    queueMentionSearch(value) {
+      const keyword = String(value || "").trim();
+
+      this.clearMentionSearchTimer();
+
+      if (!keyword || this.mentionStartIndex === null) {
+        this.mentionSearchRequestId += 1;
+        this.mentionSearchResults = [];
+        this.mentionSearchLoading = false;
+        return;
+      }
+
+      const requestId = this.mentionSearchRequestId + 1;
+      this.mentionSearchRequestId = requestId;
+      this.mentionSearchLoading = true;
+
+      this.mentionSearchTimer = window.setTimeout(() => {
+        this.fetchMentionUsers(keyword, requestId);
+      }, 250);
+    },
+    fetchMentionUsers(keyword, requestId = null) {
+      if (!requestId) {
+        requestId = this.mentionSearchRequestId + 1;
+        this.mentionSearchRequestId = requestId;
+      }
+
+      this.mentionSearchLoading = true;
+
+      axios
+        .get("/search", {
+          params: {
+            option: "users",
+            keyword,
+            limit: 10,
+          },
+        })
+        .then((response) => {
+          if (requestId !== this.mentionSearchRequestId) {
+            return;
+          }
+
+          this.mentionSearchResults = Array.isArray(response.data)
+            ? response.data
+            : [];
+        })
+        .catch(() => {
+          if (requestId === this.mentionSearchRequestId) {
+            this.mentionSearchResults = [];
+          }
+        })
+        .finally(() => {
+          if (requestId === this.mentionSearchRequestId) {
+            this.mentionSearchLoading = false;
+          }
+        });
     },
     updateMentionContext(event) {
       const textarea = event?.target || this.getCommentTextarea();

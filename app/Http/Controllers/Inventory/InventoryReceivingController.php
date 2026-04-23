@@ -3,74 +3,55 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Inventory\Concerns\RespondsWithInventoryResults;
 use App\Http\Requests\Inventory\InventoryReceivingRequest;
-use App\Http\Resources\Inventory\InventoryReceivingResource;
 use App\Models\InventoryReceiving;
+use App\Services\Inventory\InventoryStockClass;
+use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
 
 class InventoryReceivingController extends Controller
 {
+    use HandlesTransaction;
+    use RespondsWithInventoryResults;
+
+    public function __construct(public InventoryStockClass $inventory)
+    {
+    }
+
     public function index(Request $request)
     {
-        if ($request->header('X-Inertia')) {
+        if (!$this->shouldReturnJson($request)) {
             return redirect('/inventory-stocks?tab=receivings');
         }
 
-        if (!$request->wantsJson() && !$request->ajax() && !$request->boolean('json')) {
-            return redirect('/inventory-stocks?tab=receivings');
-        }
-
-        $receivings = InventoryReceiving::with(['item', 'approvedBy.profile', 'status'])
-            ->when($request->filled('keyword'), function ($query) use ($request) {
-                $keyword = trim((string) $request->input('keyword'));
-
-                $query->where(function ($inner) use ($keyword) {
-                    $inner->where('remarks', 'like', "%{$keyword}%")
-                        ->orWhereHas('item', function ($item) use ($keyword) {
-                            $item->where('name', 'like', "%{$keyword}%")
-                                ->orWhere('code', 'like', "%{$keyword}%");
-                        })
-                        ->orWhereHas('approvedBy', function ($user) use ($keyword) {
-                            $user->where('username', 'like', "%{$keyword}%");
-                        })
-                        ->orWhereHas('status', function ($status) use ($keyword) {
-                            $status->where('name', 'like', "%{$keyword}%");
-                        });
-                });
-            })
-            ->orderByDesc('received_at')
-            ->orderByDesc('id')
-            ->paginate(max((int) $request->input('count', 10), 1));
-
-        return InventoryReceivingResource::collection($receivings);
+        return $this->inventory->receivings($request);
     }
 
     public function store(InventoryReceivingRequest $request)
     {
-        $receiving = InventoryReceiving::create($request->validated());
+        $result = $this->handleTransaction(function () use ($request) {
+            return $this->inventory->saveReceiving($request);
+        });
 
-        return response()->json([
-            'data' => new InventoryReceivingResource($receiving->load(['item', 'approvedBy.profile', 'status'])),
-            'message' => 'Inventory receiving created successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'receivings');
     }
 
     public function update(InventoryReceivingRequest $request, InventoryReceiving $inventory_receiving)
     {
-        $inventory_receiving->update($request->validated());
+        $result = $this->handleTransaction(function () use ($request, $inventory_receiving) {
+            return $this->inventory->updateReceiving($request, $inventory_receiving);
+        });
 
-        return response()->json([
-            'data' => new InventoryReceivingResource($inventory_receiving->load(['item', 'approvedBy.profile', 'status'])),
-            'message' => 'Inventory receiving updated successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'receivings');
     }
 
-    public function destroy(InventoryReceiving $inventory_receiving)
+    public function destroy(Request $request, InventoryReceiving $inventory_receiving)
     {
-        $inventory_receiving->delete();
+        $result = $this->handleTransaction(function () use ($inventory_receiving) {
+            return $this->inventory->deleteReceiving($inventory_receiving);
+        });
 
-        return response()->json([
-            'message' => 'Inventory receiving deleted successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'receivings');
     }
 }

@@ -58,6 +58,25 @@
           ></textarea>
           <InputError :message="form.errors.description" />
         </b-col>
+
+        <b-col lg="12" class="mt-3">
+          <InputLabel value="Supporting Document" />
+          <input
+            :key="fileInputKey"
+            type="file"
+            class="form-control"
+            :class="{ 'is-invalid': form.errors.attachment }"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            @change="handleAttachmentChange"
+          />
+          <div class="text-muted fs-12 mt-1">
+            Upload the supporting basis document. Accepted: PDF, Word, JPG, PNG up to 5 MB.
+          </div>
+          <div v-if="form.attachment" class="fs-12 mt-1">
+            Selected: <span class="fw-semibold">{{ form.attachment.name }}</span>
+          </div>
+          <InputError :message="form.errors.attachment" />
+        </b-col>
       </b-row>
     </form>
 
@@ -89,9 +108,11 @@ export default {
       submitting: false,
       selected: null,
       errorMessage: null,
+      fileInputKey: 0,
       form: useForm({
         amount: null,
         description: "",
+        attachment: null,
       }),
     };
   },
@@ -99,22 +120,20 @@ export default {
     show(data) {
       this.selected = data;
       this.showModal = true;
-      this.submitting = false;
-      this.errorMessage = null;
-      this.form.reset();
-      this.form.clearErrors();
-
-      this.$nextTick(() => {
-        this.$refs.amountComponent?.emitValue(0);
-      });
+      this.resetFormState();
     },
     hide() {
       this.showModal = false;
+      this.selected = null;
+      this.resetFormState();
+    },
+    resetFormState() {
       this.submitting = false;
       this.errorMessage = null;
-      this.selected = null;
       this.form.reset();
       this.form.clearErrors();
+      this.form.attachment = null;
+      this.fileInputKey += 1;
 
       this.$nextTick(() => {
         this.$refs.amountComponent?.emitValue(0);
@@ -131,6 +150,10 @@ export default {
       const cleaned = value.toString().replace(/[^0-9.]/g, "");
       return cleaned ? Number.parseFloat(cleaned) : null;
     },
+    handleAttachmentChange(event) {
+      const [file] = event?.target?.files || [];
+      this.form.attachment = file || null;
+    },
     submit() {
       if (!this.selected || this.submitting) {
         return;
@@ -143,6 +166,7 @@ export default {
       this.form.post(`/faims/procurement-codes/${this.selected.id}/budget-increase-requests`, {
         preserveScroll: true,
         preserveState: true,
+        forceFormData: true,
         onSuccess: () => {
           const flash = this.$page.props.flash || {};
 

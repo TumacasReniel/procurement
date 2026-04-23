@@ -304,9 +304,18 @@ class ViewClass
             ->selectRaw('COUNT(*) as count')
             ->groupBy('unit_id');
 
+        $unit_amounts = (clone $query)
+            ->leftJoin('procurement_items', 'procurements.id', '=', 'procurement_items.procurement_id')
+            ->select('procurements.unit_id')
+            ->selectRaw('COALESCE(SUM(procurement_items.total_cost), 0) as distributed_amount')
+            ->groupBy('procurements.unit_id');
+
         $division_distribution = \App\Models\ListUnit::query()
             ->leftJoinSub($unit_counts, 'unit_counts', function ($join) {
                 $join->on('list_units.id', '=', 'unit_counts.unit_id');
+            })
+            ->leftJoinSub($unit_amounts, 'unit_amounts', function ($join) {
+                $join->on('list_units.id', '=', 'unit_amounts.unit_id');
             })
             ->leftJoin('list_dropdowns as divisions', function ($join) {
                 $join->on('list_units.division_id', '=', 'divisions.id')
@@ -315,6 +324,7 @@ class ViewClass
             ->selectRaw("list_units.name as unit_name")
             ->selectRaw("COALESCE(divisions.name, 'Unassigned') as division_name")
             ->selectRaw('COALESCE(unit_counts.count, 0) as count')
+            ->selectRaw('COALESCE(unit_amounts.distributed_amount, 0) as distributed_amount')
             ->orderByDesc('count')
             ->get()
             ->map(function ($item) {
@@ -322,6 +332,7 @@ class ViewClass
                     'division' => $item->unit_name,
                     'division_name' => $item->division_name,
                     'count' => (int) $item->count,
+                    'distributed_amount' => (float) $item->distributed_amount,
                 ];
             });
 

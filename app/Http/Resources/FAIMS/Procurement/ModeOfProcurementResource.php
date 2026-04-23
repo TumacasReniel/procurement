@@ -19,7 +19,13 @@ class ModeOfProcurementResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'classification' => $this->classification,
+            'classification' => in_array($this->classification, [
+                'mode_of_procurement',
+                'modes_of_procurement',
+                'Mode of Procurement',
+            ], true)
+                ? 'mode_of_procurement'
+                : $this->classification,
             'type' => $this->type,
             'section_reference' => $this->type !== 'n/a' ? $this->type : null,
             'others' => $this->others,

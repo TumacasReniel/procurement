@@ -1,9 +1,11 @@
 <template>
-  <div class="procurement-bids-page">
-  <div class="aob-page-header mt-2">
-    <div class="aob-header-bar">
+  
+  <div >
+  <div>
+  <PageHeader class="pt-2" title="Abstract of Bids"/>
+    <div >
       <div class="aob-header-left">
-        <h4 class="aob-header-title mb-0">Abstract of Bids</h4>
+      
         <div class="btn-group aob-view-toggle" role="group" aria-label="AOB view mode">
           <button
             type="button"
@@ -590,6 +592,7 @@ import Multiselect from "@vueform/multiselect";
 import Award from "../Modals/Award.vue";
 import BACResolution from "../Modals/BACResolution.vue";
 import Offer from "../Modals/Offer.vue";
+import PageHeader from "@/Shared/Components/PageHeader.vue";
 
 export default {
   components: {
@@ -601,6 +604,7 @@ export default {
     Offer,
     Award,
     BACResolution,
+    PageHeader
   },
   props: ["procurement", "dropdowns", "option"],
   data() {

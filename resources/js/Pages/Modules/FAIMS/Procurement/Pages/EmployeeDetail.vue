@@ -283,9 +283,25 @@
                     <span
                       v-for="po in getItemPurchaseOrders(item)"
                       :key="`${item.id}-po-${po.id}`"
-                      class="employee-po-chip"
+                      class="employee-po-action"
                     >
-                      {{ po.code }}
+                      <span class="employee-po-chip">
+                        {{ po.code }}
+                      </span>
+
+                      <b-button
+                        v-if="canPrintPurchaseOrder(po)"
+                        type="button"
+                        variant="outline-primary"
+                        size="sm"
+                        class="employee-po-print-btn"
+                        v-b-tooltip.hover
+                        title="Print PO"
+                        @click.stop="printPurchaseOrder(po)"
+                      >
+                        <i class="ri-printer-line"></i>
+                        <span class="visually-hidden">Print {{ po.code }}</span>
+                      </b-button>
                     </span>
                   </div>
                   <span v-else class="text-muted">-</span>
@@ -386,6 +402,7 @@ export default {
           map[itemId].push({
             id: po.id,
             code: po.code || "-",
+            status: po.status?.name || null,
             deliveredOn: this.resolvePurchaseOrderDeliveredOn(po),
           });
         });
@@ -516,6 +533,16 @@ export default {
     },
     getItemPurchaseOrders(item) {
       return this.itemPurchaseOrderMap[item?.id] || [];
+    },
+    canPrintPurchaseOrder(po) {
+      return Boolean(po?.id);
+    },
+    printPurchaseOrder(po) {
+      if (!this.canPrintPurchaseOrder(po)) {
+        return;
+      }
+
+      window.open(`/faims/purchase-orders/${po.id}?option=print&type=purchase_order`, "_blank");
     },
     extractProcurementItemIds(po) {
       const noaItems = Array.isArray(po?.noa?.items) ? po.noa.items : [];
@@ -1401,6 +1428,13 @@ export default {
   gap: 0.3rem;
 }
 
+.employee-po-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
 .employee-po-chip {
   display: inline-flex;
   align-items: center;
@@ -1412,6 +1446,25 @@ export default {
   font-size: 0.8rem;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.employee-po-print-btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--employee-primary-strong);
+  border-color: rgba(var(--employee-primary-rgb), 0.28);
+  background: rgba(var(--employee-primary-rgb), 0.06);
+}
+
+.employee-po-print-btn:hover {
+  color: #ffffff;
+  background: var(--employee-primary);
+  border-color: var(--employee-primary);
 }
 
 .employee-po-date {
@@ -1452,10 +1505,10 @@ export default {
 }
 
 [data-bs-theme="dark"] .employee-detail-view {
-  --employee-primary: #6f86d8;
-  --employee-primary-strong: #5269b7;
-  --employee-primary-light: #8ea0ef;
-  --employee-primary-rgb: 111, 134, 216;
+  --employee-primary: #334a86;
+  --employee-primary-strong: #111827;
+  --employee-primary-light: #5269b7;
+  --employee-primary-rgb: 82, 105, 183;
   --employee-secondary: #e5edf7;
   --employee-muted: #9fb0c7;
   --employee-border: rgba(148, 163, 184, 0.18);
@@ -1497,6 +1550,18 @@ export default {
 [data-bs-theme="dark"] .employee-detail-view .employee-item-richtext,
 [data-bs-theme="dark"] .employee-detail-view .employee-po-date {
   color: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-po-print-btn {
+  color: #dbeafe;
+  border-color: rgba(147, 197, 253, 0.32);
+  background: rgba(147, 197, 253, 0.08);
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-po-print-btn:hover {
+  color: #ffffff;
+  background: var(--employee-primary);
+  border-color: var(--employee-primary);
 }
 
 [data-bs-theme="dark"] .employee-detail-view .employee-empty-state__icon {
@@ -1598,10 +1663,10 @@ export default {
 
 <style>
 [data-bs-theme="dark"] .employee-detail-view {
-  --employee-primary: #6f86d8;
-  --employee-primary-strong: #5269b7;
-  --employee-primary-light: #8ea0ef;
-  --employee-primary-rgb: 111, 134, 216;
+  --employee-primary: #334a86;
+  --employee-primary-strong: #111827;
+  --employee-primary-light: #5269b7;
+  --employee-primary-rgb: 82, 105, 183;
   --employee-secondary: #e5edf7;
   --employee-muted: #9fb0c7;
   --employee-border: rgba(148, 163, 184, 0.18);
@@ -1611,12 +1676,34 @@ export default {
 }
 
 [data-bs-theme="dark"] .employee-detail-view .employee-hero {
+  background:
+    radial-gradient(circle at 15% 12%, rgba(147, 197, 253, 0.16), transparent 28%),
+    radial-gradient(circle at 100% 0%, rgba(82, 105, 183, 0.2), transparent 30%),
+    linear-gradient(135deg, #111827 0%, #182235 52%, #273961 100%);
+  border: 1px solid rgba(148, 163, 184, 0.18);
   box-shadow: none;
 }
 
+[data-bs-theme="dark"] .employee-detail-view .employee-hero__icon {
+  background: rgba(15, 23, 42, 0.28);
+  border-color: rgba(191, 219, 254, 0.18);
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-hero__mesh {
+  background:
+    linear-gradient(90deg, rgba(191, 219, 254, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(191, 219, 254, 0.05) 1px, transparent 1px);
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-hero__glow {
+  background:
+    radial-gradient(circle at 86% 16%, rgba(147, 197, 253, 0.12), transparent 24%),
+    radial-gradient(circle at 64% 100%, rgba(59, 130, 246, 0.1), transparent 26%);
+}
+
 [data-bs-theme="dark"] .employee-detail-view .employee-meta-chip {
-  background: rgba(15, 23, 42, 0.22);
-  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.42);
+  border-color: rgba(191, 219, 254, 0.14);
 }
 
 [data-bs-theme="dark"] .employee-detail-view .employee-panel {
@@ -1681,6 +1768,18 @@ export default {
 [data-bs-theme="dark"] .employee-detail-view .employee-item-richtext,
 [data-bs-theme="dark"] .employee-detail-view .employee-po-date {
   color: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-po-print-btn {
+  color: #dbeafe;
+  border-color: rgba(147, 197, 253, 0.32);
+  background: rgba(147, 197, 253, 0.08);
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-po-print-btn:hover {
+  color: #ffffff;
+  background: var(--employee-primary);
+  border-color: var(--employee-primary);
 }
 
 [data-bs-theme="dark"] .employee-detail-view .employee-empty-state__icon {

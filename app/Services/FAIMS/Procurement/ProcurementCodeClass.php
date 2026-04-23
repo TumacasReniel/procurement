@@ -8,6 +8,7 @@ use App\Models\ProcurementCodeBudgetLog;
 use App\Models\ProcurementCodeUnit;
 use App\Http\Resources\FAIMS\Procurement\ProcurementCodeResource;
 use App\Http\Resources\FAIMS\Procurement\ProcurementCodeBudgetLogResource;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 
 class ProcurementCodeClass
@@ -128,6 +129,8 @@ class ProcurementCodeClass
             $procurementCode->remaining_budget ?? $procurementCode->allocated_budget
         );
         $requestedAmountCents = $this->amountToCents($request->amount);
+        /** @var UploadedFile|null $attachment */
+        $attachment = $request->file('attachment');
 
         ProcurementCodeBudgetLog::create([
             'procurement_code_id' => $procurementCode->id,
@@ -141,6 +144,8 @@ class ProcurementCodeClass
             'balance_before' => $this->centsToAmount($currentBalanceCents),
             'balance_after' => $this->centsToAmount($currentBalanceCents),
             'description' => $request->description,
+            'attachment_name' => $attachment?->getClientOriginalName(),
+            'attachment_path' => $attachment?->store('procurement_code_budget_bases', 'public'),
             'reviewed_at' => null,
         ]);
 

@@ -175,9 +175,16 @@ export default {
     };
   },
   computed: {
+    currentRoles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    hasProcurementWorkflowRole() {
+      return this.currentRoles.some((role) =>
+        ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role)
+      );
+    },
     isEmployeeOnlyRole() {
-      const roles = this.$page.props.roles || [];
-      return roles.length === 1 && roles.includes("Employee");
+      return !this.hasProcurementWorkflowRole;
     },
     logsCount() {
       return this.logs ? this.logs.length : 0;

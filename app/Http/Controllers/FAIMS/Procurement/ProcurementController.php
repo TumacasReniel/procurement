@@ -203,7 +203,7 @@ class ProcurementController extends Controller
                 'designation'  =>  \Auth::user()->org_chart?->designation,
                 'statuses' => $this->dropdown->statuses('Procurement'),
                 'types' => $this->dropdown->dropdowns('Type'),
-                'modes' => $this->dropdown->dropdowns('Mode of Procurement'),
+                'modes' => $this->dropdown->dropdowns('mode_of_procurement'),
             ],
             'signatories' => $signatories,
         ]);

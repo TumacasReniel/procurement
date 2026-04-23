@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader class="purchase-order-header mt-1 pt-2" title="Purchase Orders" />
+    <PageHeader class="purchase-order-header pt-2" title="Purchase Orders" />
     <BRow class="purchase-order-layout g-0">
       <div class="col-12">
         <div class="card purchase-order-shell shadow-none border-0">

@@ -31,6 +31,8 @@ class ProcurementCodeBudgetLogResource extends JsonResource
             'balance_before' => $this->balance_before,
             'balance_after' => $this->balance_after,
             'description' => $this->description,
+            'attachment_name' => $this->attachment_name,
+            'attachment_url' => $this->attachment_path ? asset('storage/' . ltrim($this->attachment_path, '/')) : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'reviewed_at' => $this->reviewed_at?->toIso8601String(),
             'amount_direction' => $this->type === 'approval_deduction' ? 'decrease' : 'increase',

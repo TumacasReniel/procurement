@@ -89,10 +89,14 @@
                 class="nav-item"
                 v-if="
                 $page.props.roles.includes('Procurement Officer') ||
+                $page.props.roles.includes('Budget Officer') || 
                 $page.props.roles.includes('Administrator')
                 "
             >
                 <Link
+                v-if=" $page.props.roles.includes('Budget Officer') ||  
+                        $page.props.roles.includes('Procurement Officer') ||
+                        $page.props.roles.includes('Administrator')"
                 href="/faims/procurement-codes"
                 class="nav-link menu-link"
                 :class="{
@@ -105,6 +109,8 @@
                 
 
                 <Link
+                v-if="  $page.props.roles.includes('Procurement Officer') ||
+                        $page.props.roles.includes('Administrator')"
                 href="/faims/responsibility-centers"
                 class="nav-link menu-link"
                 :class="{
@@ -116,6 +122,11 @@
                 </Link>
 
                 <Link
+                v-if="
+                    $page.props.roles.includes('Procurement Staff') ||
+                    $page.props.roles.includes('Procurement Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
                 href="/faims/modes-of-procurement"
                 class="nav-link menu-link"
                 :class="{
@@ -349,8 +360,11 @@
                 </Link>
             </li>
 
-                        <template v-if="
+            <template 
+            v-if="
                 $page.props.roles.includes('Supply Officer') ||
+                $page.props.roles.includes('Supply Staff') ||
+                $page.props.roles.includes('Supply') ||
                 $page.props.roles.includes('Employee') ||
                 $page.props.roles.includes('Administrator')
             ">
@@ -383,6 +397,8 @@
                         <span class="fw-semibold fs-14" data-key="t-dashboards">Stocks</span>
                     </Link>
                 </li>
+
+                
             </template>
 
             <template v-if="$page.props.roles.includes('Document Management Officer')">

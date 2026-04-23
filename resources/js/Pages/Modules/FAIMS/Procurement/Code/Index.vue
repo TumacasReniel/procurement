@@ -1,6 +1,6 @@
 <template>
-  <Head title="PAP Codes" />
-  <PageHeader title="PAP Codes" pageTitle="Libraries" />
+  <Head title="Procurement Codes" />
+  <PageHeader title="Procurement Codes" pageTitle="Libraries" />
   <BRow class="procurement-index-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
@@ -15,10 +15,10 @@
             </div>
             <div class="flex-grow-1">
               <h5 class="mb-0 fs-14">
-                <span class="text-body">All PAP Codes</span>
+                <span class="text-body">All Procurenent Codes</span>
               </h5>
               <p class="text-muted text-truncate-two-lines fs-12">
-                A comprehensive list of all PAP Codes across all procurements.
+                A comprehensive list of all Procurenent Codes across all procurements.
               </p>
             </div>
           </div>
@@ -68,7 +68,7 @@
                 <thead class="table-light thead-fixed">
                   <tr class="fs-12 fw-semibold">
                     <th style="width: 4%" class="text-center">#</th>
-                    <th style="width: 15%">PAP Codes</th>
+                    <th style="width: 15%">Codes</th>
                     <th style="width: 18%">Project Description/Title</th>
                     <th style="width: 14%">Budget</th>
                     <th style="width: 15%">Mode of Procurement / APP Type</th>
@@ -200,11 +200,6 @@
     :end_users="dropdowns.end_users"
     ref="create"
   />
-  <ProcurementCodeProfile
-    ref="profile"
-    @request-budget-increase="openBudgetIncrease"
-    @updated="handleProfileUpdated"
-  />
   <ProcurementCodeBudgetIncrease
     ref="budgetIncrease"
     @submitted="handleBudgetIncreaseSubmitted"
@@ -212,17 +207,16 @@
 </template>
 <script>
 import _ from "lodash";
+import { router } from "@inertiajs/vue3";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import ProcurementCodeModal from "@/Pages/Modules/FAIMS/Procurement/Modals/ProcurementCode.vue";
-import ProcurementCodeProfile from "@/Pages/Modules/FAIMS/Procurement/Modals/ProcurementCodeProfile.vue";
 import ProcurementCodeBudgetIncrease from "@/Pages/Modules/FAIMS/Procurement/Modals/ProcurementCodeBudgetIncrease.vue";
 
 export default {
   props: ["dropdowns"],
   components: {
     ProcurementCodeModal,
-    ProcurementCodeProfile,
     ProcurementCodeBudgetIncrease,
     Pagination,
     PageHeader,
@@ -297,19 +291,14 @@ export default {
     },
 
     openProfile(data) {
-      this.$refs.profile.show(data.id);
+      router.get(`/faims/procurement-codes/${data.id}`);
     },
 
     openBudgetIncrease(data) {
       this.$refs.budgetIncrease.show(data);
     },
 
-    handleBudgetIncreaseSubmitted(payload) {
-      this.fetch();
-      this.$refs.profile.applyPayload(payload);
-    },
-
-    handleProfileUpdated() {
+    handleBudgetIncreaseSubmitted() {
       this.fetch();
     },
 

@@ -1,6 +1,6 @@
 <template>
   <div class="procurement-quotation-page">
-  <PageHeader class="m-3 mt-4" title="Quotation Requests" />
+  <PageHeader class="pt-2" title="Quotation Requests" />
   <b-row class="g-2 mb-3 mt-n2">
     <b-col lg>
       <div class="input-group mb-1">

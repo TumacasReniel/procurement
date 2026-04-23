@@ -32,7 +32,11 @@ class ModeOfProcurementRequest extends FormRequest
                 'max:255',
                 Rule::unique('list_dropdowns', 'name')
                     ->ignore($modeId)
-                    ->where(fn ($query) => $query->where('classification', 'Mode of Procurement')),
+                    ->where(fn ($query) => $query->whereIn('classification', [
+                        'mode_of_procurement',
+                        'modes_of_procurement',
+                        'Mode of Procurement',
+                    ])),
             ],
             'others' => ['nullable', 'string', 'max:255'],
             'is_active' => ['nullable', 'boolean'],

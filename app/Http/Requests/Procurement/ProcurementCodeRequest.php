@@ -29,7 +29,7 @@ class ProcurementCodeRequest extends FormRequest
             'app_type_id' => 'required|exists:list_dropdowns,id',
             'mode_of_procurement_id' => 'required|exists:list_dropdowns,id',
             'end_user_ids' => 'required|array|min:1',
-            'end_user_ids.*' => 'exists:list_dropdowns,id',
+            'end_user_ids.*' => 'exists:list_units,id',
         ];
 
         // For updates, exclude the current record from unique validation

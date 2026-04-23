@@ -24,6 +24,7 @@ class ProcurementCodeBudgetIncreaseRequest extends FormRequest
         return [
             'amount' => 'required|numeric|min:0.01',
             'description' => 'required|string|max:1000',
+            'attachment' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:5120',
         ];
     }
 
@@ -38,6 +39,10 @@ class ProcurementCodeBudgetIncreaseRequest extends FormRequest
             'amount.min' => 'The additional budget amount must be greater than zero.',
             'description.required' => 'Please provide a short justification for this budget request.',
             'description.max' => 'The justification may not be greater than 1000 characters.',
+            'attachment.required' => 'Please upload the supporting document.',
+            'attachment.file' => 'The supporting basis must be a valid file.',
+            'attachment.mimes' => 'The supporting basis must be a PDF, Word, JPG, or PNG file.',
+            'attachment.max' => 'The supporting basis must not exceed 5MB.',
         ];
     }
 }

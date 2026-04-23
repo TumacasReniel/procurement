@@ -34,7 +34,6 @@
               <div>
                 <span class="inventory-stat-label">{{ card.label }}</span>
                 <strong class="inventory-stat-value">{{ card.value }}</strong>
-                <p class="inventory-stat-note mb-0">{{ card.note }}</p>
               </div>
             </article>
           </div>
@@ -88,10 +87,10 @@
                       </div>
                     </div>
 
-                    <div class="card-body bg-white rounded-bottom mt-3">
-                      <b-row class="mb-2 ms-1 me-1 mb-5">
+                    <div class="card-body bg-white rounded-bottom inventory-items-body">
+                      <b-row class="mb-3">
                         <b-col lg>
-                          <div class="ledger-toolbar-wrap">
+                          <div class="ledger-toolbar-wrap inventory-items-toolbar">
                             <div class="ledger-toolbar">
                               <div class="input-group ledger-search-group">
                                 <span class="input-group-text">
@@ -106,6 +105,22 @@
                               </div>
                             </div>
 
+                            <select
+                              v-model="itemSort"
+                              class="form-select inventory-sort-select"
+                              aria-label="Sort inventory items"
+                            >
+                              <option value="latest">Latest Added</option>
+                              <option value="oldest">Oldest Added</option>
+                              <option value="name_asc">Name A-Z</option>
+                              <option value="name_desc">Name Z-A</option>
+                              <option value="quantity_desc">Quantity High-Low</option>
+                              <option value="quantity_asc">Quantity Low-High</option>
+                              <option value="expiration_asc">Expiration Soonest</option>
+                              <option value="expiration_desc">Expiration Latest</option>
+                              <option value="custom">Custom Order</option>
+                            </select>
+
                             <button
                               type="button"
                               class="btn ledger-refresh-btn"
@@ -119,6 +134,10 @@
                               <i class="ri-add-circle-fill me-2"></i>Create
                             </button>
                           </div>
+                          <div class="inventory-toolbar-note">
+                            <i class="ri-drag-move-2-line me-1"></i>
+                            Use the arrows in Custom Order to rearrange the currently loaded items.
+                          </div>
                         </b-col>
                       </b-row>
 
@@ -126,6 +145,7 @@
                         <table class="table table-hover align-middle mb-0 inv-table">
                           <thead>
                             <tr>
+                              <th class="text-center" style="width: 96px">Order</th>
                               <th>Code</th>
                               <th>Name</th>
                               <th>Stock</th>
@@ -138,12 +158,37 @@
                           </thead>
                           <tbody>
                             <tr v-if="loading">
-                              <td colspan="8" class="text-center text-muted py-4">Loading items...</td>
+                              <td colspan="9" class="text-center text-muted py-4">Loading items...</td>
                             </tr>
-                            <tr v-else-if="filteredItemRows.length === 0">
-                              <td colspan="8" class="text-center text-muted py-4">No inventory items found.</td>
+                            <tr v-else-if="sortedItemRows.length === 0">
+                              <td colspan="9" class="text-center text-muted py-4">No inventory items found.</td>
                             </tr>
-                            <tr v-else v-for="item in filteredItemRows" :key="item.id">
+                            <tr v-else v-for="(item, index) in sortedItemRows" :key="item.id">
+                              <td class="text-center">
+                                <div class="inventory-order-controls">
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-light inventory-order-btn"
+                                    :disabled="index === 0"
+                                    title="Move up"
+                                    v-b-tooltip.hover
+                                    @click="moveItemRow(item, -1)"
+                                  >
+                                    <i class="ri-arrow-up-s-line"></i>
+                                  </button>
+                                  <span class="inventory-order-number">{{ displayItemNumber(index) }}</span>
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-light inventory-order-btn"
+                                    :disabled="index === sortedItemRows.length - 1"
+                                    title="Move down"
+                                    v-b-tooltip.hover
+                                    @click="moveItemRow(item, 1)"
+                                  >
+                                    <i class="ri-arrow-down-s-line"></i>
+                                  </button>
+                                </div>
+                              </td>
                               <td class="fw-semibold">{{ item.code }}</td>
                               <td>{{ item.name }}</td>
                               <td>{{ item.stock_name }}</td>
@@ -162,7 +207,7 @@
                           </tbody>
                         </table>
                       </div>
-                      <Pagination v-if="itemMeta && itemMeta.total" :links="itemLinks" :pagination="itemMeta" :lists="filteredItemRows.length" @fetch="fetchItems" />
+                      <Pagination v-if="itemMeta && itemMeta.total" :links="itemLinks" :pagination="itemMeta" :lists="sortedItemRows.length" @fetch="fetchItems" />
                     </div>
                   </div>
 
@@ -233,6 +278,7 @@
       :saving="saving"
       :stocks="stockOptionRows"
       :categories="categories"
+      :lock-stock="lockItemStock"
       @update:form="itemForm = $event"
       @submit="saveItem"
     />
@@ -261,7 +307,16 @@
       @submit="saveWithdrawal"
     />
 
-    <RecordViewModal v-model="showViewModal" :type="viewRecordType" :record="viewRecord" />
+    <RecordViewModal
+      :model-value="showViewModal"
+      :type="viewRecordType"
+      :record="viewRecord"
+      :stock-items="viewStockItems"
+      :stock-items-loading="viewStockItemsLoading"
+      :can-add-stock-item="canAddStockItemToViewedStock"
+      @update:modelValue="handleViewModalVisibility"
+      @add-stock-item="openStockItemCreate"
+    />
   </div>
 </template>
 
@@ -319,6 +374,10 @@ export default {
       stockSearchTimer: null,
       stockOptionRows: [],
       itemOptionRows: [],
+      itemSort: 'latest',
+      itemSearchTimer: null,
+      manualItemOrder: [],
+      lockItemStock: false,
       showStockModal: false,
       showItemModal: false,
       showReceivingModal: false,
@@ -326,6 +385,8 @@ export default {
       showViewModal: false,
       viewRecordType: '',
       viewRecord: null,
+      viewStockItems: [],
+      viewStockItemsLoading: false,
       itemKeyword: '',
       stockForm: { id: null, code: '', name: '', entry_date: '' },
       itemForm: { id: null, code: '', name: '', stock_id: '', category_id: '', quantity: '', unit_cost: '', expiration: '' },
@@ -369,25 +430,21 @@ export default {
         {
           label: 'Stock Groups',
           value: this.formatNumber(this.stockMeta?.total ?? this.stockRows.length),
-          note: 'Shelf headers and storage buckets',
           icon: 'ri-stack-line',
         },
         {
           label: 'Tracked Items',
           value: this.formatNumber(this.itemMeta?.total ?? this.itemRows.length),
-          note: 'Cataloged records ready for movement',
           icon: 'ri-barcode-box-line',
         },
         {
           label: 'Units On Hand',
           value: this.formatNumber(this.totalTrackedQuantity),
-          note: 'Summed quantity from the current inventory list',
           icon: 'ri-database-2-line',
         },
         {
           label: 'Low Balance',
           value: this.formatNumber(this.lowBalanceItems),
-          note: 'Items already nearing replenishment level',
           icon: 'ri-alarm-warning-line',
         },
       ];
@@ -412,6 +469,54 @@ export default {
         return searchable.includes(keyword);
       });
     },
+    sortedItemRows() {
+      const rows = [...this.filteredItemRows];
+      const normalizeText = (value) => String(value || '').toLowerCase();
+      const normalizeNumber = (value) => Number(value || 0);
+      const normalizeDate = (value) => {
+        if (!value) return 0;
+
+        const timestamp = new Date(value).getTime();
+        return Number.isNaN(timestamp) ? 0 : timestamp;
+      };
+
+      if (this.itemSort === 'custom') {
+        const orderMap = new Map(this.manualItemOrder.map((id, index) => [Number(id), index]));
+
+        return rows.sort((left, right) => {
+          const leftOrder = orderMap.has(Number(left.id)) ? orderMap.get(Number(left.id)) : Number.MAX_SAFE_INTEGER;
+          const rightOrder = orderMap.has(Number(right.id)) ? orderMap.get(Number(right.id)) : Number.MAX_SAFE_INTEGER;
+
+          if (leftOrder !== rightOrder) {
+            return leftOrder - rightOrder;
+          }
+
+          return Number(right.id || 0) - Number(left.id || 0);
+        });
+      }
+
+      const sorters = {
+        oldest: (left, right) => Number(left.id || 0) - Number(right.id || 0),
+        name_asc: (left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name)),
+        name_desc: (left, right) => normalizeText(right.name).localeCompare(normalizeText(left.name)),
+        quantity_desc: (left, right) => normalizeNumber(right.quantity) - normalizeNumber(left.quantity),
+        quantity_asc: (left, right) => normalizeNumber(left.quantity) - normalizeNumber(right.quantity),
+        expiration_asc: (left, right) => normalizeDate(left.expiration) - normalizeDate(right.expiration),
+        expiration_desc: (left, right) => normalizeDate(right.expiration) - normalizeDate(left.expiration),
+      };
+
+      return rows.sort(sorters[this.itemSort] || ((left, right) => Number(right.id || 0) - Number(left.id || 0)));
+    },
+    currentRoles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    canManageStockItems() {
+      const allowedRoles = ['administrator', 'supply', 'supply officer', 'supply staff'];
+      return this.currentRoles.some((role) => allowedRoles.includes(String(role || '').toLowerCase()));
+    },
+    canAddStockItemToViewedStock() {
+      return this.viewRecordType === 'stock' && this.canManageStockItems;
+    },
   },
   created() {
     this.activeModule = ['stocks', 'items', 'receivings', 'withdrawals'].includes(this.initialTab)
@@ -424,17 +529,70 @@ export default {
     this.assignPaginated('withdrawalRows', 'withdrawalMeta', 'withdrawalLinks', this.withdrawals);
     this.stockOptionRows = [...this.stockOptions];
     this.itemOptionRows = [...this.itemOptions];
+    this.hydrateManualItemOrder();
+  },
+  mounted() {
+    if (this.activeModule === 'stocks' && this.stockRows.length === 0) {
+      this.fetchStocks();
+    }
+  },
+  watch: {
+    itemKeyword() {
+      if (this.itemSearchTimer) {
+        clearTimeout(this.itemSearchTimer);
+      }
+
+      this.itemSearchTimer = setTimeout(() => {
+        this.fetchItems();
+      }, 300);
+    },
+    itemSort(value) {
+      if (value === 'custom') {
+        this.hydrateManualItemOrder();
+        return;
+      }
+
+      this.fetchItems();
+    },
+    showItemModal(value) {
+      if (!value) {
+        this.lockItemStock = false;
+      }
+    },
   },
   beforeUnmount() {
     if (this.stockSearchTimer) {
       clearTimeout(this.stockSearchTimer);
     }
+
+    if (this.itemSearchTimer) {
+      clearTimeout(this.itemSearchTimer);
+    }
   },
   methods: {
     assignPaginated(rowsKey, metaKey, linksKey, payload) {
-      this[rowsKey] = payload?.data || payload || [];
-      this[metaKey] = payload?.meta || null;
-      this[linksKey] = payload?.links || null;
+      this[rowsKey] = this.normalizeCollectionRows(payload);
+      this[metaKey] = payload?.meta || payload?.data?.meta || null;
+      this[linksKey] = payload?.links || payload?.data?.links || null;
+
+      if (rowsKey === 'itemRows') {
+        this.hydrateManualItemOrder();
+      }
+    },
+    normalizeCollectionRows(payload) {
+      if (Array.isArray(payload)) {
+        return payload;
+      }
+
+      if (Array.isArray(payload?.data)) {
+        return payload.data;
+      }
+
+      if (Array.isArray(payload?.data?.data)) {
+        return payload.data.data;
+      }
+
+      return [];
     },
     collectionParams(extra = {}) {
       return {
@@ -459,7 +617,12 @@ export default {
     async fetchItems(pageUrl = '/inventory-items') {
       this.loading = true;
       try {
-        const response = await axios.get(pageUrl, { params: this.collectionParams() });
+        const response = await axios.get(pageUrl, {
+          params: this.collectionParams({
+            keyword: this.itemKeyword || undefined,
+            sort: this.itemSort === 'custom' ? 'latest' : this.itemSort,
+          }),
+        });
         this.assignPaginated('itemRows', 'itemMeta', 'itemLinks', response.data);
       } finally {
         this.loading = false;
@@ -517,16 +680,58 @@ export default {
       }, 300);
     },
     handleItemRefresh() {
+      if (this.itemSearchTimer) {
+        clearTimeout(this.itemSearchTimer);
+      }
+
       this.itemKeyword = '';
+      this.itemSort = 'latest';
       this.fetchItems();
     },
     openViewModal(type, row) {
       this.viewRecordType = type;
       this.viewRecord = row;
+      this.viewStockItems = [];
       this.showViewModal = true;
+
+      if (type === 'stock') {
+        this.fetchStockItems(row.id);
+      }
+    },
+    handleViewModalVisibility(value) {
+      this.showViewModal = value;
+
+      if (!value) {
+        this.viewRecordType = '';
+        this.viewRecord = null;
+        this.viewStockItems = [];
+        this.viewStockItemsLoading = false;
+      }
+    },
+    async fetchStockItems(stockId) {
+      const currentStockId = Number(stockId);
+      this.viewStockItemsLoading = true;
+
+      try {
+        const response = await axios.get('/inventory-items', {
+          params: this.collectionParams({
+            stock_id: currentStockId,
+            count: 100,
+            sort: 'name_asc',
+          }),
+        });
+
+        if (this.viewRecordType === 'stock' && Number(this.viewRecord?.id) === currentStockId) {
+          this.viewStockItems = response.data?.data || [];
+        }
+      } finally {
+        if (this.viewRecordType === 'stock' && Number(this.viewRecord?.id) === currentStockId) {
+          this.viewStockItemsLoading = false;
+        }
+      }
     },
     openStockCreate() {
-      this.stockForm = { id: null, code: '', name: '', entry_date: '' };
+      this.stockForm = { id: null, name: '', entry_date: this.currentInputDateTime() };
       this.stockErrors = {};
       this.showStockModal = true;
     },
@@ -537,11 +742,29 @@ export default {
     },
     openItemCreate() {
       this.itemForm = { id: null, code: '', name: '', stock_id: '', category_id: '', quantity: '', unit_cost: '', expiration: '' };
+      this.lockItemStock = false;
+      this.itemErrors = {};
+      this.showItemModal = true;
+    },
+    openStockItemCreate(stock) {
+      this.handleViewModalVisibility(false);
+      this.itemForm = {
+        id: null,
+        code: '',
+        name: '',
+        stock_id: String(stock?.id || ''),
+        category_id: '',
+        quantity: '',
+        unit_cost: '',
+        expiration: '',
+      };
+      this.lockItemStock = true;
       this.itemErrors = {};
       this.showItemModal = true;
     },
     openItemEdit(row) {
       this.itemForm = { id: row.id, code: row.code || '', name: row.name || '', stock_id: String(row.stock_id || ''), category_id: String(row.category_id || ''), quantity: row.quantity || '', unit_cost: row.unit_cost || '', expiration: row.expiration || '' };
+      this.lockItemStock = false;
       this.itemErrors = {};
       this.showItemModal = true;
     },
@@ -566,12 +789,20 @@ export default {
       this.showWithdrawalModal = true;
     },
     async saveStock() {
-      const response = await this.submitEntity('/inventory-stocks', this.stockForm, 'showStockModal', 'stockErrors', this.fetchStocks);
+      const form = {
+        ...this.stockForm,
+        entry_date: this.stockForm.entry_date || this.currentInputDateTime(),
+      };
+      const response = await this.submitEntity('/inventory-stocks', form, 'showStockModal', 'stockErrors', this.fetchStocks);
       this.syncOptionRow('stockOptionRows', response?.data?.data);
     },
     async saveItem() {
       const response = await this.submitEntity('/inventory-items', this.itemForm, 'showItemModal', 'itemErrors', this.fetchItems);
+      if (!response) return;
+
       this.syncOptionRow('itemOptionRows', response?.data?.data);
+      this.lockItemStock = false;
+      await this.fetchStocks();
     },
     async saveReceiving() {
       await this.submitEntity('/inventory-receivings', this.receivingForm, 'showReceivingModal', 'receivingErrors', this.fetchReceivings);
@@ -625,6 +856,60 @@ export default {
 
       this[listKey] = next;
     },
+    hydrateManualItemOrder() {
+      const savedOrder = this.readStoredItemOrder();
+      const currentIds = this.itemRows.map((item) => Number(item.id)).filter(Boolean);
+      const missingIds = currentIds.filter((id) => !savedOrder.includes(id));
+
+      this.manualItemOrder = [...savedOrder, ...missingIds];
+      this.persistManualItemOrder();
+    },
+    readStoredItemOrder() {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return [];
+      }
+
+      try {
+        const stored = JSON.parse(window.localStorage.getItem('inventory:item-order') || '[]');
+
+        return Array.isArray(stored)
+          ? stored.map((id) => Number(id)).filter(Boolean)
+          : [];
+      } catch (error) {
+        return [];
+      }
+    },
+    persistManualItemOrder() {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return;
+      }
+
+      window.localStorage.setItem('inventory:item-order', JSON.stringify(this.manualItemOrder));
+    },
+    moveItemRow(item, direction) {
+      const visibleRows = [...this.sortedItemRows];
+      const currentIndex = visibleRows.findIndex((row) => Number(row.id) === Number(item.id));
+      const targetIndex = currentIndex + direction;
+
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= visibleRows.length) {
+        return;
+      }
+
+      const [movingRow] = visibleRows.splice(currentIndex, 1);
+      visibleRows.splice(targetIndex, 0, movingRow);
+
+      const visibleIds = visibleRows.map((row) => Number(row.id));
+      const currentIds = this.itemRows.map((row) => Number(row.id));
+      const remainingStoredIds = this.manualItemOrder.filter((id) => !visibleIds.includes(id));
+      const missingIds = currentIds.filter((id) => !visibleIds.includes(id) && !remainingStoredIds.includes(id));
+
+      this.manualItemOrder = [...visibleIds, ...remainingStoredIds, ...missingIds];
+      this.itemSort = 'custom';
+      this.persistManualItemOrder();
+    },
+    displayItemNumber(index) {
+      return Number(this.itemMeta?.from || 1) + index;
+    },
     removeOptionRow(listKey, id) {
       this[listKey] = this[listKey].filter((item) => Number(item.id) !== Number(id));
     },
@@ -656,6 +941,13 @@ export default {
     toInputDateTime(value) {
       if (!value) return '';
       return String(value).replace(' ', 'T').slice(0, 16);
+    },
+    currentInputDateTime() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset();
+      const local = new Date(now.getTime() - offset * 60000);
+
+      return local.toISOString().slice(0, 16);
     },
     moduleMeta(moduleKey) {
       if (moduleKey === 'stocks') {
@@ -690,13 +982,22 @@ export default {
   color: #fff;
   overflow: hidden;
   box-shadow: 0 26px 48px rgba(56, 70, 122, 0.2);
+  margin-bottom: 1rem !important;
+}
+
+.inventory-hero > .card-body {
+  padding: 1.15rem 1.35rem !important;
 }
 
 .inventory-hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.45fr);
+  gap: 18px;
   align-items: center;
+}
+
+.inventory-hero-copy {
+  min-width: 0;
 }
 
 .inventory-hero-kicker {
@@ -722,21 +1023,22 @@ export default {
 .inventory-hero-text {
   max-width: 620px;
   color: rgba(255, 255, 255, 0.82);
-  font-size: 15px;
-  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.45;
+  margin-bottom: 14px;
 }
 
 .inventory-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .inventory-primary-btn,
 .inventory-secondary-btn {
-  min-width: 170px;
-  border-radius: 14px;
-  padding: 11px 18px;
+  min-width: 150px;
+  border-radius: 12px;
+  padding: 9px 15px;
   font-weight: 700;
 }
 
@@ -768,52 +1070,54 @@ export default {
 .inventory-hero-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 
 .inventory-stat-card {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 14px;
-  align-items: start;
-  padding: 18px;
-  border-radius: 20px;
+  gap: 11px;
+  align-items: center;
+  padding: 13px 14px;
+  min-height: 92px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.11);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
 }
 
 .inventory-stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
   background: rgba(255, 255, 255, 0.16);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .inventory-stat-label {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.72);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .inventory-stat-value {
   display: block;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 800;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .inventory-stat-note {
   color: rgba(255, 255, 255, 0.74);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .inv-shell {
@@ -824,23 +1128,23 @@ export default {
 }
 
 .inventory-module-shell {
-  padding: 0.85rem;
+  padding: 0.65rem;
 }
 
 .module-layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
 }
 
 .module-sidebar {
   border: 1px solid #dce4f2;
-  border-radius: 24px;
+  border-radius: 18px;
   background: linear-gradient(180deg, #f8fbff, #eef2fb);
-  padding: 16px;
+  padding: 12px;
   position: sticky;
-  top: 16px;
+  top: 10px;
 }
 
 .module-sidebar-title {
@@ -849,13 +1153,13 @@ export default {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #64748b;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .module-grid {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .module-content {
@@ -864,14 +1168,14 @@ export default {
 
 .module-tile {
   border: 1px solid #d7dfef;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #fff;
   color: #334155;
-  min-height: 64px;
+  min-height: 52px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 12px;
   font-size: 14px;
   font-weight: 700;
   text-align: left;
@@ -903,9 +1207,10 @@ export default {
 }
 
 .inv-table-wrap {
-  overflow: hidden;
+  max-height: calc(100vh - 278px);
+  overflow: auto;
   border: 1px solid #dbe5f1;
-  border-radius: 20px;
+  border-radius: 16px;
   background: #fff;
 }
 
@@ -956,6 +1261,207 @@ export default {
   white-space: nowrap;
 }
 
+.inventory-items-body {
+  padding: 0.85rem;
+}
+
+.inventory-items-toolbar {
+  align-items: stretch;
+}
+
+.inventory-sort-select {
+  flex: 0 0 220px;
+  min-width: 220px;
+  border-left: 0;
+  border-radius: 0;
+}
+
+.inventory-toolbar-note {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 0.55rem;
+}
+
+.inventory-order-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid #dbe5f1;
+  border-radius: 999px;
+  background: #f8fbff;
+}
+
+.inventory-order-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: #334155;
+  background: #fff;
+}
+
+.inventory-order-btn:not(:disabled):hover {
+  color: #fff;
+  background: var(--inventory-brand-deep);
+}
+
+.inventory-order-number {
+  min-width: 26px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+:global([data-bs-theme="dark"]) .inventory-page {
+  --inventory-brand: #6d7fc8;
+  --inventory-brand-deep: #8ea0f4;
+  --inventory-brand-soft: #1e2744;
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"]) .inv-shell,
+:global([data-bs-theme="dark"]) .module-sidebar,
+:global([data-bs-theme="dark"]) .inv-table-wrap,
+:global([data-bs-theme="dark"]) .inventory-page :deep(.ledger-card),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.ledger-table-wrap) {
+  border-color: #2e3a59 !important;
+  background: #151c2f !important;
+  box-shadow: none;
+}
+
+:global([data-bs-theme="dark"]) .inventory-page :deep(.card),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.bg-white),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.bg-light-subtle),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.table-card),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.table-responsive) {
+  border-color: #2e3a59 !important;
+  background-color: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .module-sidebar {
+  background: linear-gradient(180deg, #182035, #111827);
+}
+
+:global([data-bs-theme="dark"]) .inventory-hero {
+  background:
+    radial-gradient(circle at top right, rgba(142, 160, 244, 0.2), transparent 34%),
+    linear-gradient(135deg, #17213a 0%, #0f172a 58%, #111827 100%);
+  box-shadow: none;
+}
+
+:global([data-bs-theme="dark"]) .inventory-stat-card {
+  border-color: rgba(142, 160, 244, 0.22);
+  background: rgba(17, 24, 39, 0.62);
+}
+
+:global([data-bs-theme="dark"]) .inventory-stat-icon {
+  background: rgba(142, 160, 244, 0.16);
+  color: #dbeafe;
+}
+
+:global([data-bs-theme="dark"]) .inventory-primary-btn {
+  border-color: #8ea0f4;
+  background: #8ea0f4;
+  color: #0f172a;
+}
+
+:global([data-bs-theme="dark"]) .inventory-secondary-btn {
+  border-color: rgba(142, 160, 244, 0.32);
+  background: rgba(17, 24, 39, 0.44);
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"]) .module-sidebar-title,
+:global([data-bs-theme="dark"]) .module-tile-copy small,
+:global([data-bs-theme="dark"]) .inventory-toolbar-note,
+:global([data-bs-theme="dark"]) .inventory-page :deep(.text-muted) {
+  color: #9ca9c7;
+}
+
+:global([data-bs-theme="dark"]) .module-tile {
+  border-color: #2e3a59;
+  background: #111827;
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"]) .module-tile.active {
+  border-color: #8ea0f4;
+  background: linear-gradient(180deg, #202b49, #182035);
+  box-shadow: none;
+}
+
+:global([data-bs-theme="dark"]) .inventory-page :deep(.card-header),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.card-body.bg-white),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.stock-card-body),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.receiving-card-body),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.withdrawal-card-body),
+:global([data-bs-theme="dark"]) .inventory-items-body,
+:global([data-bs-theme="dark"]) .inventory-page :deep(.card-footer) {
+  background: #111827 !important;
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"]) .inventory-page :deep(.table),
+:global([data-bs-theme="dark"]) .inv-table {
+  --vz-table-bg: #111827;
+  --vz-table-color: #e5e7eb;
+  --vz-table-hover-bg: #182035;
+  --vz-table-border-color: #2e3a59;
+  color: #e5e7eb !important;
+  background-color: #111827 !important;
+}
+
+:global([data-bs-theme="dark"]) .inv-table thead th,
+:global([data-bs-theme="dark"]) .inventory-page :deep(.table-light th) {
+  background: #182035 !important;
+  color: #dbeafe !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-refresh-btn,
+:global([data-bs-theme="dark"]) .inventory-page :deep(.stock-refresh-trigger),
+:global([data-bs-theme="dark"]) .inventory-order-controls {
+  border-color: #2e3a59;
+  background: #182035;
+  color: #dbeafe;
+}
+
+:global([data-bs-theme="dark"]) .inventory-page :deep(.input-group-text),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.form-control),
+:global([data-bs-theme="dark"]) .inventory-page :deep(.form-select) {
+  border-color: #2e3a59 !important;
+  background-color: #182035 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .inventory-page :deep(.form-control::placeholder) {
+  color: #8ea0b8 !important;
+}
+
+:global([data-bs-theme="dark"]) .inventory-page :deep(.btn-light) {
+  border-color: #2e3a59 !important;
+  background-color: #182035 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .inventory-page :deep(.table-group-divider) {
+  border-top-color: #2e3a59 !important;
+}
+
+:global([data-bs-theme="dark"]) .inventory-order-btn {
+  background: #111827;
+  color: #dbeafe;
+}
+
+:global([data-bs-theme="dark"]) .inventory-order-number {
+  color: #dbeafe;
+}
+
 @media (max-width: 991.98px) {
   .inventory-hero-grid,
   .inventory-hero-stats {
@@ -971,13 +1477,27 @@ export default {
   }
 }
 
-@media (min-width: 768px) {
-  .inventory-module-shell {
-    padding: 0.95rem;
+@media (min-width: 1200px) {
+  .inventory-hero-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .inventory-stat-card {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .inventory-hero > .card-body {
+    padding: 1rem !important;
   }
 }
 
 @media (max-width: 768px) {
+  .inventory-hero > .card-body {
+    padding: 1rem !important;
+  }
+
   .inventory-primary-btn,
   .inventory-secondary-btn {
     width: 100%;
@@ -986,5 +1506,157 @@ export default {
   .ledger-toolbar-wrap {
     overflow-x: auto;
   }
+
+  .inventory-sort-select {
+    flex: 0 0 200px;
+    min-width: 200px;
+  }
 }
+</style>
+
+<style>
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page {
+  --inventory-night-page: #0f172a;
+  --inventory-night-card: #111827;
+  --inventory-night-panel: #151c2f;
+  --inventory-night-control: #182035;
+  --inventory-night-border: #2e3a59;
+  --inventory-night-muted: #9ca9c7;
+  --inventory-night-text: #e5e7eb;
+  --inventory-night-heading: #f8fafc;
+  background: var(--inventory-night-page) !important;
+  color: var(--inventory-night-text) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inv-shell,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-module-shell,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-sidebar,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-content,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .card,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .ledger-card,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .card-header,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .card-body,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .card-footer,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .bg-white,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .bg-light-subtle,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .stock-card-body,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-items-body,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .receiving-card-body,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .withdrawal-card-body {
+  border-color: var(--inventory-night-border) !important;
+  background-color: var(--inventory-night-card) !important;
+  color: var(--inventory-night-text) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-sidebar {
+  background: linear-gradient(180deg, #182035, #111827) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-tile {
+  border-color: var(--inventory-night-border) !important;
+  background: var(--inventory-night-card) !important;
+  color: var(--inventory-night-text) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-tile.active {
+  border-color: #8ea0f4 !important;
+  background: linear-gradient(180deg, #202b49, #182035) !important;
+  box-shadow: none !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .text-body,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page h5,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page h6,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page td,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page th {
+  color: var(--inventory-night-heading) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .text-muted,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-sidebar-title,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-tile-copy small,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-toolbar-note {
+  color: var(--inventory-night-muted) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .input-group,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .input-group-text,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .form-control,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .form-select,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .ledger-refresh-btn,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .stock-refresh-trigger,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-order-controls,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-order-btn {
+  border-color: var(--inventory-night-border) !important;
+  background-color: var(--inventory-night-control) !important;
+  color: var(--inventory-night-text) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .form-control::placeholder {
+  color: #8ea0b8 !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-responsive,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-card,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .ledger-table-wrap,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inv-table-wrap,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page table,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page thead,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page tbody,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page tfoot {
+  --bs-table-bg: var(--inventory-night-card);
+  --bs-table-color: var(--inventory-night-text);
+  --bs-table-hover-bg: var(--inventory-night-control);
+  --bs-table-hover-color: var(--inventory-night-heading);
+  --bs-table-border-color: var(--inventory-night-border);
+  --vz-table-bg: var(--inventory-night-card);
+  --vz-table-color: var(--inventory-night-text);
+  --vz-table-hover-bg: var(--inventory-night-control);
+  --vz-table-hover-color: var(--inventory-night-heading);
+  --vz-table-border-color: var(--inventory-night-border);
+  border-color: var(--inventory-night-border) !important;
+  background-color: var(--inventory-night-card) !important;
+  color: var(--inventory-night-text) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table > :not(caption) > * > * {
+  border-color: var(--inventory-night-border) !important;
+  background-color: var(--inventory-night-card) !important;
+  color: var(--inventory-night-text) !important;
+  box-shadow: none !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-light,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-light > :not(caption) > * > *,
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page thead th {
+  --bs-table-bg: var(--inventory-night-control);
+  --bs-table-color: #dbeafe;
+  --vz-table-bg: var(--inventory-night-control);
+  --vz-table-color: #dbeafe;
+  background-color: var(--inventory-night-control) !important;
+  color: #dbeafe !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-hover > tbody > tr:hover > * {
+  background-color: #1d2840 !important;
+  color: var(--inventory-night-heading) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-group-divider {
+  border-top-color: var(--inventory-night-border) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .page-link {
+  border-color: var(--inventory-night-border) !important;
+  background-color: var(--inventory-night-control) !important;
+  color: var(--inventory-night-text) !important;
+}
+
+:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .page-item.active .page-link {
+  border-color: #8ea0f4 !important;
+  background-color: #8ea0f4 !important;
+  color: #0f172a !important;
+}
+
 </style>

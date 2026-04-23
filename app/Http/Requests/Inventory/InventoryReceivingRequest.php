@@ -21,4 +21,27 @@ class InventoryReceivingRequest extends FormRequest
             'remarks' => ['nullable', 'string'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'item_id.required' => 'Please select the received item.',
+            'item_id.exists' => 'The selected item is invalid.',
+            'approved_by_id.exists' => 'The selected approver is invalid.',
+            'status_id.required' => 'Please select the receiving status.',
+            'status_id.exists' => 'The selected status is invalid.',
+            'received_at.date' => 'Please enter a valid received date.',
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'item_id' => 'item',
+            'approved_by_id' => 'approved by',
+            'status_id' => 'status',
+            'received_at' => 'received date',
+            'remarks' => 'remarks',
+        ];
+    }
 }

@@ -39,9 +39,9 @@ class ProcurementCodeController extends Controller
             default:
                 return inertia('Modules/FAIMS/Procurement/Code/Index', [
                 'dropdowns' => [
-                    'mode_of_procurements' => $this->dropdown->dropdowns('Mode of Procurement'),
-                    'end_users' => $this->dropdown->list_units(),
                     'app_types' => $this->dropdown->dropdowns('APP Type'),
+                    'mode_of_procurements' => $this->dropdown->dropdowns('mode_of_procurement'),
+                    'end_users' => $this->dropdown->list_units(),
                 ],
             ]); 
                   
@@ -85,7 +85,12 @@ class ProcurementCodeController extends Controller
     {
         $this->ensureCanView();
 
-        return response()->json($this->pap_codes->profile($id));
+        $profile = $this->pap_codes->profile($id);
+
+        return inertia('Modules/FAIMS/Procurement/Code/Profile', [
+            'papCode' => $profile['data'],
+            'logs' => $profile['logs'],
+        ]);
     }
 
     public function requestBudgetIncrease(ProcurementCodeBudgetIncreaseRequest $request, $id)

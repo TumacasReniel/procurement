@@ -160,13 +160,16 @@ export default {
     current_roles() {
       return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
     },
-    is_employee_only_role() {
-      return this.current_roles.length === 1 && this.current_roles.includes("Employee");
-    },
-    can_manage_iar_reports() {
+    has_procurement_workflow_role() {
       return this.current_roles.some((role) => {
         return ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role);
       });
+    },
+    is_employee_only_role() {
+      return !this.has_procurement_workflow_role;
+    },
+    can_manage_iar_reports() {
+      return this.has_procurement_workflow_role;
     },
     view_mode_label() {
       if (this.is_employee_only_role) {

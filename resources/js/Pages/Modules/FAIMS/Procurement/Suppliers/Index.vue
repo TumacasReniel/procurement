@@ -2,11 +2,11 @@
   <Head title="Suppliers" />
   <PageHeader title="Suppliers" pageTitle="Procurement" />
 
-  <BRow class="procurement-index-page">
-    <div class="col-md-12">
-      <div class="card bg-light-subtle shadow-none border">
-        <div class="card-header bg-light-subtle">
-          <div class="d-flex mb-n3">
+  <BRow class="supplier-index-page g-0">
+    <div class="col-12">
+      <div class="card supplier-directory-card bg-light-subtle shadow-none border">
+        <div class="card-header supplier-directory-card__header bg-light-subtle">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
             <div class="flex-shrink-0 me-3">
               <div style="height: 2.5rem; width: 2.5rem">
                 <span class="avatar-title bg-primary-subtle rounded p-2 mt-n1">
@@ -23,14 +23,18 @@
                 representatives, attachments, and availability status.
               </p>
             </div>
-            <div class="flex-shrink-0" style="width: 45%"></div>
+            <div class="supplier-directory-card__count flex-shrink-0 text-md-end">
+              <p class="text-muted fs-12 mb-0">
+                Showing {{ lists.length }} {{ lists.length === 1 ? "supplier" : "suppliers" }}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div class="car-body bg-white border-bottom shadow-none">
-          <b-row class="mb-2 ms-1 me-1" style="margin-top: 12px">
+        <div class="card-body supplier-toolbar bg-white border-bottom shadow-none">
+          <b-row>
             <b-col lg>
-              <div class="input-group mb-1">
+              <div class="supplier-toolbar__group input-group">
                 <span class="input-group-text">
                   <i class="ri-search-line search-icon"></i>
                 </span>
@@ -38,14 +42,12 @@
                   v-model="filter.keyword"
                   type="text"
                   placeholder="Search Supplier"
-                  class="form-control"
-                  style="width: 40%"
+                  class="supplier-toolbar__search form-control"
                 />
 
                 <Multiselect
                   v-model="filter.status"
-                  class="white"
-                  style="width: 15%"
+                  class="supplier-toolbar__status white"
                   :options="dropdowns.statuses || []"
                   label="name"
                   :searchable="true"
@@ -72,11 +74,10 @@
           </b-row>
         </div>
 
-        <b-card no-body>
-          <div class="card-body bg-white rounded-bottom mt-3">
+        <b-card no-body class="border-0 rounded-0 shadow-none bg-transparent">
+          <div class="card-body supplier-table-body bg-white rounded-bottom">
             <div
-              class="table-responsive table-card"
-              style="margin-top: -39px; height: calc(100vh - 350px); overflow: auto"
+              class="supplier-table-wrap table-responsive table-card"
             >
               <table class="table align-middle table-hover mb-0">
                 <thead class="table-light thead-fixed">
@@ -498,3 +499,186 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.supplier-index-page {
+  --supplier-surface: #ffffff;
+  --supplier-surface-soft: #f7f9fc;
+  --supplier-border: rgba(148, 163, 184, 0.24);
+  --supplier-border-strong: rgba(148, 163, 184, 0.34);
+  --supplier-text: #1e293b;
+  --supplier-muted: #64748b;
+  --supplier-row-hover: rgba(37, 99, 235, 0.05);
+}
+
+.supplier-directory-card {
+  border-color: var(--supplier-border) !important;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.supplier-directory-card__header,
+.supplier-toolbar,
+.supplier-table-body,
+:deep(.supplier-directory-card .card-footer) {
+  border-color: var(--supplier-border) !important;
+}
+
+.supplier-directory-card__header,
+:deep(.supplier-directory-card .card-footer) {
+  background: var(--supplier-surface-soft) !important;
+}
+
+.supplier-toolbar,
+.supplier-table-body {
+  background: var(--supplier-surface) !important;
+}
+
+.supplier-toolbar {
+  padding: 0.9rem 1rem !important;
+}
+
+.supplier-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.supplier-toolbar__search {
+  flex: 1 1 420px;
+  min-width: 260px;
+}
+
+.supplier-toolbar__status {
+  flex: 0 0 220px;
+  min-width: 200px;
+}
+
+:deep(.supplier-toolbar__group .input-group-text),
+.supplier-toolbar__search,
+:deep(.supplier-toolbar__status.multiselect) {
+  border-color: var(--supplier-border) !important;
+  border-radius: 12px !important;
+}
+
+:deep(.supplier-toolbar__group .input-group-text) {
+  background: var(--supplier-surface-soft) !important;
+  color: var(--supplier-muted) !important;
+}
+
+.supplier-toolbar__search {
+  background: var(--supplier-surface) !important;
+  color: var(--supplier-text) !important;
+}
+
+.supplier-toolbar__search::placeholder {
+  color: var(--supplier-muted);
+}
+
+:deep(.supplier-toolbar__status.multiselect),
+:deep(.supplier-toolbar__status .multiselect-wrapper),
+:deep(.supplier-toolbar__status .multiselect-tags) {
+  background: var(--supplier-surface) !important;
+  color: var(--supplier-text) !important;
+}
+
+:deep(.supplier-toolbar__status .multiselect-placeholder),
+:deep(.supplier-toolbar__status .multiselect-single-label) {
+  color: var(--supplier-muted) !important;
+}
+
+.supplier-table-body {
+  padding: 1rem !important;
+}
+
+.supplier-table-wrap {
+  border: 1px solid var(--supplier-border);
+  border-radius: 14px;
+  height: calc(100vh - 315px);
+  min-height: 360px;
+  overflow: auto;
+}
+
+:deep(.supplier-table-wrap thead th) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--supplier-surface-soft) !important;
+  color: var(--supplier-muted) !important;
+  border-bottom: 1px solid var(--supplier-border) !important;
+}
+
+:deep(.supplier-table-wrap tbody td) {
+  background: var(--supplier-surface);
+  color: var(--supplier-text);
+  border-bottom: 1px solid var(--supplier-border);
+}
+
+:deep(.supplier-table-wrap.table-card) {
+  margin: 0;
+}
+
+:deep(.supplier-table-wrap.table-hover tbody tr:hover td),
+:deep(.supplier-table-wrap .table-hover tbody tr:hover td),
+:deep(.supplier-table-wrap tbody tr:hover td) {
+  background: var(--supplier-row-hover);
+}
+
+:deep(.supplier-index-page .table-active td) {
+  background: rgba(37, 99, 235, 0.08) !important;
+}
+
+:deep(.supplier-index-page .text-muted) {
+  color: var(--supplier-muted) !important;
+}
+
+:global([data-bs-theme="dark"]) .supplier-index-page {
+  --supplier-surface: #131d2b;
+  --supplier-surface-soft: #182235;
+  --supplier-border: rgba(148, 163, 184, 0.18);
+  --supplier-border-strong: rgba(148, 163, 184, 0.28);
+  --supplier-text: #e5edf7;
+  --supplier-muted: #9fb0c7;
+  --supplier-row-hover: rgba(96, 165, 250, 0.12);
+}
+
+:global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-dropdown) {
+  background: var(--supplier-surface) !important;
+  border-color: var(--supplier-border) !important;
+}
+
+:global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-option) {
+  color: var(--supplier-text) !important;
+}
+
+:global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-option.is-pointed),
+:global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-option.is-selected) {
+  background: var(--supplier-surface-soft) !important;
+}
+
+@media (max-width: 991px) {
+  .supplier-toolbar__search,
+  .supplier-toolbar__status,
+  .supplier-toolbar__group .btn {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .supplier-table-wrap {
+    height: auto;
+    max-height: 65vh;
+  }
+}
+
+@media (max-width: 767px) {
+  .supplier-directory-card {
+    border-radius: 12px;
+  }
+
+  .supplier-table-body,
+  .supplier-toolbar {
+    padding: 0.75rem !important;
+  }
+}
+</style>

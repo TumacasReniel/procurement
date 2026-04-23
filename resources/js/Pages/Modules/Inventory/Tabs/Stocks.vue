@@ -43,6 +43,13 @@
           >
             <i class="bx bx-refresh search-icon"></i>
           </span>
+          <select v-model="sort" class="form-select stock-sort-select" aria-label="Sort inventory stocks">
+            <option value="latest">Latest Entry</option>
+            <option value="oldest">Oldest Entry</option>
+            <option value="name_asc">Name A-Z</option>
+            <option value="code_asc">Code A-Z</option>
+            <option value="quantity_desc">Quantity High-Low</option>
+          </select>
           <button
             type="button"
             class="btn btn-primary stock-create-btn"
@@ -71,12 +78,12 @@
             <tr v-if="loading">
               <td colspan="7" class="text-center text-muted py-5">Loading stock records...</td>
             </tr>
-            <tr v-else-if="rows.length === 0">
+            <tr v-else-if="sortedRows.length === 0">
               <td colspan="7" class="text-center text-muted py-5">
                 {{ keyword ? 'No stocks matched your search.' : 'No stock records found.' }}
               </td>
             </tr>
-            <tr v-else v-for="(stock, index) in rows" :key="stock.id">
+            <tr v-else v-for="(stock, index) in sortedRows" :key="stock.id">
               <td class="text-center fw-semibold">{{ displayRowNumber(index) }}</td>
               <td>
                 <div class="d-flex align-items-center">
@@ -135,7 +142,7 @@
             v-if="meta && meta.total"
             :links="links"
             :pagination="meta"
-            :lists="rows.length"
+            :lists="sortedRows.length"
             @fetch="(pageUrl) => $emit('fetch', pageUrl)"
           />
         </div>
@@ -151,13 +158,51 @@ export default {
   name: 'StocksLedger',
   components: { Pagination },
   props: {
-    rows: { type: Array, default: () => [] },
+    rows: { type: [Array, Object], default: () => [] },
     loading: { type: Boolean, default: false },
     meta: { type: Object, default: null },
     links: { type: Array, default: null },
     keyword: { type: String, default: '' },
   },
   emits: ['create', 'fetch', 'refresh', 'update:keyword', 'view', 'edit', 'delete'],
+  data() {
+    return {
+      sort: 'latest',
+    };
+  },
+  computed: {
+    sortedRows() {
+      const rows = [...this.normalizedRows];
+      const normalizeText = (value) => String(value || '').toLowerCase();
+      const normalizeNumber = (value) => Number(value || 0);
+      const normalizeDate = (value) => {
+        if (!value) return 0;
+
+        const timestamp = new Date(String(value).replace(' ', 'T')).getTime();
+        return Number.isNaN(timestamp) ? 0 : timestamp;
+      };
+
+      const sorters = {
+        oldest: (left, right) => normalizeDate(left.entry_date) - normalizeDate(right.entry_date),
+        name_asc: (left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name)),
+        code_asc: (left, right) => normalizeText(left.code).localeCompare(normalizeText(right.code)),
+        quantity_desc: (left, right) => normalizeNumber(right.total_quantity) - normalizeNumber(left.total_quantity),
+      };
+
+      return rows.sort(sorters[this.sort] || ((left, right) => normalizeDate(right.entry_date) - normalizeDate(left.entry_date)));
+    },
+    normalizedRows() {
+      if (Array.isArray(this.rows)) {
+        return this.rows;
+      }
+
+      if (Array.isArray(this.rows?.data)) {
+        return this.rows.data;
+      }
+
+      return [];
+    },
+  },
   methods: {
     handleRefresh() {
       this.$emit('refresh');
@@ -185,11 +230,11 @@ export default {
 
 <style scoped>
 .stock-card-body {
-  padding: 0.85rem 0.85rem 0;
+  padding: 0.65rem 0.65rem 0;
 }
 
 .stock-toolbar-row {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.55rem;
 }
 
 .stock-toolbar-group {
@@ -212,19 +257,26 @@ export default {
   cursor: pointer;
 }
 
+.stock-sort-select {
+  flex: 0 0 190px;
+  min-width: 190px;
+  border-left: 0;
+  border-radius: 0;
+}
+
 .stock-create-btn {
   min-width: 120px;
 }
 
 .ledger-table-wrap {
   margin-top: 0;
-  max-height: calc(100vh - 318px);
+  max-height: calc(100vh - 268px);
   overflow: auto;
 }
 
 .ledger-card .card-header {
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  padding: 1rem 1rem 0.85rem;
+  padding: 0.8rem 0.85rem 0.65rem;
 }
 
 .ledger-table-wrap :deep(.card-footer) {
@@ -235,6 +287,43 @@ export default {
 .ledger-table-wrap td,
 .ledger-table-wrap th {
   vertical-align: middle;
+}
+
+:global([data-bs-theme="dark"]) .ledger-card,
+:global([data-bs-theme="dark"]) .ledger-card .card-header,
+:global([data-bs-theme="dark"]) .stock-card-body,
+:global([data-bs-theme="dark"]) .ledger-table-wrap,
+:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.card-footer) {
+  border-color: #2e3a59 !important;
+  background-color: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.table) {
+  --vz-table-bg: #111827;
+  --vz-table-color: #e5e7eb;
+  --vz-table-hover-bg: #182035;
+  --vz-table-border-color: #2e3a59;
+  background-color: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.table-light th) {
+  background-color: #182035 !important;
+  color: #dbeafe !important;
+}
+
+:global([data-bs-theme="dark"]) .stock-toolbar-group :deep(.input-group-text),
+:global([data-bs-theme="dark"]) .stock-toolbar-group :deep(.form-control),
+:global([data-bs-theme="dark"]) .stock-sort-select,
+:global([data-bs-theme="dark"]) .stock-refresh-trigger {
+  border-color: #2e3a59 !important;
+  background-color: #182035 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .stock-toolbar-group :deep(.form-control::placeholder) {
+  color: #8ea0b8 !important;
 }
 
 @media (max-width: 767.98px) {
@@ -254,8 +343,13 @@ export default {
   }
 
   .stock-refresh-trigger,
+  .stock-sort-select,
   .stock-create-btn {
     border-radius: var(--vz-border-radius);
+  }
+
+  .stock-sort-select {
+    flex: 1 1 100%;
   }
 
   .stock-create-btn {

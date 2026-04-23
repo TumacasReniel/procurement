@@ -208,7 +208,7 @@
                                         <i class="ri-notification-3-line"></i>
                                     </div>
                                 </div>
-                                <h6 class="mb-1 fw-semibold">No new PR alerts</h6>
+                                <h6 class="mb-1 fw-semibold">No new alerts</h6>
                                 <p class="mb-0 text-muted fs-12">Mentions and updates on your procurement requests will appear here.</p>
                             </div>
 

@@ -7,13 +7,17 @@ use App\Models\ListDropdown;
 
 class ModeOfProcurementClass
 {
-    protected string $classification = 'Mode of Procurement';
+    protected string $classification = 'mode_of_procurement';
+    protected array $legacyClassifications = [
+        'modes_of_procurement',
+        'Mode of Procurement',
+    ];
 
     public function show($id)
     {
         $data = new ModeOfProcurementResource(
             ListDropdown::query()
-                ->where('classification', $this->classification)
+                ->whereIn('classification', $this->classificationFilters())
                 ->withCount('procurement_codes')
                 ->findOrFail($id)
         );
@@ -25,7 +29,7 @@ class ModeOfProcurementClass
     {
         return ModeOfProcurementResource::collection(
             ListDropdown::query()
-                ->where('classification', $this->classification)
+                ->whereIn('classification', $this->classificationFilters())
                 ->withCount('procurement_codes')
                 ->when($request->keyword, function ($query, $keyword) {
                     $query->where(function ($innerQuery) use ($keyword) {
@@ -65,11 +69,12 @@ class ModeOfProcurementClass
     public function update($request, $id)
     {
         $modeOfProcurement = ListDropdown::query()
-            ->where('classification', $this->classification)
+            ->whereIn('classification', $this->classificationFilters())
             ->findOrFail($id);
 
         $modeOfProcurement->update([
             'name' => trim((string) $request->name),
+            'classification' => $this->classification,
             'type' => $this->normalizeOptionalValue($request->type),
             'others' => $this->normalizeOptionalValue($request->others),
             'is_active' => $request->boolean('is_active'),
@@ -88,7 +93,7 @@ class ModeOfProcurementClass
     public function destroy($id)
     {
         $modeOfProcurement = ListDropdown::query()
-            ->where('classification', $this->classification)
+            ->whereIn('classification', $this->classificationFilters())
             ->withCount('procurement_codes')
             ->findOrFail($id);
 
@@ -116,5 +121,13 @@ class ModeOfProcurementClass
         $normalized = trim((string) $value);
 
         return $normalized !== '' ? $normalized : 'n/a';
+    }
+
+    protected function classificationFilters(): array
+    {
+        return array_values(array_unique([
+            $this->classification,
+            ...$this->legacyClassifications,
+        ]));
     }
 }

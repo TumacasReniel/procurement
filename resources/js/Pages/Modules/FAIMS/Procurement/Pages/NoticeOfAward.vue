@@ -1,6 +1,6 @@
 <template>
   <div class="procurement-noa-page">
-  <PageHeader class="m-3 mt-4" title="Notice of Awards" />
+  <PageHeader class="pt-2" title="Notice of Awards" />
 
   <b-row class="g-2 mb-3 mt-n2">
     <b-col lg>

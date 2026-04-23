@@ -49,131 +49,120 @@
 
             <form class="customform">
               <!-- Basic Information Section -->
-              <div class="row g-3 mb-4">
-                <div class="col-lg-6">
-                  <div class="content-card">
-                    <div class="card-body-custom">
-                      <div class="row g-3">
-                        <div class="col-md-6">
-                          <div class="form-group">
-                            <InputLabel for="division" value="Division" :message="form.errors.division_id" />
-                            <Multiselect
-                              :options="dropdowns.divisions"
-                              v-model="form.division_id"
-                              :searchable="true"
-                              label="name"
-                              placeholder="Select Division"
-                              class="modern-select"
-                            />
-                          </div>
-                        </div>
+              <div class="row g-3 mb-3">
+                <div class="col-12">
+                  <div class="content-card request-details-card">
+                    <div class="card-body-custom request-details-body">
+                      <div class="row g-3 align-items-stretch">
+                        <div class="col-xxl-8 col-xl-7">
+                          <div class="row g-3">
+                            <div class="col-lg-6">
+                              <div class="form-group compact-form-group">
+                                <InputLabel for="division" value="Division" :message="form.errors.division_id" />
+                                <Multiselect
+                                  :options="dropdowns.divisions"
+                                  v-model="form.division_id"
+                                  :searchable="true"
+                                  label="name"
+                                  placeholder="Select Division"
+                                  class="modern-select"
+                                />
+                              </div>
+                            </div>
 
-                        <div class="col-md-6">
-                          <div class="form-group">
-                            <InputLabel value="PR Date" :message="form.errors.date" />
-                            <TextInput
-                              v-model="form.date"
-                              type="date"
-                              class="form-control modern-input"
-                            />
-                          </div>
-                        </div>
+                            <div class="col-lg-6">
+                              <div class="form-group compact-form-group">
+                                <InputLabel value="PR Date" :message="form.errors.date" />
+                                <TextInput
+                                  v-model="form.date"
+                                  type="date"
+                                  class="form-control modern-input"
+                                />
+                              </div>
+                            </div>
 
-                        <div class="col-md-6">
-                          <div class="form-group">
-                            <InputLabel for="unit" value="Unit" :message="form.errors.unit_id" />
-                            <Multiselect
-                              :options="units"
-                              v-model="form.unit_id"
-                              :searchable="true"
-                              label="name"
-                              placeholder="Select Unit"
-                              class="modern-select"
-                            />
-                          </div>
-                        </div>
+                            <div class="col-lg-6">
+                              <div class="form-group compact-form-group">
+                                <InputLabel for="unit" value="Unit" :message="form.errors.unit_id" />
+                                <Multiselect
+                                  :options="units"
+                                  v-model="form.unit_id"
+                                  :searchable="true"
+                                  label="name"
+                                  placeholder="Select Unit"
+                                  class="modern-select"
+                                />
+                              </div>
+                            </div>
 
-                        <div class="col-md-6">
-                          <div class="form-group">
-                            <InputLabel for="fund_cluster" value="Fund Cluster" :message="form.errors.fund_cluster_id" />
-                            <Multiselect
-                              :options="dropdowns.fund_clusters"
-                              v-model="form.fund_cluster_id"
-                              :searchable="true"
-                              label="name"
-                              placeholder="Select Fund Cluster"
-                              class="modern-select"
-                            />
-                          </div>
-                        </div>
+                            <div class="col-lg-6">
+                              <div class="form-group compact-form-group">
+                                <InputLabel for="fund_cluster" value="Fund Cluster" :message="form.errors.fund_cluster_id" />
+                                <Multiselect
+                                  :options="dropdowns.fund_clusters"
+                                  v-model="form.fund_cluster_id"
+                                  :searchable="true"
+                                  label="name"
+                                  placeholder="Select Fund Cluster"
+                                  class="modern-select"
+                                />
+                              </div>
+                            </div>
 
-                        <div class="col-12">
-                          <div class="form-group">
-                            <InputLabel value="PAP Code" :message="form.errors.procurement_code_ids" />
-                            <Multiselect
-                              :options="availableProcurementCodes"
-                              v-model="form.procurement_code_ids"
-                              :searchable="true"
-                              label="label"
-                              placeholder="Select PAP Codes"
-                              mode="tags"
-                              class="modern-select"
-                            />
-                            <small
-                              v-if="procurementCodeBalanceHelper"
-                              :class="procurementCodeBalanceHelperClass"
-                              class="classification-helper-text"
+                            <div class="col-12">
+                              <div class="form-group compact-form-group">
+                                <InputLabel for="Mode Procurement " value="Mode of Procurement" :message="form.errors.procurement_code_ids" />
+                                <Multiselect
+                                  :options="availableProcurementCodes"
+                                  v-model="form.procurement_code_ids"
+                                  :searchable="true"
+                                  label="label"
+                                  placeholder="Select PAP Codes"
+                                  mode="tags"
+                                  class="modern-select"
+                                />
+                              </div>
+                            </div>
+
+                            <div
+                              v-if="showClassificationField"
+                              class="col-12"
                             >
-                              {{ procurementCodeBalanceHelper }}
-                            </small>
+                              <div class="form-group compact-form-group">
+                                <InputLabel
+                                  for="classification"
+                                  value="Classification"
+                                  :message="form.errors.classification_id"
+                                />
+                                <Multiselect
+                                  :options="classificationOptions"
+                                  v-model="form.classification_id"
+                                  :searchable="true"
+                                  label="name"
+                                  placeholder="Select Classification"
+                                  class="modern-select"
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
 
-                        <div
-                          v-if="showClassificationField"
-                          class="col-12"
-                        >
-                          <div class="form-group">
-                            <InputLabel
-                              for="classification"
-                              value="Classification"
-                              :message="form.errors.classification_id"
-                            />
-                            <Multiselect
-                              :options="classificationOptions"
-                              v-model="form.classification_id"
-                              :searchable="true"
-                              label="name"
-                              placeholder="Select Classification"
-                              class="modern-select"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="col-lg-6">
-                  <div class="content-card">
-                    <div class="card-body-custom">
-                      <div class="row g-3">
-                        <div class="col-12">
-                          <div class="form-group">
+                        <div class="col-xxl-4 col-xl-5">
+                          <div class="form-group compact-form-group h-100">
                             <InputLabel for="purpose" value="Request Purpose" :message="form.errors.purpose" />
                             <b-form-textarea
                               id="purpose"
                               v-model="form.purpose"
                               placeholder="Enter your request purpose"
-                              rows="4"
-                              max-rows="8"
-                              class="modern-textarea"
+                              rows="7"
+                              max-rows="10"
+                              class="modern-textarea request-purpose-textarea"
                             ></b-form-textarea>
                           </div>
                         </div>
 
                         <div class="col-12" v-if="option == 'review' || option == 'approve'">
-                          <div class="form-group">
+                          <div class="form-group compact-form-group mb-0">
                             <InputLabel for="title" value="Request Title" :message="form.errors.title" />
                             <b-form-textarea
                               id="title"
@@ -192,7 +181,7 @@
               </div>
 
               <!-- Items Section -->
-              <div class="row g-3 mb-4">
+              <div class="row g-3 mb-3">
                 <div class="col-12">
                   <div class="content-card">
                     <div class="card-header-custom">
@@ -277,9 +266,8 @@
                             </tbody>
                             <tfoot>
                               <tr class="grand-total-row">
-                                <td colspan="6" class="text-end grand-total-label">Grand Total:</td>
+                                <td colspan="5" class="text-end grand-total-label">Grand Total:</td>
                                 <td class="text-end grand-total-amount">{{ formatCurrency(totalCostSum) }}</td>
-                                <td></td>
                               </tr>
                             </tfoot>
                           </table>
@@ -300,7 +288,7 @@
 
 
               <!-- Assignees Section -->
-              <div class="row g-3 mb-4">
+              <div class="row g-3 mb-3">
                 <div class="col-12">
                   <div class="content-card">
                     <div class="card-header-custom">
@@ -308,9 +296,9 @@
                       <h5 class="card-header-title">Assignees</h5>
                     </div>
                     <div class="card-body-custom">
-                      <div class="row g-3">
-                        <div class="col-md-6">
-                          <div class="form-group">
+                      <div class="row g-3 align-items-end">
+                        <div class="col-xl-4 col-lg-6">
+                          <div class="form-group compact-form-group">
                             <InputLabel for="requested_by" value="Requested By" :message="form.errors.requested_by_id" />
                             <Multiselect
                               :options="dropdowns.requesters"
@@ -322,8 +310,8 @@
                             />
                           </div>
                         </div>
-                        <div class="col-md-6">
-                          <div class="form-group">
+                        <div class="col-xl-4 col-lg-6">
+                          <div class="form-group compact-form-group">
                             <InputLabel for="approved_by" value="Approved By" :message="form.errors.approved_by_id" />
                             <Multiselect
                               :options="dropdowns.approvers"
@@ -336,7 +324,8 @@
                           </div>
                         </div>
 
-                         <div class="action-buttons-group">
+                         <div class="col-xl-4">
+                           <div class="action-buttons-group justify-content-xl-end">
                       <b-button
                         v-if="option == 'create'"
                         :disabled="!canCreateRequest"
@@ -392,6 +381,7 @@
                         <i class="ri-arrow-left-line me-2"></i>
                         Back to List
                       </b-button>
+                           </div>
                         </div>
                       </div>
                     </div>
@@ -571,6 +561,36 @@ export default {
         return sum + (Number(option.remaining_budget) || 0);
       }, 0);
     },
+    selectedProcurementCodeDetails() {
+      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+        return [];
+      }
+
+      const optionMap = this.normalizedProcurementCodes.reduce((map, option) => {
+        map.set(Number(option.value), option);
+        return map;
+      }, new Map());
+
+      return this.form.procurement_code_ids
+        .map((id) => optionMap.get(Number(id)))
+        .filter(Boolean);
+    },
+    procurementCodeBudgetGap() {
+      return this.selectedProcurementCodeBalance - this.totalCostSum;
+    },
+    procurementCodeBudgetStatusClass() {
+      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+        return "pap-budget-overview--idle";
+      }
+
+      if (this.totalCostSum <= 0) {
+        return "pap-budget-overview--idle";
+      }
+
+      return this.hasEnoughSelectedProcurementCodeBalance
+        ? "pap-budget-overview--covered"
+        : "pap-budget-overview--short";
+    },
     hasEnoughSelectedProcurementCodeBalance() {
       if (this.option !== "create") {
         return true;
@@ -679,6 +699,14 @@ export default {
       this.$refs.item.show();
     },
 
+    openProcurementCodeProfile(id) {
+      if (!id) {
+        return;
+      }
+
+      window.open(`/faims/procurement-codes/${id}`, "_blank", "noopener");
+    },
+
     editItem(index) {
       this.$refs.item.edit(this.form.items[index], index);
     },
@@ -782,6 +810,10 @@ export default {
       }).format(value);
     },
 
+    getProcurementCodeBalanceClass(value) {
+      return Number(value) < 0 ? "text-danger" : "text-success";
+    },
+
     getUnits(division_id) {
       axios
         .get("/faims/procurements/create", {
@@ -854,21 +886,21 @@ export default {
   --procurement-create-back-btn-hover-text: #ffffff;
   background: var(--procurement-create-page-bg);
   min-height: 100vh;
-  padding: 0 0 2rem 0;
+  padding: 0 0 1rem 0;
 }
 
 /* Hero Header */
 .hero-header {
   position: relative;
   overflow: hidden;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.09);
+  margin-bottom: 1rem;
 }
 
 .hero-gradient {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 0.5rem 0;
+  padding: 0.45rem 0;
   position: relative;
 }
 
@@ -884,8 +916,8 @@ export default {
 }
 
 .hero-icon-wrapper {
-  width: 80px;
-  height: 80px;
+  width: 58px;
+  height: 58px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   display: flex;
@@ -896,12 +928,12 @@ export default {
 }
 
 .hero-icon {
-  font-size: 2.5rem;
+  font-size: 1.9rem;
   color: white;
 }
 
 .hero-title {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: white;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -909,7 +941,7 @@ export default {
 }
 
 .hero-subtitle {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.9);
   font-weight: 400;
 }
@@ -935,7 +967,7 @@ export default {
 /* Content Cards */
 .content-card {
   background: var(--procurement-create-card-bg);
-  border-radius: 15px;
+  border-radius: 12px;
   box-shadow: var(--procurement-create-card-shadow);
   border: 1px solid var(--procurement-create-card-border);
   overflow: visible;
@@ -944,8 +976,21 @@ export default {
 }
 
 .content-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-1px);
   box-shadow: var(--procurement-create-card-hover-shadow);
+}
+
+.request-details-card {
+  min-height: auto;
+}
+
+.request-details-body {
+  padding: 1.25rem !important;
+}
+
+.request-purpose-textarea {
+  min-height: 168px;
+  height: calc(100% - 1.55rem);
 }
 
 .classification-helper-text {
@@ -956,9 +1001,153 @@ export default {
   line-height: 1.5;
 }
 
+.pap-profile-panel {
+  border: 1px solid rgba(102, 126, 234, 0.14);
+  border-radius: 14px;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.pap-profile-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.pap-profile-panel__subtitle {
+  color: var(--procurement-create-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.pap-profile-panel__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(102, 126, 234, 0.08);
+  color: #4c63d2;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pap-budget-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.pap-budget-overview__card {
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+}
+
+.pap-budget-overview__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--procurement-create-muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pap-budget-overview__value {
+  display: block;
+  color: var(--procurement-create-text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.pap-budget-overview--covered .pap-budget-overview__card {
+  border-color: rgba(34, 197, 94, 0.16);
+}
+
+.pap-budget-overview--short .pap-budget-overview__card {
+  border-color: rgba(239, 68, 68, 0.16);
+}
+
+.pap-selected-code-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.pap-selected-code {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.16);
+  background: rgba(255, 255, 255, 0.96);
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.pap-selected-code:hover {
+  transform: translateY(-1px);
+  border-color: rgba(102, 126, 234, 0.3);
+  box-shadow: 0 14px 28px rgba(102, 126, 234, 0.08);
+}
+
+.pap-selected-code__top,
+.pap-selected-code__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pap-selected-code__bottom {
+  margin-top: 0.45rem;
+}
+
+.pap-selected-code__code {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pap-selected-code__balance {
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pap-selected-code__title {
+  color: var(--procurement-create-text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pap-selected-code__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #4c63d2;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .card-header-custom {
   background: var(--procurement-create-header-bg);
-  padding: 1rem;
+  padding: 0.8rem 1rem;
   border-bottom: 1px solid var(--procurement-create-header-border);
   display: flex;
   align-items: center;
@@ -966,27 +1155,31 @@ export default {
 }
 
 .card-header-icon {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   color: #667eea;
   background: rgba(102, 126, 234, 0.1);
-  padding: 0.5rem;
+  padding: 0.45rem;
   border-radius: 10px;
 }
 
 .card-header-title {
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   color: var(--procurement-create-text);
   margin: 0;
 }
 
 .card-body-custom {
-  padding: 1.5rem;
+  padding: 1rem;
   overflow: visible;
 }
 
 /* Form Groups */
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.compact-form-group {
+  margin-bottom: 0;
 }
 
 /* Modern Select */
@@ -1007,7 +1200,7 @@ export default {
   border: 1px solid var(--procurement-create-input-border);
   background: var(--procurement-create-input-bg);
   color: var(--procurement-create-input-text);
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 0.85rem;
   transition: all 0.3s ease;
 }
 
@@ -1024,6 +1217,7 @@ export default {
   border: 1px solid var(--procurement-create-input-border);
   background: var(--procurement-create-input-bg);
   color: var(--procurement-create-input-text);
+  padding: 0.65rem 0.85rem;
   resize: vertical;
   transition: all 0.3s ease;
 }
@@ -1043,7 +1237,7 @@ export default {
 /* Add Item Button */
 .add-item-btn {
   border-radius: 25px;
-  padding: 0.5rem 1.5rem;
+  padding: 0.4rem 1.15rem;
   font-weight: 600;
   transition: all 0.3s ease;
 }
@@ -1073,7 +1267,7 @@ export default {
 }
 
 .items-table th {
-  padding: 1rem;
+  padding: 0.75rem 0.85rem;
   font-weight: 600;
   font-size: 0.9rem;
   text-transform: uppercase;
@@ -1093,7 +1287,7 @@ export default {
 }
 
 .items-table td {
-  padding: 1rem;
+  padding: 0.75rem 0.85rem;
   border-bottom: 1px solid var(--procurement-create-table-border);
   vertical-align: top;
   background: var(--procurement-create-table-bg);
@@ -1167,12 +1361,12 @@ export default {
 /* Empty State */
 .empty-state {
   text-align: center;
-  padding: 3rem 1rem;
+  padding: 2rem 1rem;
 }
 
 .empty-state-icon {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: var(--procurement-create-empty-icon-bg);
   display: flex;
@@ -1204,18 +1398,18 @@ export default {
 
 .action-buttons-group {
   display: flex;
-  gap: 1rem;
+  gap: 0.65rem;
   justify-content: center;
   flex-wrap: wrap;
 }
 
 .action-btn {
   border-radius: 25px;
-  padding: 0.75rem 2rem;
+  padding: 0.55rem 1.2rem;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9rem;
   transition: all 0.3s ease;
-  min-width: 200px;
+  min-width: 145px;
 }
 
 .primary-btn {
@@ -1279,6 +1473,21 @@ export default {
 
   .card-body-custom {
     padding: 1rem;
+  }
+
+  .pap-profile-panel__header,
+  .pap-selected-code__top,
+  .pap-selected-code__bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pap-profile-panel__hint {
+    white-space: normal;
+  }
+
+  .pap-budget-overview {
+    grid-template-columns: 1fr;
   }
 
   .action-buttons-group {
@@ -1422,5 +1631,31 @@ export default {
 [data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-tag {
   background: linear-gradient(135deg, #4f6bdc, #6378ff) !important;
   color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .pap-profile-panel {
+  background: linear-gradient(180deg, rgba(27, 34, 48, 0.95), rgba(35, 44, 58, 0.98));
+  border-color: rgba(140, 164, 255, 0.2);
+}
+
+[data-bs-theme="dark"] .procurement-create-container .pap-profile-panel__hint {
+  background: rgba(140, 164, 255, 0.14);
+  color: #c7d5ff;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .pap-budget-overview__card,
+[data-bs-theme="dark"] .procurement-create-container .pap-selected-code {
+  background: rgba(27, 34, 48, 0.92);
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 28px rgba(2, 6, 23, 0.14);
+}
+
+[data-bs-theme="dark"] .procurement-create-container .pap-selected-code__code {
+  background: rgba(74, 222, 128, 0.14);
+  color: #86efac;
+}
+
+[data-bs-theme="dark"] .procurement-create-container .pap-selected-code__action {
+  color: #c7d5ff;
 }
 </style>

@@ -2,26 +2,28 @@
   <div>
     <b-modal
       v-model="showModal"
-      header-class="p-4 bg-gradient-primary text-white"
+      header-class="p-3 bg-light"
       :title="editable ? 'Update Supplier' : 'Add New Supplier'"
       size="xl"
       class="v-modal-custom"
       modal-class="zoomIn"
       centered
       no-close-on-backdrop
-      body-class="p-4"
     >
-      <div class="supplier-form">
-        <div
+      <form class="customform supplier-form" @submit.prevent="reviewSupplier">
+        <b-alert
           v-if="form.errors.body || Object.keys(form.errors).length"
-          class="alert alert-danger py-2 px-3 mb-4"
+          variant="danger"
+          show
+          class="mb-3"
         >
           {{ form.errors.body || "Please review the highlighted supplier fields." }}
-        </div>
+        </b-alert>
 
-        <div class="form-section mb-4">
-          <h5 class="section-title mb-3">
-            <i class="ri-building-line me-2"></i>Basic Information
+        <div class="border rounded-3 p-3 mb-4">
+          <h5 class="d-flex align-items-center gap-2 mb-3">
+            <i class="ri-building-line"></i>
+            <span>Basic Information</span>
           </h5>
           <b-row class="g-3">
             <b-col lg="4">
@@ -30,9 +32,8 @@
                 <TextInput
                   v-model="form.name"
                   type="text"
-                  class="form-control form-control-lg"
+                  class="form-control-lg rounded-3"
                   placeholder="Enter company or business name"
-                  style="border-radius: 10px; border: 2px solid #e9ecef"
                 />
                 <InputError :message="form.errors.name" class="mt-1" />
               </div>
@@ -44,10 +45,9 @@
                 <TextInput
                   v-model="form.code"
                   type="text"
-                  class="form-control form-control-lg"
+                  class="form-control-lg rounded-3"
                   :placeholder="editable ? 'Auto-generated code' : 'Code will be auto-generated'"
                   :disabled="!editable"
-                  style="border-radius: 10px; border: 2px solid #e9ecef"
                 />
                 <InputError :message="form.errors.code" class="mt-1" />
               </div>
@@ -59,9 +59,8 @@
                 <TextInput
                   v-model="form.tin"
                   type="text"
-                  class="form-control form-control-lg"
+                  class="form-control-lg rounded-3"
                   placeholder="Enter supplier TIN"
-                  style="border-radius: 10px; border: 2px solid #e9ecef"
                 />
                 <InputError :message="form.errors.tin" class="mt-1" />
               </div>
@@ -69,36 +68,36 @@
           </b-row>
         </div>
 
-        <div class="form-section mb-4">
-          <h5 class="section-title mb-3">
-            <i class="ri-map-pin-line me-2"></i>Address Information
+        <div class="border rounded-3 p-3 mb-4">
+          <h5 class="d-flex align-items-center gap-2 mb-3">
+            <i class="ri-map-pin-line"></i>
+            <span>Address Information</span>
           </h5>
           <b-row class="g-3">
             <b-col lg="12">
               <div class="form-group">
                 <InputLabel value="Complete Address" class="fw-bold" />
-                <textarea
+                <b-form-textarea
                   v-model="form.address"
-                  class="form-control form-control-lg"
+                  class="rounded-3"
                   rows="3"
                   placeholder="Enter complete address including street, city, province, and postal code"
-                  style="border-radius: 10px; border: 2px solid #e9ecef; resize: vertical"
-                ></textarea>
+                />
                 <InputError :message="form.errors.address" class="mt-1" />
               </div>
             </b-col>
           </b-row>
         </div>
 
-        <div class="form-section mb-4">
-          <h5 class="section-title mb-3">
-            <i class="ri-user-line me-2"></i>Representatives & Authorized Personnel
+        <div class="border rounded-3 p-3 mb-4">
+          <h5 class="d-flex align-items-center gap-2 mb-3">
+            <i class="ri-user-line"></i>
+            <span>Representatives & Authorized Personnel</span>
           </h5>
           <div
             v-for="(conforme, index) in form.conformes"
             :key="index"
-            class="conforme-item mb-3 p-3 border rounded"
-            style="background: #f8f9fa; border-radius: 10px"
+            class="bg-light-subtle border rounded-3 p-3 mb-3"
           >
             <b-row class="g-3 align-items-end">
               <b-col lg="4">
@@ -106,9 +105,8 @@
                 <TextInput
                   v-model="conforme.name"
                   type="text"
-                  class="form-control"
+                  class="rounded-3"
                   :placeholder="`Enter representative ${index + 1} name`"
-                  style="border-radius: 8px; border: 1px solid #ced4da"
                 />
               </b-col>
 
@@ -117,9 +115,8 @@
                 <TextInput
                   v-model="conforme.position"
                   type="text"
-                  class="form-control"
+                  class="rounded-3"
                   placeholder="Enter position or title"
-                  style="border-radius: 8px; border: 1px solid #ced4da"
                 />
               </b-col>
 
@@ -128,12 +125,11 @@
                 <TextInput
                   v-model="conforme.contact_no"
                   type="text"
-                  class="form-control"
+                  class="rounded-3"
                   placeholder="09123456789"
                   pattern="^09\\d{9}$"
                   maxlength="11"
                   title="Contact number must start with 09 and be 11 digits"
-                  style="border-radius: 8px; border: 1px solid #ced4da"
                 />
               </b-col>
 
@@ -141,10 +137,10 @@
                 <b-button
                   v-if="form.conformes.length > 1"
                   @click="removeConforme(index)"
+                  type="button"
                   variant="outline-danger"
                   size="sm"
                   class="w-100"
-                  style="border-radius: 8px"
                 >
                   <i class="ri-delete-bin-line"></i>
                 </b-button>
@@ -154,39 +150,39 @@
 
           <b-button
             @click="addConforme"
+            type="button"
             variant="outline-primary"
             size="sm"
-            style="border-radius: 8px"
           >
             <i class="ri-add-line me-1"></i>Add Representative
           </b-button>
         </div>
 
-        <div class="form-section mb-4">
-          <h5 class="section-title mb-3">
-            <i class="ri-shield-check-line me-2"></i>Required Supplier Documents
+        <div class="border rounded-3 p-3 mb-4">
+          <h5 class="d-flex align-items-center gap-2 mb-3">
+            <i class="ri-shield-check-line"></i>
+            <span>Required Supplier Documents</span>
           </h5>
 
-          <div class="alert alert-info py-2 px-3 mb-3">
+          <b-alert variant="info" show class="mb-3">
             {{ required_documents_notice }}
-          </div>
+          </b-alert>
 
           <div
             v-for="(attachment, index) in required_attachments"
             :key="attachment.document_type"
-            class="attachment-item mb-3 p-3 border rounded"
+            class="bg-light-subtle border rounded-3 p-3 mb-3"
             :class="{ 'border-danger': attachmentError('required', index, 'file') }"
-            style="background: #f8f9fa; border-radius: 10px"
           >
             <b-row class="g-3 align-items-end">
               <b-col lg="4">
                 <InputLabel :value="`${attachment.document_type} *`" class="fw-bold" />
-                <input
-                  type="file"
-                  class="form-control"
-                  @change="handleAttachmentFileUpload($event, 'required', index)"
+                <b-form-file
+                  :model-value="isNativeFile(attachment.file) ? attachment.file : null"
+                  class="rounded-3"
+                  @update:model-value="setAttachmentFile($event, 'required', index)"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  style="border-radius: 8px; border: 1px solid #ced4da"
+                  placeholder="Choose a file"
                 />
                 <div v-if="hasAttachmentFile(attachment)" class="small text-success mt-2">
                   <i class="ri-check-line me-1"></i>{{ resolvedAttachmentName(attachment) }}
@@ -199,9 +195,8 @@
                 <TextInput
                   v-model="attachment.code"
                   type="text"
-                  class="form-control"
+                  class="rounded-3"
                   placeholder="Enter document reference number"
-                  style="border-radius: 8px; border: 1px solid #ced4da"
                 />
               </b-col>
 
@@ -214,11 +209,11 @@
                   <b-button
                     v-if="hasAttachmentFile(attachment)"
                     @click="viewFile(attachment.file)"
+                    type="button"
                     variant="outline-info"
                     size="sm"
                     v-b-tooltip.hover
                     title="View File"
-                    style="border-radius: 8px"
                   >
                     <i class="ri-eye-line"></i>
                   </b-button>
@@ -228,16 +223,16 @@
           </div>
         </div>
 
-        <div class="form-section mb-4">
-          <h5 class="section-title mb-3">
-            <i class="ri-attachment-line me-2"></i>Additional Supporting Attachments
+        <div class="border rounded-3 p-3 mb-4">
+          <h5 class="d-flex align-items-center gap-2 mb-3">
+            <i class="ri-attachment-line"></i>
+            <span>Additional Supporting Attachments</span>
           </h5>
 
           <div
             v-for="(attachment, index) in supporting_attachments"
             :key="`supporting-${index}`"
-            class="attachment-item mb-3 p-3 border rounded"
-            style="background: #f8f9fa; border-radius: 10px"
+            class="bg-light-subtle border rounded-3 p-3 mb-3"
           >
             <b-row class="g-3 align-items-end">
               <b-col lg="3">
@@ -245,21 +240,20 @@
                 <TextInput
                   v-model="attachment.document_type"
                   type="text"
-                  class="form-control"
+                  class="rounded-3"
                   placeholder="Enter document name"
-                  style="border-radius: 8px; border: 1px solid #ced4da"
                 />
                 <InputError :message="attachmentError('supporting', index, 'document_type')" class="mt-1" />
               </b-col>
 
               <b-col lg="4">
                 <InputLabel :value="`Attachment ${index + 1} File`" class="fw-bold" />
-                <input
-                  type="file"
-                  class="form-control"
-                  @change="handleAttachmentFileUpload($event, 'supporting', index)"
+                <b-form-file
+                  :model-value="isNativeFile(attachment.file) ? attachment.file : null"
+                  class="rounded-3"
+                  @update:model-value="setAttachmentFile($event, 'supporting', index)"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  style="border-radius: 8px; border: 1px solid #ced4da"
+                  placeholder="Choose a file"
                 />
                 <div v-if="hasAttachmentFile(attachment)" class="small text-success mt-2">
                   <i class="ri-check-line me-1"></i>{{ resolvedAttachmentName(attachment) }}
@@ -272,22 +266,21 @@
                 <TextInput
                   v-model="attachment.code"
                   type="text"
-                  class="form-control"
+                  class="rounded-3"
                   placeholder="Enter document reference number"
-                  style="border-radius: 8px; border: 1px solid #ced4da"
                 />
               </b-col>
 
               <b-col lg="2">
-                <div class="d-flex gap-1" style="margin-bottom: 5px">
+                <div class="d-flex gap-1 mb-1">
                   <b-button
                     v-if="hasAttachmentFile(attachment)"
                     @click="viewFile(attachment.file)"
+                    type="button"
                     variant="outline-info"
                     size="sm"
                     v-b-tooltip.hover
                     title="View File"
-                    style="border-radius: 8px"
                   >
                     <i class="ri-eye-line"></i>
                   </b-button>
@@ -295,11 +288,11 @@
                   <b-button
                     v-if="supporting_attachments.length > 1"
                     @click="removeSupportingAttachment(index)"
+                    type="button"
                     variant="outline-danger"
                     size="sm"
                     v-b-tooltip.hover
                     title="Remove"
-                    style="border-radius: 8px"
                   >
                     <i class="ri-delete-bin-line"></i>
                   </b-button>
@@ -310,58 +303,37 @@
 
           <b-button
             @click="addSupportingAttachment"
+            type="button"
             variant="outline-primary"
             size="sm"
-            style="border-radius: 8px"
           >
             <i class="ri-add-line me-1"></i>Add Supporting Attachment
           </b-button>
         </div>
 
-        <div class="form-section mb-4">
-          <h5 class="section-title mb-3"><i class="ri-settings-line me-2"></i>Settings</h5>
+        <div class="border rounded-3 p-3">
+          <h5 class="d-flex align-items-center gap-2 mb-3">
+            <i class="ri-settings-line"></i>
+            <span>Settings</span>
+          </h5>
           <b-row class="g-3">
             <b-col lg="6">
-              <div class="form-check form-switch">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="is_active"
-                  v-model="form.is_active"
-                  style="width: 3rem; height: 1.5rem"
-                />
-                <label class="form-check-label fw-bold ms-2" for="is_active">
-                  Active Supplier
-                </label>
-                <small class="form-text text-muted d-block">
-                  Inactive suppliers won't be available for selection
-                </small>
-              </div>
+              <b-form-checkbox v-model="form.is_active" switch class="fw-bold">
+                Active Supplier
+              </b-form-checkbox>
+              <small class="text-muted d-block mt-1">
+                Inactive suppliers won't be available for selection
+              </small>
             </b-col>
           </b-row>
         </div>
-      </div>
+      </form>
 
       <template #footer>
-        <div class="d-flex justify-content-end gap-2">
-          <b-button
-            @click="hide()"
-            variant="light"
-            style="border-radius: 8px; padding: 0.5rem 1.5rem"
-          >
-            <i class="ri-close-line me-1"></i>Cancel
-          </b-button>
-
-          <b-button
-            @click="reviewSupplier()"
-            variant="success"
-            :disabled="isSaving"
-            style="border-radius: 8px; padding: 0.5rem 1.5rem; box-shadow: 0 4px 15px rgba(25, 135, 84, 0.3)"
-          >
-            <i class="ri-shield-check-line me-1"></i>
-            {{ reviewButtonLabel }}
-          </b-button>
-        </div>
+        <b-button @click="hide()" variant="light" block>Cancel</b-button>
+        <b-button @click="reviewSupplier()" variant="primary" :disabled="isSaving" block>
+          {{ reviewButtonLabel }}
+        </b-button>
       </template>
     </b-modal>
 
@@ -533,6 +505,10 @@ export default {
     },
   },
   methods: {
+    isNativeFile(value) {
+      return typeof File !== "undefined" && value instanceof File;
+    },
+
     show() {
       this.editable = false;
       this.resetFormState();
@@ -707,28 +683,22 @@ export default {
       this.supporting_attachments = [createAttachment()];
     },
 
-    handleAttachmentFileUpload(event, group, index) {
-      const file = event.target.files[0];
-
-      if (!file) {
-        return;
-      }
-
+    setAttachmentFile(file, group, index) {
       const collection = group === "required"
         ? this.required_attachments
         : this.supporting_attachments;
 
-      collection[index].file = file;
+      collection[index].file = Array.isArray(file) ? (file[0] || null) : file;
     },
 
     hasAttachmentFile(attachment) {
-      return attachment?.file instanceof File || Boolean(attachment?.file?.path);
+      return this.isNativeFile(attachment?.file) || Boolean(attachment?.file?.path);
     },
 
     attachmentHasAnyContent(attachment) {
       return Boolean(
         attachment?.id
-        || attachment?.file instanceof File
+        || this.isNativeFile(attachment?.file)
         || attachment?.file?.path
         || String(attachment?.document_type || "").trim()
         || String(attachment?.code || "").trim()
@@ -736,7 +706,7 @@ export default {
     },
 
     resolvedAttachmentName(attachment) {
-      if (attachment?.file instanceof File) {
+      if (this.isNativeFile(attachment?.file)) {
         return attachment.file.name;
       }
 
@@ -744,7 +714,7 @@ export default {
     },
 
     viewFile(file) {
-      if (file instanceof File) {
+      if (this.isNativeFile(file)) {
         const url = URL.createObjectURL(file);
         window.open(url, "_blank");
         return;
@@ -800,7 +770,7 @@ export default {
           hasError = true;
         }
 
-        if (!attachment.id && !(attachment.file instanceof File) && !attachment.file?.path) {
+        if (!attachment.id && !this.isNativeFile(attachment.file) && !attachment.file?.path) {
           this.form.setError(
             `attachment_rows.${absoluteIndex}.file`,
             "Please upload the attachment file.",
@@ -853,7 +823,7 @@ export default {
           formData.append(`attachment_rows[${index}][id]`, attachment.id);
         }
 
-        if (attachment.file instanceof File) {
+        if (this.isNativeFile(attachment.file)) {
           formData.append(`attachment_rows[${index}][file]`, attachment.file);
         }
       });
@@ -905,32 +875,7 @@ export default {
   overflow-y: auto;
 }
 
-.section-title {
-  color: #495057;
-  border-bottom: 2px solid #e9ecef;
-  padding-bottom: 0.5rem;
-}
-
 .form-group {
   margin-bottom: 1rem;
-}
-
-.attachment-item,
-.conforme-item {
-  transition: all 0.2s ease;
-}
-
-.attachment-item:hover,
-.conforme-item:hover {
-  background: #e9ecef;
-}
-
-.form-check-input:checked {
-  background-color: #007bff;
-  border-color: #007bff;
-}
-
-.bg-gradient-primary {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
 }
 </style>

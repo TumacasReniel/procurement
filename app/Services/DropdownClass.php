@@ -152,9 +152,10 @@ class DropdownClass
         return $grouped;
     }
 
-    public function dropdowns($class, $type = null)
+    public function dropdowns($classifications, $type = null)
     {
-        $data = ListDropdown::where('classification', $class)
+       
+        $data = ListDropdown::where('classification', $classifications)
             ->when($type, function ($query) use ($type) {
                 $query->where('type', $type);
             })
@@ -177,6 +178,24 @@ class DropdownClass
             ];
         });
         return $data;
+    }
+
+    protected function resolveDropdownClassifications(string $classification): array
+    {
+        return match ($classification) {
+            'mode_of_procurement', 'modes_of_procurement' => [
+                'mode_of_procurement',
+                'modes_of_procurement',
+                'Mode of Procurement',
+            ],
+            'app_type', 'app_types', 'APP Type', 'App Type', 'APP Type Classification' => [
+                'APP Type',
+                'App Type',
+                'app_type',
+                'app_types',
+            ],
+            default => [$classification],
+        };
     }
 
     public function units($code)
@@ -340,31 +359,45 @@ class DropdownClass
         return $data;
     }
 
-    public function users($keyword, $is_regular = null)
+    public function users($keyword, $is_regular = null, $limit = 10)
     {
+        $limit = max(1, min((int) $limit, 25));
+
         $data = User::with('profile')
-            ->with('organization.position', 'organization.division')
+            ->with('organization.position', 'organization.division', 'organization.type')
             ->when(!is_null($is_regular) && $is_regular == 1, function ($query) {
                 $query->whereHas('organization', function ($query) {
                     $query->where('type_id', 15);
                 });
             })
             ->when($keyword, function ($query) use ($keyword) {
-                $query->whereHas('profile', function ($q) use ($keyword) {
-                    $q->where('lastname', 'like', '%' . $keyword . '%');
+                $keyword = trim((string) $keyword);
+
+                $query->where(function ($query) use ($keyword) {
+                    $query
+                        ->where('username', 'like', '%' . $keyword . '%')
+                        ->orWhereHas('profile', function ($q) use ($keyword) {
+                            $q->where('firstname', 'like', '%' . $keyword . '%')
+                                ->orWhere('middlename', 'like', '%' . $keyword . '%')
+                                ->orWhere('lastname', 'like', '%' . $keyword . '%');
+                        });
                 });
             })
-            ->limit(5)->get()->map(function ($item) {
+            ->limit($limit)->get()->map(function ($item) {
+                $profile = $item->profile;
+                $middleInitial = $profile?->middlename ? substr($profile->middlename, 0, 1) . '.' : '';
+                $name = trim(($profile?->lastname ? $profile->lastname . ', ' : '') . ($profile?->firstname ?? '') . ' ' . $middleInitial);
+
                 return [
                     'id' => $item->id,
                     'value' => $item->id,
                     'username' => $item->username,
                     'signatory' => $item->signatory,
-                    'name' => $item->profile->lastname . ', ' . $item->profile->firstname . ' ' . $item->profile->middlename[0] . '.',
-                    'position' => optional($item->organization->position)->name,
-                    'division' => optional($item->organization->division)->name,
-                    'division_id' => optional($item->organization->division)->id,
-                    'type' => $item->organization->type->name,
+                    'name' => $name ?: ($item->username ?: 'User #' . $item->id),
+                    'position' => optional($item->organization?->position)->name,
+                    'division' => optional($item->organization?->division)->name,
+                    'division_id' => optional($item->organization?->division)->id,
+                    'type' => optional($item->organization?->type)->name,
                     'avatar' => ($item->profile && $item->profile->avatar && $item->profile->avatar !== 'noavatar.jpg')
                         ? asset('storage/' . $item->profile->avatar)
                         : asset('images/avatars/avatar.jpg'),

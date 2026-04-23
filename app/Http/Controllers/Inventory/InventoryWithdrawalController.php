@@ -3,77 +3,55 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Inventory\Concerns\RespondsWithInventoryResults;
 use App\Http\Requests\Inventory\InventoryWithdrawalRequest;
-use App\Http\Resources\Inventory\InventoryWithdrawalResource;
 use App\Models\InventoryWithdrawal;
+use App\Services\Inventory\InventoryStockClass;
+use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
 
 class InventoryWithdrawalController extends Controller
 {
+    use HandlesTransaction;
+    use RespondsWithInventoryResults;
+
+    public function __construct(public InventoryStockClass $inventory)
+    {
+    }
+
     public function index(Request $request)
     {
-        if ($request->header('X-Inertia')) {
+        if (!$this->shouldReturnJson($request)) {
             return redirect('/inventory-stocks?tab=withdrawals');
         }
 
-        if (!$request->wantsJson() && !$request->ajax() && !$request->boolean('json')) {
-            return redirect('/inventory-stocks?tab=withdrawals');
-        }
-
-        $withdrawals = InventoryWithdrawal::with(['item', 'requestedBy.profile', 'approvedBy.profile', 'status'])
-            ->when($request->filled('keyword'), function ($query) use ($request) {
-                $keyword = trim((string) $request->input('keyword'));
-
-                $query->where(function ($inner) use ($keyword) {
-                    $inner->where('remarks', 'like', "%{$keyword}%")
-                        ->orWhereHas('item', function ($item) use ($keyword) {
-                            $item->where('name', 'like', "%{$keyword}%")
-                                ->orWhere('code', 'like', "%{$keyword}%");
-                        })
-                        ->orWhereHas('requestedBy', function ($user) use ($keyword) {
-                            $user->where('username', 'like', "%{$keyword}%");
-                        })
-                        ->orWhereHas('approvedBy', function ($user) use ($keyword) {
-                            $user->where('username', 'like', "%{$keyword}%");
-                        })
-                        ->orWhereHas('status', function ($status) use ($keyword) {
-                            $status->where('name', 'like', "%{$keyword}%");
-                        });
-                });
-            })
-            ->orderByDesc('released_at')
-            ->orderByDesc('id')
-            ->paginate(max((int) $request->input('count', 10), 1));
-
-        return InventoryWithdrawalResource::collection($withdrawals);
+        return $this->inventory->withdrawals($request);
     }
 
     public function store(InventoryWithdrawalRequest $request)
     {
-        $withdrawal = InventoryWithdrawal::create($request->validated());
+        $result = $this->handleTransaction(function () use ($request) {
+            return $this->inventory->saveWithdrawal($request);
+        });
 
-        return response()->json([
-            'data' => new InventoryWithdrawalResource($withdrawal->load(['item', 'requestedBy.profile', 'approvedBy.profile', 'status'])),
-            'message' => 'Inventory withdrawal created successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'withdrawals');
     }
 
     public function update(InventoryWithdrawalRequest $request, InventoryWithdrawal $inventory_withdrawal)
     {
-        $inventory_withdrawal->update($request->validated());
+        $result = $this->handleTransaction(function () use ($request, $inventory_withdrawal) {
+            return $this->inventory->updateWithdrawal($request, $inventory_withdrawal);
+        });
 
-        return response()->json([
-            'data' => new InventoryWithdrawalResource($inventory_withdrawal->load(['item', 'requestedBy.profile', 'approvedBy.profile', 'status'])),
-            'message' => 'Inventory withdrawal updated successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'withdrawals');
     }
 
-    public function destroy(InventoryWithdrawal $inventory_withdrawal)
+    public function destroy(Request $request, InventoryWithdrawal $inventory_withdrawal)
     {
-        $inventory_withdrawal->delete();
+        $result = $this->handleTransaction(function () use ($inventory_withdrawal) {
+            return $this->inventory->deleteWithdrawal($inventory_withdrawal);
+        });
 
-        return response()->json([
-            'message' => 'Inventory withdrawal deleted successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'withdrawals');
     }
 }

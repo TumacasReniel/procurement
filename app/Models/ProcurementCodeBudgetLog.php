@@ -18,6 +18,8 @@ class ProcurementCodeBudgetLog extends Model
         'balance_before',
         'balance_after',
         'description',
+        'attachment_name',
+        'attachment_path',
         'reviewed_at',
     ];
 

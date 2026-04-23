@@ -25,13 +25,13 @@
             </BCol>
 
             <BCol lg="12" class="mt-2">
-                    <InputLabel for="app_types" value="App Type"/>
+                    <InputLabel for="app_types" value="APP Type"/>
                     <Multiselect
                     :options="app_types"
                     v-model="form.app_type_id"
                     :searchable="true" label="name"
                     :class="{'is-invalid': form.errors.app_type_id}"
-                    placeholder="Select End Users"/>
+                    placeholder="Select APP Type"/>
                     <InputError :message="form.errors.app_type_id" />
             </BCol>
 

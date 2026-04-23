@@ -563,7 +563,7 @@ class ListDropdownsTableSeeder extends Seeder
             array (
                 'id' => 57,
                 'name' => 'Competitive Public Bidding',
-                'classification' => 'Mode of Procurement',
+                'classification' => 'mode_of_procurement',
                 'type' => 'n/a',
                 'color' => 'n/a',
                 'others' => 'R.A. 9184',
@@ -573,7 +573,7 @@ class ListDropdownsTableSeeder extends Seeder
             array (
                 'id' => 58,
                 'name' => 'Limited Source Bidding',
-                'classification' => 'Mode of Procurement',
+                'classification' => 'mode_of_procurement',
                 'type' => 'n/a',
                 'color' => 'n/a',
                 'others' => 'n/a',

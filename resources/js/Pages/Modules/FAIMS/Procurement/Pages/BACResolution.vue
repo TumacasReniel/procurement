@@ -1,6 +1,6 @@
 <template>
   <div class="procurement-bac-resolution-page">
-  <PageHeader class="m-3 mt-4" title="BAC Resolutions" />
+  <PageHeader class="pt-2" title="BAC Resolutions" />
   <b-row class="g-2 mb-3 mt-n2">
     <b-col lg>
       <div class="input-group mb-1 bac-resolution-search-group">

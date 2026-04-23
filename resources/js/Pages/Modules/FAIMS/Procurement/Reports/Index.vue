@@ -2,7 +2,7 @@
     <Head title="Procurement Results" />
     <PageHeader title="Procurement Results" pageTitle="List" />
 
-    <BRow class="procurement-index-page">
+    <BRow class="procurement-index-page procurement-results-page">
         <div class="col-md-12">
             <div class="card bg-light-subtle shadow-none border">
                 <div class="card-header bg-light-subtle">
@@ -754,10 +754,22 @@ export default {
 </script>
 
 <style scoped>
+.procurement-results-page .car-body,
+.procurement-results-page .card-body.bg-white {
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
 .evaluation-sheet-wrap {
     border: 1px solid #222;
     background: #fff;
     box-shadow: inset 0 0 0 1px #222;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .evaluation-sheet-header {
@@ -912,6 +924,106 @@ export default {
 
 .print-page-number {
     display: none;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .car-body,
+[data-bs-theme="dark"] .procurement-results-page .card-body.bg-white {
+    background: #1f2431 !important;
+    border-color: rgba(148, 163, 184, 0.2) !important;
+    color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .input-group-text,
+[data-bs-theme="dark"] .procurement-results-page .form-control,
+[data-bs-theme="dark"] .procurement-results-page input[type="date"] {
+    background: #283041 !important;
+    border-color: rgba(148, 163, 184, 0.25) !important;
+    color: #e2e8f0 !important;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .form-control::placeholder {
+    color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .report-action-btn {
+    border-color: rgba(148, 163, 184, 0.4) !important;
+    color: #e2e8f0 !important;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .report-action-btn:hover,
+[data-bs-theme="dark"] .procurement-results-page .report-action-btn:focus {
+    background: rgba(148, 163, 184, 0.12) !important;
+    border-color: rgba(148, 163, 184, 0.55) !important;
+    color: #f8fafc !important;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .evaluation-sheet-wrap {
+    background: #111827;
+    border-color: #334155;
+    box-shadow: inset 0 0 0 1px #334155;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .evaluation-sheet-header,
+[data-bs-theme="dark"] .procurement-results-page .evaluation-sheet-meta {
+    border-color: #334155;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .evaluation-sheet-title,
+[data-bs-theme="dark"] .procurement-results-page .evaluation-sheet-subtitle,
+[data-bs-theme="dark"] .procurement-results-page .evaluation-sheet-meta,
+[data-bs-theme="dark"] .procurement-results-page .signatory-heading,
+[data-bs-theme="dark"] .procurement-results-page .signatory-name,
+[data-bs-theme="dark"] .procurement-results-page .signatory-role {
+    color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .evaluation-table th,
+[data-bs-theme="dark"] .procurement-results-page .evaluation-table td {
+    border-color: #334155;
+    color: #e2e8f0;
+    background: #111827;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .evaluation-table thead th {
+    background: #273449;
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .evaluation-band {
+    background: #334155 !important;
+    color: #f8fafc !important;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .evaluation-table thead tr:nth-child(2) th:last-child {
+    background: #314055;
+}
+
+[data-bs-theme="dark"] .procurement-results-page .status-chip {
+    background: #1e3a5f;
+    color: #bfdbfe;
+}
+
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white),
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-wrapper),
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-tags),
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-search),
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-dropdown) {
+    background: #283041 !important;
+    border-color: rgba(148, 163, 184, 0.25) !important;
+    color: #e2e8f0 !important;
+}
+
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-placeholder),
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-single-label),
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-option) {
+    color: #e2e8f0 !important;
+}
+
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-option.is-pointed),
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-option.is-selected),
+[data-bs-theme="dark"] .procurement-results-page :deep(.multiselect.white .multiselect-option.is-selected.is-pointed) {
+    background: #334155 !important;
+    color: #f8fafc !important;
 }
 
 @media print {

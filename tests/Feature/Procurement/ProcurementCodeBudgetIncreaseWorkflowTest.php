@@ -6,7 +6,9 @@ use App\Models\ListRole;
 use App\Models\ProcurementCode;
 use App\Models\ProcurementCodeBudgetLog;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 function createProcurementBudgetTestUser(string $prefix): User
@@ -82,9 +84,12 @@ beforeEach(function () {
 });
 
 test('procurement officers can request additional pap budget and budget officers can approve it', function () {
+    Storage::fake('public');
+
     $procurementOfficer = createProcurementBudgetTestUser('officer');
     $budgetOfficer = createProcurementBudgetTestUser('budget');
     $papCode = createProcurementBudgetCode(10000);
+    $attachment = UploadedFile::fake()->create('basis.pdf', 128, 'application/pdf');
 
     assignProcurementBudgetRole($procurementOfficer, 'Procurement Officer');
     assignProcurementBudgetRole($budgetOfficer, 'Budget Officer');
@@ -95,6 +100,7 @@ test('procurement officers can request additional pap budget and budget officers
         ->post("/faims/procurement-codes/{$papCode->id}/budget-increase-requests", [
             'amount' => 1500,
             'description' => 'Additional allocation needed after revised costing.',
+            'attachment' => $attachment,
         ]);
 
     $requestResponse
@@ -103,7 +109,8 @@ test('procurement officers can request additional pap budget and budget officers
         ->assertSessionHas('data.data.pending_budget_increase_requests_count', 1)
         ->assertSessionHas('data.logs.0.status', 'pending')
         ->assertSessionHas('data.logs.0.type', 'budget_increase')
-        ->assertSessionHas('data.logs.0.requested_by.id', $procurementOfficer->id);
+        ->assertSessionHas('data.logs.0.requested_by.id', $procurementOfficer->id)
+        ->assertSessionHas('data.logs.0.attachment_name', 'basis.pdf');
 
     $papCode->refresh();
 
@@ -136,11 +143,17 @@ test('procurement officers can request additional pap budget and budget officers
     expect($budgetLog->status)->toBe('approved');
     expect($budgetLog->requested_by_id)->toBe($procurementOfficer->id);
     expect($budgetLog->reviewed_by_id)->toBe($budgetOfficer->id);
+    expect($budgetLog->attachment_name)->toBe('basis.pdf');
+
+    Storage::disk('public')->assertExists($budgetLog->attachment_path);
 });
 
 test('procurement staff can view pap codes and submit budget increase requests', function () {
+    Storage::fake('public');
+
     $procurementStaff = createProcurementBudgetTestUser('staff');
     $papCode = createProcurementBudgetCode(8000);
+    $attachment = UploadedFile::fake()->image('basis.jpg');
 
     assignProcurementBudgetRole($procurementStaff, 'Procurement Staff');
 
@@ -159,13 +172,34 @@ test('procurement staff can view pap codes and submit budget increase requests',
         ->post("/faims/procurement-codes/{$papCode->id}/budget-increase-requests", [
             'amount' => 500,
             'description' => 'Additional funds requested by procurement staff.',
+            'attachment' => $attachment,
         ]);
 
     $requestResponse
         ->assertRedirect('/faims/procurement-codes')
         ->assertSessionHas('status', true)
         ->assertSessionHas('data.logs.0.status', 'pending')
-        ->assertSessionHas('data.logs.0.requested_by.id', $procurementStaff->id);
+        ->assertSessionHas('data.logs.0.requested_by.id', $procurementStaff->id)
+        ->assertSessionHas('data.logs.0.attachment_name', 'basis.jpg');
+});
+
+test('budget increase requests require a supporting document', function () {
+    $procurementOfficer = createProcurementBudgetTestUser('officer');
+    $papCode = createProcurementBudgetCode(12000);
+
+    assignProcurementBudgetRole($procurementOfficer, 'Procurement Officer');
+
+    $response = $this
+        ->from('/faims/procurement-codes')
+        ->actingAs($procurementOfficer)
+        ->post("/faims/procurement-codes/{$papCode->id}/budget-increase-requests", [
+            'amount' => 750,
+            'description' => 'Supporting document will be added later.',
+        ]);
+
+    $response
+        ->assertRedirect('/faims/procurement-codes')
+        ->assertSessionHasErrors(['attachment']);
 });
 
 test('pap code list marks records as non editable once a deduction already exists', function () {

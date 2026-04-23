@@ -76,7 +76,7 @@
                   <tr class="fs-12 fw-semibold">
                     <th style="width: 4%" class="text-center">#</th>
                     <th style="width: 32%">Mode of Procurement</th>
-                    <th style="width: 22%">Sections</th>
+                    <th style="width: 22%">Reference</th>
                     <th style="width: 8%" class="text-center">PAP Codes</th>
                     <th style="width: 10%" class="text-center">Status</th>
                     <th style="width: 10%" class="text-center">Actions</th>
@@ -98,13 +98,22 @@
                     </td>
                     <td>
                       <div
-                        class="text-truncate"
+                        class="fw-medium text-truncate"
                         style="max-width: 240px"
                         v-b-tooltip.hover
-                        :title="displayValue(list.legal_basis)"
+                        :title="displayValue(list.section_reference)"
                       >
-                        {{ displayValue(list.legal_basis) }}
+                        {{ displayValue(list.section_reference) }}
                       </div>
+                      <small
+                        v-if="hasDisplayValue(list.legal_basis)"
+                        class="text-muted d-block text-truncate"
+                        style="max-width: 240px"
+                        v-b-tooltip.hover
+                        :title="list.legal_basis"
+                      >
+                        {{ list.legal_basis }}
+                      </small>
                     </td>
                     <td class="text-center">
                       <span class="badge bg-soft-secondary text-secondary px-2 py-1 fs-12 fw-medium rounded-pill">
@@ -147,7 +156,7 @@
                   </tr>
 
                   <tr v-if="lists.length === 0">
-                    <td colspan="7" class="text-center text-muted py-4">
+                    <td colspan="6" class="text-center text-muted py-4">
                       No modes of procurement found.
                     </td>
                   </tr>
@@ -263,6 +272,9 @@ export default {
       }
 
       return value;
+    },
+    hasDisplayValue(value) {
+      return Boolean(value && value !== "n/a");
     },
   },
 };

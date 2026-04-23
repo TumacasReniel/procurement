@@ -14,10 +14,11 @@ class InventoryStockRequest extends FormRequest
 
     public function rules(): array
     {
-        $stockId = $this->route('inventory_stock')?->id;
+        $stockId = $this->resolveStockId();
+        $codeRequirement = $stockId ? 'required' : 'nullable';
 
         return [
-            'code' => ['required', 'string', 'max:255', Rule::unique('inventory_stocks', 'code')->ignore($stockId)],
+            'code' => [$codeRequirement, 'string', 'max:255', Rule::unique('inventory_stocks', 'code')->ignore($stockId)],
             'name' => ['required', 'string', 'max:255', Rule::unique('inventory_stocks', 'name')->ignore($stockId)],
             'entry_date' => ['nullable', 'date'],
         ];
@@ -31,5 +32,21 @@ class InventoryStockRequest extends FormRequest
             'name.required' => 'Name is required.',
             'name.unique' => 'This stock name is already in use.',
         ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'code' => 'stock code',
+            'name' => 'stock name',
+            'entry_date' => 'entry date',
+        ];
+    }
+
+    protected function resolveStockId(): mixed
+    {
+        $stock = $this->route('inventory_stock') ?? $this->input('id');
+
+        return is_object($stock) ? $stock->id : $stock;
     }
 }
