@@ -2,7 +2,7 @@
 
     <Head title="BAC Committee" />
     <PageHeader title="BAC Committee" pageTitle="List" />
-    <BRow>
+    <BRow class="procurement-index-page">
         <div class="col-md-12">
             <div class="card bg-light-subtle shadow-none border">
                 <div class="card-header bg-light-subtle">
@@ -18,10 +18,11 @@
                             <h5 class="mb-0 fs-14"><span class="text-body">BAC Committee Members</span></h5>
                             <p class="text-muted text-truncate-two-lines fs-12">List of BAC Chairperson, Vice Chairperson, and Members</p>
                         </div>
-                        <!-- <div class="flex-shrink-0" style="width: 45%;">
-
-                        </div> -->
-
+                        <div v-if="canManageCommittee" class="flex-shrink-0">
+                            <button type="button" class="btn btn-primary btn-sm" @click="openCreate">
+                                <i class="ri-user-add-line align-bottom me-1"></i>Add Member
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -30,14 +31,17 @@
                     <div class="container text-center">
                         <!-- Chairperson -->
                         <h4 class="mb-3">Chairperson</h4>
-                        <div class="row justify-content-center mb-4" v-if="chairperson" >
-                            <div class="col-md-4" style="cursor: pointer;" @click="openView(chairperson)">
+                        <div class="row justify-content-center mb-4">
+                            <div
+                                class="col-md-4"
+                                :style="{ cursor: isViewable(chairperson) ? 'pointer' : 'default' }"
+                                @click="openView(chairperson)"
+                            >
                                 <div class="card-body border rounded-4 text-center">
                                     <div class="mb-2 mx-auto">
-                                        <img :src="(chairperson.is_oic) ? chairperson.oic_avatar : chairperson.avatar" alt="" id="candidate-img" class="img-thumbnail avatar-sm rounded-circle shadow-none">
+                                        <img :src="chairperson.avatar" alt="" id="candidate-img" class="img-thumbnail avatar-sm rounded-circle shadow-none">
                                     </div>
-                                    <h5 v-if="chairperson.oic && chairperson.oic.name" class="fs-12 mb-0 text-warning fw-semibold">{{chairperson.oic.name}}</h5>
-                                    <h5 v-else-if="chairperson.user && chairperson.user.name" class="fs-12 mb-0 text-primary fw-semibold">{{chairperson.user.name}}</h5>
+                                    <h5 v-if="chairperson.user && chairperson.user.name" class="fs-12 mb-0 text-primary fw-semibold">{{chairperson.user.name}}</h5>
                                     <h5 v-else class="fs-12 text-warning mb-0">Not Assigned</h5>
                                     <p class="fs-12 text-muted mb-0">{{chairperson.designation}}</p>
                                 </div>
@@ -47,33 +51,43 @@
                         <!-- Vice Chairperson -->
                         <h4 class="mb-3">Vice Chairperson</h4>
                         <div class="row justify-content-center mb-4">
-                            <div v-for="(vice, index) in vices" :key="index" class="col-md-4 mb-3" style="cursor: pointer;" @click="openView(vice)">
+                            <div
+                                v-for="(vice, index) in vices"
+                                :key="index"
+                                class="col-md-4 mb-3"
+                                :style="{ cursor: isViewable(vice) ? 'pointer' : 'default' }"
+                                @click="openView(vice)"
+                            >
                                 <div class="card-body border rounded-4 text-center">
                                     <div class="mb-2 mx-auto">
-                                        <img :src="(vice.is_oic) ? vice.oic_avatar : vice.avatar" alt="" id="candidate-img" class="avatar-sm img-thumbnail rounded-circle shadow-none">
+                                        <img :src="vice.avatar" alt="" id="candidate-img" class="avatar-sm img-thumbnail rounded-circle shadow-none">
                                     </div>
 
-                                    <h5 v-if="vice.oic && vice.oic.name" class="fs-12 mb-0 text-warning fw-semibold">{{vice.oic.name}}</h5>
-                                    <h5 v-else-if="vice.user && vice.user.name" class="fs-12 mb-0 text-primary fw-semibold">{{vice.user.name}}</h5>
+                                    <h5 v-if="vice.user && vice.user.name" class="fs-12 mb-0 text-primary fw-semibold">{{vice.user.name}}</h5>
                                     <h5 v-else class="fs-12 text-warning mb-0">Not Assigned</h5>
-                                    <p class="fs-12 text-muted mb-0"><span v-if="vice.is_oic">OIC - </span>{{vice.designation}}</p>
+                                    <p class="fs-12 text-muted mb-0">{{vice.designation}}</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Members -->
                         <h4 class="mb-3">Members </h4>
-                        <div class="row justify-content-center" v-f="members.length > 0">
-                            <div v-for="(member, index) in members" :key="index" class="col-md-4 mb-3" style="cursor: pointer;" @click="openView(member)">
+                        <div class="row justify-content-center">
+                            <div
+                                v-for="(member, index) in members"
+                                :key="index"
+                                class="col-md-4 mb-3"
+                                :style="{ cursor: isViewable(member) ? 'pointer' : 'default' }"
+                                @click="openView(member)"
+                            >
                                 <div class="card-body border rounded-4 text-center">
                                     <div class="mb-2 mx-auto">
-                                        <img :src="(member.is_oic) ? member.oic_avatar : member.avatar" alt="" id="candidate-img" class="avatar-sm img-thumbnail rounded-circle shadow-none">
+                                        <img :src="member.avatar" alt="" id="candidate-img" class="avatar-sm img-thumbnail rounded-circle shadow-none">
                                     </div>
 
-                                    <h5 v-if="member.oic && member.oic.name" class="fs-12 mb-0 text-warning fw-semibold">{{member.oic.name}}</h5>
-                                    <h5 v-else-if="member.user && member.user.name" class="fs-12 mb-0 text-primary fw-semibold">{{member.user.name}}</h5>
+                                    <h5 v-if="member.user && member.user.name" class="fs-12 mb-0 text-primary fw-semibold">{{member.user.name}}</h5>
                                     <h5 v-else class="fs-12 text-warning mb-0">Not Assigned</h5>
-                                    <p class="fs-12 text-muted mb-0"><span v-if="member.is_oic">OIC - </span>{{member.designation}}</p>
+                                    <p class="fs-12 text-muted mb-0">{{member.designation}}</p>
                                 </div>
                             </div>
                         </div>
@@ -84,31 +98,65 @@
         </div>
     </BRow>
     <View ref="view"/>
+    <AddMember ref="createMember"/>
 </template>
 <script>
+import AddMember from './Modals/Create.vue';
 import View from './Modals/View.vue';
 import PageHeader from '@/Shared/Components/PageHeader.vue';
 export default {
     props: ['designations'],
-    components: { PageHeader, View },
-    data() {
-        return {
-
-        }
-    },
+    components: { AddMember, PageHeader, View },
     computed: {
+        canManageCommittee() {
+            return (this.$page.props.roles || []).includes('Administrator');
+        },
+        committeeDesignations() {
+            return Array.isArray(this.designations?.data) ? this.designations.data : [];
+        },
         chairperson() {
-            return this.designations.data.find(d => d.order === 4);
+            return this.committeeDesignations.find(d => d.designation === 'BAC Chairperson')
+                || this.buildPlaceholder('BAC Chairperson');
         },
         vices() {
-            return this.designations.data.filter(d => d.order === 5);
+            const vices = this.committeeDesignations.filter(d => d.designation === 'BAC Vice Chairperson');
+
+            return this.withPlaceholders(vices, 1, 'BAC Vice Chairperson');
         },
         members() {
-            return this.designations.data.filter(d => d.order === 6);
+            const members = this.committeeDesignations.filter(d => d.designation === 'BAC Member');
+
+            return this.withPlaceholders(members, 3, 'BAC Member');
         }
     },
     methods: {
+        buildPlaceholder(designation) {
+            return {
+                id: null,
+                avatar: '/images/avatars/avatar.jpg',
+                designation,
+                user: null,
+            };
+        },
+        withPlaceholders(items, minimumCount, designation) {
+            const entries = [...items];
+
+            while (entries.length < minimumCount) {
+                entries.push(this.buildPlaceholder(designation));
+            }
+
+            return entries;
+        },
+        isViewable(data) {
+            return Boolean(data?.id);
+        },
+        openCreate() {
+            this.$refs.createMember.show();
+        },
         openView(data){
+            if (!this.isViewable(data)) {
+                return;
+            }
             this.$refs.view.show(data);
         }
     }

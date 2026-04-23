@@ -27,6 +27,7 @@ return new class extends Migration
             $table->foreign('status_id')->references('id')->on('list_statuses');
             $table->integer('procurement_id')->unsigned()->index();
             $table->foreign('procurement_id')->references('id')->on('procurements')->onDelete('cascade');
+            $table->longText('remarks')->nullable();
             $table->timestamps();
         });
     }

@@ -1,7 +1,7 @@
  <template>
   <Head title="Requests" />
   <PageHeader title="Purchase Orders" pageTitle="List" />
-  <BRow>
+  <BRow class="procurement-index-page purchase-order-list-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
         <div class="car-body bg-white border-bottom shadow-none">
@@ -89,7 +89,9 @@
                 <tr class="fs-11">
                   <th style="width: 3%" class="text-center">#</th>
                   <th style="width: 10%">Code</th>
-                  <th style="width: 14%" class="text-center">PO Date</th>
+                  <th style="width: 14%; min-width: 140px;" class="text-center text-nowrap">PO Date</th>
+                  <th style="width: 14%; min-width: 140px;" class="text-center text-nowrap">Released At</th>
+                  <th style="width: 14%; min-width: 140px;" class="text-center text-nowrap">Conformed At</th>
                   <th style="width: 10%" class="text-center">Delivery Term</th>
                   <th style="width: 10%" class="text-center">Payment Term</th>
                   <th style="width: 10%" class="text-center">Date of delivery</th>
@@ -107,7 +109,15 @@
                   <td>
                     <h5 class="fs-13 mb-0 fw-semibold text-primary">{{ list.code }}</h5>
                   </td>
-                  <td class="text-center">{{ list.po_date }}</td>
+                  <td class="text-center text-nowrap">{{ list.po_date }}</td>
+                  <td class="text-center text-nowrap">
+                    <span v-if="list.released_at" class="text-nowrap">{{ list.released_at }}</span>
+                    <span v-else class="text-muted text-nowrap">Not yet</span>
+                  </td>
+                  <td class="text-center text-nowrap">
+                    <span v-if="list.conformed_at" class="text-nowrap">{{ list.conformed_at }}</span>
+                    <span v-else class="text-muted text-nowrap">Not yet</span>
+                  </td>
                   <td class="text-center">
                     {{ list.delivery_term }}
                   </td>
@@ -128,7 +138,7 @@
                   <td>
                     <div class="d-flex justify-content-center gap-1">
                       <b-button
-                        @click="goViewPage(list)"
+                        @click="viewPO(list)"
                         size="sm"
                         variant="info"
                         class="btn-icon"
@@ -140,7 +150,7 @@
                       </b-button>
 
                       <b-button
-                        v-if="list.status.name == 'Delivered/For Inspection'"
+                        v-if="['Items Delivered', 'Delivered/For Inspection'].includes(list.status.name)"
                         @click="updateStatus(list)"
                         size="sm"
                         variant="success"
@@ -177,6 +187,7 @@
                       </b-button>
 
                       <b-button
+                        v-if="['Items Delivered', 'Delivered/For Inspection', 'Completed'].includes(list.status.name)"
                         @click="openPrintIAR(list)"
                         size="sm"
                         variant="secondary"
@@ -208,17 +219,19 @@
     </div>
   </BRow>
     <Inspection :procurement="procurement" @add="fetch()" ref="inspection" />
+    <IARItemSelection @updated="fetch()" ref="iarSelection" />
 </template>
 <script>
 import _ from "lodash";
 
 import Inspection from "../Modals/Inspection.vue";
+import IARItemSelection from "../Modals/IARItemSelection.vue";
 import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import { router } from "@inertiajs/vue3";
 export default {
-  components: { PageHeader, Pagination, Multiselect, Inspection },
+  components: { PageHeader, Pagination, Multiselect, Inspection, IARItemSelection },
   props: ['dropdowns'],
   computed: {
     canAccessInspectionTab() {
@@ -329,13 +342,24 @@ export default {
       this.filter.status = status;
       this.fetch();
     },
+
+    viewPO(data) {
+      const noaId = data?.noa_id ?? data?.noa?.id;
+      const procurementId = data?.procurement_id ?? data?.noa?.procurement_id;
+
+      if (!procurementId || !noaId) {
+        return;
+      }
+
+      router.visit(`/faims/procurements/${procurementId}?option=view&tab=5&noa_id=${noaId}`);
+    },
  
     openPrint(data) {
       window.open(`/faims/purchase-orders/${data.id}?option=print&type=purchase_order`);
     },
 
     openPrintIAR(data) {
-      window.open(`/faims/purchase-orders/${data.id}?option=print&type=iar`);
+      this.$refs.iarSelection.show(data);
     },
 
     refresh() {
@@ -347,3 +371,11 @@ export default {
   },
 };
 </script>
+
+<style>
+[data-bs-theme="dark"] .purchase-order-list-page .nav-tabs-custom .nav-link:hover:not(.active) {
+  background: rgba(148, 163, 184, 0.12) !important;
+  color: #e5edf7 !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+</style>

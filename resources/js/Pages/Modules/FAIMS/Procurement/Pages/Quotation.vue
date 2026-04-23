@@ -1,5 +1,6 @@
 <template>
-  <PageHeader class="m-3 mt-4" title="Quotation Requests" />
+  <div class="procurement-quotation-page">
+  <PageHeader class="pt-2" title="Quotation Requests" />
   <b-row class="g-2 mb-3 mt-n2">
     <b-col lg>
       <div class="input-group mb-1">
@@ -121,6 +122,7 @@
 
     <Delete @delete="fetch()" ref="delete" />
   </b-card>
+  </div>
 </template>
 <script>
 import _ from "lodash";
@@ -200,7 +202,21 @@ export default {
 </script>
 
 <style scoped>
-.custom-hover-row:hover {
-  background-color: hsl(0, 29%, 97%);
+.procurement-quotation-page {
+  --quotation-row-hover: hsl(0, 29%, 97%);
+}
+
+.custom-hover-row > td {
+  transition: background-color 0.18s ease;
+}
+
+.custom-hover-row:hover > td {
+  background-color: var(--quotation-row-hover);
+}
+</style>
+
+<style>
+[data-bs-theme="dark"] .procurement-quotation-page {
+  --quotation-row-hover: rgba(148, 163, 184, 0.08);
 }
 </style>

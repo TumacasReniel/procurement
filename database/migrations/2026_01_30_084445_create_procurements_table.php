@@ -38,9 +38,11 @@ return new class extends Migration
             $table->integer('reawarded_count')->default(0);
             $table->integer('rebidded_count')->default(0);
             $table->tinyInteger('status_id')->unsigned()->index();
-            $table->foreign('status_id')->references('id')->on('list_statuses')->onDelete('cascade');;
+            $table->foreign('status_id')->references('id')->on('list_statuses')->onDelete('cascade');
             $table->tinyInteger('sub_status_id')->unsigned()->index()->nullable();
-            $table->foreign('sub_status_id')->references('id')->on('list_statuses')->onDelete('cascade');;
+            $table->foreign('sub_status_id')->references('id')->on('list_statuses')->onDelete('cascade');
+            $table->unsignedTinyInteger('classification_id')->nullable();
+            $table->foreign('classification_id')->references('id')->on('list_dropdowns');
             $table->timestamps();
         });
     }

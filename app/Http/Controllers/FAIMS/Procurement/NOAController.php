@@ -43,6 +43,14 @@ class NOAController extends Controller
         }
     }
 
+    public function store(Request $request) {
+        return back()->with([
+            'message' => 'Manual NOA creation is not available here.',
+            'info' => 'NOAs are generated from approved BAC resolutions.',
+            'status' => 'warning',
+        ]);
+    }
+
  
 
     public function update($id, Request $request) {
@@ -53,12 +61,17 @@ class NOAController extends Controller
                     $option = 'not_conformed';
                 } elseif ($request->filled('status')) {
                     $option = 'update_status';
+                } elseif ($request->has('body')) {
+                    $option = 'update';
                 } else {
                     $option = 'revert_status';
                 }
             }
 
             switch($option){     
+                case 'update':
+                    return $this->noa->update($id, $request);
+                break;
                 case 'update_status':
                     return $this->noa->updateStatus($id, $request);
                 break;
@@ -79,6 +92,10 @@ class NOAController extends Controller
             }   
            
         });
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json($result);
+        }
 
         return back()->with([
             'data' => $result['data'],

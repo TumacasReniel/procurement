@@ -15,15 +15,15 @@
               <span class="text-body">Item Withdrawals</span>
             </h5>
             <p class="text-muted text-truncate-two-lines fs-12 mb-0">
-              A running withdrawal ledger for released inventory stocks.
+              A running withdrawal ledger for released inventory items.
             </p>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="card-body bg-white rounded-bottom mt-3">
-      <b-row class="mb-2 ms-1 me-1 mb-5">
+    <div class="card-body bg-white rounded-bottom withdrawal-card-body">
+      <b-row class="mb-3">
         <b-col lg>
           <div class="ledger-toolbar-wrap">
             <div class="ledger-toolbar">
@@ -39,6 +39,13 @@
                 />
               </div>
             </div>
+
+            <select v-model="filters.sort" class="form-select ledger-sort-select" aria-label="Sort withdrawal records">
+              <option value="latest">Latest Released</option>
+              <option value="oldest">Oldest Released</option>
+              <option value="item_asc">Item A-Z</option>
+              <option value="status_asc">Status A-Z</option>
+            </select>
 
             <button
               type="button"
@@ -77,10 +84,10 @@
             <tr v-if="loading">
               <td colspan="7" class="text-center text-muted py-4">Loading withdrawal records...</td>
             </tr>
-            <tr v-else-if="filteredRows.length === 0">
+            <tr v-else-if="sortedRows.length === 0">
               <td colspan="7" class="text-center text-muted py-4">No withdrawal records found.</td>
             </tr>
-            <tr v-else v-for="item in filteredRows" :key="item.id">
+            <tr v-else v-for="item in sortedRows" :key="item.id">
               <td class="fw-semibold">{{ item.item_name }}</td>
               <td>{{ item.requested_by }}</td>
               <td>{{ item.approved_by }}</td>
@@ -113,16 +120,24 @@
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        v-if="meta && meta.total"
+        :links="links"
+        :pagination="meta"
+        :lists="sortedRows.length"
+        @fetch="(pageUrl) => $emit('fetch', pageUrl)"
+      />
     </div>
   </div>
 </template>
 
 <script>
-import Multiselect from '@vueform/multiselect';
+import Pagination from '@/Shared/Components/Pagination.vue';
 
 export default {
   name: 'WithdrawalLedger',
-  components: { Multiselect },
+  components: { Pagination },
   props: {
     rows: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
@@ -134,7 +149,7 @@ export default {
     return {
       filters: {
         keyword: '',
-        status: '',
+        sort: 'latest',
       },
     };
   },
@@ -151,6 +166,24 @@ export default {
         return searchable.includes(keyword);
       });
     },
+    sortedRows() {
+      const rows = [...this.filteredRows];
+      const normalizeText = (value) => String(value || '').toLowerCase();
+      const normalizeDate = (value) => {
+        if (!value) return 0;
+
+        const timestamp = new Date(String(value).replace(' ', 'T')).getTime();
+        return Number.isNaN(timestamp) ? 0 : timestamp;
+      };
+
+      const sorters = {
+        oldest: (left, right) => normalizeDate(left.released_at) - normalizeDate(right.released_at),
+        item_asc: (left, right) => normalizeText(left.item_name).localeCompare(normalizeText(right.item_name)),
+        status_asc: (left, right) => normalizeText(left.status).localeCompare(normalizeText(right.status)),
+      };
+
+      return rows.sort(sorters[this.filters.sort] || ((left, right) => normalizeDate(right.released_at) - normalizeDate(left.released_at)));
+    },
   },
   methods: {
     handleRefresh() {
@@ -166,9 +199,12 @@ export default {
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.withdrawal-card-body {
+  padding: 0.65rem;
+}
+
 .ledger-table-wrap {
-  margin-top: -39px;
-  max-height: calc(100vh - 350px);
+  max-height: calc(100vh - 278px);
   overflow: auto;
 }
 
@@ -176,7 +212,6 @@ export default {
   display: flex;
   align-items: stretch;
   flex-wrap: nowrap;
-  align-items: stretch;
   gap: 0;
   width: 100%;
 }
@@ -190,20 +225,10 @@ export default {
   height: 100%;
 }
 
-.ledger-status-select {
-  flex: 0 0 230px;
-  min-width: 230px;
-  margin-left: -1px;
-}
-
-.ledger-status-select :deep(.multiselect-wrapper),
-.ledger-status-select :deep(.multiselect-search),
-.ledger-status-select :deep(.multiselect-single-label) {
-  min-height: 49px;
-}
-
-.ledger-toolbar :deep(.multiselect) {
-  min-width: 0;
+.ledger-sort-select {
+  flex: 0 0 190px;
+  min-width: 190px;
+  border-left: 0;
   border-radius: 0;
 }
 
@@ -265,6 +290,46 @@ export default {
   background: #364273;
   border-color: #364273;
   color: #fff;
+}
+
+.ledger-card :deep(.pagination) {
+  margin-top: 1rem;
+}
+
+:global([data-bs-theme="dark"]) .ledger-card,
+:global([data-bs-theme="dark"]) .ledger-card .card-header,
+:global([data-bs-theme="dark"]) .withdrawal-card-body,
+:global([data-bs-theme="dark"]) .ledger-table-wrap {
+  border-color: #2e3a59 !important;
+  background-color: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.table) {
+  --vz-table-bg: #111827;
+  --vz-table-color: #e5e7eb;
+  --vz-table-hover-bg: #182035;
+  --vz-table-border-color: #2e3a59;
+  background-color: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.table-light th) {
+  background-color: #182035 !important;
+  color: #dbeafe !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-toolbar-wrap :deep(.input-group-text),
+:global([data-bs-theme="dark"]) .ledger-toolbar-wrap :deep(.form-control),
+:global([data-bs-theme="dark"]) .ledger-sort-select,
+:global([data-bs-theme="dark"]) .ledger-refresh-btn {
+  border-color: #2e3a59 !important;
+  background-color: #182035 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-toolbar-wrap :deep(.form-control::placeholder) {
+  color: #8ea0b8 !important;
 }
 
 @media (max-width: 768px) {

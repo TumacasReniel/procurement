@@ -20,10 +20,12 @@ return new class extends Migration
             $table->date('expired_at')->nullable();
             $table->boolean('is_renewable')->default(0);
             $table->boolean('is_active')->default(1);
-            $table->unsignedSmallInteger('type_id');
+            $table->unsignedSmallInteger('type_id')->nullable();
             $table->foreign('type_id')->references('id')->on('list_data')->onDelete('cascade');
             $table->unsignedInteger('supplier_id');
             $table->foreign('supplier_id')->references('id')->on('suppliers')->onDelete('cascade');
+            $table->string('document_type')->nullable();
+            $table->string('code')->nullable()->change();
             $table->timestamps();
         });
     }

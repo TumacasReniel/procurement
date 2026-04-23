@@ -120,6 +120,111 @@
                         </BButton>
                     </div>
 
+                    <div class="ms-1 header-item d-none d-sm-flex">
+                        <BDropdown
+                            class="dropdown topbar-head-dropdown"
+                            variant="ghost-secondary"
+                            no-caret
+                            menu-class="p-0 dropdown-menu-end dropdown-menu-lg mention-notification-menu"
+                            toggle-class="btn-icon btn-topbar rounded-circle material-shadow-none position-relative"
+                            @show="refreshMentionNotifications"
+                        >
+                            <template #button-content>
+                                <i class="bx bx-bell fs-22"></i>
+                                <span
+                                    v-if="mentionNotificationState.unreadCount"
+                                    class="position-absolute translate-middle badge rounded-pill bg-danger topbar-badge"
+                                >
+                                    {{ mentionNotificationBadge }}
+                                </span>
+                            </template>
+
+                            <div class="p-3 border-top-0 border-start-0 border-end-0 border-dashed border">
+                                <div class="d-flex align-items-start justify-content-between gap-3">
+                                    <div>
+                                        <h6 class="mb-1 fw-semibold fs-15">Notifications</h6>
+                                        <p class="mb-0 text-muted fs-12"> alerts show up here in requests you are tagged or mention.</p>
+                                    </div>
+                                    <span class="badge bg-danger text-white fs-11">
+                                        {{ mentionNotificationState.unreadCount }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <simplebar v-if="mentionNotificationItems.length" class="mention-notification-scroll">
+                                <div class="p-2">
+                                    <div
+                                        v-for="notification in mentionNotificationItems"
+                                        :key="notification.id"
+                                        class="dropdown-item notification-item mention-notification-item"
+                                        role="button"
+                                        @click="openMentionNotification(notification)"
+                                    >
+                                        <div class="d-flex align-items-start gap-3">
+                                            <img
+                                                :src="resolveMentionAvatar(notification)"
+                                                :alt="resolveMentionActorName(notification)"
+                                                class="rounded-circle border mention-notification-avatar flex-shrink-0"
+                                            />
+                                            <div class="flex-grow-1 mention-notification-content">
+                                                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                                    <div class="mention-notification-content">
+                                                        <div class="mention-notification-label mb-1">
+                                                            {{ resolveMentionContextLabel(notification) }}
+                                                        </div>
+                                                        <div class="fw-semibold fs-13 text-truncate">
+                                                            {{ resolveMentionHeadline(notification) }}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-icon btn-ghost-secondary mention-notification-dismiss"
+                                                        @click.stop="dismissMentionNotification(notification.id)"
+                                                    >
+                                                        <i class="ri-close-line fs-16"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="text-muted fs-12 mb-2 text-truncate">
+                                                    {{ resolveMentionSubject(notification) }}
+                                                </div>
+                                                <p class="mb-2 fs-12 text-body mention-notification-preview">
+                                                    {{ truncateMentionText(notification.comment_content, 96) }}
+                                                </p>
+                                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                                    <span class="text-muted fs-11">
+                                                        {{ notification.created_ago || "Just now" }}
+                                                    </span>
+                                                    <span class="badge bg-light text-body">Open PR chat</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </simplebar>
+
+                            <div v-else class="px-4 py-5 text-center mention-notification-empty">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <div class="avatar-title bg-light text-primary rounded-circle fs-20">
+                                        <i class="ri-notification-3-line"></i>
+                                    </div>
+                                </div>
+                                <h6 class="mb-1 fw-semibold">No new alerts</h6>
+                                <p class="mb-0 text-muted fs-12">Mentions and updates on your procurement requests will appear here.</p>
+                            </div>
+
+                            <div class="mention-notification-footer">
+                                <div class="d-flex align-items-center justify-content-between gap-3">
+                                    <small class="text-muted">
+                                        {{ mentionNotificationState.hasMore ? "Showing the latest unread PR alerts." : "This updates automatically." }}
+                                    </small>
+                                    <button type="button" class="btn btn-sm btn-light" @click="refreshMentionNotifications">
+                                        Refresh
+                                    </button>
+                                </div>
+                            </div>
+                        </BDropdown>
+                    </div>
+
                     <BDropdown variant="link" class="ms-sm-3 header-item topbar-user" toggle-class="rounded-circle material-shadow-none" no-caret menu-class="dropdown-menu-end" :offset="{ alignmentAxis: -14, crossAxis: 0, mainAxis: 0 }">
                         <template #button-content>
                             <span class="d-flex align-items-center">
@@ -177,6 +282,11 @@ const logout = () => {
 <script>
 import simplebar from "simplebar-vue";
 export default {
+    inject: {
+        mentionNotificationCenter: {
+            default: null,
+        },
+    },
     components: { simplebar },
     data() {
         return {
@@ -184,6 +294,29 @@ export default {
         value: null,
         myVar: 1,
         };
+    },
+    computed: {
+        mentionNotificationState() {
+            return this.mentionNotificationCenter?.state ?? {
+                items: [],
+                unreadCount: 0,
+                hasMore: false,
+                enabled: false,
+            };
+        },
+        mentionNotificationItems() {
+            return Array.isArray(this.mentionNotificationState?.items)
+                ? this.mentionNotificationState.items
+                : [];
+        },
+        mentionNotificationsEnabled() {
+            return Boolean(this.mentionNotificationState?.enabled);
+        },
+        mentionNotificationBadge() {
+            const unreadCount = Number(this.mentionNotificationState?.unreadCount) || 0;
+
+            return unreadCount > 99 ? "99+" : unreadCount;
+        },
     },
     mounted() {
         document.addEventListener("scroll", function () {
@@ -298,6 +431,136 @@ export default {
         openInNewTab(url) {
             window.open(url, '_blank');
         },
+        refreshMentionNotifications() {
+            this.mentionNotificationCenter?.fetch?.();
+        },
+        dismissMentionNotification(notificationId) {
+            this.mentionNotificationCenter?.dismiss?.(notificationId);
+        },
+        openMentionNotification(notification) {
+            this.mentionNotificationCenter?.open?.(notification);
+        },
+        truncateMentionText(text, limit = 96) {
+            if (this.mentionNotificationCenter?.truncate) {
+                return this.mentionNotificationCenter.truncate(text, limit);
+            }
+
+            if (!text) {
+                return "No comment preview available.";
+            }
+
+            return text.length > limit ? `${text.slice(0, limit)}...` : text;
+        },
+        resolveMentionActorName(notification) {
+            return this.mentionNotificationCenter?.resolveActorName?.(notification)
+                || notification?.actor?.name
+                || notification?.actor?.username
+                || notification?.mentioned_by?.name
+                || notification?.mentioned_by?.username
+                || "A teammate";
+        },
+        resolveMentionAvatar(notification) {
+            return this.mentionNotificationCenter?.resolveAvatar?.(notification)
+                || notification?.actor?.avatar
+                || notification?.mentioned_by?.avatar
+                || this.$page.props.user?.data?.avatar
+                || "/images/avatars/avatar.jpg";
+        },
+        resolveMentionHeadline(notification) {
+            if (this.mentionNotificationCenter?.resolveHeadline) {
+                return this.mentionNotificationCenter.resolveHeadline(notification);
+            }
+
+            const actor = this.resolveMentionActorName(notification);
+
+            if (notification?.reason === "owner") {
+                return `${actor} commented on your PR`;
+            }
+
+            return `${actor} mentioned you in a PR comment`;
+        },
+        resolveMentionContextLabel(notification) {
+            return this.mentionNotificationCenter?.resolveContextLabel?.(notification)
+                || notification?.context_label
+                || "PR comment";
+        },
+        resolveMentionSubject(notification) {
+            return this.mentionNotificationCenter?.resolveSubject?.(notification)
+                || notification?.procurement_code
+                || notification?.procurement_purpose
+                || "Procurement Request";
+        },
     }
 }
 </script>
+<style scoped>
+.mention-notification-menu {
+    width: min(26rem, calc(100vw - 2rem));
+}
+
+.mention-notification-scroll {
+    max-height: 22rem;
+}
+
+.mention-notification-item {
+    border-radius: 0.85rem;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.mention-notification-item:hover {
+    background: rgba(var(--vz-primary-rgb), 0.08);
+    transform: translateY(-1px);
+}
+
+.mention-notification-avatar {
+    width: 42px;
+    height: 42px;
+    object-fit: cover;
+    background: var(--vz-tertiary-bg);
+}
+
+.mention-notification-content {
+    min-width: 0;
+}
+
+.mention-notification-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    background: rgba(var(--vz-primary-rgb), 0.12);
+    color: var(--vz-primary);
+}
+
+.mention-notification-preview {
+    white-space: normal;
+    word-break: break-word;
+}
+
+.mention-notification-dismiss {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    border: 0;
+    background: transparent;
+    color: var(--vz-secondary-color);
+}
+
+.mention-notification-dismiss:hover {
+    background: rgba(var(--vz-primary-rgb), 0.1);
+    color: var(--vz-primary);
+}
+
+.mention-notification-empty {
+    color: var(--vz-secondary-color);
+}
+
+.mention-notification-footer {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--vz-border-color);
+    background: var(--vz-secondary-bg);
+}
+</style>

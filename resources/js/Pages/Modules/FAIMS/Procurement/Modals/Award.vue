@@ -3,9 +3,11 @@
     v-model="showModal"
     header-class="p-3"
     title="Save Bids For Award?"
-    size="xl"
+    fullscreen
     class="v-modal-custom"
-    modal-class="zoomIn"
+    modal-class="zoomIn award-fullscreen-modal"
+    content-class="award-fullscreen-content"
+    body-class="award-fullscreen-body"
     centered
     no-close-on-backdrop
   >
@@ -247,7 +249,7 @@ export default {
           is_free: item.is_free,
           total_bid_price: item.bid_price * item.item.item_quantity,
           technical_proposal: item.technical_proposal,
-          delivery_term: item.delivery_term,
+          delivery_term: quotation.delivery_term,
           status: item.status_id,
           rank: 1,
           is_checked: item.is_checked,
@@ -343,5 +345,18 @@ th {
 }
 th {
   text-align: center;
+}
+
+:deep(.award-fullscreen-modal) {
+  padding: 0 !important;
+}
+
+:deep(.award-fullscreen-content) {
+  min-height: 100vh;
+  border-radius: 0;
+}
+
+:deep(.award-fullscreen-body) {
+  overflow-y: auto;
 }
 </style>

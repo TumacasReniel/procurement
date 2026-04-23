@@ -17,8 +17,16 @@ use Spatie\Activitylog\Models\Activity;
 class ProcurementBacNoaClass
 {
     public function lists($request){
+        $this->backfillMissingNOAs($request->procurement_id);
+
         $data = ProcurementBacNoaResource::collection(
-            ProcurementBacNoa::with('procurement_bac.procurement', 'procurement_quotation.supplier')
+            ProcurementBacNoa::with(
+                'procurement_bac.procurement',
+                'procurement_quotation.supplier.address',
+                'procurement_quotation.supplier.conformes',
+                'items.item.item.item_unit_type',
+                'status'
+            )
             ->when($request->procurement_id, function ($query, $procurement_id) {
                 $query->where('procurement_id', $procurement_id);
             })
@@ -42,6 +50,99 @@ class ProcurementBacNoaClass
         );
 
         return $data;
+    }
+
+    protected function backfillMissingNOAs($procurementId = null): void
+    {
+        if (!$procurementId) {
+            return;
+        }
+
+        $approvedStatusId = ListStatus::getID('Approved', 'Procurement');
+        if (!$approvedStatusId) {
+            return;
+        }
+
+        $missingApprovedBacs = ProcurementBac::query()
+            ->where('procurement_id', $procurementId)
+            ->where('status_id', $approvedStatusId)
+            ->where('type', '!=', 'Rebid')
+            ->doesntHave('notice_of_awards')
+            ->get();
+
+        if ($missingApprovedBacs->isEmpty()) {
+            return;
+        }
+
+        $bacService = app(ProcurementBACClass::class);
+        $actor = Auth::user();
+
+        foreach ($missingApprovedBacs as $bacResolution) {
+            $user = null;
+
+            if ($bacResolution->approved_by_id) {
+                $user = User::find($bacResolution->approved_by_id);
+            }
+
+            if (!$user && $bacResolution->created_by_id) {
+                $user = User::find($bacResolution->created_by_id);
+            }
+
+            if (!$user) {
+                $user = $actor;
+            }
+
+            if (!$user) {
+                \Log::warning('Skipping NOA backfill because no user context could be resolved.', [
+                    'bac_resolution_id' => $bacResolution->id,
+                    'procurement_id' => $procurementId,
+                ]);
+                continue;
+            }
+
+            $bacService->createNOA(request(), $bacResolution, $user, $bacResolution->type);
+        }
+    }
+
+    public function update($id, $request)
+    {
+        $user = Auth::user();
+        $noa = ProcurementBacNoa::with('procurement_bac.procurement', 'procurement_quotation.supplier', 'status')->findOrFail($id);
+        $body = $request->input('body', $request->input('remarks'));
+
+        if ($noa->status?->name !== 'Pending') {
+            return [
+                'data' => new ProcurementBacNoaResource($noa->fresh([
+                    'procurement_bac.procurement',
+                    'procurement_quotation.supplier.address',
+                    'procurement_quotation.supplier.conformes',
+                    'items.item.item.item_unit_type',
+                    'status',
+                ])),
+                'message' => 'NOA can no longer be edited.',
+                'info' => 'Only NOAs with Pending status can be edited.',
+                'status' => 'warning',
+            ];
+        }
+
+        $noa->update([
+            'remarks' => $body,
+        ]);
+
+        activity()->performedOn($noa)->causedBy($user)->log('NOA content updated');
+
+        return [
+            'data' => new ProcurementBacNoaResource($noa->fresh([
+                'procurement_bac.procurement',
+                'procurement_quotation.supplier.address',
+                'procurement_quotation.supplier.conformes',
+                'items.item.item.item_unit_type',
+                'status',
+            ])),
+            'message' => 'NOA updated successfully!',
+            'info' => "You've successfully updated the NOA content.",
+            'status' => 'success',
+        ];
     }
 
        
@@ -69,21 +170,24 @@ class ProcurementBacNoaClass
         // Update NOA status FIRST
         if($currentStatusName == "Pending"){
             $noa->update([
+                'served_at' => now(),
+                'conformed_at' => null,
                 'status_id' => ListStatus::getID('Served to Supplier','Procurement'), // set status to "Served to Supplier"
             ]);
             activity()->performedOn($noa)->causedBy($user)->log('NOA status updated to Served to Supplier');
         }
         elseif($currentStatusName == "Served to Supplier"){
             $noa->update([
+                'conformed_at' => now(),
                 'status_id' => ListStatus::getID('Conformed','Procurement'), // set status to "Conformed"
             ]);
             activity()->performedOn($noa)->causedBy($user)->log('NOA status updated to Conformed');
         }
         elseif($currentStatusName == "Conformed"){
             $noa->update([
-                'status_id' => ListStatus::getID('Delivered/For Inspection','Procurement'), // set status to "Delivered/For Inspection"
+                'status_id' => ListStatus::getID('Items Delivered','Procurement'), // set status to "Items Delivered"
             ]);
-            activity()->performedOn($noa)->causedBy($user)->log('NOA status updated to Delivered/For Inspection');
+            activity()->performedOn($noa)->causedBy($user)->log('NOA status updated to Items Delivered');
         }
 
         // Refresh NOA to get the new status
@@ -143,6 +247,7 @@ class ProcurementBacNoaClass
             'data' =>new ProcurementBacNoaResource($noa),
             'message' => 'NOA Status updated successfully!', 
             'info' => "You've successfully updated NOA Status.",
+            'status' => 'success',
         ];
     }
 
@@ -153,6 +258,7 @@ class ProcurementBacNoaClass
         $noa = ProcurementBacNoa::with('procurement_bac.procurement')->findOrFail($id);
 
         $noa->update([
+            'conformed_at' => null,
             'status_id' => ListStatus::getID('Not Conformed','Procurement'), // set status to "Not Conformed"
             'updated_by_id' => $user->id,
         ]);
@@ -223,6 +329,7 @@ class ProcurementBacNoaClass
             'data' =>new ProcurementBacNoaResource($noa),
             'message' => 'BAC Resolution Status updated successfully!', 
             'info' => "You've successfully updated BAC Resolution Status.",
+            'status' => 'success',
         ];
     }
 
@@ -234,7 +341,7 @@ class ProcurementBacNoaClass
         $currentStatusName = $noa->status?->name;
         $revertedTo = null;
 
-        if ($currentStatusName === 'Delivered/For Inspection') {
+        if ($currentStatusName === 'Items Delivered') {
             $revertedTo = 'Conformed';
         } elseif ($currentStatusName === 'Conformed') {
             $revertedTo = 'Served to Supplier';
@@ -251,9 +358,18 @@ class ProcurementBacNoaClass
             ];
         }
 
-        $noa->update([
+        $revertData = [
             'status_id' => ListStatus::getID($revertedTo, 'Procurement'),
-        ]);
+        ];
+
+        if ($revertedTo === 'Served to Supplier') {
+            $revertData['conformed_at'] = null;
+        } elseif ($revertedTo === 'Pending') {
+            $revertData['served_at'] = null;
+            $revertData['conformed_at'] = null;
+        }
+
+        $noa->update($revertData);
         activity()->performedOn($noa)->causedBy($user)->log("NOA status reverted to {$revertedTo}");
 
         $noa->refresh();
@@ -286,6 +402,7 @@ class ProcurementBacNoaClass
             'data' => new ProcurementBacNoaResource($noa),
             'message' => 'NOA Status reverted successfully!',
             'info' => "You've successfully reverted NOA Status.",
+            'status' => 'success',
         ];
     }
 

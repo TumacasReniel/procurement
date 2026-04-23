@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Notice of Award</title>
+    <title>Notice to Proceed</title>
     <style>
         html, body {
             font-family: Arial, sans-serif;
             margin: 50px 50px 50px 50px;
             font-size: 12px;
-            line-height: 1.5;
+            line-height: 1;
         }
 
         .text-center {
@@ -70,7 +70,7 @@
         </div>
 
         <!-- Recipient -->
-        <div class="recipient-block text-left" style="margin-bottom: 20px; line-height: 1.4;">
+        <div class="recipient-block text-left" style="margin-bottom: 20px; line-height: 1;">
             <p style="margin: 0;"> {{ $noa->procurement_quotation->supplier->conformes[0]->name }}</p>
             <p style="margin: 0;">{{ $noa->procurement_quotation->supplier->name }}</p>
             <p style="margin: 0;">{{ $noa->procurement_quotation->supplier->address?->address }}</p>
@@ -84,26 +84,28 @@
 
         <!-- Body -->
         <div class="letter-body">
-            <p>
-        
-                Please be informed that you are hereby given the Notice to Proceed for the implementation of the project 
-                {{ $procurement->title }}, under reference <b>{{ $procurement->code }}</b>, which has been awarded
-                to your company with a total contract amount of <b>{{ $amount_to_words }} (Php {{ $total_amount }})</b>.
-              
-            </p>
+            @if(!empty($ntp->remarks))
+                {!! $ntp->remarks !!}
+            @else
+                <p>
+                    Please be informed that you are hereby given the Notice to Proceed for the implementation of the project
+                    {{ $procurement->title }}, under reference <b>{{ $procurement->code }}</b>, which has been awarded
+                    to your company with a total contract amount of <b>{{ $amount_to_words }} (Php {{ $total_amount }})</b>.
+                </p>
 
-            <p>
-                 You are instructed to commence the delivery and completion of the awarded item/s effective immediately upon receipt 
-                of this Notice. The delivery term is {{ $quotation->delivery_term }}, and the delivery shall be made to the 
-                {{ $po->place_of_delivery->name }}.
-            </p>
+                <p>
+                    You are instructed to commence the delivery and completion of the awarded item/s effective immediately upon receipt
+                    of this Notice. The delivery term is {{ $quotation->delivery_term }}, and the delivery shall be made to the
+                    {{ $po->place_of_delivery->name }}.
+                </p>
 
-            <p>
-                We appreciate your interest in this opportunity and we look forward to your satisfactory performance of your obligations 
-                under the project.
-            </p>
+                <p>
+                    We appreciate your interest in this opportunity and we look forward to your satisfactory performance of your obligations
+                    under the project.
+                </p>
 
-            <p>Thank you.</p>
+                <p>Thank you.</p>
+            @endif
         </div>
 
         <!-- Closing / Signature -->

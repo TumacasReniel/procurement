@@ -24,7 +24,7 @@ return new class extends Migration
                 ->references('id')
                 ->on('users');
 
-            $table->unsignedInteger('approved_by_id')->index()->nullablr();
+            $table->unsignedInteger('approved_by_id')->index()->nullable();
             $table->foreign('approved_by_id')
                 ->references('id')
                 ->on('users');

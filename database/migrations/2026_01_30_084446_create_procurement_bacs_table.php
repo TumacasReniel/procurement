@@ -23,6 +23,8 @@ return new class extends Migration
             $table->foreign('created_by_id')->references('id')->on('users')->onDelete('cascade');
             $table->integer('approved_by_id')->unsigned()->index()->nullable();
             $table->foreign('approved_by_id')->references('id')->on('users')->onDelete('cascade');
+             $table->timestamp('approved_at')->nullable();
+             
             $table->tinyInteger('status_id')->unsigned()->index();
             $table->foreign('status_id')->references('id')->on('list_statuses')->onDelete('cascade');
             $table->timestamps();

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\ListStatus;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
 
 class ProcurementBac extends Model
 {
@@ -14,7 +15,12 @@ class ProcurementBac extends Model
         'body',
         'created_by_id',
         'approved_by_id',
+        'approved_at',
         'status_id',
+    ];
+
+    protected $casts = [
+        'approved_at' => 'datetime',
     ];
 
     public function procurement()
@@ -79,8 +85,8 @@ class ProcurementBac extends Model
 
         // Define status hierarchy from highest to lowest
         $status_hierarchy = [
-            'Delivered/For Inspection' => ['full' => 'Delivered/For Inspection', 'partial' => 'Partially Delivered/For Inspection'],
-            'PO Delivered/For Inspection' => ['full' => 'PO Delivered/For Inspection', 'partial' => 'PO Partially Delivered/For Inspection'],
+            'Items Delivered' => ['full' => 'Items Delivered', 'partial' => 'Items Partially Delivered'],
+            'PO Items Delivered' => ['full' => 'PO Items Delivered', 'partial' => 'PO Items Partially Delivered'],
             'PO Conformed' => ['full' => 'PO Conformed', 'partial' => 'PO Partially Conformed'],
             'Conformed' => ['full' => 'NOA Conformed', 'partial' => 'NOA Partially Conformed'],
             'Served to Supplier' => ['full' => 'NOA Served to Supplier', 'partial' => 'NOA Partially Served to Supplier'],
@@ -177,8 +183,8 @@ class ProcurementBac extends Model
 
         // Define status hierarchy from highest to lowest
         $status_hierarchy = [
-            'Delivered/For Inspection' => 'Delivered/For Inspection',
-            'PO Delivered/For Inspection' => 'PO Delivered/For Inspection',
+            'Items Delivered' => 'Items Delivered',
+            'PO Items Delivered' => 'PO Items Delivered',
             'PO Conformed' => 'PO Conformed',
             'Conformed' => 'NOA Conformed',
             'Served to Supplier' => 'NOA Served to Supplier',
@@ -224,7 +230,7 @@ class ProcurementBac extends Model
 
     public function getActivitylogOptions(): LogOptions {
         return LogOptions::defaults()
-        ->logOnly(['procurement_id','code','type','body','created_by_id','approved_by_id','status_id'])
+        ->logOnly(['procurement_id','code','type','body','created_by_id','approved_by_id','approved_at','status_id'])
         ->setDescriptionForEvent(fn(string $eventName) => "BAC Resolution {$eventName}")
         ->useLogName('BAC Resolution')
         ->logOnlyDirty()

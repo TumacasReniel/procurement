@@ -58,6 +58,16 @@ class SignatoryRequest extends FormRequest
                 }
                 return $rules;
             break;
+            case 'create_bac_member':
+                return [
+                    'user_id' => ['required', 'exists:users,id'],
+                ];
+            break;
+            case 'create_iar_member':
+                return [
+                    'user_id' => ['required', 'exists:users,id'],
+                ];
+            break;
         }
     }
 
@@ -66,6 +76,7 @@ class SignatoryRequest extends FormRequest
         return [
             'signatory_id.required' => 'Please select a signatory.',
             'user_id.required' => 'Please select a user.',
+            'user_id.exists' => 'The selected user is invalid.',
             'start_at.required' => 'Please set the start date.',
             'end_at.required' => 'Please set the end date.',
             'end_at.after_or_equal' => 'The end date must be after or equal to the start date.',

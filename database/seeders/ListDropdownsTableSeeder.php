@@ -489,6 +489,186 @@ class ListDropdownsTableSeeder extends Seeder
                 'others' => 'n/a',
                 'is_active' => 1,
             ),
+            47 => 
+            array (
+                'id' => 49,
+                'name' => 'BAC Chairperson',
+                'classification' => 'Designation',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'BAC-CHAIR',
+                'is_active' => 1,
+            ),
+            48 => 
+            array (
+                'id' => 50,
+                'name' => 'BAC Vice Chairperson',
+                'classification' => 'Designation',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'BAC-VICE',
+                'is_active' => 1,
+            ),
+            49 => 
+            array (
+                'id' => 51,
+                'name' => 'BAC Member',
+                'classification' => 'Designation',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'BAC-MEMBER',
+                'is_active' => 1,
+            ),
+            50 => 
+            array (
+                'id' => 52,
+                'name' => 'IAR Chairperson',
+                'classification' => 'Designation',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'IAR-CHAIR',
+                'is_active' => 1,
+            ),
+            52 => 
+            array (
+                'id' => 54,
+                'name' => 'IAR Member',
+                'classification' => 'Designation',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'IAR-MEMBER',
+                'is_active' => 1,
+            ),
+            53 => 
+            array (
+                'id' => 55,
+                'name' => 'Annual Procurement Plan',
+                'classification' => 'APP Type',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            54 => 
+            array (
+                'id' => 56,
+                'name' => 'Supplemental Procurement Plan',
+                'classification' => 'APP Type',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            55 => 
+            array (
+                'id' => 57,
+                'name' => 'Competitive Public Bidding',
+                'classification' => 'mode_of_procurement',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'R.A. 9184',
+                'is_active' => 1,
+            ),
+            56 => 
+            array (
+                'id' => 58,
+                'name' => 'Limited Source Bidding',
+                'classification' => 'mode_of_procurement',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            57 => 
+            array (
+                'id' => 59,
+                'name' => 'Regular Fund',
+                'classification' => 'Fund Cluster',
+                'type' => 'RF',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            58 => 
+            array (
+                'id' => 60,
+                'name' => 'Trust Fund',
+                'classification' => 'Fund Cluster',
+                'type' => 'TF',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            59 => 
+            array (
+                'id' => 61,
+                'name' => 'MDS Trust Fund',
+                'classification' => 'Fund Cluster',
+                'type' => 'MDS-TF',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            60 => 
+            array (
+                'id' => 62,
+                'name' => 'DOST IX Pettit Barracks Zamboanga City',
+                'classification' => 'Place of Delivery',
+                'type' => '',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            61 => 
+            array (
+                'id' => 63,
+                'name' => 'DOST IX ZDS',
+                'classification' => 'Place of Delivery',
+                'type' => '',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            62 => 
+            array (
+                'id' => 64,
+                'name' => 'Chief Accountant',
+                'classification' => 'Designation',
+                'type' => '',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            63 => 
+            array (
+                'id' => 65,
+                'name' => 'Goods and Services',
+                'classification' => 'Classification',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            64 => 
+            array (
+                'id' => 66,
+                'name' => 'Infrastructure Services',
+                'classification' => 'Classification',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
+            65 => 
+            array (
+                'id' => 67,
+                'name' => 'Consulting Services',
+                'classification' => 'Classification',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'n/a',
+                'is_active' => 1,
+            ),
         ));
         
         

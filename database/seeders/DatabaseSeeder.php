@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::create([
-            'username' => 'smp0000',
+            'username' => 'rbg0000',
             'email' => 'rbg.dost9@gmail.com',
             'kradworkz' => hash('sha256','rbg.dost9@gmail.com'),
             'password' => bcrypt('123456789'),
@@ -62,15 +62,45 @@ class DatabaseSeeder extends Seeder
         ]);
 
         UserProfile::create([
-            'lastname' => 'Reyes',
-            'firstname' => 'Elle',
-            'middlename' => 'Villa',
+            'lastname' => 'Gundoy',
+            'firstname' => 'Ronnel',
+            'middlename' => 'B',
             'mobile' => '09171531682',
             'mobile_hash' => hash('sha256','09171531682'),
             'birthdate' => '1974-03-11',
             'birthmonth' => 3,
             'sex_id' => 1,
             'user_id' => 2,
+            'marital_id' => 3,
+            'religion_id' => 20,
+            'blood_id' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+
+        User::create([
+            'username' => 'rss0000',
+            'email' => 'rss.dost9@gmail.com',
+            'kradworkz' => hash('sha256','rss.dost9@gmail.com'),
+            'password' => bcrypt('123456789'),
+            'is_active' => 1,
+            'must_change' => 1,
+            'email_verified_at' => '2024-05-15 08:46:33',
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        UserProfile::create([
+            'lastname' => 'Salazar',
+            'firstname' => 'Rosemarie',
+            'middlename' => 'S',
+            'mobile' => '09171531686',
+            'mobile_hash' => hash('sha256','09171531686'),
+            'birthdate' => '1974-03-11',
+            'birthmonth' => 3,
+            'sex_id' => 1,
+            'user_id' => 3,
             'marital_id' => 3,
             'religion_id' => 20,
             'blood_id' => 1,
@@ -88,6 +118,7 @@ class DatabaseSeeder extends Seeder
         $this->call(ListDeductionsTableSeeder::class);
         $this->call(ListDropdownsTableSeeder::class);
         $this->call(ListUnitsTableSeeder::class);
+        $this->call(UnitTypesTableSeeder::class);
         $this->call(ListStatusesTableSeeder::class);
 
         \DB::table('user_organizations')->insert([
@@ -145,6 +176,29 @@ class DatabaseSeeder extends Seeder
             'user_id' => 2,
             'role_id' => 2,
             'added_by' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+
+        \DB::table('user_roles')->insert([
+            'user_id' => 3,
+            'role_id' => 2,
+            'added_by' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+
+        \DB::table('user_organizations')->insert([
+            'user_id' => 3,
+            'status_id' => 2,
+            'division_id' => 4,
+            'station_id' => 5,
+            'position_id' => 12,
+            'salary_id' => 31,
+            'type_id' => 16,
+            'unit_id' => 15,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

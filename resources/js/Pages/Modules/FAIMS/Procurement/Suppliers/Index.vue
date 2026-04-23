@@ -1,582 +1,496 @@
 <template>
-  <PageHeader title="Suppliers Management" pageTitle="Procurement" />
+  <Head title="Suppliers" />
+  <PageHeader title="Suppliers" pageTitle="Procurement" />
 
-  <!-- Search and Filter Section -->
-  <b-row class="g-3 mb-4">
-    <b-col lg="10">
-      <div class="search-box">
-        <div class="position-relative">
-          <input
-            type="text"
-            v-model="filter.keyword"
-            class="form-control form-control-lg"
-            placeholder="Search suppliers by name, code, or address..."
-            style="
-              border-radius: 10px;
-              padding-left: 45px;
-              box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            "
-          />
-          <i
-            class="ri-search-line search-icon fs-5"
-            style="
-              position: absolute;
-              left: 15px;
-              top: 50%;
-              transform: translateY(-50%);
-              color: #6c757d;
-            "
-          ></i>
-        </div>
-      </div>
-    </b-col>
-    <b-col lg="2">
-      <div class="d-flex gap-2">
-        <b-button
-          @click="refresh()"
-          variant="secondary"
-          class="btn-icon"
-          v-b-tooltip.hover
-          title="Refresh"
-          style="border-radius: 10px"
-        >
-          <i class="bx bx-refresh fs-5"></i>
-        </b-button>
-        <b-button
-          type="button"
-          variant="primary"
-          @click="openSupplier()"
-          class="flex-fill"
-          style="border-radius: 10px; box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3)"
-        >
-          <i class="ri-add-circle-fill align-bottom me-2"></i> New Supplier
-        </b-button>
-      </div>
-    </b-col>
-  </b-row>
-
-  <!-- Suppliers Table -->
-  <div class="suppliers-table-container">
-    <div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden">
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr style="border-bottom: 2px solid #e9ecef">
-                <th class="border-0 fw-bold text-muted ps-4">#</th>
-                <th class="border-0 fw-bold text-muted">Code</th>
-                <th class="border-0 fw-bold text-muted">Company Name</th>
-                <th class="border-0 fw-bold text-muted">Address</th>
-                <th class="border-0 fw-bold text-muted">Representatives</th>
-                <th class="border-0 fw-bold text-muted">Attachments</th>
-                <th class="border-0 fw-bold text-muted">Status</th>
-                <th class="border-0 fw-bold text-muted text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(supplier, index) in lists"
-                :key="supplier.id"
-                class="supplier-row"
-                :class="{ 'table-secondary': supplier.is_active == 0 }"
-              >
-                <td class="ps-4 fw-bold">{{ index + 1 }}</td>
-                <td>
-                  <span class="badge bg-soft-primary text-primary px-2 py-1 fs-12 fw-bold rounded-pill">
-                    {{ supplier.code }}
-                  </span>
-                </td>
-                <td>
-                  <div class="d-flex align-items-center">
-                    <div>
-                      <h6 class="mb-0 fw-bold">{{ supplier.name }}</h6>
-                      <small class="text-muted"
-                        >Created {{ formatDate(supplier.created_at) }}</small
-                      >
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span
-                    class="text-truncate d-inline-block"
-                    style="max-width: 200px"
-                    v-b-tooltip.hover
-                    :title="supplier.address || 'No address'"
-                  >
-                    {{ supplier.address || "No address provided" }}
-                  </span>
-                </td>
-                <td>
-                  <div v-if="supplier.conformes && supplier.conformes.length > 0">
-                    <span
-                      v-for="(conforme, idx) in supplier.conformes.slice(0, 2)"
-                      :key="conforme.id"
-                      class="badge bg-success me-1 mb-1"
-                    >
-                      {{ conforme.name }}
-                    </span>
-                    <span v-if="supplier.conformes.length > 2" class="badge bg-secondary">
-                      +{{ supplier.conformes.length - 2 }}
-                    </span>
-                  </div>
-                  <span v-else class="text-muted small">No representatives</span>
-                </td>
-                <td>
-                  <span class="badge bg-warning text-dark px-2 py-1">
-                    <i class="ri-attachment-line me-1"></i
-                    >{{ supplier.attachments ? supplier.attachments.length : 0 }}
-                  </span>
-                </td>
-                <td>
-                  <span
-                    :class="
-                      supplier.is_active == 1 ? 'badge bg-success' : 'badge bg-secondary'
-                    "
-                    style="font-size: 0.8rem; padding: 0.4rem 0.8rem"
-                  >
-                    {{ supplier.is_active == 1 ? "Active" : "Inactive" }}
-                  </span>
-                </td>
-                <td class="text-center">
-                  <div class="d-flex justify-content-center gap-2">
-                    <!-- <b-button
-                      @click="viewSupplier(supplier)"
-                      size="sm"
-                      variant="info"
-                      class="btn-icon"
-                      v-b-tooltip.hover
-                      title="View Details"
-                      style="border-radius: 8px"
-                    >
-                      <i class="ri-eye-line"></i>
-                    </b-button> -->
-                    <b-button
-                      @click="editSupplier(supplier)"
-                      size="sm"
-                      variant="primary"
-                      class="btn-icon"
-                      v-b-tooltip.hover
-                      title="Edit Supplier"
-                      style="border-radius: 8px"
-                    >
-                      <i class="ri-edit-line"></i>
-                    </b-button>
-                    <b-button
-                      @click="toggleStatus(supplier)"
-                      size="sm"
-                      :variant="
-                        supplier.is_active == 1 ? 'danger' : 'success'
-                      "
-                      class="btn-icon"
-                      v-b-tooltip.hover
-                      :title="supplier.is_active == 1 ? 'Deactivate' : 'Activate'"
-                      style="border-radius: 8px"
-                    >
-                      <i
-                        :class="
-                          supplier.is_active == 1
-                            ? 'ri-pause-circle-line'
-                            : 'ri-play-circle-line'
-                        "
-                      ></i>
-                    </b-button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Empty State -->
-        <div v-if="lists.length === 0" class="text-center py-5">
-          <div class="empty-state">
-            <i class="ri-building-line fs-1 text-muted mb-3"></i>
-            <h5 class="text-muted">No Suppliers Found</h5>
-            <p class="text-muted mb-4">Get started by adding your first supplier</p>
-            <b-button
-              variant="primary"
-              @click="openSupplier()"
-              style="border-radius: 10px"
-            >
-              <i class="ri-add-circle-fill me-2"></i>Add Supplier
-            </b-button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Supplier Details Modal -->
-  <b-modal
-    v-model="showDetailsModal"
-    size="xl"
-    title="Supplier Details"
-    header-class="bg-gradient-primary text-white"
-    body-class="p-0"
-    modal-class="zoomIn"
-    centered
-    no-close-on-backdrop
-  >
-    <div v-if="selectedSupplier">
-      <!-- Tabs -->
-      <b-tabs content-class="p-4" nav-class="border-bottom-0">
-        <!-- Overview Tab -->
-        <b-tab title="Overview" active>
-          <div class="supplier-overview">
-            <b-row class="g-4">
-              <b-col lg="8">
-                <div class="card border-0 shadow-sm" style="border-radius: 12px">
-                  <div class="card-body p-4">
-                    <h5 class="card-title mb-4">
-                      <i class="ri-building-line me-2 text-primary"></i
-                      >{{ selectedSupplier.name }}
-                    </h5>
-                    <div class="row g-3">
-                      <div class="col-md-6">
-                        <div class="info-item">
-                          <label class="text-muted small fw-bold">SUPPLIER CODE</label>
-                          <p class="mb-0">{{ selectedSupplier.code }}</p>
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="info-item">
-                          <label class="text-muted small fw-bold">STATUS</label>
-                          <p class="mb-0">
-                            <span
-                              :class="
-                                selectedSupplier.is_active == 1
-                                  ? 'badge bg-success'
-                                  : 'badge bg-secondary'
-                              "
-                            >
-                              {{
-                                selectedSupplier.is_active == 1 ? "Active" : "Inactive"
-                              }}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                      <div class="col-12">
-                        <div class="info-item">
-                          <label class="text-muted small fw-bold">ADDRESS</label>
-                          <p class="mb-0">
-                            {{ selectedSupplier.address || "No address provided" }}
-                          </p>
-                        </div>
-                      </div>
-                      <div class="col-12">
-                        <div class="info-item">
-                          <label class="text-muted small fw-bold">CREATED</label>
-                          <p class="mb-0">
-                            {{ formatDate(selectedSupplier.created_at) }}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </b-col>
-              <b-col lg="4">
-                <div class="card border-0 shadow-sm" style="border-radius: 12px">
-                  <div class="card-body p-4 text-center">
-                    <div class="supplier-avatar-large mb-3">
-                      <i class="ri-building-line fs-1 text-primary"></i>
-                    </div>
-                    <h6 class="text-muted mb-2">Quick Stats</h6>
-                    <div class="stats-grid">
-                      <div class="stat-item">
-                        <div class="stat-number">
-                          {{
-                            selectedSupplier.conformes
-                              ? selectedSupplier.conformes.length
-                              : 0
-                          }}
-                        </div>
-                        <div class="stat-label">Representatives</div>
-                      </div>
-                      <div class="stat-item">
-                        <div class="stat-number">
-                          {{
-                            selectedSupplier.attachments
-                              ? selectedSupplier.attachments.length
-                              : 0
-                          }}
-                        </div>
-                        <div class="stat-label">Documents</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </b-col>
-            </b-row>
-          </div>
-        </b-tab>
-
-        <!-- Representatives Tab -->
-        <b-tab title="Representatives">
-          <div class="representatives-section">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-              <h5 class="mb-0">
-                <i class="ri-user-line me-2 text-success"></i>Authorized Representatives
-              </h5>
-              <b-button
-                variant="primary"
-                size="sm"
-                @click="editSupplier(selectedSupplier)"
-                style="border-radius: 8px"
-              >
-                <i class="ri-edit-line me-1"></i>Edit Representatives
-              </b-button>
-            </div>
-
-            <div
-              v-if="selectedSupplier.conformes && selectedSupplier.conformes.length > 0"
-              class="representatives-list"
-            >
-              <div class="row g-3">
-                <div
-                  class="col-md-6"
-                  v-for="conforme in selectedSupplier.conformes"
-                  :key="conforme.id"
-                >
-                  <div class="card border-0 shadow-sm" style="border-radius: 12px">
-                    <div class="card-body p-3">
-                      <div class="d-flex align-items-center">
-                        <div class="rep-avatar me-3">
-                          <i class="ri-user-line fs-4 text-success"></i>
-                        </div>
-                        <div class="flex-fill">
-                          <h6 class="mb-1 fw-bold">{{ conforme.name }}</h6>
-                          <p class="mb-0 small text-muted">
-                            {{ conforme.position || "No position specified" }}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+  <BRow class="supplier-index-page g-0">
+    <div class="col-12">
+      <div class="card supplier-directory-card bg-light-subtle shadow-none border">
+        <div class="card-header supplier-directory-card__header bg-light-subtle">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+            <div class="flex-shrink-0 me-3">
+              <div style="height: 2.5rem; width: 2.5rem">
+                <span class="avatar-title bg-primary-subtle rounded p-2 mt-n1">
+                  <i class="ri-building-2-fill text-primary fs-24"></i>
+                </span>
               </div>
             </div>
-            <div v-else class="text-center py-4">
-              <i class="ri-user-line fs-1 text-muted mb-3"></i>
-              <h6 class="text-muted">No Representatives Added</h6>
-              <p class="text-muted small">Add representatives to this supplier</p>
-            </div>
-          </div>
-        </b-tab>
-
-        <!-- Attachments Tab -->
-        <b-tab title="Attachments">
-          <div class="attachments-section">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-              <h5 class="mb-0">
-                <i class="ri-attachment-line me-2 text-warning"></i>Documents & Files
+            <div class="flex-grow-1">
+              <h5 class="mb-0 fs-14">
+                <span class="text-body">Supplier Directory</span>
               </h5>
-              <b-button
-                variant="primary"
-                size="sm"
-                @click="editSupplier(selectedSupplier)"
-                style="border-radius: 8px"
-              >
-                <i class="ri-upload-line me-1"></i>Upload Documents
-              </b-button>
+              <p class="text-muted text-truncate-two-lines fs-12">
+                A detailed list of registered suppliers including code, address,
+                representatives, attachments, and availability status.
+              </p>
             </div>
-
-            <div
-              v-if="
-                selectedSupplier.attachments && selectedSupplier.attachments.length > 0
-              "
-              class="attachments-list"
-            >
-              <div class="row g-3">
-                <div
-                  class="col-md-6"
-                  v-for="attachment in selectedSupplier.attachments"
-                  :key="attachment.id"
-                >
-                  <div class="card border-0 shadow-sm" style="border-radius: 12px">
-                    <div class="card-body p-3">
-                      <div class="d-flex align-items-center">
-                        <div class="file-icon me-3">
-                          <i class="ri-file-line fs-3 text-warning"></i>
-                        </div>
-                        <div class="flex-fill">
-                          <h6 class="mb-1 fw-bold">{{ attachment.name }}</h6>
-                          <p class="mb-0 small text-muted">{{ attachment.path }}</p>
-                          <small class="text-muted">{{
-                            formatDate(attachment.created_at)
-                          }}</small>
-                        </div>
-                        <div class="file-actions">
-                          <b-button
-                            variant="link"
-                            size="sm"
-                            class="text-primary p-0 me-2"
-                            v-b-tooltip.hover
-                            title="Download"
-                          >
-                            <i class="ri-download-line"></i>
-                          </b-button>
-                          <b-button
-                            variant="link"
-                            size="sm"
-                            class="text-danger p-0"
-                            v-b-tooltip.hover
-                            title="Delete"
-                          >
-                            <i class="ri-delete-bin-line"></i>
-                          </b-button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-else class="text-center py-4">
-              <i class="ri-attachment-line fs-1 text-muted mb-3"></i>
-              <h6 class="text-muted">No Documents Uploaded</h6>
-              <p class="text-muted small">
-                Upload business permits, licenses, and other documents
+            <div class="supplier-directory-card__count flex-shrink-0 text-md-end">
+              <p class="text-muted fs-12 mb-0">
+                Showing {{ lists.length }} {{ lists.length === 1 ? "supplier" : "suppliers" }}
               </p>
             </div>
           </div>
-        </b-tab>
-      </b-tabs>
-    </div>
+        </div>
 
-    <template v-slot:footer>
-      <div class="d-flex justify-content-end gap-2">
-        <b-button @click="closeDetailsModal" variant="light" style="border-radius: 8px">
-          <i class="ri-close-line me-1"></i>Close
-        </b-button>
-        <b-button
-          @click="editSupplier(selectedSupplier)"
-          variant="primary"
-          style="border-radius: 8px"
-        >
-          <i class="ri-edit-line me-1"></i>Edit Supplier
-        </b-button>
+        <div class="card-body supplier-toolbar bg-white border-bottom shadow-none">
+          <b-row>
+            <b-col lg>
+              <div class="supplier-toolbar__group input-group">
+                <span class="input-group-text">
+                  <i class="ri-search-line search-icon"></i>
+                </span>
+                <input
+                  v-model="filter.keyword"
+                  type="text"
+                  placeholder="Search Supplier"
+                  class="supplier-toolbar__search form-control"
+                />
+
+                <Multiselect
+                  v-model="filter.status"
+                  class="supplier-toolbar__status white"
+                  :options="dropdowns.statuses || []"
+                  label="name"
+                  :searchable="true"
+                  :can-clear="true"
+                  placeholder="Select Status"
+                />
+
+                <span
+                  class="input-group-text"
+                  style="cursor: pointer"
+                  v-b-tooltip.hover
+                  title="Refresh"
+                  @click="refresh()"
+                >
+                  <i class="bx bx-refresh search-icon"></i>
+                </span>
+
+                <b-button type="button" variant="primary" @click="openSupplier()">
+                  <i class="ri-add-circle-fill align-bottom me-1"></i>
+                  Create
+                </b-button>
+              </div>
+            </b-col>
+          </b-row>
+        </div>
+
+        <b-card no-body class="border-0 rounded-0 shadow-none bg-transparent">
+          <div class="card-body supplier-table-body bg-white rounded-bottom">
+            <div
+              class="supplier-table-wrap table-responsive table-card"
+            >
+              <table class="table align-middle table-hover mb-0">
+                <thead class="table-light thead-fixed">
+                  <tr class="fs-12 fw-semibold">
+                    <th style="width: 4%" class="text-center">#</th>
+                    <th style="width: 12%">Code</th>
+                    <th style="width: 18%">Supplier</th>
+                    <th style="width: 18%">Address</th>
+                    <th style="width: 16%">Representatives</th>
+                    <th style="width: 8%">Attachments</th>
+                    <th style="width: 12%">Created By/Date</th>
+                    <th style="width: 7%">Status</th>
+                    <th style="width: 10%" class="text-center">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody class="table-group-divider">
+                  <tr v-if="!lists.length">
+                    <td colspan="9" class="text-center text-muted py-5">
+                      No suppliers found.
+                    </td>
+                  </tr>
+
+                  <tr
+                    v-for="(list, index) in lists"
+                    :key="list.id"
+                    class="cursor-pointer"
+                    :class="{ 'table-active': selectedRow === list.id }"
+                    @click="selectRow(list.id)"
+                  >
+                    <td class="text-center fw-semibold">
+                      {{ rowNumber(index) }}
+                    </td>
+                    <td>
+                      <h6 class="mb-0 fs-14 fw-semibold text-primary">
+                        {{ list.code }}
+                      </h6>
+                    </td>
+                    <td>
+                      <h6 class="mb-0 fs-14 fw-semibold">{{ list.name }}</h6>
+                      <p class="text-muted mb-0 fs-12">
+                        TIN: {{ list.tin || "-" }}
+                      </p>
+                      <p class="text-muted mb-0 fs-12">
+                        Created {{ formatDate(list.created_at) }}
+                      </p>
+                      <p
+                        v-if="list.approval_status === 'Pending Approval'"
+                        class="text-warning mb-0 fs-12 fw-semibold"
+                      >
+                        Awaiting Procurement Officer approval
+                      </p>
+                      <p
+                        v-else-if="list.approved_by"
+                        class="text-muted mb-0 fs-12"
+                      >
+                        Approved by {{ list.approved_by }}
+                      </p>
+                    </td>
+                    <td>
+                      <div
+                        class="text-truncate"
+                        style="max-width: 220px"
+                        v-b-tooltip.hover
+                        :title="list.address || 'No address provided'"
+                      >
+                        {{ list.address || "-" }}
+                      </div>
+                    </td>
+                    <td>
+                      <div
+                        v-if="list.conformes && list.conformes.length"
+                        class="d-flex flex-wrap gap-1"
+                      >
+                        <span
+                          v-for="(conforme, conformeIndex) in list.conformes.slice(0, 2)"
+                          :key="conforme.id || conformeIndex"
+                          class="badge bg-soft-info text-info px-2 py-1 fs-12 fw-medium rounded-pill"
+                        >
+                          {{ conforme.name }}
+                        </span>
+                        <span
+                          v-if="(list.conformes_count || 0) > 2"
+                          class="badge bg-soft-secondary text-secondary px-2 py-1 fs-12 fw-medium rounded-pill"
+                        >
+                          +{{ list.conformes_count - 2 }}
+                        </span>
+                      </div>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td>
+                      <span
+                        class="badge bg-soft-warning text-warning px-2 py-1 fs-12 fw-medium rounded-pill"
+                      >
+                        <i class="ri-attachment-2 me-1"></i>
+                        {{ list.attachments_count || 0 }}
+                      </span>
+                    </td>
+                    <td>
+                      {{ list.created_by || "System" }}
+                      <p class="text-muted mb-0 fs-12">
+                        {{ formatDate(list.created_at) }}
+                      </p>
+                      <p v-if="list.approved_at" class="text-muted mb-0 fs-12">
+                        Approved {{ formatDate(list.approved_at) }}
+                      </p>
+                    </td>
+                    <td>
+                      <b-badge :class="statusClass(list)" class="fs-11">
+                        {{ statusName(list) }}
+                      </b-badge>
+                    </td>
+                    <td>
+                      <div class="d-flex justify-content-center gap-1">
+                        <b-button
+                          v-if="canApproveSupplier(list)"
+                          size="sm"
+                          variant="success"
+                          class="btn-icon"
+                          style="border-radius: 8px"
+                          v-b-tooltip.hover
+                          title="Approve Supplier"
+                          @click.stop="requestApprove(list)"
+                        >
+                          <i class="ri-check-double-line"></i>
+                        </b-button>
+
+                        <b-button
+                          size="sm"
+                          variant="primary"
+                          class="btn-icon"
+                          style="border-radius: 8px"
+                          v-b-tooltip.hover
+                          title="Edit"
+                          @click.stop="editSupplier(list)"
+                        >
+                          <i class="ri-edit-line"></i>
+                        </b-button>
+
+                        <b-button
+                          v-if="canToggleStatus(list)"
+                          size="sm"
+                          :variant="list.is_active == 1 ? 'danger' : 'success'"
+                          class="btn-icon"
+                          style="border-radius: 8px"
+                          v-b-tooltip.hover
+                          :title="list.is_active == 1 ? 'Deactivate' : 'Activate'"
+                          @click.stop="toggleStatus(list)"
+                        >
+                          <i
+                            :class="
+                              list.is_active == 1
+                                ? 'ri-pause-circle-line'
+                                : 'ri-play-circle-line'
+                            "
+                          ></i>
+                        </b-button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="card-footer">
+                <Pagination
+                  v-if="meta && lists.length"
+                  class="ms-2 me-2 mt-n1"
+                  :lists="lists.length"
+                  :links="links"
+                  :pagination="meta"
+                  @fetch="fetch"
+                />
+              </div>
+            </div>
+          </div>
+        </b-card>
       </div>
-    </template>
-  </b-modal>
+    </div>
+  </BRow>
 
-  <!-- Pagination -->
-  <div class="d-flex justify-content-center mt-4" v-if="meta && lists.length > 0">
-    <Pagination @fetch="fetch" :lists="lists.length" :links="links" :pagination="meta" />
-  </div>
-
-  <SupplierModal :dropdowns="dropdowns" @add="fetch()" @update="fetch()" ref="create" />
+  <SupplierModal ref="create" :dropdowns="dropdowns" @add="fetch()" @update="fetch()" />
 
   <DeactivateModal
     :supplier="selectedSupplierForStatus"
     @cancel="cancelStatusChange"
-    @status-changed="onStatusChanged"
     @close="closeDeactivateModal"
+    @status-changed="onStatusChanged"
   />
+
+  <b-modal
+    v-model="showApproveModal"
+    style="--vz-modal-width: 600px"
+    title="Approve Supplier"
+    header-class="p-3 bg-light"
+    class="v-modal-custom"
+    modal-class="zoomIn"
+    centered
+    no-close-on-backdrop
+  >
+    <form class="customform">
+      <div class="m-5 text-center" v-if="selectedSupplierForApproval">
+        <div>
+          Are you sure you want to approve supplier
+          <span class="text-primary">"{{ selectedSupplierForApproval.name }}"</span>?
+        </div>
+
+        <div class="text-muted small mt-3">
+          Once approved, the supplier will follow its current active or inactive setting.
+        </div>
+      </div>
+    </form>
+
+    <template v-slot:footer>
+      <b-button
+        type="button"
+        variant="light"
+        :disabled="approvingSupplier"
+        @click="closeApproveModal()"
+        block
+      >
+        Close
+      </b-button>
+      <b-button
+        type="button"
+        variant="primary"
+        :disabled="approvingSupplier"
+        @click="confirmApproveSupplier()"
+        block
+      >
+        {{ approvingSupplier ? "Processing..." : "Approve Supplier" }}
+      </b-button>
+    </template>
+  </b-modal>
 </template>
+
 <script>
 import _ from "lodash";
+import { Head } from "@inertiajs/vue3";
+import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import SupplierModal from "@/Pages/Modules/FAIMS/Procurement/Modals/Supplier.vue";
 import DeactivateModal from "@/Pages/Modules/FAIMS/Procurement/Suppliers/Modals/Deactivate.vue";
-import Multiselect from "@vueform/multiselect";
 
 export default {
-  props: ["dropdowns"],
-  components: { SupplierModal, DeactivateModal, Pagination, PageHeader, Multiselect },
+  components: {
+    Head,
+    PageHeader,
+    Pagination,
+    SupplierModal,
+    DeactivateModal,
+    Multiselect,
+  },
+  props: {
+    dropdowns: {
+      type: Object,
+      default: () => ({}),
+    },
+  },
   data() {
     return {
-      currentUrl: window.location.origin,
       lists: [],
       meta: {},
       links: {},
+      selectedRow: null,
+      selectedSupplierForStatus: null,
+      selectedSupplierForApproval: null,
+      showApproveModal: false,
+      approvingSupplier: false,
       filter: {
         keyword: null,
         status: null,
       },
-      mode_of_procurements: {},
-      index: null,
-      showDetailsModal: false,
-      selectedSupplier: null,
-      selectedSupplierForStatus: null,
     };
   },
-  watch: {
-    "filter.keyword"(newVal) {
-      this.checkSearchStr(newVal);
+  computed: {
+    current_roles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
     },
-    "filter.status"(newVal) {
+    canApproveSuppliers() {
+      return this.current_roles.some((role) => {
+        return ["Procurement Officer", "Administrator"].includes(role);
+      });
+    },
+  },
+  watch: {
+    "filter.keyword"(value) {
+      this.checkSearchStr(value);
+    },
+    "filter.status"() {
       this.fetch();
     },
   },
-
   created() {
     this.fetch();
   },
   methods: {
-    checkSearchStr: _.debounce(function (string) {
+    checkSearchStr: _.debounce(function () {
       this.fetch();
     }, 300),
-    fetch(page_url) {
-      page_url = page_url || "/faims/suppliers";
+    fetch(pageUrl) {
+      const url = pageUrl || "/faims/suppliers";
+
       axios
-        .get(page_url, {
+        .get(url, {
           params: {
             keyword: this.filter.keyword,
             status: this.filter.status,
+            count: 10,
             option: "lists",
           },
         })
         .then((response) => {
-          if (response) {
-            this.lists = response.data.data;
-            this.meta = response.data.meta;
-            this.links = response.data.links;
-          }
+          this.lists = response.data.data;
+          this.meta = response.data.meta;
+          this.links = response.data.links;
         })
-        .catch((err) => console.log(err));
+        .catch((error) => console.log(error));
     },
-
     openSupplier() {
       this.$refs.create.show();
     },
-
     editSupplier(data) {
       this.$refs.create.edit(data);
     },
-
-    refresh() {
-      this.filter.status = null;
-      this.filter.keyword = null;
-      this.fetch();
+    requestApprove(supplier) {
+      this.selectedSupplierForApproval = supplier;
+      this.showApproveModal = true;
     },
+    closeApproveModal() {
+      this.showApproveModal = false;
+      this.selectedSupplierForApproval = null;
+      this.approvingSupplier = false;
+    },
+    confirmApproveSupplier() {
+      if (!this.selectedSupplierForApproval) {
+        return;
+      }
 
+      this.approvingSupplier = true;
+
+      axios
+        .patch(`/faims/suppliers/${this.selectedSupplierForApproval.id}/approve`)
+        .then((response) => {
+          const updatedSupplier = response?.data?.data;
+          const index = this.lists.findIndex((item) => item.id === updatedSupplier?.id);
+
+          if (index !== -1 && updatedSupplier) {
+            this.lists[index] = updatedSupplier;
+          } else {
+            this.fetch();
+          }
+
+          this.closeApproveModal();
+        })
+        .catch((error) => {
+          console.error(error);
+          this.approvingSupplier = false;
+        });
+    },
     toggleStatus(supplier) {
       this.selectedSupplierForStatus = supplier;
     },
-
     cancelStatusChange() {
       this.selectedSupplierForStatus = null;
     },
-
-    onStatusChanged(updatedSupplier) {
-      // Update the supplier in the list
-      const index = this.lists.findIndex(s => s.id === updatedSupplier.id);
-      if (index !== -1) {
-        this.lists[index] = updatedSupplier;
-      }
-      this.selectedSupplierForStatus = null;
-    },
-
     closeDeactivateModal() {
       this.selectedSupplierForStatus = null;
     },
+    onStatusChanged(updatedSupplier) {
+      const index = this.lists.findIndex((item) => item.id === updatedSupplier.id);
 
-    formatDate(dateString) {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
+      if (index !== -1) {
+        this.lists[index] = updatedSupplier;
+      } else {
+        this.fetch();
+      }
+
+      this.selectedSupplierForStatus = null;
+    },
+    selectRow(id) {
+      this.selectedRow = this.selectedRow === id ? null : id;
+    },
+    refresh() {
+      this.filter.keyword = null;
+      this.filter.status = null;
+      this.selectedRow = null;
+      this.fetch();
+    },
+    rowNumber(index) {
+      const currentPage = this.meta.current_page || 1;
+      const perPage = this.meta.per_page || this.lists.length || 0;
+
+      return (currentPage - 1) * perPage + index + 1;
+    },
+    canApproveSupplier(supplier) {
+      return this.canApproveSuppliers && supplier?.approval_status === "Pending Approval";
+    },
+    canToggleStatus(supplier) {
+      return supplier?.approval_status === "Approved";
+    },
+    statusName(supplier) {
+      return supplier.status?.name || (supplier.is_active == 1 ? "Active" : "Inactive");
+    },
+    statusClass(supplier) {
+      return supplier.status?.bg || (supplier.is_active == 1 ? "bg-success" : "bg-secondary");
+    },
+    formatDate(date) {
+      if (!date) {
+        return "-";
+      }
+
+      return new Date(date).toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric",
@@ -585,138 +499,186 @@ export default {
   },
 };
 </script>
+
 <style scoped>
-.search-box {
-  position: relative;
+.supplier-index-page {
+  --supplier-surface: #ffffff;
+  --supplier-surface-soft: #f7f9fc;
+  --supplier-border: rgba(148, 163, 184, 0.24);
+  --supplier-border-strong: rgba(148, 163, 184, 0.34);
+  --supplier-text: #1e293b;
+  --supplier-muted: #64748b;
+  --supplier-row-hover: rgba(37, 99, 235, 0.05);
 }
 
-.search-box input {
-  padding-left: 45px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 15px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6c757d;
-}
-
-.suppliers-table-container {
-  border-radius: 15px;
+.supplier-directory-card {
+  border-color: var(--supplier-border) !important;
+  border-radius: 16px;
   overflow: hidden;
 }
 
-.supplier-row {
-  transition: all 0.2s ease;
+.supplier-directory-card__header,
+.supplier-toolbar,
+.supplier-table-body,
+:deep(.supplier-directory-card .card-footer) {
+  border-color: var(--supplier-border) !important;
 }
 
-.supplier-row:hover {
-  background-color: rgba(0, 123, 255, 0.05);
+.supplier-directory-card__header,
+:deep(.supplier-directory-card .card-footer) {
+  background: var(--supplier-surface-soft) !important;
 }
 
-.supplier-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #007bff, #0056b3);
+.supplier-toolbar,
+.supplier-table-body {
+  background: var(--supplier-surface) !important;
+}
+
+.supplier-toolbar {
+  padding: 0.9rem 1rem !important;
+}
+
+.supplier-toolbar__group {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
 }
 
-.btn-icon {
-  width: 35px;
-  height: 35px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.supplier-toolbar__search {
+  flex: 1 1 420px;
+  min-width: 260px;
 }
 
-.empty-state {
-  padding: 3rem;
+.supplier-toolbar__status {
+  flex: 0 0 220px;
+  min-width: 200px;
 }
 
-/* Modal Styles */
-.supplier-avatar-large {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #007bff, #0056b3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  margin: 0 auto;
+:deep(.supplier-toolbar__group .input-group-text),
+.supplier-toolbar__search,
+:deep(.supplier-toolbar__status.multiselect) {
+  border-color: var(--supplier-border) !important;
+  border-radius: 12px !important;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-top: 1rem;
+:deep(.supplier-toolbar__group .input-group-text) {
+  background: var(--supplier-surface-soft) !important;
+  color: var(--supplier-muted) !important;
 }
 
-.stat-item {
-  text-align: center;
-  padding: 1rem;
-  background: rgba(0, 123, 255, 0.1);
-  border-radius: 10px;
+.supplier-toolbar__search {
+  background: var(--supplier-surface) !important;
+  color: var(--supplier-text) !important;
 }
 
-.stat-number {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #007bff;
-  display: block;
-  margin-bottom: 0.25rem;
+.supplier-toolbar__search::placeholder {
+  color: var(--supplier-muted);
 }
 
-.stat-label {
-  font-size: 0.8rem;
-  color: #6c757d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+:deep(.supplier-toolbar__status.multiselect),
+:deep(.supplier-toolbar__status .multiselect-wrapper),
+:deep(.supplier-toolbar__status .multiselect-tags) {
+  background: var(--supplier-surface) !important;
+  color: var(--supplier-text) !important;
 }
 
-.info-item {
-  margin-bottom: 1rem;
+:deep(.supplier-toolbar__status .multiselect-placeholder),
+:deep(.supplier-toolbar__status .multiselect-single-label) {
+  color: var(--supplier-muted) !important;
 }
 
-.info-item label {
-  display: block;
-  margin-bottom: 0.25rem;
+.supplier-table-body {
+  padding: 1rem !important;
 }
 
-.rep-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #28a745, #20c997);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
+.supplier-table-wrap {
+  border: 1px solid var(--supplier-border);
+  border-radius: 14px;
+  height: calc(100vh - 315px);
+  min-height: 360px;
+  overflow: auto;
 }
 
-.file-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ffc107, #fd7e14);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
+:deep(.supplier-table-wrap thead th) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--supplier-surface-soft) !important;
+  color: var(--supplier-muted) !important;
+  border-bottom: 1px solid var(--supplier-border) !important;
 }
 
-.file-actions {
-  opacity: 0;
-  transition: opacity 0.2s ease;
+:deep(.supplier-table-wrap tbody td) {
+  background: var(--supplier-surface);
+  color: var(--supplier-text);
+  border-bottom: 1px solid var(--supplier-border);
 }
 
-.attachments-list .card:hover .file-actions {
-  opacity: 1;
+:deep(.supplier-table-wrap.table-card) {
+  margin: 0;
+}
+
+:deep(.supplier-table-wrap.table-hover tbody tr:hover td),
+:deep(.supplier-table-wrap .table-hover tbody tr:hover td),
+:deep(.supplier-table-wrap tbody tr:hover td) {
+  background: var(--supplier-row-hover);
+}
+
+:deep(.supplier-index-page .table-active td) {
+  background: rgba(37, 99, 235, 0.08) !important;
+}
+
+:deep(.supplier-index-page .text-muted) {
+  color: var(--supplier-muted) !important;
+}
+
+:global([data-bs-theme="dark"]) .supplier-index-page {
+  --supplier-surface: #131d2b;
+  --supplier-surface-soft: #182235;
+  --supplier-border: rgba(148, 163, 184, 0.18);
+  --supplier-border-strong: rgba(148, 163, 184, 0.28);
+  --supplier-text: #e5edf7;
+  --supplier-muted: #9fb0c7;
+  --supplier-row-hover: rgba(96, 165, 250, 0.12);
+}
+
+:global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-dropdown) {
+  background: var(--supplier-surface) !important;
+  border-color: var(--supplier-border) !important;
+}
+
+:global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-option) {
+  color: var(--supplier-text) !important;
+}
+
+:global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-option.is-pointed),
+:global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-option.is-selected) {
+  background: var(--supplier-surface-soft) !important;
+}
+
+@media (max-width: 991px) {
+  .supplier-toolbar__search,
+  .supplier-toolbar__status,
+  .supplier-toolbar__group .btn {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .supplier-table-wrap {
+    height: auto;
+    max-height: 65vh;
+  }
+}
+
+@media (max-width: 767px) {
+  .supplier-directory-card {
+    border-radius: 12px;
+  }
+
+  .supplier-table-body,
+  .supplier-toolbar {
+    padding: 0.75rem !important;
+  }
 }
 </style>

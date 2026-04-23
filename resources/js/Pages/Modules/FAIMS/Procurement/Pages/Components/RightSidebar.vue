@@ -1,70 +1,36 @@
 <template>
-  <div
-    :class="['transition-all', isRightCollapsed ? 'col-md-1' : 'col-md-3']"
-    style="transition: all 0.3s ease; height: 100%"
-  >
-    <div
-      class="card h-90 mb-3 shadow-lg border-0"
-      style="
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 15px;
-        height: 100vh;
-      "
+  <div class="floating-comments-wrapper">
+    <button
+      class="floating-comment-trigger"
+      type="button"
+      @click="toggleRightSidebar"
+      :title="isRightCollapsed ? 'Open comments' : 'Close comments'"
     >
-      <div
-        class="card-header bg-gradient-primary text-white border-0 d-flex align-items-center justify-content-between"
-        style="border-radius: 15px 15px 0 0 !important; padding: 1rem"
-      >
-        <div v-if="!isRightCollapsed">
-          <h5 class="card-title mb-1">
+      <i class="ri-chat-1-line"></i>
+      <span v-if="commentCount > 0" class="badge bg-danger floating-comment-badge">{{ commentCount }}</span>
+    </button>
+
+    <transition name="comment-panel">
+      <div v-if="!isRightCollapsed" class="floating-comment-panel card shadow-lg border-0">
+        <div class="card-header bg-gradient-primary text-white border-0 d-flex align-items-center justify-content-between floating-comment-header">
+          <h5 class="card-title mb-0">
             <span class="position-relative me-2">
-              <i v-if="activeRightTab === 1" class="ri-chat-1-line"></i>
-              <i v-else-if="activeRightTab === 2" class="ri-file-list-line"></i>
-            <span v-if="activeRightTab === 1 && commentCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">{{ commentCount }}</span>
-            <span v-if="activeRightTab === 2 && logsCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">{{ logsCount }}</span>
+              <i class="ri-chat-1-line"></i>
+              <span v-if="commentCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">{{ commentCount }}</span>
             </span>
-            <span class="text-white">
-              {{ activeRightTab === 1 ? 'Procurement Comments' : 'Activity Logs' }}
-            </span>
+            <span class="text-white">Procurement Comments</span>
           </h5>
+          <button
+            @click="toggleRightSidebar"
+            class="btn btn-sm btn-light rounded-circle p-2 ms-2"
+            style="width: 36px; height: 36px"
+            type="button"
+          >
+            <i class="ri-close-line text-primary fs-6"></i>
+          </button>
         </div>
-        <button
-          @click="toggleRightSidebar"
-          class="btn btn-sm btn-light rounded-circle p-2 ms-2"
-          style="width: 40px; height: 40px"
-        >
-          <i
-            :class="isRightCollapsed ? 'ri-arrow-left-line' : 'ri-arrow-right-line'"
-            class="text-primary fs-6"
-          ></i>
-        </button>
-      </div>
-      <div
-        v-if="!isRightCollapsed"
-        class="card-body p-0"
-        style="
-          height: 100vh;
-          overflow: auto;
-          border-radius: 0 0 15px 15px;
-        "
-      >
-        <div class="p-3">
-          <div class="nav nav-tabs nav-justified mb-3">
-            <button
-              :class="['nav-link', activeRightTab === 1 ? 'active' : '']"
-              @click="showRightTab(1)"
-            >
-              <i class="ri-chat-1-line me-1"></i>Comments
-            </button>
-            <button
-              :class="['nav-link', activeRightTab === 2 ? 'active' : '']"
-              @click="showRightTab(2)"
-            >
-              <i class="ri-file-list-line me-1"></i>Logs
-            </button>
-          </div>
-          <div v-if="activeRightTab === 1" class="comments-section">
-            <!-- Comment Input Form -->
+        <div class="card-body p-0 floating-comment-body">
+          <div class="p-3">
             <div class="comment-form mb-4">
               <div class="d-flex align-items-start">
                 <div class="comment-avatar me-3">
@@ -81,35 +47,27 @@
                     class="form-control mb-2"
                     rows="3"
                     placeholder="Add a comment..."
-                    :disabled="form.processing"
+                    :disabled="commentSubmitting"
                   ></textarea>
+                  <small v-if="form.errors.content" class="text-danger d-block mb-2">{{ form.errors.content }}</small>
                   <div class="d-flex justify-content-end">
                     <button
                       @click="submitComment"
-                      :disabled="!newComment.trim() || form.processing"
+                      :disabled="!newComment.trim() || commentSubmitting"
                       class="btn btn-primary btn-sm"
                     >
                       <i class="ri-send-plane-line me-1"></i>
-                      {{ form.processing ? 'Posting...' : 'Post Comment' }}
+                      {{ commentSubmitting ? 'Posting...' : 'Post Comment' }}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div
-              v-if="sortedComments && sortedComments.length > 0"
-              class="comments-list"
-            >
-              <div
-                v-for="comment in sortedComments"
-                :key="comment.id"
-                class="comment-item p-3 mb-3"
-              >
-
+            <div v-if="sortedComments && sortedComments.length > 0" class="comments-list">
+              <div v-for="comment in sortedComments" :key="comment.id" class="comment-item p-3 mb-3">
                 <div class="d-flex align-items-start">
                   <div class="comment-avatar me-3">
-
                     <img
                       :src="comment.user?.profile?.avatar ? '/storage/' + comment.user.profile.avatar : '/images/avatars/avatar.jpg'"
                       alt="image"
@@ -118,37 +76,21 @@
                     />
                   </div>
                   <div class="flex-grow-1">
-                    <div
-                      class="comment-header d-flex justify-content-between align-items-start mb-2"
-                    >
+                    <div class="comment-header d-flex justify-content-between align-items-start mb-2">
                       <div>
-                         <strong
-                            >{{ comment.user?.profile?.fullname }}</strong
-                          >
-                        <small class="text-muted fs-10">{{ comment.source }} - {{
-                          formatDate(comment.created_at)
-                        }}</small>
+                        <strong>{{ comment.user?.profile?.fullname }}</strong>
+                        <small class="text-muted fs-10">{{ comment.source }} - {{ formatDate(comment.created_at) }}</small>
                       </div>
                     </div>
                     <div class="comment-content mb-2">
                       <p class="mb-0">{{ comment.content }}</p>
                     </div>
-                    <div
-                      v-if="comment.replies && comment.replies.length > 0"
-                      class="replies-section mt-3"
-                    >
-                      <div
-                        v-for="reply in comment.replies"
-                        :key="reply.id"
-                        class="reply-item p-2 mb-2 ms-4 border-start"
-                      >
+                    <div v-if="comment.replies && comment.replies.length > 0" class="replies-section mt-3">
+                      <div v-for="reply in comment.replies" :key="reply.id" class="reply-item p-2 mb-2 ms-4 border-start">
                         <div class="d-flex align-items-start">
                           <div class="reply-avatar me-2">
                             <img
-                              :src="
-                                reply.user?.profile?.avatar ||
-                                '/images/avatars/avatar.jpg'
-                              "
+                              :src="reply.user?.profile?.avatar || '/images/avatars/avatar.jpg'"
                               :alt="reply.user?.profile?.firstname"
                               class="rounded-circle"
                               style="width: 30px; height: 30px; object-fit: cover"
@@ -156,13 +98,8 @@
                           </div>
                           <div class="flex-grow-1">
                             <div class="reply-header mb-1">
-                              <strong class="small"
-                                >{{ reply.user?.profile?.firstname }}
-                                {{ reply.user?.profile?.lastname }}</strong
-                              >
-                              <small class="text-muted ms-2">{{
-                                formatDate(reply.created_at)
-                              }}</small>
+                              <strong class="small">{{ reply.user?.profile?.firstname }} {{ reply.user?.profile?.lastname }}</strong>
+                              <small class="text-muted ms-2">{{ formatDate(reply.created_at) }}</small>
                             </div>
                             <div class="reply-content">
                               <p class="mb-0 small">{{ reply.content }}</p>
@@ -179,182 +116,9 @@
               <small>No comments yet. Be the first to comment!</small>
             </div>
           </div>
-          <div v-if="activeRightTab === 2" class="logs-section">
-            <div v-if="logs && logs.length > 0" class="logs-list">
-              <div v-for="log in logs" :key="log.id" class="log-item p-3 mb-3">
-                <div class="d-flex justify-content-between align-items-start">
-                  <div class="flex-grow-1">
-                    <div class="log-description mb-2">
-                      <strong>{{ log.description }}</strong>
-                    </div>
-                    <div class="log-details small text-muted">
-                    
-                      <span v-if="log.causer">
-                        <i class="ri-user-line me-1"></i>{{ log.causer.profile?.fullname || log.causer.name }}
-                      </span>
-                      <span class="ms-2">
-                        <i class="ri-time-line me-1"></i
-                        >{{ formatDate(log.created_at) }}
-                      </span>
-                    </div>
-                    <div
-                      v-if="log.changes && Object.keys(log.changes).length > 0"
-                      class="log-changes mt-2"
-                    >
-                      <div class="small fw-bold text-muted mb-1">Changes:</div>
-                      <div
-                        v-for="(value, key) in log.changes"
-                        :key="key"
-                        class="change-item"
-                      >
-                        <span class="change-key">{{ key }}:</span>
-                        <span class="change-value">{{ value }}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="log-icon">
-                    <i class="ri-file-list-line fs-4"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-else class="text-center text-muted mt-5">
-              <i class="ri-file-list-line fs-1"></i>
-              <p class="mt-2">No logs available</p>
-              <small>Activity logs will appear here</small>
-            </div>
-          </div>
-          <div v-if="activeRightTab === 3" class="status-flow-section">
-            <!-- Compact Status Header -->
-            <div class="status-flow-header-compact mb-3">
-              <div class="d-flex align-items-center">
-                <i class="ri-flow-chart text-white me-2 fs-5"></i>
-                <div>
-                  <h6 class="mb-0 text-white fw-bold">Procurement Progress</h6>
-                  <small class="text-white">Track status</small>
-                </div>
-              </div>
-            </div>
-
-            <!-- Main Status - Compact Timeline Design -->
-            <div class="status-timeline-compact mb-3">
-              <div class="timeline-header d-flex align-items-center justify-content-between mb-2">
-                <small class="text-muted fw-bold">
-                  <i class="ri-route-line me-1"></i>Main Status
-                </small>
-                <span class="badge bg-primary badge-sm">{{ procurement.status?.name }}</span>
-              </div>
-              <div class="timeline-container">
-                <div class="timeline-track">
-                  <div
-                    v-for="(status, index) in statusFlow"
-                    :key="status.name"
-                    class="timeline-step"
-                    :class="{ 'active': status.isCurrent, 'completed': status.isPast, 'pending': !status.isCurrent && !status.isPast }"
-                    :style="{ cursor: 'pointer' }"
-                    @click="openStatusTip(status.name)"
-                  >
-                    <div class="timeline-dot" :class="{ 'pulse': status.isCurrent }">
-                      <i v-if="status.isPast" class="ri-check-line"></i>
-                      <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
-                      <i v-else class="ri-circle-line"></i>
-                    </div>
-                    <div class="timeline-label">
-                      <small class="fw-bold">{{ status.name }}</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sub Status - Compact Timeline Design -->
-            <div v-if="procurement.sub_status" class="status-timeline-compact">
-              <div class="timeline-header d-flex align-items-center justify-content-between mb-2">
-                <small class="text-muted fw-bold">
-                  <i class="ri-git-branch-line me-1"></i>Sub Status
-                </small>
-                <span class="badge bg-info badge-sm">{{ procurement.sub_status?.name }}</span>
-              </div>
-              <div class="timeline-container">
-                <div class="timeline-track">
-                  <div
-                    v-for="(status, index) in subStatusFlow"
-                    :key="status.name"
-                    class="timeline-step"
-                    :class="{ 'active': status.isCurrent, 'completed': status.isPast, 'pending': !status.isCurrent && !status.isPast }"
-                    :style="{ cursor: 'pointer' }"
-                    @click="openStatusTip(status.name)"
-                  >
-                    <div class="timeline-dot" :class="{ 'pulse': status.isCurrent }">
-                      <i v-if="status.isPast" class="ri-check-line"></i>
-                      <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
-                      <i v-else class="ri-circle-line"></i>
-                    </div>
-                    <div class="timeline-label">
-                      <small class="fw-bold">{{ status.name }}</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-else class="no-substatus-compact">
-              <div class="text-center py-2">
-                <i class="ri-information-line text-muted fs-4 mb-1"></i>
-                <small class="text-muted d-block">No sub status available</small>
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
-      <div
-        v-else
-        class="card-body p-0"
-        style="
-          height: 100vh;
-          overflow: auto;
-          border-radius: 0 0 15px 15px;
-        "
-      >
-        <div class="p-2 d-flex flex-column align-items-center">
-          <button
-            :class="[
-              'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-              activeRightTab === 1
-                ? 'bg-primary text-white shadow-sm'
-                : 'bg-white text-dark hover-bg-light',
-            ]"
-            @click="showRightTab(1)"
-            style="transition: all 0.3s ease; width: 50px; height: 50px; position: relative;"
-            v-b-tooltip.hover
-            title="Comments"
-          >
-            <i class="ri-chat-1-line fs-5"></i>
-            <span v-if="commentCount > 0" class="badge bg-danger"
-            style="position: absolute; top: -5px; right: -5px; font-size: 0.9rem; padding: 0.2rem 0.4rem; font-weight: bold;">
-            {{ commentCount }}
-            </span>
-          </button>
-          <button
-            :class="[
-              'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-              activeRightTab === 2
-                ? 'bg-primary text-white shadow-sm'
-                : 'bg-white text-dark hover-bg-light',
-            ]"
-            @click="showRightTab(2)"
-            style="transition: all 0.3s ease; width: 50px; height: 50px; position: relative;"
-            v-b-tooltip.hover
-            title="Logs"
-          >
-            <i class="ri-file-list-line fs-5"></i>
-            <span v-if="logsCount > 0" class="badge bg-danger" style="position: absolute; top: -5px; right: -5px; font-size: 0.9rem; padding: 0.2rem 0.4rem; font-weight: bold;">
-              {{ logsCount }}
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
+    </transition>
     <b-modal
       v-model="showStatusTipModal"
       header-class="p-3 bg-light"
@@ -390,6 +154,7 @@
 
 <script>
 import { useForm } from "@inertiajs/vue3";
+import axios from "axios";
 
 export default {
   props: ["procurement", "logs", "isRightCollapsed"],
@@ -398,6 +163,7 @@ export default {
     return {
       activeRightTab: 1,
       newComment: '',
+      commentSubmitting: false,
       form: useForm({
         content: '',
       }),
@@ -409,9 +175,16 @@ export default {
     };
   },
   computed: {
+    currentRoles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    hasProcurementWorkflowRole() {
+      return this.currentRoles.some((role) =>
+        ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role)
+      );
+    },
     isEmployeeOnlyRole() {
-      const roles = this.$page.props.roles || [];
-      return roles.length === 1 && roles.includes("Employee");
+      return !this.hasProcurementWorkflowRole;
     },
     logsCount() {
       return this.logs ? this.logs.length : 0;
@@ -515,7 +288,7 @@ export default {
           { name: 'NOA Conformed', isCurrent: false },
           { name: 'PO Issued', isCurrent: false },
           { name: 'PO Conformed', isCurrent: false },
-          { name: 'Delivered/For Inspection', isCurrent: false },
+          { name: 'Items Delivered', isCurrent: false },
           { name: 'Completed', isCurrent: false },
         ];
       } else {
@@ -532,7 +305,7 @@ export default {
           { name: 'NOA Conformed', isCurrent: currentStatus === 'NOA Conformed' },
           { name: 'PO Issued', isCurrent: currentStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentStatus === 'PO Conformed' },
-          { name: 'Delivered/For Inspection', isCurrent: currentStatus === 'Delivered/For Inspection' },
+          { name: 'Items Delivered', isCurrent: currentStatus === 'Items Delivered' || currentStatus === 'Delivered/For Inspection' },
           { name: 'Completed', isCurrent: currentStatus === 'Completed' },
         ];
       }
@@ -561,7 +334,7 @@ export default {
           { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
           { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'Delivered/For Inspection' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'Items Delivered' || currentSubStatus === 'Delivered/For Inspection' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       } else if (currentStatus === 'Re-award') {
@@ -571,7 +344,7 @@ export default {
           { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
           { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'Delivered/For Inspection' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'Items Delivered' || currentSubStatus === 'Delivered/For Inspection' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       } else {
@@ -585,7 +358,7 @@ export default {
           { name: 'NOA Served to Supplier', isCurrent: currentSubStatus === 'NOA Served to Supplier' },
           { name: 'NOA Conformed', isCurrent: currentSubStatus === 'NOA Conformed' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'Delivered/For Inspection' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'Items Delivered' || currentSubStatus === 'Delivered/For Inspection' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       }
@@ -598,8 +371,8 @@ export default {
     },
   },
   mounted() {
-    const savedTab = parseInt(localStorage.getItem("activeRightTab")) || 1;
-    this.activeRightTab = [1, 2].includes(savedTab) ? savedTab : 1;
+    this.activeRightTab = 1;
+    localStorage.setItem("activeRightTab", "1");
     this.listenForComments();
   },
   methods: {
@@ -607,9 +380,8 @@ export default {
       this.$emit("toggleRightSidebar");
     },
     showRightTab(tab) {
-      const nextTab = [1, 2].includes(tab) ? tab : 1;
-      this.activeRightTab = nextTab;
-      localStorage.setItem("activeRightTab", nextTab);
+      this.activeRightTab = 1;
+      localStorage.setItem("activeRightTab", "1");
     },
     openStatusTip(statusName) {
       const assigned = this.getAssignedForStep(statusName);
@@ -655,6 +427,7 @@ export default {
           "PO Created": "Issue purchase order",
           "PO Issued": "Wait for supplier conformity",
           "PO Conformed": "Proceed to delivery and inspection",
+          "Items Delivered": "Complete inspection and acceptance",
           "Delivered/For Inspection": "Complete inspection and acceptance",
           Completed: "Process is completed",
         };
@@ -670,7 +443,8 @@ export default {
         "For Approval": ["For Approval of BAC Resolution"],
         "NOA Served": ["NOA Served to Supplier"],
         "NOA Confirmed": ["NOA Conformed"],
-        Delivered: ["PO Delivered/For Inspection", "Delivered/For Inspection"],
+        "Items Delivered": ["PO Items Delivered", "Items Delivered", "PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"],
+        Delivered: ["PO Items Delivered", "Items Delivered", "PO Delivered/For Inspection", "Delivered/For Inspection"],
       };
       return map[stepName] || [stepName];
     },
@@ -690,52 +464,84 @@ export default {
       });
     },
     submitComment() {
-      if (!this.newComment.trim()) return;
+      const content = this.newComment.trim();
+      if (!content || this.commentSubmitting) return;
 
-      this.form.content = this.newComment;
-      this.form.post(`/faims/procurements/${this.procurement.id}/comments`, {
-        onSuccess: () => {
-          this.newComment = '';
+      this.commentSubmitting = true;
+      this.form.clearErrors();
+
+      axios
+        .post(
+          `/faims/procurements/${this.procurement.id}/comments`,
+          { content },
+          {
+            headers: {
+              Accept: "application/json",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+          }
+        )
+        .then((response) => {
+          if (response.data?.data) {
+            this.addIncomingComment(response.data.data);
+          }
+
+          this.newComment = "";
           this.form.reset();
-          // No need to reload since we listen for real-time updates
-        },
-        onError: () => {
-          // Handle error if needed
+        })
+        .catch((error) => {
+          const validationErrors = error.response?.data?.errors || {};
+          this.form.setError(validationErrors);
+        })
+        .finally(() => {
+          this.commentSubmitting = false;
+        });
+    },
+    addIncomingComment(comment) {
+      if (comment.commentable_type === 'App\\Models\\ProcurementBac') {
+        const bac = this.procurement.bac_resolutions?.find(b => b.id === comment.commentable_id);
+        if (bac) {
+          if (!Array.isArray(bac.comments)) {
+            bac.comments = [];
+          }
+          bac.comments.push(comment);
         }
-      });
+      } else if (comment.commentable_type === 'App\\Models\\ProcurementBacNoa') {
+        const noa = this.procurement.noas?.find(n => n.id === comment.commentable_id);
+        if (noa) {
+          if (!Array.isArray(noa.comments)) {
+            noa.comments = [];
+          }
+          noa.comments.push(comment);
+        }
+      } else if (comment.commentable_type === 'App\\Models\\ProcurementNoaPo') {
+        const po = this.procurement.pos?.find(p => p.id === comment.commentable_id);
+        if (po) {
+          if (!Array.isArray(po.comments)) {
+            po.comments = [];
+          }
+          po.comments.push(comment);
+        }
+      } else if (comment.commentable_type === 'App\\Models\\ProcurementQuotation') {
+        const quotation = this.procurement.quotations?.find(q => q.id === comment.commentable_id);
+        if (quotation) {
+          if (!Array.isArray(quotation.comments)) {
+            quotation.comments = [];
+          }
+          quotation.comments.push(comment);
+        }
+      } else {
+        if (!Array.isArray(this.procurement.comments)) {
+          this.procurement.comments = [];
+        }
+        this.procurement.comments.push(comment);
+      }
     },
     listenForComments() {
       if (window.Echo) {
         window.Echo.private(`procurement.${this.procurement.id}`)
           .listen('.comment.added', (e) => {
-            // Add the new comment to the appropriate list based on commentable_type
-            const comment = e.comment;
-            if (comment.commentable_type === 'App\\Models\\ProcurementBac') {
-              const bac = this.procurement.bac_resolutions.find(b => b.id === comment.commentable_id);
-              if (bac && bac.comments) {
-                bac.comments.push(comment);
-              }
-            } else if (comment.commentable_type === 'App\\Models\\ProcurementBacNoa') {
-              const noa = this.procurement.noas.find(n => n.id === comment.commentable_id);
-              if (noa && noa.comments) {
-                noa.comments.push(comment);
-              }
-            } else if (comment.commentable_type === 'App\\Models\\ProcurementNoaPo') {
-              const po = this.procurement.pos.find(p => p.id === comment.commentable_id);
-              if (po && po.comments) {
-                po.comments.push(comment);
-              }
-            } else if (comment.commentable_type === 'App\\Models\\ProcurementQuotation') {
-              const quotation = this.procurement.quotations.find(q => q.id === comment.commentable_id);
-              if (quotation && quotation.comments) {
-                quotation.comments.push(comment);
-              }
-            } else {
-              // Procurement comment
-              if (this.procurement.comments) {
-                this.procurement.comments.push(comment);
-              }
-            }
+            this.addIncomingComment(e.comment);
           });
       }
     },
@@ -744,6 +550,81 @@ export default {
 </script>
 
 <style scoped>
+.floating-comments-wrapper {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1050;
+}
+
+.floating-comment-trigger {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a5fa7 0%, #31488f 100%);
+  color: #fff;
+  box-shadow: 0 18px 36px rgba(49, 72, 143, 0.28);
+  font-size: 1.4rem;
+}
+
+.floating-comment-trigger:hover {
+  transform: translateY(-2px);
+}
+
+.floating-comment-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  font-size: 0.7rem;
+}
+
+.floating-comment-panel {
+  position: absolute;
+  right: 0;
+  bottom: 78px;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.floating-comment-header {
+  padding: 1rem;
+}
+
+.floating-comment-body {
+  max-height: min(70vh, 760px);
+  overflow: auto;
+  border-radius: 0 0 18px 18px;
+}
+
+.comment-panel-enter-active,
+.comment-panel-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.comment-panel-enter-from,
+.comment-panel-leave-to {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+}
+
+@media (max-width: 768px) {
+  .floating-comments-wrapper {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .floating-comment-panel {
+    width: min(360px, calc(100vw - 24px));
+    right: -4px;
+    bottom: 74px;
+  }
+}
+
 /* Enhanced Comment Avatar Styling */
 .comment-avatar {
   position: relative;

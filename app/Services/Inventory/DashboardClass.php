@@ -2,57 +2,51 @@
 
 namespace App\Services\Inventory;
 
-use App\Models\Inventory;
+use App\Models\InventoryItem;
+use App\Models\InventoryReceiving;
 use App\Models\InventoryStock;
-use App\Services\DropdownClass;
+use App\Models\InventoryWithdrawal;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
 
 class DashboardClass
 {
-    protected $dropdown;
-
-    public function __construct(DropdownClass $dropdown)
-    {
-        $this->dropdown = $dropdown;
-    }
-
     public function dashboard(array $filters = [])
     {
-        $hasInventories = Schema::hasTable('inventories');
+        $hasItems = Schema::hasTable('inventory_items');
         $hasStocks = Schema::hasTable('inventory_stocks');
+        $hasReceivings = Schema::hasTable('inventory_receivings');
+        $hasWithdrawals = Schema::hasTable('inventory_withdrawals');
 
         [$period, $startDate, $endDate] = $this->resolveDateRange((string) ($filters['period'] ?? 'monthly'));
 
-        $totalItems = $hasInventories ? Inventory::count() : 0;
+        $itemBaseQuery = $hasItems ? InventoryItem::query() : null;
+        $stockBaseQuery = $hasStocks ? InventoryStock::query() : null;
 
-        $lowStockItems = ($hasInventories && $hasStocks)
-            ? Inventory::whereHas('stocks', function (Builder $q) use ($startDate, $endDate) {
-                $this->applyDateRange($q, $startDate, $endDate, 'last_updated');
-                $q->whereColumn('quantity', '<=', 'inventories.min_stock_level');
-            })->count()
-            : 0;
-
-        $outOfStock = ($hasInventories && $hasStocks)
-            ? Inventory::whereHas('stocks', function (Builder $q) use ($startDate, $endDate) {
-                $this->applyDateRange($q, $startDate, $endDate, 'last_updated');
-                $q->where('quantity', 0);
-            })->count()
-            : 0;
-
-        $stockBaseQuery = InventoryStock::query();
-        if ($hasStocks) {
-            $this->applyDateRange($stockBaseQuery, $startDate, $endDate, 'last_updated');
+        if ($itemBaseQuery) {
+            $this->applyDateRange($itemBaseQuery, $startDate, $endDate);
         }
 
-        $totalQuantity = $hasStocks ? (clone $stockBaseQuery)->sum('quantity') : 0;
+        if ($stockBaseQuery) {
+            $this->applyDateRange($stockBaseQuery, $startDate, $endDate, 'entry_date');
+        }
 
-        $byCategory = ($hasInventories && $hasStocks)
-            ? Inventory::with('category')
-                ->selectRaw('category_id, COUNT(*) as count, SUM(stocks.quantity) as total_qty')
-                ->join('inventory_stocks as stocks', 'inventories.id', '=', 'stocks.inventory_id')
-                ->whereBetween('stocks.last_updated', [$startDate, $endDate])
+        $totalItems = $hasItems ? (clone $itemBaseQuery)->count() : 0;
+        $totalQuantity = $hasItems ? (clone $itemBaseQuery)->sum('quantity') : 0;
+        $lowStockItems = $hasItems ? (clone $itemBaseQuery)->whereBetween('quantity', [1, 5])->count() : 0;
+        $outOfStock = $hasItems ? (clone $itemBaseQuery)->where('quantity', '<=', 0)->count() : 0;
+        $totalStocks = $hasStocks ? (clone $stockBaseQuery)->count() : 0;
+        $receivingsCount = $hasReceivings
+            ? InventoryReceiving::query()->whereBetween('received_at', [$startDate, $endDate])->count()
+            : 0;
+        $withdrawalsCount = $hasWithdrawals
+            ? InventoryWithdrawal::query()->whereBetween('released_at', [$startDate, $endDate])->count()
+            : 0;
+
+        $byCategory = $hasItems
+            ? InventoryItem::with('category')
+                ->selectRaw('category_id, COUNT(*) as count, SUM(quantity) as total_qty')
+                ->whereBetween('created_at', [$startDate, $endDate])
                 ->groupBy('category_id')
                 ->get()
                 ->map(fn ($item) => [
@@ -62,53 +56,45 @@ class DashboardClass
                 ])
             : collect();
 
-        $recent = $hasStocks
-            ? (clone $stockBaseQuery)
-                ->with(['inventory.category', 'inventory.unit'])
-                ->orderBy('last_updated', 'desc')
+        $recent = $hasItems
+            ? InventoryItem::with(['stock:id,code,name', 'category:id,name'])
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get()
-                ->map(function ($stock) {
-                    $itemName = $stock->inventory->name ?? '-';
-                    $category = $stock->inventory->category->name ?? '-';
-                    $unit = $stock->inventory->unit->name ?? '-';
-
+                ->map(function ($item) {
                     return [
-                        'id' => $stock->id,
-                        'code' => 'STK-' . str_pad((string) $stock->id, 6, '0', STR_PAD_LEFT),
-                        'stock_category' => $category,
-                        'item_name' => $itemName,
-                        'unit' => $unit,
-                        'quantity' => (float) $stock->quantity,
-                        'unit_cost' => $stock->unit_cost ?? null,
-                        'expiration' => $stock->expiration_date ?? $stock->expiration ?? null,
+                        'id' => $item->id,
+                        'code' => $item->code,
+                        'stock_name' => $item->stock?->name ?? '-',
+                        'stock_code' => $item->stock?->code ?? '-',
+                        'stock_category' => $item->category?->name ?? '-',
+                        'item_name' => $item->name,
+                        'quantity' => (int) $item->quantity,
+                        'unit_cost' => (float) ($item->unit_cost ?? 0),
+                        'expiration' => optional($item->expiration)->format('M d, Y') ?? '-',
                     ];
                 })
                 ->values()
             : collect();
 
-        $byStatus = $hasStocks
-            ? (clone $stockBaseQuery)
-                ->groupBy('status')
-                ->selectRaw('status, SUM(quantity) as total')
-                ->pluck('total', 'status')
-            : collect();
-
-        $categories = $this->dropdown->dropdowns('Inventory Category');
-        $units = $this->dropdown->dropdowns('Unit');
-        $locations = $this->dropdown->dropdowns('Location');
+        $byStatus = [
+            'In Stock' => $hasItems ? InventoryItem::query()->whereBetween('created_at', [$startDate, $endDate])->where('quantity', '>', 5)->count() : 0,
+            'Low Stock' => $lowStockItems,
+            'Out of Stock' => $outOfStock,
+        ];
 
         return compact(
             'totalItems',
             'lowStockItems',
             'outOfStock',
             'totalQuantity',
+            'totalStocks',
+            'receivingsCount',
+            'withdrawalsCount',
             'byCategory',
             'recent',
             'byStatus',
-            'categories',
-            'units',
-            'locations',
             'period',
             'startDate',
             'endDate'
@@ -145,7 +131,7 @@ class DashboardClass
         return [$normalized, $start, $end];
     }
 
-    protected function applyDateRange(Builder $query, Carbon $start, Carbon $end, string $column = 'last_updated'): void
+    protected function applyDateRange($query, Carbon $start, Carbon $end, string $column = 'created_at'): void
     {
         $query->whereBetween($column, [$start, $end]);
     }

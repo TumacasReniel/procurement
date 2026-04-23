@@ -3,6 +3,7 @@
 namespace App\Services\FAIMS\Procurement;
 
 use App\Services\DropdownClass;
+use App\Models\OrgSignatory;
 use App\Models\Procurement;
 use App\Models\ProcurementQuotation;
 use App\Models\ProcurementBac;
@@ -15,6 +16,7 @@ use Spatie\Activitylog\Models\Activity;
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
 use App\Http\Resources\FAIMS\Procurement\ProcurementQuotationResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 use NumberFormatter;
 
 
@@ -28,30 +30,189 @@ class ViewClass
 
     public function procurements($request)
     {
+        $canSeeAllProcurements =
+            auth()->user()->hasRole('Procurement Officer') ||
+            auth()->user()->hasRole('Procurement Staff') ||
+            auth()->user()->hasRole('Administrator');
+
+        $procurementApprovalUserIds = $this->procurementApprovalUserIds();
+
         $data = ProcurementResource::collection(
             Procurement::with('status')
+                ->withCount('comments')
                 ->when($request->keyword, function ($query, $keyword) {
-                    $query->where('code', 'LIKE', "%{$keyword}%")
-                        ->orWhere('date', 'LIKE', "%{$keyword}%")
-                        ->orWhere('created_at', 'LIKE', "%{$keyword}%")
-                        ->orWhere('updated_at', 'LIKE', "%{$keyword}%");
+                    $query->where(function ($searchQuery) use ($keyword) {
+                        $searchQuery->where('code', 'LIKE', "%{$keyword}%")
+                            ->orWhere('date', 'LIKE', "%{$keyword}%")
+                            ->orWhere('created_at', 'LIKE', "%{$keyword}%")
+                            ->orWhere('updated_at', 'LIKE', "%{$keyword}%");
+                    });
+                })
+                ->when($request->report_type, function ($query, $reportType) {
+                    $modeNames = $this->modeNamesForReportType($reportType);
+
+                    if (empty($modeNames)) {
+                        $query->whereRaw('1 = 0');
+                    } else {
+                        $query->whereHas('codes.procurement_code.mode_of_procurement', function ($modeQuery) use ($modeNames) {
+                            $modeQuery->whereIn('name', $modeNames);
+                        });
+                    }
+                })
+                ->when($request->mode, function ($query, $mode) {
+                    $query->whereHas('codes.procurement_code', function ($codeQuery) use ($mode) {
+                        $codeQuery->where('mode_of_procurement_id', $mode);
+                    });
                 })
                 ->when($request->status, function ($query, $status) {
                     $query->where('status_id', $status);
                 })
-                // Only restrict to own requests for Employees; Procurement Officer/Staff and Administrator see all
-                ->when(
-                    auth()->user()->hasRole('Employee') &&
-                    !auth()->user()->hasRole('Procurement Officer') &&
-                    !auth()->user()->hasRole('Procurement Staff'),
-                    function ($query) {
-                        $query->where('created_by_id', auth()->id());
-                    }
-                )
-                ->orderBy('created_at', 'DESC')
+                // Employees only see their own PRs, while assigned signatories can also see PRs routed to them.
+                ->when(!$canSeeAllProcurements, function ($query) use ($procurementApprovalUserIds) {
+                    $query->where(function ($visibilityQuery) use ($procurementApprovalUserIds) {
+                        $visibilityQuery->where('created_by_id', auth()->id());
+
+                        if ($procurementApprovalUserIds->isNotEmpty()) {
+                            $visibilityQuery->orWhereIn('approved_by_id', $procurementApprovalUserIds);
+                        }
+                    });
+                })
+                ->when($request->sort === 'oldest', function ($query) {
+                    $query->orderBy('date', 'ASC')->orderBy('created_at', 'ASC');
+                })
+                ->when($request->sort === 'pr_asc', function ($query) {
+                    $query->orderBy('code', 'ASC');
+                })
+                ->when($request->sort === 'pr_desc', function ($query) {
+                    $query->orderBy('code', 'DESC');
+                })
+                ->when(!in_array($request->sort, ['oldest', 'pr_asc', 'pr_desc'], true), function ($query) {
+                    $query->orderBy('date', 'DESC')->orderBy('created_at', 'DESC');
+                })
                 ->paginate($request->count)
         );
         return $data;
+    }
+
+    public function chatProcurements($request)
+    {
+        $canSeeAllProcurements =
+            auth()->user()->hasRole('Procurement Officer') ||
+            auth()->user()->hasRole('Procurement Staff') ||
+            auth()->user()->hasRole('Administrator');
+
+        $procurementApprovalUserIds = $this->procurementApprovalUserIds();
+
+        $data = Procurement::query()
+            ->select(['id', 'code', 'purpose', 'title', 'created_at'])
+            ->withCount('comments')
+            ->withMax('comments', 'created_at')
+            ->with(['latest_comment.user.profile'])
+            ->when(!$canSeeAllProcurements, function ($query) use ($procurementApprovalUserIds) {
+                $query->where(function ($visibilityQuery) use ($procurementApprovalUserIds) {
+                    $visibilityQuery->where('created_by_id', auth()->id());
+
+                    if ($procurementApprovalUserIds->isNotEmpty()) {
+                        $visibilityQuery->orWhereIn('approved_by_id', $procurementApprovalUserIds);
+                    }
+                });
+            })
+            ->orderBy('created_at', 'DESC')
+            ->get()
+            ->map(function ($procurement) {
+                return [
+                    'id' => $procurement->id,
+                    'code' => $procurement->code,
+                    'purpose' => $procurement->purpose,
+                    'title' => $procurement->title,
+                    'created_at' => $procurement->created_at,
+                    'comments_count' => $procurement->comments_count ?? 0,
+                    'latest_comment_at' => $procurement->comments_max_created_at,
+                    'latest_comment' => $procurement->latest_comment ? [
+                        'id' => $procurement->latest_comment->id,
+                        'content' => $procurement->latest_comment->content,
+                        'created_at' => $procurement->latest_comment->created_at,
+                        'created_ago' => $procurement->latest_comment->created_ago,
+                        'user' => $procurement->latest_comment->user ? [
+                            'id' => $procurement->latest_comment->user->id,
+                            'username' => $procurement->latest_comment->user->username,
+                            'name' => $procurement->latest_comment->user->profile?->full_name
+                                ?? $procurement->latest_comment->user->username,
+                        ] : null,
+                    ] : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => $data,
+        ]);
+    }
+
+    public function commentThread($id)
+    {
+        $procurement = Procurement::with(
+            'division',
+            'status',
+            'sub_status',
+            'created_by.profile',
+            'requested_by.profile',
+            'approved_by.profile',
+            'comments.user.profile',
+            'comments.replies.user.profile'
+        )
+            ->withCount('comments')
+            ->findOrFail($id);
+
+        return response()->json([
+            'data' => $procurement,
+        ]);
+    }
+
+    protected function procurementApprovalUserIds(): Collection
+    {
+        return OrgSignatory::query()
+            ->where(function ($query) {
+                $query->where('user_id', auth()->id())
+                    ->orWhere('oic_id', auth()->id());
+            })
+            ->where('is_active', 1)
+            ->pluck('user_id')
+            ->push(auth()->id())
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    private function modeNamesForReportType($reportType)
+    {
+        $map = [
+            'goods_and_services' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Direct Contracting',
+                'Repeat Order',
+                'Shopping',
+                'Negotiated Procurement',
+                'Small Value Procurement',
+                'Lease of Venue and Community Facilities',
+                'Agency-to-Agency',
+            ],
+            'infrastructure' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Direct Contracting',
+                'Negotiated Procurement',
+                'Agency-to-Agency',
+            ],
+            'consulting' => [
+                'Competitive Public Bidding',
+                'Limited Source Bidding',
+                'Negotiated Procurement',
+            ],
+        ];
+
+        return $map[$reportType] ?? [];
     }
 
 
@@ -143,9 +304,18 @@ class ViewClass
             ->selectRaw('COUNT(*) as count')
             ->groupBy('unit_id');
 
+        $unit_amounts = (clone $query)
+            ->leftJoin('procurement_items', 'procurements.id', '=', 'procurement_items.procurement_id')
+            ->select('procurements.unit_id')
+            ->selectRaw('COALESCE(SUM(procurement_items.total_cost), 0) as distributed_amount')
+            ->groupBy('procurements.unit_id');
+
         $division_distribution = \App\Models\ListUnit::query()
             ->leftJoinSub($unit_counts, 'unit_counts', function ($join) {
                 $join->on('list_units.id', '=', 'unit_counts.unit_id');
+            })
+            ->leftJoinSub($unit_amounts, 'unit_amounts', function ($join) {
+                $join->on('list_units.id', '=', 'unit_amounts.unit_id');
             })
             ->leftJoin('list_dropdowns as divisions', function ($join) {
                 $join->on('list_units.division_id', '=', 'divisions.id')
@@ -154,6 +324,7 @@ class ViewClass
             ->selectRaw("list_units.name as unit_name")
             ->selectRaw("COALESCE(divisions.name, 'Unassigned') as division_name")
             ->selectRaw('COALESCE(unit_counts.count, 0) as count')
+            ->selectRaw('COALESCE(unit_amounts.distributed_amount, 0) as distributed_amount')
             ->orderByDesc('count')
             ->get()
             ->map(function ($item) {
@@ -161,6 +332,7 @@ class ViewClass
                     'division' => $item->unit_name,
                     'division_name' => $item->division_name,
                     'count' => (int) $item->count,
+                    'distributed_amount' => (float) $item->distributed_amount,
                 ];
             });
 
@@ -236,16 +408,23 @@ class ViewClass
 
     public function show($id, $request)
     {
+        $selectedNoa = $request->noa_id
+            ? ProcurementBacNoa::with('purchase_order', 'procurement_quotation.supplier.address', 'items')
+                ->find($request->noa_id)
+            : null;
 
         $procurement = Procurement::with(
             'division',
             'unit',
+            'classification',
             'codes',
             'items',
             'approved_by.profile',
             'items.item_unit_type',
             'items.status',
             'quotations.supplier',
+            'quotations.supplier.address',
+            'quotations.status',
             'quotations.items',
             'status',
             'sub_status',
@@ -256,6 +435,9 @@ class ViewClass
             'bac_resolutions.comments.replies.user.profile',
             'noas.comments.user.profile',
             'noas.comments.replies.user.profile',
+            'pos.status',
+            'pos.iars.status',
+            'pos.noa.items.item.item.item_unit_type',
             'pos.comments.user.profile',
             'pos.comments.replies.user.profile',
             'comments.user.profile',
@@ -312,8 +494,10 @@ class ViewClass
                     'dropdowns' => [
                         'divisions' => $this->dropdown->dropdowns('Division'),
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
+                        'classifications' => $this->dropdown->dropdowns('Classification'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
+                        'statuses' => $this->dropdown->statuses('Procurement'),
                         'requesters' => $this->dropdown->requesters(),
                         'approvers' => $this->dropdown->approvers(),
                         'supply_officers' => $this->dropdown->supply_officers(),
@@ -323,6 +507,7 @@ class ViewClass
                     ],
                     'tab' => $request->tab,
                     'procurement' => $procurement,
+                    'noa' => $selectedNoa,
                     'logs' => $logs,
                     'auth' => auth()->user()->load('profile'),
                     'option' => $request->option,
@@ -337,6 +522,7 @@ class ViewClass
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
+                        'statuses' => $this->dropdown->statuses('Procurement'),
                         'requesters' => $this->dropdown->requesters(),
                         'approvers' => $this->dropdown->approvers(),
                         'supply_officers' => $this->dropdown->supply_officers(),
@@ -355,11 +541,14 @@ class ViewClass
                 $procurement = Procurement::with(
                     'division',
                     'unit',
+                    'classification',
                     'codes',
                     'items',
                     'approved_by.profile',
                     'items.item_unit_type',
                     'quotations.supplier',
+                    'quotations.supplier.address',
+                    'quotations.status',
                     'quotations.items',
                     'status',
                     'sub_status',
@@ -379,6 +568,7 @@ class ViewClass
                     'dropdowns' => [
                         'divisions' => $this->dropdown->dropdowns('Division'),
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
+                        'classifications' => $this->dropdown->dropdowns('Classification'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
                         'requesters' => $this->dropdown->requesters(),
@@ -448,12 +638,13 @@ class ViewClass
 
             case 'purchase_order':
                 $noa = ProcurementBacNoa::with('purchase_order', 'procurement_quotation.supplier.address', 'items', )->findOrFail($request->noa_id);
-                $procurement = Procurement::with('division', 'unit', 'codes', 'items', 'approved_by.profile', 'items.item_unit_type', 'quotations.supplier', 'quotations.items', 'status', 'sub_status', 'requested_by', 'created_by', 'comments.user.profile', 'comments.replies.user.profile')->findOrFail($id);
+                $procurement = Procurement::with('division', 'unit', 'codes', 'items', 'approved_by.profile', 'items.item_unit_type', 'quotations.supplier', 'quotations.supplier.address', 'quotations.status', 'quotations.items', 'status', 'sub_status', 'requested_by', 'created_by', 'comments.user.profile', 'comments.replies.user.profile')->findOrFail($id);
                 return inertia('Modules/FAIMS/Procurement/View', [
                     'dropdowns' => [
                         'delivery_places' => $this->dropdown->dropdowns('Place of Delivery'),
+                        'statuses' => $this->dropdown->statuses('Procurement'),
                     ],
-                    'tab' => 5,
+                    'tab' => 6,
                     'procurement' => $procurement,
                     'noa' => $noa,
                     'option' => $request->option,

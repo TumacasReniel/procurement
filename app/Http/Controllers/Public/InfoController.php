@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Public;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\OrgChart;
+use App\Models\ListDropdown;
 use App\Http\Resources\Public\DesignationResource;
 
 class InfoController extends Controller
@@ -58,6 +59,12 @@ class InfoController extends Controller
     }
 
     private function bacDesignations(){
+        $this->ensureCommitteeSlots([
+            ['designation' => 'BAC Chairperson', 'order' => 4, 'count' => 1],
+            ['designation' => 'BAC Vice Chairperson', 'order' => 5, 'count' => 1],
+            ['designation' => 'BAC Member', 'order' => 6, 'count' => 3],
+        ]);
+
         $data = OrgChart::with('designation','assigned')
         ->with([
             'designationable.schedules' => function ($q) {
@@ -81,9 +88,7 @@ class InfoController extends Controller
             ->orWhere('name', 'like', 'BAC Vice Chairperson')
             ->orWhere('name', 'like', 'BAC Member');
         })
-        ->where('order', 4)
-        ->orWhere('order', 5)
-        ->orWhere('order', 6)
+        ->whereIn('order', [4, 5, 6])
         ->orderBy('order','ASC')
         ->get();
    
@@ -93,6 +98,11 @@ class InfoController extends Controller
 
 
     private function iarDesignations(){
+        $this->ensureCommitteeSlots([
+            ['designation' => 'IAR Chairperson', 'order' => 8, 'count' => 1],
+            ['designation' => 'IAR Member', 'order' => 10, 'count' => 3],
+        ]);
+
         $data = OrgChart::with('designation','assigned')
         ->with([
             'designationable.schedules' => function ($q) {
@@ -113,16 +123,72 @@ class InfoController extends Controller
         ->with('user:id,email,username','user.profile:user_id,firstname,middlename,lastname,suffix_id,avatar','oic:id,email,username','oic.profile:user_id,firstname,middlename,lastname,suffix_id,avatar')
         ->whereHas('designation', function($q) {
             $q->where('name', 'like', 'IAR Chairperson')
-            ->orWhere('name', 'like', 'IAR Vice Chairperson')
             ->orWhere('name', 'like', 'IAR Member');
         })
-        ->where('order', 8)
-        ->orWhere('order', 9)
-        ->orWhere('order', 10)
+        ->whereIn('order', [8, 10])
         ->orderBy('order','ASC')
         ->get();
    
 
         return DesignationResource::collection($data);
+    }
+
+    private function ensureCommitteeSlots(array $slots): void
+    {
+        $defaultAssignedId = ListDropdown::getID('Regional Office', 'Station');
+
+        foreach ($slots as $slot) {
+            $designationId = ListDropdown::getID($slot['designation'], 'Designation');
+
+            if (!$designationId) {
+                continue;
+            }
+
+            $charts = OrgChart::with('designationable')
+                ->where('designation_id', $designationId)
+                ->where('order', $slot['order'])
+                ->orderBy('id')
+                ->get();
+
+            foreach ($charts as $chart) {
+                $this->ensureSignatory($chart);
+            }
+
+            $missingCount = max(0, $slot['count'] - $charts->count());
+            $assignedId = $charts->value('assigned_id') ?? $defaultAssignedId;
+
+            if (!$assignedId) {
+                continue;
+            }
+
+            for ($i = 0; $i < $missingCount; $i++) {
+                $chart = new OrgChart();
+                $chart->order = $slot['order'];
+                $chart->designation_id = $designationId;
+                $chart->assigned_id = $assignedId;
+                $chart->user_id = null;
+                $chart->oic_id = null;
+                $chart->is_oic = 0;
+                $chart->is_active = 1;
+                $chart->save();
+
+                $this->ensureSignatory($chart);
+            }
+        }
+    }
+
+    private function ensureSignatory(OrgChart $chart): void
+    {
+        if ($chart->designationable) {
+            return;
+        }
+
+        $chart->designationable()->create([
+            'user_id' => $chart->user_id,
+            'oic_id' => $chart->oic_id,
+            'is_oic' => $chart->is_oic,
+            'is_topmanagement' => 0,
+            'is_active' => $chart->is_active,
+        ]);
     }
 }

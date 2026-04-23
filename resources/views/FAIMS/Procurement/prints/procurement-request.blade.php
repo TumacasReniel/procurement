@@ -149,7 +149,10 @@
             <td colspan="2"  rowspan="2" style="border: 1px solid black; padding: 4px;">Date: <strong>{{ date('m-d-Y', strtotime($procurement->date)) }}</strong></td>
         </tr>
         <tr>
-            <td colspan="4">Responsibility Center Code: <br>{{ $procurement->unit->responsibility_center_code }}</td>
+            <td colspan="4" style="border: 1px solid black; padding: 4px;">
+                Responsibility Center Code:
+                <u>{{ $procurement->unit?->responsibility_center_code ?? 'N/A' }}</u>
+            </td>
         </tr>
     </table>
 

@@ -1,7 +1,7 @@
 <template>
   <Head title="Notice of Awards" />
   <PageHeader title="Notice of Awards" pageTitle="All" />
-  <BRow>
+  <BRow class="procurement-index-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
         <div class="card-header bg-light-subtle">
@@ -77,6 +77,8 @@
                     <th style="width: 18%">Purpose</th>
                     <th style="width: 12%">Supplier</th>
                     <th style="width: 12%">Date Created</th>
+                    <th style="width: 14%">Served At</th>
+                    <th style="width: 14%">Conformed At</th>
                     <th style="width: 10%">Status</th>
                     <th style="width: 10%" class="text-center">Actions</th>
                   </tr>
@@ -115,12 +117,33 @@
                     </td>
                     <td>{{ formatDate(list.created_at) }}</td>
                     <td>
+                      <span v-if="list.served_at">{{ list.served_at }}</span>
+                      <span v-else class="text-muted">Not yet</span>
+                    </td>
+                    <td>
+                      <span v-if="list.conformed_at">{{ list.conformed_at }}</span>
+                      <span v-else class="text-muted">Not yet</span>
+                    </td>
+                    <td>
                       <b-badge :class="list.status.bg" class="fs-11">{{ list.status?.name }}</b-badge>
                     </td>
                     <td>
                       <div class="d-flex justify-content-center gap-1">
                         <b-button
-                          @click="viewProcurement(list)"
+                          v-if="canEditNOA(list)"
+                          @click.stop="editNOA(list)"
+                          size="sm"
+                          variant="success"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Edit NOA"
+                          style="border-radius: 8px;"
+                        >
+                          <i class="ri-edit-2-fill"></i>
+                        </b-button>
+
+                        <b-button
+                          @click.stop="viewProcurement(list)"
                           size="sm"
                           variant="info"
                           class="btn-icon"
@@ -132,7 +155,7 @@
                         </b-button>
 
                         <b-button
-                          @click="printNOA(list)"
+                          @click.stop="printNOA(list)"
                           size="sm"
                           variant="dark"
                           class="btn-icon"
@@ -163,6 +186,7 @@
       </div>
     </div>
   </BRow>
+  <NOA v-if="selectedProcurement" :procurement="selectedProcurement" @update="fetch()" ref="NOA" />
 </template>
 <script>
 import _ from "lodash";
@@ -170,11 +194,21 @@ import _ from "lodash";
 import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
+import NOA from "../Modals/NOA.vue";
 import { router } from "@inertiajs/vue3";
 
 export default {
-  components: { PageHeader, Pagination, Multiselect },
+  components: { PageHeader, Pagination, Multiselect, NOA },
   props: ["dropdowns"],
+  computed: {
+    canManageNOA() {
+      const roles = this.$page.props.roles || [];
+
+      return (
+        roles.includes("Procurement Staff") || roles.includes("Procurement Officer")
+      );
+    },
+  },
   data() {
     return {
       currentUrl: window.location.origin,
@@ -186,6 +220,7 @@ export default {
         status: null,
       },
       selectedRow: null,
+      selectedProcurement: null,
     };
   },
   watch: {
@@ -227,6 +262,15 @@ export default {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
+      });
+    },
+    canEditNOA(list) {
+      return list?.status?.name === "Pending" && this.canManageNOA && !!list?.procurement;
+    },
+    editNOA(list) {
+      this.selectedProcurement = list.procurement;
+      this.$nextTick(() => {
+        this.$refs.NOA?.edit(list);
       });
     },
     viewProcurement(list) {

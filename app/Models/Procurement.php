@@ -18,6 +18,7 @@ class Procurement extends Model
         'division_id',
         'unit_id',
         'fund_cluster_id',
+        'classification_id',
         'created_by_id',
         'requested_by_id',
         'approved_by_id',
@@ -47,6 +48,11 @@ class Procurement extends Model
     public function fund_cluster()
     {
         return $this->belongsTo('App\Models\ListDropdown', 'fund_cluster_id', 'id');
+    }
+
+    public function classification()
+    {
+        return $this->belongsTo('App\Models\ListDropdown', 'classification_id', 'id');
     }
 
     public function created_by()
@@ -110,9 +116,19 @@ class Procurement extends Model
         return $this->morphMany('App\Models\RequestComment', 'commentable');
     }
 
+    public function latest_comment()
+    {
+        return $this->morphOne('App\Models\RequestComment', 'commentable')->latestOfMany();
+    }
+
     public function assignments()
     {
         return $this->hasMany(\App\Models\ProcurementAssignment::class, 'procurement_id');
+    }
+
+    public function budget_logs()
+    {
+        return $this->hasMany(ProcurementCodeBudgetLog::class, 'procurement_id');
     }
 
     
@@ -135,7 +151,7 @@ class Procurement extends Model
 
     public function getActivitylogOptions(): LogOptions {
         return LogOptions::defaults()
-        ->logOnly(['code','date','purpose','title','division_id','unit_id','fund_cluster_id','created_by_id','requested_by_id','approved_by_id','reawarded_count','rebidded_count','quotation_count','status_id','sub_status_id'])
+        ->logOnly(['code','date','purpose','title','division_id','unit_id','fund_cluster_id','classification_id','created_by_id','requested_by_id','approved_by_id','reawarded_count','rebidded_count','quotation_count','status_id','sub_status_id'])
         ->setDescriptionForEvent(fn(string $eventName) => "Procurement {$eventName}")
         ->useLogName('Procurement')
         ->logOnlyDirty()
@@ -143,4 +159,3 @@ class Procurement extends Model
     }
 
 }
-

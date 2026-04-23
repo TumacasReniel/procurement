@@ -2,101 +2,14 @@
   <Head title="Profile" />
   <PageHeader title="Procurement Overview" pageTitle="User" />
 
-  <!-- Status Flow Banner -->
-  <div class="bg-primary mb-3 status-flow-panel">
-    <div class="status-flow-banner-header" @click="toggleStatusFlow" style="cursor: pointer;">
-      <div class="d-flex align-items-center flex-wrap gap-2">
-        <i class="ri-flow-chart text-white"></i>
-        <span class="fw-bold text-white">Procurement Progress</span>
-        <b-badge class="bg-white text-primary ms-2" style="font-size: 0.75rem; padding: 0.35rem 0.65rem;">{{ procurement.status?.name || 'N/A' }}</b-badge>
-        <b-badge v-if="procurement.sub_status" class="bg-white text-primary ms-1" style="font-size: 0.7rem; padding: 0.3rem 0.6rem;">{{ procurement.sub_status?.name }}</b-badge>
-      </div>
-      <i :class="isStatusFlowCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'" class="text-white" style="font-size: 1.2rem;"></i>
-    </div>
-    <div v-show="!isStatusFlowCollapsed" class="status-flow-banner-content">
-      <!-- Main Status Flow -->
-      <div class="status-flow-section">
-        <div class="status-flow-section-label">
-          <i class="ri-route-line me-1"></i>Main Status
-        </div>
-        <div class="status-flow-banner-track">
-          <div 
-            v-for="(status, index) in statusFlowNav" 
-            :key="status.name"
-            class="status-flow-banner-step-wrapper"
-          >
-            <!-- Connecting line before the step (except for first) -->
-            <div v-if="index > 0" 
-                 class="status-flow-banner-line"
-                 :class="{ 
-                   'connected': statusFlowNav[index - 1].isPast,
-                   'active': statusFlowNav[index - 1].isPast && status.isCurrent
-                 }">
-              <i class="ri-arrow-right-s-line"></i>
-            </div>
-            <div 
-              class="status-flow-banner-step"
-              :class="{ 'completed': status.isPast, 'active': status.isCurrent, 'pending': !status.isPast && !status.isCurrent }"
-              :style="{ cursor: 'pointer' }"
-              @click="openStatusTip(status.name)"
-            >
-              <div class="status-flow-banner-dot">
-                <i v-if="status.isPast" class="ri-check-line"></i>
-                <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
-                <i v-else class="ri-circle-line"></i>
-              </div>
-              <div class="status-flow-banner-label">{{ status.name }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Sub Status Flow -->
-      <div v-if="procurement.sub_status" class="status-flow-section mt-2">
-        <div class="status-flow-section-label">
-          <i class="ri-git-branch-line me-1"></i>Sub Status
-        </div>
-        <div class="status-flow-banner-track">
-          <div 
-            v-for="(status, index) in subStatusFlowNav" 
-            :key="status.name"
-            class="status-flow-banner-step-wrapper"
-          >
-            <!-- Connecting line before the step (except for first) -->
-            <div v-if="index > 0" 
-                 class="status-flow-banner-line"
-                 :class="{ 
-                   'connected': subStatusFlowNav[index - 1].isPast,
-                   'active': subStatusFlowNav[index - 1].isPast && status.isCurrent
-                 }">
-              <i class="ri-arrow-right-s-line"></i>
-            </div>
-            <div 
-              class="status-flow-banner-step"
-              :class="{ 'completed': status.isPast, 'active': status.isCurrent, 'pending': !status.isPast && !status.isCurrent }"
-              :style="{ cursor: 'pointer' }"
-              @click="openStatusTip(status.name)"
-            >
-              <div class="status-flow-banner-dot">
-                <i v-if="status.isPast" class="ri-check-line"></i>
-                <i v-else-if="status.isCurrent" class="ri-star-fill"></i>
-                <i v-else class="ri-circle-line"></i>
-              </div>
-              <div class="status-flow-banner-label">{{ status.name }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-
-  <div class="row">
+  <div class="row procurement-view-page">
     <div
+      v-if="!isEmployeeOnlyRole"
       :class="['transition-all', isCollapsed ? 'col-md-1' : 'col-md-3']"
       style="transition: all 0.3s ease"
     >
       <div
-        class="card shadow-lg border-0"
+        class="card shadow-lg border-0 procurement-view-shell-card"
         style="
           background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
           border-radius: 15px;
@@ -104,14 +17,14 @@
         "
       >
         <div
-          class="card-header bg-gradient-primary border-0 d-flex align-items-center justify-content-between"
+          class="card-header bg-gradient-primary border-0 d-flex align-items-center justify-content-between procurement-view-shell-header"
           style="border-radius: 15px 15px 0 0 !important; padding: 1rem"
         >
           <div v-if="!isCollapsed" class="text-center">
             <span class="card-title mb-1"
               ><i class="ri-file-list-3-line me-2"></i
-              ><span class="fs-5 text-muted">PR#:</span>
-              <span class="fw-bold">{{ procurement?.code }}</span>
+              ><span class="fs-5 procurement-view-pr-label">PR#:</span>
+              <span class="fw-bold procurement-view-pr-code">{{ procurement?.code }}</span>
             </span>
             <p class="card-title mb-0 fs-10">
               <span v-if="procurement.sub_status">Substatus:</span>
@@ -137,14 +50,14 @@
         </div>
         <div
           v-if="!isCollapsed"
-          class="card-body p-0"
+          class="card-body p-0 procurement-view-shell-body"
           style="
             height: 100vh;
             overflow: auto;
             border-radius: 0 0 15px 15px;
           "
         >
-          <div class="p-3">
+              <div class="p-3">
             <h6 class="text-muted mb-3 fw-bold">Navigation</h6>
             <div class="nav flex-column">
               <button
@@ -179,7 +92,7 @@
                     <i class="ri-file-text-line align-middle me-3 fs-5"></i>Request of
                     Quotations(RFQs)
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(2)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(2)"></i>
                 </span>
 
               </button>
@@ -201,7 +114,7 @@
                     <i class="ri-auction-line align-middle me-3 fs-5"></i>Abstract of
                     Bids(AOBs)
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(3)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(3)"></i>
                 </span>
 
               </button>
@@ -222,7 +135,7 @@
                   <span class="d-flex align-items-center">
                     <i class="ri-file-line align-middle me-3 fs-5"></i>BAC Resolutions
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(4)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(4)"></i>
                 </span>
               </button>
               <button
@@ -242,10 +155,11 @@
                   <span class="d-flex align-items-center">
                     <i class="ri-trophy-line align-middle me-3 fs-5"></i>Notice of Award(NOAs)
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(5)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(5)"></i>
                 </span>
               </button>
               <button
+                v-if="canShowPurchaseOrderTab"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
                   activeTab === 6
@@ -263,7 +177,7 @@
                     <i class="ri-shopping-cart-line align-middle me-3 fs-5"></i>Purchase
                     Order(POs)
                   </span>
-                  <i class="ri-check-line text-success ms-auto" v-if="isProcessDoneTab(6)"></i>
+                  <i class="ri-star-fill ms-auto tab-done-icon" v-if="isProcessDoneTab(6)"></i>
                 </span>
               </button>
             </div>
@@ -271,7 +185,7 @@
         </div>
         <div
           v-else
-          class="card-body p-0"
+          class="card-body p-0 procurement-view-shell-body"
           style="
             height: 100vh;
             overflow: auto;
@@ -366,6 +280,7 @@
               <span v-if="noasCount > 0" class="badge bg-danger" style="position: absolute; top: -5px; right: -5px; font-size: 0.6rem; padding: 0.1rem 0.2rem;">{{ noasCount }}</span>
             </button>
             <button
+              v-if="canShowPurchaseOrderTab"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
                 activeTab === 6
@@ -389,16 +304,12 @@
     <div
       :class="[
         'transition-all',
-        isCollapsed && isRightCollapsed
-          ? 'col-md-10'
-          : isCollapsed || isRightCollapsed
-          ? 'col-md-8'
-          : 'col-md-6',
+        isEmployeeOnlyRole ? 'col-12' : (isCollapsed ? 'col-md-11' : 'col-md-9'),
       ]"
       style="transition: all 0.3s ease; overflow-x: auto"
     >
       <div
-        class="card mb-3 shadow-lg border-0"
+        class="card mb-3 shadow-lg border-0 procurement-view-shell-card"
         style="
           background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
           border-radius: 15px;
@@ -406,26 +317,26 @@
         "
       >
         <div
-          class="card-body p-0"
+          class="card-body p-0 procurement-view-shell-body"
           style="
             height: 100vh;
             overflow: auto;
             border-radius: 0 0 15px 15px;
           "
         >
-          <div class="p-3">
+          <div :class="activeTab === 1 ? (isEmployeeOnlyRole ? 'employee-overview-pane' : 'procurement-overview-pane') : 'p-3'">
             <div v-if="activeTab === 1">
-               <Overview :procurement="procurement" />
+              <Overview :procurement="procurement" />
             </div>
             <div v-if="activeTab === 7">
-              <div class="card border-0 shadow-sm">
+              <div class="card border-0 shadow-sm procurement-process-card">
                 <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
                   <h6 class="mb-0 fs-13">Process</h6>
                   <b-badge :class="procurement.status?.bg || 'bg-white text-primary'">
                     {{ procurement.status?.name || 'N/A' }}
                   </b-badge>
                 </div>
-                <div class="card-body">
+                <div class="card-body procurement-process-body">
                   <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                       <thead class="table-light">
@@ -498,123 +409,61 @@
               :dropdowns="dropdowns"
               :procurement="procurement"
               :noa="selectedNoa"
-              v-if="showCreatePOFlag"
+              v-if="canShowPurchaseOrderTab && activeTab === 6 && showCreatePOFlag"
             />
             <PurchaseOrder
               :dropdowns="dropdowns"
               :procurement="procurement"
-              v-if="activeTab === 6"
+              v-if="canShowPurchaseOrderTab && activeTab === 6 && !showCreatePOFlag"
             />
           </div>
         </div>
       </div>
     </div>
-    <RightSidebar :procurement="procurement" :logs="logs" :isRightCollapsed="isRightCollapsed" @toggleRightSidebar="toggleRightSidebar" />
   </div>
-
-  <b-modal
+  <div class="floating-progress-wrapper">
+    <button
+      class="floating-progress-trigger"
+      type="button"
+      @click="showProgressModal = true"
+      title="Open procurement progress"
+    >
+      <i class="ri-flow-chart"></i>
+    </button>
+  </div>
+  <RightSidebar :procurement="procurement" :logs="logs" :isRightCollapsed="isRightCollapsed" @toggleRightSidebar="toggleRightSidebar" />
+  <ProcurementProgressModal
+    v-model="showProgressModal"
+    :procurement="procurement"
+    :status-flow-nav="statusFlowNav"
+    :sub-status-flow-nav="subStatusFlowNav"
+    @open-status-tip="openStatusTip"
+  />
+  <ProcurementAssignModal
     v-model="showProcAssignModal"
-    style="--vz-modal-width: 600px"
-    header-class="p-3 bg-light"
-    title="Assign Personnel"
-    class="v-modal-custom"
-    modal-class="zoomIn"
-    centered
-    no-close-on-backdrop
-  >
-    <form class="customform" @submit.prevent="submitProcAssign">
-      <div class="mb-3">
-        <InputLabel value="Status" />
-        <input type="text" class="form-control" :value="procAssignForm.status" readonly />
-      </div>
-      <div class="mb-3">
-        <InputLabel value="Employee" :message="procAssignErrors.user_ids" />
-        <div class="position-relative">
-          <input
-            ref="procAssignSearchInput"
-            type="text"
-            class="form-control"
-            v-model="procAssignSearch"
-            @input="handleProcAssignSearch"
-            placeholder="Search employee"
-          />
-          <div v-if="procAssignOptions.length" class="dropdown-menu show w-100">
-            <button
-              v-for="option in procAssignOptions"
-              :key="option.value"
-              type="button"
-              class="dropdown-item d-flex align-items-center gap-2"
-              @click="selectProcAssignee(option)"
-            >
-              <img v-if="option.avatar" :src="option.avatar" class="rounded-circle" style="width: 28px; height: 28px; object-fit: cover;" />
-              <div>
-                <div class="fw-semibold">{{ option.name }}</div>
-                <div class="fs-11 text-muted">{{ option.position || '-' }}</div>
-              </div>
-            </button>
-          </div>
-        </div>
-        <InputError :message="procAssignErrors.user_ids" />
-      </div>
-      <div v-if="procAssignSelected.length" class="alert alert-light border">
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <i class="ri-group-line text-primary"></i>
-          <div class="fw-semibold text-primary">Selected Personnel</div>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-          <span
-            v-for="person in procAssignSelected"
-            :key="person.value || person.id"
-            class="badge rounded-pill bg-primary-subtle text-primary d-flex align-items-center gap-1"
-          >
-            <span>{{ person.name }}</span>
-            <button type="button" class="btn btn-sm p-0 text-primary" @click="removeProcAssignee(person)">
-              <i class="ri-close-line"></i>
-            </button>
-          </span>
-        </div>
-      </div>
-    </form>
-    <template v-slot:footer>
-      <b-button @click="hideProcAssignModal" variant="light" block>Cancel</b-button>
-      <b-button @click="submitProcAssign" variant="primary" :disabled="procAssignProcessing || !procAssignSelected.length" block>
-        Assign
-      </b-button>
-    </template>
-  </b-modal>
-  <b-modal
+    :status="procAssignForm.status"
+    :search="procAssignSearch"
+    :options="procAssignOptions"
+    :selected="procAssignSelected"
+    :processing="procAssignProcessing"
+    :errors="procAssignErrors"
+    @update:search="procAssignSearch = $event"
+    @search="handleProcAssignSearch"
+    @select="selectProcAssignee"
+    @remove="removeProcAssignee"
+    @submit="submitProcAssign"
+  />
+  <ProcurementStatusTipModal
     v-model="showStatusTipModal"
-    header-class="p-3 bg-light"
     :title="statusTipTitle"
-    centered
-    hide-footer
-  >
-    <div class="status-tip-body">
-      <div v-if="!isEmployeeOnlyRole" class="status-tip-subtitle">{{ statusTipSubtitle }}</div>
-      <ul v-if="!isEmployeeOnlyRole" class="status-tip-steps">
-        <li v-for="(step, idx) in statusTipSteps" :key="`${step}-${idx}`">{{ step }}</li>
-      </ul>
-      <div class="status-tip-assigned">
-        <strong>Assigned Personnel:</strong>
-        <div v-if="statusTipAssigned.length" class="status-tip-badges">
-          <span
-            v-for="(person, idx) in statusTipAssigned"
-            :key="`${person}-${idx}`"
-            class="badge rounded-pill bg-primary-subtle text-primary status-tip-person"
-          >
-            {{ person }}
-          </span>
-        </div>
-        <span v-else> - </span>
-      </div>
-      <div v-if="isEmployeeOnlyRole" class="status-tip-note">
-        Note: If this procurement process is taking longer, please check with the assigned personnel to know the reason, or leave a comment for follow-up.
-      </div>
-    </div>
-  </b-modal>
+    :subtitle="statusTipSubtitle"
+    :steps="statusTipSteps"
+    :assigned="statusTipAssigned"
+    :is-employee-only-role="isEmployeeOnlyRole"
+  />
 </template>
 <script>
-import Overview from "./Pages/Detail.vue";
+import Overview from "./Pages/EmployeeDetail.vue";
 import Quotation from "./Pages/Quotation.vue";
 import BACResolution from "./Pages/BACResolution.vue";
 import AbstractOfBids from "./Pages/Bids.vue";
@@ -622,11 +471,12 @@ import NoticeOfAward from "./Pages/NoticeOfAward.vue";
 import PurchaseOrder from "./Pages/PurchaseOrder.vue";
 import CreatePO from "./Pages/CreatePO.vue";
 import RightSidebar from "./Pages/Components/RightSidebar.vue";
+import ProcurementProgressModal from "./Pages/Components/Modals/ProcurementProgressModal.vue";
+import ProcurementAssignModal from "./Pages/Components/Modals/ProcurementAssignModal.vue";
+import ProcurementStatusTipModal from "./Pages/Components/Modals/ProcurementStatusTipModal.vue";
 import { router } from "@inertiajs/vue3";
 
 import PageHeader from "@/Shared/Components/PageHeader.vue";
-import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
-import InputError from "@/Shared/Components/Forms/InputError.vue";
 import axios from "axios";
 export default {
   components: {
@@ -639,10 +489,11 @@ export default {
     PurchaseOrder,
     CreatePO,
     RightSidebar,
-    InputLabel,
-    InputError,
+    ProcurementProgressModal,
+    ProcurementAssignModal,
+    ProcurementStatusTipModal,
   },
-  props: ["dropdowns", "procurement", "tab", "logs"],
+  props: ["dropdowns", "procurement", "tab", "logs", "noa"],
   data() {
     return {
       activeTab: 1,
@@ -651,7 +502,6 @@ export default {
       selectedNoa: null,
       showCreatePOFlag: false,
       showOverview: true,
-      isStatusFlowCollapsed: false,
       showProcAssignModal: false,
       procAssignForm: {
         status: "",
@@ -669,21 +519,85 @@ export default {
       statusTipSubtitle: "",
       statusTipSteps: [],
       statusTipAssigned: [],
+      showProgressModal: false,
     };
   },
 
   computed: {
-    canManageProcurementWorkflow() {
-      const roles = this.$page.props.roles || [];
-      return (
-        roles.includes("Procurement Staff") ||
-        roles.includes("Procurement Officer") ||
-        roles.includes("Administrator")
+    currentRoles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    hasProcurementWorkflowRole() {
+      return this.currentRoles.some((role) =>
+        ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role)
       );
     },
+    statusNameMap() {
+      const statuses = Array.isArray(this.dropdowns?.statuses) ? this.dropdowns.statuses : [];
+
+      return statuses.reduce((map, status) => {
+        const id = status?.value ?? status?.id;
+        const name = status?.name;
+
+        if (id != null && name) {
+          map[String(id)] = name;
+        }
+
+        return map;
+      }, {});
+    },
+    statusTimelineMap() {
+      const timeline = {
+        main: {},
+        sub: {},
+      };
+
+      const procurementId = Number(this.procurement?.id);
+      const procurementLogs = (this.logs || []).filter((log) => {
+        return (
+          log?.subject_type === "App\\Models\\Procurement" &&
+          Number(log?.subject_id) === procurementId
+        );
+      });
+
+      procurementLogs.forEach((log) => {
+        const properties = this.parseLogProperties(log?.properties);
+        const attributes = properties?.attributes || {};
+
+        const statusName = this.resolveStatusName(attributes.status_id);
+        if (statusName && !timeline.main[statusName]) {
+          timeline.main[statusName] = {
+            updatedAt: log?.created_at || null,
+            updatedBy: this.extractLogCauserName(log),
+          };
+        }
+
+        const subStatusName = this.resolveStatusName(attributes.sub_status_id);
+        if (subStatusName && !timeline.sub[subStatusName]) {
+          timeline.sub[subStatusName] = {
+            updatedAt: log?.created_at || null,
+            updatedBy: this.extractLogCauserName(log),
+          };
+        }
+      });
+
+      if (!timeline.main.Pending && this.procurement?.created_at) {
+        timeline.main.Pending = {
+          updatedAt: this.procurement.created_at,
+          updatedBy: this.getDisplayName(this.procurement?.created_by),
+        };
+      }
+
+      return timeline;
+    },
+    canManageProcurementWorkflow() {
+      return this.hasProcurementWorkflowRole;
+    },
     isEmployeeOnlyRole() {
-      const roles = this.$page.props.roles || [];
-      return roles.length === 1 && roles.includes("Employee");
+      return !this.hasProcurementWorkflowRole;
+    },
+    canShowPurchaseOrderTab() {
+      return this.canAccessTab(6);
     },
     procAssigneeMap() {
       const fromAssignments = {};
@@ -721,6 +635,11 @@ export default {
     },
     statusFlowNav() {
       const currentStatus = this.procurement.status?.name;
+      const showForQuotationsStep =
+        currentStatus === "Re-award" ||
+        currentStatus === "Rebid" ||
+        currentStatus === "For Quotations" ||
+        Boolean(this.getStatusTimeline("For Quotations", "main"));
       let statusFlow = [];
 
       if (currentStatus === 'Re-award' || currentStatus === 'Rebid') {
@@ -739,7 +658,7 @@ export default {
           { name: 'PO Created', isCurrent: false },
           { name: 'PO Issued', isCurrent: false },
           { name: 'PO Conformed', isCurrent: false },
-          { name: 'Delivered/For Inspection', isCurrent: false },
+          { name: 'Items Delivered', isCurrent: false },
           { name: 'Completed', isCurrent: false },
         ];
       } else {
@@ -747,7 +666,9 @@ export default {
           { name: 'Pending', isCurrent: currentStatus === 'Pending' },
           { name: 'Reviewed', isCurrent: currentStatus === 'Reviewed' },
           { name: 'Approved', isCurrent: currentStatus === 'Approved' },
-          { name: 'For Quotations', isCurrent: currentStatus === 'For Quotations' },
+          ...(showForQuotationsStep
+            ? [{ name: 'For Quotations', isCurrent: currentStatus === 'For Quotations' }]
+            : []),
           { name: 'For Bids', isCurrent: currentStatus === 'For Bids' },
           { name: 'For BAC Resolution', isCurrent: currentStatus === 'For BAC Resolution' },
           { name: 'For Approval of BAC Resolution', isCurrent: currentStatus === 'For Approval of BAC Resolution' },
@@ -757,20 +678,28 @@ export default {
           { name: 'PO Created', isCurrent: currentStatus === 'PO Created' },
           { name: 'PO Issued', isCurrent: currentStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentStatus === 'PO Conformed' },
-          { name: 'Delivered/For Inspection', isCurrent: currentStatus === 'PO Delivered/For Inspection' || currentStatus === 'Delivered/For Inspection' || currentStatus === 'Delivered' },
+          { name: 'Items Delivered', isCurrent: currentStatus === 'PO Items Delivered' || currentStatus === 'Items Delivered' || currentStatus === 'PO Delivered/For Inspection' || currentStatus === 'Delivered/For Inspection' || currentStatus === 'Delivered' },
           { name: 'Completed', isCurrent: currentStatus === 'Completed' },
         ];
       }
 
       const currentIndex = statusFlow.findIndex(s => s.isCurrent);
       statusFlow.forEach((status, index) => {
+        const timelineEntry = this.getStatusTimelineEntry(status.name, "main");
         status.isPast = index < currentIndex;
+        status.updatedAt = timelineEntry?.updatedAt || null;
+        status.updatedBy = timelineEntry?.updatedBy || null;
       });
       return statusFlow;
     },
     subStatusFlowNav() {
       const currentStatus = this.procurement.status?.name;
       const currentSubStatus = this.procurement.sub_status?.name;
+      const showForQuotationsStep =
+        currentStatus === "Re-award" ||
+        currentStatus === "Rebid" ||
+        currentSubStatus === "For Quotations" ||
+        Boolean(this.getStatusTimeline("For Quotations", "sub"));
       let subStatusFlow = [];
 
       if (currentStatus === 'Rebid') {
@@ -786,7 +715,7 @@ export default {
           { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'PO Items Delivered' || currentSubStatus === 'Items Delivered' || currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       } else if (currentStatus === 'Re-award') {
@@ -797,12 +726,14 @@ export default {
           { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'PO Items Delivered' || currentSubStatus === 'Items Delivered' || currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       } else {
         subStatusFlow = [
-          { name: 'For Quotations', isCurrent: currentSubStatus === 'For Quotations' },
+          ...(showForQuotationsStep
+            ? [{ name: 'For Quotations', isCurrent: currentSubStatus === 'For Quotations' }]
+            : []),
           { name: 'For Bids', isCurrent: currentSubStatus === 'For Bids' },
           { name: 'For BAC Resolution', isCurrent: currentSubStatus === 'For BAC Resolution' },
           { name: 'For Approval of BAC Resolution', isCurrent: currentSubStatus === 'For Approval of BAC Resolution' },
@@ -812,14 +743,17 @@ export default {
           { name: 'PO Created', isCurrent: currentSubStatus === 'PO Created' },
           { name: 'PO Issued', isCurrent: currentSubStatus === 'PO Issued' },
           { name: 'PO Conformed', isCurrent: currentSubStatus === 'PO Conformed' },
-          { name: 'Delivered/For Inspection', isCurrent: currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
+          { name: 'Items Delivered', isCurrent: currentSubStatus === 'PO Items Delivered' || currentSubStatus === 'Items Delivered' || currentSubStatus === 'PO Delivered/For Inspection' || currentSubStatus === 'Delivered/For Inspection' || currentSubStatus === 'Delivered' },
           { name: 'Completed', isCurrent: currentSubStatus === 'Completed' },
         ];
       }
 
       const currentIndex = subStatusFlow.findIndex(s => s.isCurrent);
       subStatusFlow.forEach((status, index) => {
+        const timelineEntry = this.getStatusTimelineEntry(status.name, "sub");
         status.isPast = index < currentIndex;
+        status.updatedAt = timelineEntry?.updatedAt || null;
+        status.updatedBy = timelineEntry?.updatedBy || null;
       });
       return subStatusFlow;
     },
@@ -847,19 +781,32 @@ export default {
 
       // If there are multiple different statuses, it's partially completed
       return uniqueStatuses.length > 1 && uniqueStatuses.some(status =>
-        ['Completed', 'Delivered/For Inspection', 'PO Conformed', 'PO Issued', 'PO Created'].includes(status)
+        ['Completed', 'Items Delivered', 'PO Conformed', 'PO Issued', 'PO Created'].includes(status)
       );
     },
   },
   watch: {
     tab() {
       const nextTab = this.resolveDefaultTab();
-      if (!this.canManageProcurementWorkflow && [2, 3, 4, 5].includes(nextTab)) {
+      if (!this.canAccessTab(nextTab)) {
         this.activeTab = 1;
+        this.syncPurchaseOrderViewState(1);
         return;
       }
+
       this.activeTab = nextTab;
-      this.showCreatePOFlag = false; // Reset flag when tab changes
+      this.syncPurchaseOrderViewState(nextTab);
+    },
+    noa: {
+      immediate: true,
+      handler(newVal) {
+        this.syncPurchaseOrderViewState(this.activeTab, newVal);
+      },
+    },
+    "procurement.id"(newId, oldId) {
+      if (newId && newId !== oldId) {
+        this.openProgressModalOnce();
+      }
     },
   },
   mounted() {
@@ -867,11 +814,142 @@ export default {
     const assignees = this.procurement?.assignees || this.procurement?.assigned_personnel || {};
     this.localProcAssignees = { ...assignees };
     this.activeTab = this.resolveDefaultTab();
+    this.syncPurchaseOrderViewState(this.activeTab);
+    this.openProgressModalOnce();
   },
   methods: {
+    syncPurchaseOrderViewState(tab = this.activeTab, noa = this.noa) {
+      this.selectedNoa = noa?.id ? noa : null;
+      this.showCreatePOFlag = tab === 6 && Boolean(noa?.id);
+    },
+    getProgressModalSeenKey() {
+      return this.procurement?.id
+        ? `procurement-progress-modal-seen:${this.procurement.id}`
+        : null;
+    },
+    openProgressModalOnce() {
+      const seenKey = this.getProgressModalSeenKey();
+
+      if (seenKey && sessionStorage.getItem(seenKey)) {
+        return;
+      }
+
+      this.$nextTick(() => {
+        this.showProgressModal = true;
+
+        if (seenKey) {
+          sessionStorage.setItem(seenKey, "1");
+        }
+      });
+    },
+    parseLogProperties(properties) {
+      if (!properties) {
+        return {};
+      }
+
+      if (typeof properties === "string") {
+        try {
+          return JSON.parse(properties);
+        } catch (error) {
+          return {};
+        }
+      }
+
+      return properties;
+    },
+    normalizeStatusLabel(statusName) {
+      const aliases = {
+        "For RFQ": "For Quotations",
+        "For BAC": "For BAC Resolution",
+        "For Approval": "For Approval of BAC Resolution",
+        "NOA Served": "NOA Served to Supplier",
+        "NOA Confirmed": "NOA Conformed",
+        "PO Items Delivered": "Items Delivered",
+        "PO Delivered/For Inspection": "PO Items Delivered",
+        "Delivered/For Inspection": "Items Delivered",
+        Delivered: "Items Delivered",
+      };
+
+      return aliases[statusName] || statusName;
+    },
+    resolveStatusName(statusId) {
+      if (statusId == null || statusId === "") {
+        return null;
+      }
+
+      const statusName = this.statusNameMap[String(statusId)] || null;
+      return statusName ? this.normalizeStatusLabel(statusName) : null;
+    },
+    getDisplayName(person) {
+      if (!person) {
+        return null;
+      }
+
+      if (typeof person === "string") {
+        return person.trim() || null;
+      }
+
+      return (
+        person?.profile?.full_name ||
+        person?.profile?.fullname ||
+        person?.fullname ||
+        person?.name ||
+        null
+      );
+    },
+    extractLogCauserName(log) {
+      return this.getDisplayName(log?.causer);
+    },
+    getStatusTimelineEntry(statusName, type = "main") {
+      const normalizedStatus = this.normalizeStatusLabel(statusName);
+      return this.statusTimelineMap?.[type]?.[normalizedStatus] || null;
+    },
+    getStatusTimeline(statusName, type = "main") {
+      return this.getStatusTimelineEntry(statusName, type)?.updatedAt || null;
+    },
+    shouldShowStatusTimeline(status) {
+      const normalizedStatus = this.normalizeStatusLabel(status?.name || "");
+
+      if (status?.updatedAt) {
+        return true;
+      }
+
+      if (status?.isPast || status?.isCurrent) {
+        return false;
+      }
+
+      return normalizedStatus !== "For Quotations";
+    },
+    formatStatusTimelineDate(dateString) {
+      const date = new Date(dateString);
+      if (Number.isNaN(date.getTime())) {
+        return "Invalid date";
+      }
+
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    },
+    formatStatusTimelineTime(dateString) {
+      const date = new Date(dateString);
+      if (Number.isNaN(date.getTime())) {
+        return "";
+      }
+
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    },
     resolveDefaultTab() {
       const requestedTab = parseInt(this.tab);
-      if (Number.isFinite(requestedTab) && requestedTab > 0) {
+      if (
+        Number.isFinite(requestedTab) &&
+        requestedTab > 0 &&
+        this.canAccessTab(requestedTab)
+      ) {
         return requestedTab;
       }
 
@@ -895,22 +973,36 @@ export default {
         "PO Created": 5,
         "PO Issued": 5,
         "PO Conformed": 5,
-        "Delivered/For Inspection": 6,
-        "PO Delivered/For Inspection": 6,
+        "Items Delivered": 6,
+        "PO Items Delivered": 6,
         Delivered: 6,
         Completed: 6,
       };
 
-      if (defaultTabByStatus[status]) {
+      if (defaultTabByStatus[status] && this.canAccessTab(defaultTabByStatus[status])) {
         return defaultTabByStatus[status];
       }
 
       return 1;
     },
-    show(tab) {
+    canAccessTab(tab) {
       if (!this.canManageProcurementWorkflow && [2, 3, 4, 5].includes(tab)) {
+        return false;
+      }
+
+      if (this.isEmployeeOnlyRole && tab === 6) {
+        return false;
+      }
+
+      return true;
+    },
+    show(tab) {
+      if (!this.canAccessTab(tab)) {
         return;
       }
+
+      this.selectedNoa = null;
+      this.showCreatePOFlag = false;
       this.activeTab = tab;
       localStorage.setItem("activeTab", tab);
       router.visit(
@@ -918,7 +1010,6 @@ export default {
         { replace: true, preserveState: true }
       );
     },
-
     toggleSidebar() {
       this.isCollapsed = !this.isCollapsed;
     },
@@ -935,10 +1026,12 @@ export default {
     handleShowCreatePO(data) {
       this.selectedNoa = data;
       this.showCreatePOFlag = true;
-    },
-
-    toggleStatusFlow() {
-      this.isStatusFlowCollapsed = !this.isStatusFlowCollapsed;
+      this.activeTab = 6;
+      localStorage.setItem("activeTab", 6);
+      router.visit(
+        `/faims/procurements/${this.procurement.id}?option=view&tab=6&noa_id=${data.id}`,
+        { replace: true, preserveState: true }
+      );
     },
     openStatusTip(statusName) {
       const assigned = this.getAssignedForStep(statusName);
@@ -988,7 +1081,7 @@ export default {
           "PO Created": "Issue purchase order",
           "PO Issued": "Wait for supplier conformity",
           "PO Conformed": "Proceed to delivery and inspection",
-          "Delivered/For Inspection": "Complete inspection and acceptance",
+          "Items Delivered": "Complete inspection and acceptance",
           Delivered: "Complete inspection and acceptance",
           Completed: "Process is completed",
         };
@@ -1009,8 +1102,8 @@ export default {
         "NOA Served": ["NOA Served to Supplier"],
         "NOA Conformed": ["NOA Conformed", "NOA Confirmed"],
         "NOA Confirmed": ["NOA Conformed"],
-        "Delivered/For Inspection": ["PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"],
-        Delivered: ["PO Delivered/For Inspection", "Delivered/For Inspection"],
+        "Items Delivered": ["PO Items Delivered", "Items Delivered", "PO Delivered/For Inspection", "Delivered/For Inspection", "Delivered"],
+        Delivered: ["PO Items Delivered", "Items Delivered", "PO Delivered/For Inspection", "Delivered/For Inspection"],
       };
       return map[stepName] || [stepName];
     },
@@ -1023,12 +1116,15 @@ export default {
       const subStatus = (this.procurement?.sub_status?.name || "").trim();
       const mainStatus = (this.procurement?.status?.name || "").trim();
       const status = subStatus || mainStatus;
+      if (status === "Completed") {
+        return false;
+      }
       const doneStatusMap = {
         2: ["Approved", "For Quotations", "For RFQ"],
         3: ["For Bids", "For BAC Resolution"],
         4: ["For Approval of BAC Resolution", "Re-award", "Rebid"],
         5: ["For NOA", "NOA Served to Supplier", "NOA Conformed", "PO Created", "PO Issued", "PO Conformed"],
-        6: ["Delivered/For Inspection", "PO Delivered/For Inspection", "Delivered", "Completed"],
+        6: ["Items Delivered", "PO Items Delivered", "Delivered", "Completed"],
       };
 
       return (doneStatusMap[tab] || []).includes(status);
@@ -1041,26 +1137,22 @@ export default {
       this.procAssignSelected = [];
       this.procAssignErrors = {};
       this.showProcAssignModal = true;
-      this.$nextTick(() => {
-        if (this.$refs.procAssignSearchInput) {
-          this.$refs.procAssignSearchInput.focus();
-        }
-      });
     },
     hideProcAssignModal() {
       this.showProcAssignModal = false;
     },
-    handleProcAssignSearch() {
+    handleProcAssignSearch(term = this.procAssignSearch) {
       if (this.procAssignSearchTimer) {
         clearTimeout(this.procAssignSearchTimer);
       }
-      const term = (this.procAssignSearch || "").trim();
-      if (term.length < 2) {
+      const normalizedTerm = (term || "").trim();
+      this.procAssignSearch = term || "";
+      if (normalizedTerm.length < 2) {
         this.procAssignOptions = [];
         return;
       }
       this.procAssignSearchTimer = setTimeout(() => {
-        this.searchProcEmployees(term);
+        this.searchProcEmployees(normalizedTerm);
       }, 300);
     },
     searchProcEmployees(term) {
@@ -2019,7 +2111,7 @@ export default {
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  min-width: 72px;
+  min-width: 96px;
   padding: 0.72rem 0.5rem;
   border-radius: 12px;
   border: 1px solid transparent;
@@ -2083,8 +2175,32 @@ export default {
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   text-align: center;
-  white-space: nowrap;
   line-height: 1.2;
+}
+
+.status-flow-banner-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  font-size: 0.53rem;
+  line-height: 1.15;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.78);
+  min-height: 2.55rem;
+}
+
+.status-flow-banner-time span {
+  display: block;
+}
+
+.status-flow-banner-actor {
+  max-width: 100%;
+  font-size: 0.48rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .status-flow-banner-step.completed .status-flow-banner-label {
@@ -2100,6 +2216,18 @@ export default {
 
 .status-flow-banner-step.pending .status-flow-banner-label {
   color: rgba(255, 255, 255, 0.45);
+}
+
+.status-flow-banner-step.completed .status-flow-banner-time {
+  color: rgba(220, 252, 231, 0.88);
+}
+
+.status-flow-banner-step.active .status-flow-banner-time {
+  color: rgba(254, 243, 199, 0.95);
+}
+
+.status-flow-banner-time.pending {
+  color: rgba(255, 255, 255, 0.42);
 }
 
 @keyframes pulseBannerDot {
@@ -2124,7 +2252,7 @@ export default {
   }
   
   .status-flow-banner-step {
-    min-width: 55px;
+    min-width: 84px;
     padding: 0.4rem 0.3rem;
   }
   
@@ -2136,6 +2264,14 @@ export default {
   
   .status-flow-banner-label {
     font-size: 0.55rem;
+  }
+
+  .status-flow-banner-time {
+    font-size: 0.48rem;
+  }
+
+  .status-flow-banner-actor {
+    font-size: 0.44rem;
   }
 }
 
@@ -2183,14 +2319,248 @@ export default {
 }
 
 .tab-done-light-success {
-  background: #ecfdf3 !important;
-  color: #166534 !important;
-  border: 1px solid #86efac !important;
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.2);
+  background: #fff8db !important;
+  color: #8a5a00 !important;
+  border: 1px solid #f7d067 !important;
+  box-shadow: inset 0 0 0 1px rgba(247, 184, 75, 0.25);
 }
 
 .tab-done-light-success:hover {
-  background: #dcfce7 !important;
-  color: #166534 !important;
+  background: #fff2b8 !important;
+  color: #8a5a00 !important;
+}
+
+[data-bs-theme="dark"] .procurement-view-page .tab-done-light-success {
+  background: rgba(250, 204, 21, 0.12) !important;
+  color: #fde68a !important;
+  border: 1px solid rgba(250, 204, 21, 0.35) !important;
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.12);
+}
+
+[data-bs-theme="dark"] .procurement-view-page .tab-done-light-success:hover {
+  background: rgba(250, 204, 21, 0.18) !important;
+  color: #fef3c7 !important;
+  border-color: rgba(250, 204, 21, 0.44) !important;
+}
+
+.tab-done-icon {
+  color: #d97706;
+}
+
+.procurement-overview-pane {
+  padding: 0.75rem 0.85rem 1rem;
+}
+
+.employee-overview-pane {
+  padding: 0.02rem 0.16rem 0.35rem;
+}
+
+.floating-progress-wrapper {
+  position: fixed;
+  right: 24px;
+  bottom: 104px;
+  z-index: 1049;
+}
+
+.floating-progress-trigger {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a5fa7 0%, #31488f 100%);
+  color: #fff;
+  box-shadow: 0 18px 36px rgba(49, 72, 143, 0.28);
+  font-size: 1.4rem;
+}
+
+.floating-progress-trigger:hover {
+  transform: translateY(-2px);
+}
+
+:deep(.progress-floating-modal .modal-dialog) {
+  max-width: min(1450px, calc(100vw - 32px));
+}
+
+:deep(.progress-floating-modal .modal-content) {
+  border: 0;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+:deep(.progress-modal-body) {
+  padding: 0;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.progress-modal-panel {
+  margin-bottom: 0;
+}
+
+.procurement-view-page {
+  --proc-view-shell-bg: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  --proc-view-border: rgba(148, 163, 184, 0.24);
+  --proc-view-text: #162033;
+  --proc-view-muted: #66758f;
+  --proc-view-nav-bg: #ffffff;
+  --proc-view-nav-hover: #edf2f7;
+  --proc-view-card-bg: rgba(255, 255, 255, 0.88);
+  --proc-view-table-head: #f8fafc;
+  --proc-view-table-row-hover: rgba(59, 130, 246, 0.06);
+}
+
+[data-bs-theme="dark"] .procurement-view-page {
+  --proc-view-shell-bg: linear-gradient(135deg, #1b2230 0%, #232c3a 100%);
+  --proc-view-border: rgba(148, 163, 184, 0.18);
+  --proc-view-text: #e5edf7;
+  --proc-view-muted: #9fb0c7;
+  --proc-view-nav-bg: #1f2937;
+  --proc-view-nav-hover: rgba(59, 130, 246, 0.14);
+  --proc-view-card-bg: #1f2937;
+  --proc-view-table-head: #232c3a;
+  --proc-view-table-row-hover: rgba(148, 163, 184, 0.08);
+}
+
+.procurement-view-shell-card {
+  background: var(--proc-view-shell-bg) !important;
+  border: 1px solid var(--proc-view-border) !important;
+  box-shadow: none !important;
+}
+
+.procurement-view-shell-body {
+  color: var(--proc-view-text);
+}
+
+.procurement-view-shell-header .card-title,
+.procurement-view-shell-header .fw-bold,
+.procurement-view-shell-header .text-center,
+.procurement-view-shell-header .btn-light i {
+  color: #ffffff !important;
+}
+
+.procurement-view-shell-header .text-muted {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.procurement-view-shell-header .procurement-view-pr-label {
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
+.procurement-view-shell-header .procurement-view-pr-code {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.14rem 0.6rem;
+  border-radius: 999px;
+  background: #ffffff !important;
+  color: #1d4ed8 !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+[data-bs-theme="dark"] .procurement-view-shell-header .procurement-view-pr-code {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.procurement-view-page .bg-white.text-dark.hover-bg-light {
+  background: var(--proc-view-nav-bg) !important;
+  color: var(--proc-view-text) !important;
+  border: 1px solid var(--proc-view-border) !important;
+}
+
+.procurement-view-page .bg-white.text-dark.hover-bg-light:hover {
+  background: var(--proc-view-nav-hover) !important;
+  color: var(--proc-view-text) !important;
+}
+
+.procurement-view-page .procurement-view-shell-body .nav-link.text-start.bg-white.text-dark.hover-bg-light:hover,
+.procurement-view-page .procurement-view-shell-body .nav-link.p-2.bg-white.text-dark.hover-bg-light:hover {
+  background: var(--proc-view-nav-hover) !important;
+  color: var(--proc-view-text) !important;
+  border-color: var(--proc-view-border) !important;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+}
+
+.procurement-view-page .procurement-view-shell-body .nav-link.text-start.tab-done-light-success:hover,
+.procurement-view-page .procurement-view-shell-body .nav-link.p-2.tab-done-light-success:hover {
+  background: #fff2b8 !important;
+  color: #8a5a00 !important;
+  border-color: #f7d067 !important;
+}
+
+[data-bs-theme="dark"] .procurement-view-page .procurement-view-shell-body .nav-link.text-start.bg-white.text-dark.hover-bg-light:hover,
+[data-bs-theme="dark"] .procurement-view-page .procurement-view-shell-body .nav-link.p-2.bg-white.text-dark.hover-bg-light:hover {
+  background: rgba(59, 130, 246, 0.16) !important;
+  color: #e5edf7 !important;
+  border-color: rgba(96, 165, 250, 0.28) !important;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.14);
+}
+
+[data-bs-theme="dark"] .procurement-view-page .procurement-view-shell-body .nav-link.text-start.tab-done-light-success:hover,
+[data-bs-theme="dark"] .procurement-view-page .procurement-view-shell-body .nav-link.p-2.tab-done-light-success:hover {
+  background: rgba(250, 204, 21, 0.2) !important;
+  color: #fef3c7 !important;
+  border-color: rgba(250, 204, 21, 0.44) !important;
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.16);
+}
+
+.procurement-view-page .btn.btn-light.rounded-circle {
+  background: var(--proc-view-nav-bg) !important;
+  border: 1px solid var(--proc-view-border) !important;
+}
+
+.procurement-view-page .btn.btn-light.rounded-circle .text-primary {
+  color: #60a5fa !important;
+}
+
+.procurement-view-page .text-muted {
+  color: var(--proc-view-muted) !important;
+}
+
+.procurement-process-card {
+  background: var(--proc-view-card-bg) !important;
+  border: 1px solid var(--proc-view-border) !important;
+  box-shadow: none !important;
+}
+
+.procurement-process-body .table,
+.procurement-process-body .table td,
+.procurement-process-body .table th {
+  color: var(--proc-view-text);
+  border-color: var(--proc-view-border);
+}
+
+.procurement-process-body .table-light,
+.procurement-process-body .table-light > * {
+  background: var(--proc-view-table-head) !important;
+  color: var(--proc-view-text) !important;
+  border-color: var(--proc-view-border) !important;
+}
+
+.procurement-process-body .table-hover > tbody > tr:hover > * {
+  background: var(--proc-view-table-row-hover) !important;
+}
+
+.nav-link.bg-primary .tab-done-icon {
+  color: #ffffff;
+  -webkit-text-stroke: 1px #facc15;
+  text-shadow:
+    1px 0 #facc15,
+    -1px 0 #facc15,
+    0 1px #facc15,
+    0 -1px #facc15;
+}
+
+@media (max-width: 768px) {
+  .procurement-overview-pane,
+  .employee-overview-pane {
+    padding: 0.18rem;
+  }
+
+  .floating-progress-wrapper {
+    right: 16px;
+    bottom: 96px;
+  }
 }
 </style>

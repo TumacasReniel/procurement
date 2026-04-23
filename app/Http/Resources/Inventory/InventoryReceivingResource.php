@@ -7,6 +7,11 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class InventoryReceivingResource extends JsonResource
 {
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
         return [
@@ -14,7 +19,7 @@ class InventoryReceivingResource extends JsonResource
             'item_id' => $this->item_id,
             'item_name' => $this->item?->name ?? '-',
             'approved_by_id' => $this->approved_by_id,
-            'approved_by' => $this->approvedBy?->profile?->fullname ?? '-',
+            'approved_by' => $this->approvedBy?->profile?->fullname ?? $this->approvedBy?->username ?? '-',
             'status_id' => $this->status_id,
             'status' => $this->status?->name ?? '-',
             'received_at' => optional($this->received_at)->format('Y-m-d H:i:s'),

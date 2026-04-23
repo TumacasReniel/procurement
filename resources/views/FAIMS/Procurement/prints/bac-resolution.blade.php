@@ -1,4 +1,11 @@
-y<!DOCTYPE html>
+@php
+    $bacResolutionBody = str_replace(
+        "\n\n---PAGE BREAK---\n\n",
+        '<div class="bac-page-break" data-page-break="true"></div>',
+        $bac_resolution['body']
+    );
+@endphp
+<!DOCTYPE html>
 <html>
 <head>
     <title>BAC Resolution</title>
@@ -10,7 +17,8 @@ y<!DOCTYPE html>
             margin: 15px 15px 15px 15px;
             padding: 0;
             height: 100%;
-            font-size: 10px;
+            font-size: 12px;
+            line-height: 1;
         }
 
         .header {
@@ -28,11 +36,11 @@ y<!DOCTYPE html>
         }
         .text-right{
             text-align: right ;
-            line-height: 0.1;
+            line-height: 1;
         }
         .text-left{
             text-align: left ;
-            line-height: 0.5;
+            line-height: 1;
         }
 
 
@@ -40,7 +48,7 @@ y<!DOCTYPE html>
             text-align: left;
             position:absolute;
             right:0;
-            line-height: 0.5;
+            line-height: 1;
         }
         .border-container {
             margin-top: 0px;
@@ -92,6 +100,11 @@ y<!DOCTYPE html>
             page-break-before: always; /* Forces a new page when printing */
         }
 
+        .bac-page-break {
+            page-break-before: always;
+            break-before: page;
+        }
+
         . text-left{
             background: gray;
             color: white;
@@ -124,6 +137,11 @@ y<!DOCTYPE html>
             border: none; 
         }
 
+        .signature-section {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
     </style>
 </head>
 <body>
@@ -147,93 +165,93 @@ y<!DOCTYPE html>
         </div>
 
         <div>
-            {!! $bac_resolution['body'] !!}
+            {!! $bacResolutionBody !!}
         </div>
 
-
-        <p style="text-align: left;margin-bottom:40px">Recommended by:</p>  
-       <table style="text-align:center;margin-bottom:50px">
-         @foreach ($bac_members as $member)
-            <th>
-                {{  strtoupper($member['name']) }}        
-            </th>
-        @endforeach
-        <tr>
-            <td>
-                Member, BAC
-            </td>
-            <td>
-                Member, BAC
-            </td>
-            <td>
-                Member, BAC
-            </td>
-        </tr>
-
-      
-        </table>
-        <br>
-        <table style="margin-bottom:20px">
-            <tr>
-                <th style="text-align: center;">
-                    {{ $bac_vice_chairperson['name'] }}
-                </th>
-                <th style="text-align: center; ">
-                   {{ $bac_chairperson['name'] }}
-                </th>
+        <div class="signature-section">
+            <p style="text-align: left;margin-bottom:40px">Recommended by:</p>  
+            <table style="text-align:center;margin-bottom:50px">
+                @foreach ($bac_members as $member)
+                    <th>
+                        {{  strtoupper($member['name']) }}        
+                    </th>
+                @endforeach
+                <tr>
+                    <td>
+                        Member, BAC
+                    </td>
+                    <td>
+                        Member, BAC
+                    </td>
+                    <td>
+                        Member, BAC
+                    </td>
                 </tr>
-            <tr>
-                <td style="text-align: center">
-                    Vice Chairperson, BAC
-                </td >
-                <td style="text-align: center">
-                    Chairperson, BAC
-                </td>
-            </tr>
-        </table>
+            </table>
+            <br>
+            <table style="margin-bottom:20px">
+                <tr>
+                    <th style="text-align: center;">
+                        {{ $bac_vice_chairperson['name'] }}
+                    </th>
+                    <th style="text-align: center; ">
+                        {{ $bac_chairperson['name'] }}
+                    </th>
+                    </tr>
+                <tr>
+                    <td style="text-align: center">
+                        Vice Chairperson, BAC
+                    </td >
+                    <td style="text-align: center">
+                        Chairperson, BAC
+                    </td>
+                </tr>
+            </table>
 
-      <table>
-        <br>
-        <tr style="padding-bottom:40px ">
-            <td colspan="3" style="text-align:center;padding-bottom:40px">
-                Approved by:
-            </td>
-        </tr>
-   
-        <tr>
-            <th colspan="3">   {{ $regional_director['name'] }}</th>
-        </tr>
-        <tr>
-            <td colspan="3" style="text-align:center">
-                {{  $regional_director['designation']->name }}
-                
-            </td>
-        </tr>
-        <tr>
-            <td colspan="3" style="text-align:center">
-                Date:_________<
-            </td>
-        </tr>
-
-       </table>
+            <table>
+                <br>
+                <tr style="padding-bottom:40px ">
+                    <td colspan="3" style="text-align:center;padding-bottom:40px">
+                        Approved by:
+                    </td>
+                </tr>
+        
+                <tr>
+                    <th colspan="3">   {{ $regional_director['name'] }}</th>
+                </tr>
+                <tr>
+                    <td colspan="3" style="text-align:center">
+                        {{  $regional_director['designation']->name }}
+                        
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="text-align:center">
+                        Date:_________<
+                    </td>
+                </tr>
+            </table>
+        </div>
 
     </div>
     <script type="text/php">
         if ( isset($pdf) ) {
             $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-            $size = 8;
+            $size = 12;
             $width = $pdf->get_width();
             $height = $pdf->get_height();
+            $left_margin = 35;
+            $right_margin = 35;
             $y_axis = $height - 25; 
 
             // LEFT: bac_resolution Code
             $text_code = "{{ $bac_resolution->code }}";
-            $pdf->page_text(35, $y_axis, $text_code, $font, $size, array(0,0,0));
+            $pdf->page_text($left_margin, $y_axis, $text_code, $font, $size, array(0,0,0));
 
             // RIGHT: Page Counter
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-            $pdf->page_text($width - $text_width + 50, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $text_width = $fontMetrics->get_text_width("Page 1 of 1", $font, $size);
+            $pdf->page_text($width - $text_width - $right_margin, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

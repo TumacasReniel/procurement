@@ -20,7 +20,7 @@
                                 </span>
                             </button>
         
-                            <button @click="openSignatory(selected)" type="button" class="btn avatar-xs p-0 material-shadow-none" v-b-tooltip.hover title="Assign Signatory">
+                            <button @click="openSignatory(selected)" type="button" class="btn avatar-xs p-0 material-shadow-none" v-b-tooltip.hover title="Assign Temporary Signatory">
                                 <span class="avatar-title rounded-circle bg-light text-body">
                                     <i class="ri-mark-pen-fill"></i>
                                 </span>
@@ -37,23 +37,9 @@
             <BCol lg="12" class="mt-n4 mb-0">
                 <hr class="text-muted"/>
             </BCol>  
-            <div class="col-md-12" v-if="selected.oic">
-                <div class="d-flex border border-dashed rounded p-3">
-                    <div class="flex-shrink-0 avatar-xs align-self-center me-3">
-                        <div class="avatar-title bg-light rounded-circle fs-16 text-primary">
-                            <img :src="selected.oic.avatar" alt="" id="candidate-img" class="img-thumbnail rounded-circle shadow-none">
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 overflow-hidden">
-                        <p class="mb-0 text-muted fs-12">Offince-in-Charge :</p>
-                        <h6 class="fw-semibold fs-12 mb-0">{{ selected.oic.name }}</h6>
-                    </div>
-                </div>
-                <hr class="text-muted"/>
-            </div>
             <BCol lg="12" v-if="selected?.signatory?.schedules?.length == 0">
                 <div @click="openSignatory()" style="cursor: pointer;" class="alert alert-light alert-dismissible bg-light text-body alert-label-icon fade show material-shadow" role="alert">
-                    <i class="ri-mark-pen-fill label-icon"></i>No signatory assigned (using default)
+                    <i class="ri-mark-pen-fill label-icon"></i>No temporary signatory assigned (using default)
                 </div>
             </BCol>  
             <BCol v-else lg="12" style="margin-bottom: -100px;">
@@ -62,7 +48,7 @@
                         <thead class="table-light thead-fixed">
                             <tr class="fs-11">
                                 <th style="width: 3%;"></th>
-                                <th>OIC / Signatory</th>
+                                <th>Temporary Signatory</th>
                                 <th style="width: 10%;" class="text-center">Status</th>
                                 <th style="width: 6%;"></th>
                             </tr>

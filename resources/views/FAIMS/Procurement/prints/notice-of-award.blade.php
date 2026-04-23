@@ -7,7 +7,7 @@
             font-family: Arial, sans-serif;
             margin: 50px 50px 50px 50px;
             font-size: 12px;
-            line-height: 1.5;
+            line-height: 1;
         }
 
         .text-center {
@@ -70,7 +70,7 @@
         </div>
 
         <!-- Recipient -->
-        <div class="recipient-block text-left" style="margin-bottom: 20px; line-height: 1.4;">
+        <div class="recipient-block text-left" style="margin-bottom: 20px; line-height: 1;">
             <p style="margin: 0;"> {{ $noa->procurement_quotation->supplier?->conformes[0]->name ?? "" }}</p>
             <p style="margin: 0;">{{ $noa->procurement_quotation->supplier?->name }}</p>
             <p style="margin: 0;">{{ $noa->procurement_quotation->supplier?->address?->address }}</p>
@@ -83,43 +83,47 @@
 
         <!-- Body -->
         <div class="letter-body">
-            <p>
-                 @php
-                    $count = count($item_nos);
+            @if (filled($noa->remarks))
+                {!! $noa->remarks !!}
+            @else
+                <p>
+                    @php
+                        $count = count($item_nos);
 
-                    if ($count === 1) {
-                        $item_text = $item_nos[0];
-                         $item_label = "item no";
-                    } elseif ($count === 2) {
-                        $item_text = $item_nos[0] . ' & ' . $item_nos[1];
-                        $item_label = "item nos";
-                    } else {
-                        $item_text = implode(', ', array_slice($item_nos, 0, -1)) . ', & ' . end($item_nos);
-                        $item_label = "item nos";
-                    }
-                @endphp
-                We are pleased to inform you that the procurement for the <b>"{{ $procurement->title }}"</b>, {{ $item_label }}
-                <span style="font-weight:bold">{{ $item_text }}</span>, 
-                under our reference PR no. <b>{{ $procurement->code }}</b> has been awarded to your company with the total contract
-                amount of <b>{{ $amount_to_words }} (Php {{ $total_amount }})</b>.
-            </p>
+                        if ($count === 1) {
+                            $item_text = $item_nos[0];
+                            $item_label = "item no";
+                        } elseif ($count === 2) {
+                            $item_text = $item_nos[0] . ' & ' . $item_nos[1];
+                            $item_label = "item nos";
+                        } else {
+                            $item_text = implode(', ', array_slice($item_nos, 0, -1)) . ', & ' . end($item_nos);
+                            $item_label = "item nos";
+                        }
+                    @endphp
+                    We are pleased to inform you that the procurement for the <b>"{{ $procurement->title }}"</b>, {{ $item_label }}
+                    <span style="font-weight:bold">{{ $item_text }}</span>,
+                    under our reference PR no. <b>{{ $procurement->code }}</b> has been awarded to your company with the total contract
+                    amount of <b>{{ $amount_to_words }} (Php {{ $total_amount }})</b>.
+                </p>
 
-            <p>
-                The item awarded under this procurement is as follows: {{ $item_label }}. {{ $item_text }}
-            </p>
+                <p>
+                    The item awarded under this procurement is as follows: {{ $item_label }}. {{ $item_text }}
+                </p>
 
-            <p>
-                The delivery term is within {{ $noa->procurement_quotation->delivery_term }} upon receipt of the Notice to Proceed, 
-                and the delivery shall be made to the Department of Science and Technology – Regional Office IX, 
-                Pettit Barracks, Zone IV, Zamboanga City.
-            </p>
+                <p>
+                    The delivery term is within {{ $noa->procurement_quotation->delivery_term }} upon receipt of the Notice to Proceed,
+                    and the delivery shall be made to the Department of Science and Technology - Regional Office IX,
+                    Pettit Barracks, Zone IV, Zamboanga City.
+                </p>
 
-            <p>
-                We appreciate your interest in this opportunity and we look forward to your satisfactory performance of your obligations 
-                under the project.
-            </p>
+                <p>
+                    We appreciate your interest in this opportunity and we look forward to your satisfactory performance of your obligations
+                    under the project.
+                </p>
 
-            <p>Thank you.</p>
+                <p>Thank you.</p>
+            @endif
         </div>
 
         <!-- Closing / Signature -->
@@ -162,19 +166,21 @@
   <script type="text/php">
         if ( isset($pdf) ) {
             $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-            $size = 8;
+            $size = 12;
             $width = $pdf->get_width();
             $height = $pdf->get_height();
+            $left_margin = 35;
+            $right_margin = 35;
             $y_axis = $height - 25; 
 
             // LEFT: NOA Code
             $text_code = "{{ $noa->code }}";
-            $pdf->page_text(35, $y_axis, $text_code, $font, $size, array(0,0,0));
+            $pdf->page_text($left_margin, $y_axis, $text_code, $font, $size, array(0,0,0));
 
             // RIGHT: Page Counter
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-            $pdf->page_text($width - $text_width + 50, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $text_width = $fontMetrics->get_text_width("Page 1 of 1", $font, $size);
+            $pdf->page_text($width - $text_width - $right_margin, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

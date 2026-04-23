@@ -9,6 +9,8 @@
         
         body {
             font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1;
             margin: -30px;
             padding: 20px;
             
@@ -28,11 +30,11 @@
         }
         .text-right{
             text-align: right ;
-            line-height: 0.1;
+            line-height: 1;
         }
         .text-left{
             text-align: left ;
-            line-height: 0.5;
+            line-height: 1;
         }
 
 
@@ -40,7 +42,44 @@
             text-align: left;
             position:absolute;
             right:0;
-            line-height: 0.5;
+            line-height: 1;
+        }
+        .rfq-header {
+            position: relative;
+        }
+        .rfq-agency-line {
+            margin: 0 0 4px;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+        .rfq-title {
+            margin: 12px 0 10px;
+            font-size: 20px;
+            line-height: 1.2;
+        }
+        .rfq-meta {
+            top: 68px;
+            font-size: 10px;
+            line-height: 1.3;
+        }
+        .rfq-meta-line {
+            margin: 0 0 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .rfq-supplier-block {
+            margin-top: 28px;
+            font-size: 10px;
+            line-height: 1.35;
+            text-align: left;
+        }
+        .rfq-supplier-line {
+            margin: 0 0 8px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .rfq-supplier-line u {
+            text-underline-offset: 2px;
         }
         .border-container {
             margin-top: 0px;
@@ -124,54 +163,59 @@
             <p class="small-text">Rev.1/07-01-2023</p>
         </div>
     </div>
-    <div class="text-center">
-        <span style="font-size: 12px">Republic of the Philippines</span>
-        <h3 style="line-height: .1; font-size: 12px">DEPARTMENT OF SCIENCE AND TECHNOLOGY</h3>
-        <p style="line-height: .1; font-size: 12px">Regional Office No. IX</p>
-        <p style="line-height: .1; font-size: 12px">Pettit Barracks, Zone IV, Zamboanga City</p>
-        <h3>
-            REQUEST FOR QUOTATION
-        </h3>
+    <div class="text-center rfq-header">
+        <p class="rfq-agency-line">Republic of the Philippines</p>
+        <h3 class="rfq-agency-line">DEPARTMENT OF SCIENCE AND TECHNOLOGY</h3>
+        <p class="rfq-agency-line">Regional Office No. IX</p>
+        <p class="rfq-agency-line">Pettit Barracks, Zone IV, Zamboanga City</p>
+        <h3 class="rfq-title">REQUEST FOR QUOTATION</h3>
 
-        <div class="text-right-date" style="font-size: 10px;">
-            <h3>Date: <u>{{  $quotation->created_at->format('m-d-Y') ?? ___________________________ }}</u></h3>
-    
-            <h3>RFQ No.: <u> {{  $quotation->code ?? '________________________'}}</u> </h3>
+        <div class="text-right-date rfq-meta">
+            <p class="rfq-meta-line">Date: <u>{{ $quotation->created_at->format('m-d-Y') ?? '___________________________' }}</u></p>
+            <p class="rfq-meta-line">RFQ No.: <u>{{ $quotation->code ?? '________________________' }}</u></p>
         </div>
-    <div class="text-left" style="font-size: 10px; margin-top: 40px;">
-        <h3>
-            <h3 style="margin-bottom:-30px; margin-left: 215px">
-                <span>___________________________</span>
-            </h3>
-            <h3>
-                Company Name/Business Name: {{ $supplier->name }}
-            </h3>
-            <h3 style="margin-bottom:-30px; margin-left: 60px">
-                <span>___________________________</span>
-            </h3>
-            <h3>
-                Address:{{ $supplier->address?->address }}
-            </h3>
-            <h3 style="margin-bottom:-30px; margin-left:210px">
-                <span>_____________________________</span>
-            </h3>
-            <h3>
-                Business/Mayor’s Permit No.:__________________________________________________________________
-            </h3>
-            <h3 style="margin-bottom:-30px; margin-left:290px">
-                <span>_____________________</span>
-            </h3>
-            <h3>
-                Company Tax Identification Number (TIN):________________________________________________________
-            </h3>
-            <h3 style="margin-bottom:-30px; margin-left:220px">
-                <span>____________________________</span>
-            </h3>
-            <h3>
-                PhilGEPS Registration Number:_________________________________________________________________
-            </h3>
-        </h3>
+    @php
+        $supplierAttachments = collect($supplier->attachments ?? []);
 
+        $businessPermitNumber = optional($supplierAttachments->first(function ($attachment) {
+            $documentType = strtolower((string) ($attachment->document_type ?? ''));
+            $name = strtolower((string) ($attachment->name ?? ''));
+
+            return str_contains($documentType, 'business permit')
+                || (str_contains($documentType, 'business') && str_contains($documentType, 'permit'))
+                || str_contains($name, 'business permit');
+        }))->code;
+
+        $philgepsRegistrationNumber = optional($supplierAttachments->first(function ($attachment) {
+            $documentType = strtolower((string) ($attachment->document_type ?? ''));
+            $name = strtolower((string) ($attachment->name ?? ''));
+
+            return str_contains($documentType, 'philgeps')
+                || str_contains($name, 'philgeps');
+        }))->code;
+    @endphp
+    <div class="rfq-supplier-block">
+        <p class="rfq-supplier-line">
+            Company Name/Business Name:
+            <u>{{ $supplier->name ?: '________________________________________' }}</u>
+        </p>
+        <p class="rfq-supplier-line">
+            Address:
+            <u>{{ $supplier->address?->address ?: '____________________________________________________________' }}</u>
+        </p>
+        <p class="rfq-supplier-line">
+            Business/Mayor's Permit No.:
+            <u>{{ $businessPermitNumber ?: '__________________________________________________________' }}</u>
+        </p>
+        <p class="rfq-supplier-line">
+            Company Tax Identification Number (TIN):
+            <u>{{ $supplier->tin ?: '____________________________________________________' }}</u>
+        </p>
+        <p class="rfq-supplier-line">
+            PhilGEPS Registration Number:
+            <u>{{ $philgepsRegistrationNumber ?: '____________________________________________________' }}</u>
+        </p>
+    </div>
     </div>
 
     <div class="border-container2 " style="font-size:11px">
@@ -215,7 +259,7 @@
         </div>
     </div>
 
-    <div class="border-container3 " style="font-size: 11px; line-height: 1.5; margin-top:20px">
+    <div class="border-container3 " style="font-size: 11px; line-height: 1; margin-top:20px">
         <u>
             <b>GENERAL CONDITIONS</b>
         </u>
@@ -325,6 +369,9 @@
                     <tr>
                         <td colspan="1" style="padding-top:15px">{{ $index+1 }}</td>
                         <td colspan="1" >
+                            <span>
+                                {{ $item->item->item_name }}
+                            </span>
                             <span style="padding-top: -10px">
                                 {!! $item->item->item_description !!}
                             </span>
@@ -368,10 +415,10 @@
               </b>
               
          </p>
-         <p style="line-height: .5">
+         <p style="line-height: 1">
               Account Number: _______________________________________________________________________________________________
          </p>
-         <p style="line-height: .5; margin-bottom: 20px" >
+         <p style="line-height: 1; margin-bottom: 20px" >
               Account Name: _______________________________________________________________________________________________
          </p>
 
@@ -385,7 +432,7 @@
               I hereby certify that the above information is true and correct.
             
           </p>
-         <div style="line-height:.5">
+         <div style="line-height:1">
           <p >
                   ________________________________________________
               </p>
@@ -394,7 +441,7 @@
 
               </p>
          </div>
-        <div style="line-height:.5">
+        <div style="line-height:1">
           <p >
               ________________________________________________
               </p>
@@ -403,7 +450,7 @@
               
               </p>
           </div>
-         <div style="line-height:.5">
+         <div style="line-height:1">
           <p>
               ________________________________________________
               </p>
@@ -420,23 +467,23 @@
   <script type="text/php">
     if ( isset($pdf) ) {
         $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-        $size = 8;
+        $size = 12;
         $width = $pdf->get_width();
         $height = $pdf->get_height();
+        $left_margin = 35;
+        $right_margin = 35;
         $y_axis = $height - 25; 
 
             // 1. LEFT SIDE: Procurement Code
             $text_code = "{{ $procurement->code }}";
-        $pdf->page_text(35, $y_axis, $text_code, $font, $size, array(0,0,0));
+        $pdf->page_text($left_margin, $y_axis, $text_code, $font, $size, array(0,0,0));
 
         // RIGHT: Page Counter
         $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-        $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-        $pdf->page_text($width - $text_width + 50, $y_axis, $text_page, $font, $size, array(0,0,0));
+        $text_width = $fontMetrics->get_text_width("Page 1 of 1", $font, $size);
+        $pdf->page_text($width - $text_width - $right_margin, $y_axis, $text_page, $font, $size, array(0,0,0));
     }
 </script>
 
 </body>
 </html>
-
-

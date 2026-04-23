@@ -9,7 +9,7 @@
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Dashboard</span>
                 </Link>
             </li>
-            <template v-if="$page.props.user.data.signatory">
+            <template v-if="$page.props.approvals?.has_access">
                 <li class="nav-item">
                     <Link href="/approvals" class="nav-link menu-link"
                         :class="{'active': $page.component.startsWith('Modules/Portal/Approvals') }">
@@ -39,7 +39,9 @@
             <li
                 class="nav-item"
                 v-if="
+                $page.props.roles.includes('Procurement Staff') ||
                 $page.props.roles.includes('Procurement Officer') ||
+                $page.props.roles.includes('Budget Officer') ||
                 $page.props.roles.includes('Administrator')
                 "
             >
@@ -68,8 +70,13 @@
             </li>
             <li
                 class="nav-item"
+                v-if="
+                    $page.props.roles.includes('Procurement Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
             >
                 <Link
+                
                 href="/faims/procurement-assignments"
                 class="nav-link menu-link"
                 :class="{ active: $page.component.startsWith('Modules/FAIMS/Procurement/Assignments') }"
@@ -82,12 +89,19 @@
                 class="nav-item"
                 v-if="
                 $page.props.roles.includes('Procurement Officer') ||
+                $page.props.roles.includes('Budget Officer') || 
                 $page.props.roles.includes('Administrator')
                 "
             >
                 <Link
+                v-if=" $page.props.roles.includes('Budget Officer') ||  
+                        $page.props.roles.includes('Procurement Officer') ||
+                        $page.props.roles.includes('Administrator')"
                 href="/faims/procurement-codes"
                 class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Code'),
+                }"
                 >
                 <i class="ri-code-box-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">PAP Codes</span>
@@ -95,11 +109,32 @@
                 
 
                 <Link
+                v-if="  $page.props.roles.includes('Procurement Officer') ||
+                        $page.props.roles.includes('Administrator')"
                 href="/faims/responsibility-centers"
                 class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/ResponsibilityCenters'),
+                }"
                 >
                 <i class="ri-code-box-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Responsibility Centers</span>
+                </Link>
+
+                <Link
+                v-if="
+                    $page.props.roles.includes('Procurement Staff') ||
+                    $page.props.roles.includes('Procurement Officer') ||
+                    $page.props.roles.includes('Administrator')
+                "
+                href="/faims/modes-of-procurement"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/ModesOfProcurement'),
+                }"
+                >
+                <i class="ri-code-box-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Modes of Procurement</span>
                 </Link>
             </li>
 
@@ -178,7 +213,8 @@
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Purchase Orders</span>
                 </Link>
             </li>
-            <li
+
+             <li
                 class="nav-item"
                 v-if="
                 $page.props.roles.includes('Procurement Staff') ||
@@ -187,16 +223,17 @@
                 "
             >
                 <Link
-                href="/faims/procurement-followers"
+                href="/faims/procurement-reports"
                 class="nav-link menu-link"
                 :class="{
-                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Followers'),
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Reports'),
                 }"
                 >
-                <i class="ri-user-follow-line"></i>
-                <span class="fw-semibold fs-14" data-key="t-dashboards">Status Assignee</span>
+                <i class="ri-file-paper-2-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Procurement Reports</span>
                 </Link>
             </li>
+  
             <li class="menu-title">
                 <i class="ri-more-fill" aria-expanded="false"></i>
                 <span data-key="t-menu">Finance</span>
@@ -323,8 +360,11 @@
                 </Link>
             </li>
 
-                        <template v-if="
+            <template 
+            v-if="
                 $page.props.roles.includes('Supply Officer') ||
+                $page.props.roles.includes('Supply Staff') ||
+                $page.props.roles.includes('Supply') ||
                 $page.props.roles.includes('Employee') ||
                 $page.props.roles.includes('Administrator')
             ">
@@ -346,17 +386,19 @@
                 </li>
 
                 <li class="nav-item">
-                    <Link
+                <Link
                         href="/inventory-stocks"
                         class="nav-link menu-link"
                         :class="{
-                            active: $page.component.startsWith('Modules/Inventory'),
+                            active: $page.component.startsWith('Modules/Inventory/Index'),
                         }"
                     >
                         <i class="ri-dashboard-line"></i>
                         <span class="fw-semibold fs-14" data-key="t-dashboards">Stocks</span>
                     </Link>
                 </li>
+
+                
             </template>
 
             <template v-if="$page.props.roles.includes('Document Management Officer')">

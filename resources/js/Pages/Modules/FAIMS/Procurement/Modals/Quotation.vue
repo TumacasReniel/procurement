@@ -84,6 +84,7 @@
                         <thead class="table-light">
                             <tr class="fs-11">
                                 <th>Item No</th>
+                                <th>Item Name</th>
                                 <th>Quantity/Unit</th>
                                 <th>Item Description</th>
                                 <th></th>
@@ -95,6 +96,7 @@
                                 :key="index"
                             >
                                 <td>{{ item.item_no }}</td>
+                                <td>{{ item.item_name || "-" }}</td>
                                 <td>
                                     {{ item.item_quantity }}
                                     {{

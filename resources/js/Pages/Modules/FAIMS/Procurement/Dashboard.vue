@@ -1,4 +1,5 @@
-tin<template>
+<template>
+	<div class="procurement-dashboard-page">
 	<Head title="Procurement Dashboard" />
 	<PageHeader title="Procurement Dashboard" pageTitle="Overview" />
 
@@ -376,9 +377,10 @@ tin<template>
 							<thead class="table-light">
 								<tr class="fs-12 fw-semibold text-uppercase">
 									<th style="width: 5%" class="text-center"><i class="ri-hashtag"></i></th>
-									<th style="width: 40%"><i class="ri-building-line me-1"></i>Unit</th>
-									<th style="width: 20%" class="text-end"><i class="ri-file-list-3-line me-1"></i>Procurements</th>
-									<th style="width: 35%"><i class="ri-pie-chart-line me-1"></i>Distribution</th>
+									<th style="width: 34%"><i class="ri-building-line me-1"></i>Unit</th>
+									<th style="width: 16%" class="text-end"><i class="ri-file-list-3-line me-1"></i>Procurements</th>
+									<th style="width: 22%" class="text-end"><i class="ri-money-dollar-circle-line me-1"></i>Amount Distributed</th>
+									<th style="width: 23%"><i class="ri-pie-chart-line me-1"></i>Distribution</th>
 								</tr>
 							</thead>
 							<tbody class="table-group-divider">
@@ -400,6 +402,9 @@ tin<template>
 									<td class="text-end fw-semibold">
 										<span class="procurement-count">{{ item.count }}</span>
 									</td>
+									<td class="text-end fw-semibold">
+										<span class="distributed-amount">{{ formatCurrency(item.distributed_amount) }}</span>
+									</td>
 									<td>
 										<div class="d-flex align-items-center gap-2">
 											<div class="progress flex-grow-1 unit-progress" style="height: 10px;">
@@ -413,6 +418,7 @@ tin<template>
 									<td class="text-center"><i class="ri-calculator-line"></i></td>
 									<td class="fw-semibold"><div class="d-flex align-items-center"><i class="ri-stack-line me-2"></i>All Units</div></td>
 									<td class="text-end fw-semibold">{{ divisionTotal }}</td>
+									<td class="text-end fw-semibold">{{ formatCurrency(divisionTotalAmount) }}</td>
 									<td>
 										<div class="d-flex align-items-center gap-2">
 											<div class="progress flex-grow-1" style="height: 10px;">
@@ -423,7 +429,7 @@ tin<template>
 									</td>
 								</tr>
 								<tr v-if="sortedDivisionDistribution.length === 0">
-									<td colspan="4" class="text-center text-muted py-5">
+									<td colspan="5" class="text-center text-muted py-5">
 										<i class="ri-inbox-line fs-1 d-block mb-2 opacity-50"></i>
 										No unit data available
 									</td>
@@ -549,6 +555,7 @@ tin<template>
 		</BCol>
 	</BRow>
 
+	</div>
 </template>
 
 <script>
@@ -862,13 +869,18 @@ export default {
 				.sort((a, b) => (b.count || 0) - (a.count || 0))
 				.map((item) => {
 					const count = Number(item.count) || 0;
+					const distributedAmount = Number(item.distributed_amount) || 0;
 					const share = Math.round((count / total) * 100);
-					return { ...item, count, share, unit_label: this.getUnitLabel(item) };
+					return { ...item, count, distributed_amount: distributedAmount, share, unit_label: this.getUnitLabel(item) };
 				});
 		},
 		divisionTotal() {
 			const source = this.dashboard.division_distribution || [];
 			return source.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
+		},
+		divisionTotalAmount() {
+			const source = this.dashboard.division_distribution || [];
+			return source.reduce((sum, item) => sum + (Number(item.distributed_amount) || 0), 0);
 		},
   },
 
@@ -947,6 +959,15 @@ export default {
         day: 'numeric',
       });
     },
+
+		formatCurrency(value) {
+			const amount = Number(value) || 0;
+			return new Intl.NumberFormat('en-PH', {
+				style: 'currency',
+				currency: 'PHP',
+				minimumFractionDigits: 2,
+			}).format(amount);
+		},
 
 		formatDateTime(date) {
 			return new Date(date).toLocaleString('en-US', {
@@ -1229,6 +1250,12 @@ export default {
   color: #405189;
 }
 
+.unit-table-card .distributed-amount {
+  color: #0ab39c;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .unit-table-card .unit-progress {
   border-radius: 5px;
   background: #e2e8f0;
@@ -1263,6 +1290,10 @@ export default {
 
 .unit-table-card .total-row .procurement-count {
   color: #1e293b;
+}
+
+.unit-table-card .total-row .distributed-amount {
+  color: #0f766e;
 }
 
 .unit-table-card .badge {

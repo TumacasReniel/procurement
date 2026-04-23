@@ -69,6 +69,16 @@ class ListRolesTableSeeder extends Seeder
                 'created_at' => '2026-01-23 10:32:43',
                 'updated_at' => '2026-01-23 10:32:43',
             ),
+            5 =>
+            array (
+                'id' => 6,
+                'name' => 'Budget Officer',
+                'type' => 'Finance',
+                'is_active' => 1,
+                'definition' => 'Reviews and approves additional PAP code budget allocation requests.',
+                'created_at' => '2026-04-22 12:01:00',
+                'updated_at' => '2026-04-22 12:01:00',
+            ),
         ));
         
         

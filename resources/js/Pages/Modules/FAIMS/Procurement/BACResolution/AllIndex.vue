@@ -1,7 +1,7 @@
 <template>
   <Head title="BAC Resolutions" />
   <PageHeader title="BAC Resolutions" pageTitle="All" />
-  <BRow>
+  <BRow class="procurement-index-page">
     <div class="col-md-12">
       <div class="card bg-light-subtle shadow-none border">
         <div class="card-header bg-light-subtle">
@@ -75,6 +75,7 @@
                     <th style="width: 18%">Purpose</th>
                     <th style="width: 12%">Type</th>
                     <th style="width: 12%">Date Created</th>
+                    <th style="width: 14%">Approved At</th>
                     <th style="width: 10%">Status</th>
                     <th style="width: 10%" class="text-center">Actions</th>
                   </tr>
@@ -112,6 +113,10 @@
                       </b-badge>
                     </td>
                     <td>{{ formatDate(list.created_at) }}</td>
+                    <td>
+                      <span v-if="list.approved_at">{{ list.approved_at }}</span>
+                      <span v-else class="text-muted">Not yet</span>
+                    </td>
                     <td>
                       <b-badge :class="list.status.bg" class="fs-11">{{ list.status?.name }}</b-badge>
                     </td>

@@ -1,90 +1,77 @@
 <template>
-  <!-- Status Change Confirmation Modal -->
   <b-modal
     v-model="showStatusModal"
-    title="Confirm Status Change"
-    header-class="bg-gradient-primary text-white"
+    style="--vz-modal-width: 600px"
+    :title="supplier && supplier.is_active == 1 ? 'Deactivate Supplier' : 'Activate Supplier'"
+    header-class="p-3 bg-light"
+    class="v-modal-custom"
     modal-class="zoomIn"
     centered
     no-close-on-backdrop
   >
-    <div class="text-center">
-      <div class="mb-3">
-        <i
-          :class="supplier && supplier.is_active == 1 ? 'ri-pause-circle-line text-warning' : 'ri-play-circle-line text-success'"
-          style="font-size: 4rem"
-        ></i>
+    <form class="customform">
+      <div class="m-5 text-center">
+        <div>
+          Are you sure you want to
+          <span :class="supplier && supplier.is_active == 1 ? 'text-danger' : 'text-success'">
+            {{ supplier && supplier.is_active == 1 ? 'deactivate' : 'activate' }}
+          </span>
+          supplier
+          <span class="text-primary">"{{ supplier ? supplier.name : '' }}"</span>?
+        </div>
+
+        <div class="text-muted small mt-3">
+          {{ supplier && supplier.is_active == 1
+            ? 'This supplier will no longer be available for selection in procurement processes.'
+            : 'This supplier will be available for selection in procurement processes.' }}
+        </div>
       </div>
-      <h5 class="mb-3">
-        {{ supplier && supplier.is_active == 1 ? 'Deactivate' : 'Activate' }} Supplier
-      </h5>
-      <p class="text-muted mb-0">
-        Are you sure you want to
-        <strong>{{ supplier && supplier.is_active == 1 ? 'deactivate' : 'activate' }}</strong>
-        the supplier "<strong>{{ supplier ? supplier.name : '' }}</strong>"?
-      </p>
-      <p class="text-muted small mt-2">
-        {{ supplier && supplier.is_active == 1
-          ? 'This supplier will no longer be available for selection in procurement processes.'
-          : 'This supplier will be available for selection in procurement processes.' }}
-      </p>
-    </div>
+    </form>
 
     <template v-slot:footer>
-      <div class="d-flex justify-content-end gap-2">
-        <b-button
-          @click="cancelStatusChange"
-          variant="light"
-          style="border-radius: 8px"
-        >
-          <i class="ri-close-line me-1"></i>Cancel
-        </b-button>
-        <b-button
-          @click="confirmStatusChange"
-          :variant="supplier && supplier.is_active == 1 ? 'warning' : 'success'"
-          :disabled="statusChanging"
-          style="border-radius: 8px"
-        >
-          <i
-            :class="supplier && supplier.is_active == 1 ? 'ri-pause-circle-line' : 'ri-play-circle-line'"
-            class="me-1"
-          ></i>
-          {{ statusChanging ? 'Processing...' : (supplier && supplier.is_active == 1 ? 'Deactivate' : 'Activate') }}
-        </b-button>
-      </div>
+      <b-button
+        @click="cancelStatusChange"
+        variant="light"
+        :disabled="statusChanging"
+        block
+      >
+        Close
+      </b-button>
+      <b-button
+        @click="confirmStatusChange"
+        variant="primary"
+        :disabled="statusChanging"
+        block
+      >
+        {{ statusChanging ? 'Processing...' : (supplier && supplier.is_active == 1 ? 'Deactivate' : 'Activate') }}
+      </b-button>
     </template>
   </b-modal>
 
-  <!-- Status Change Result Modal -->
   <b-modal
     v-model="showResultModal"
+    style="--vz-modal-width: 600px"
     :title="statusResult.title"
-    :header-class="statusResult.variant === 'success' ? 'bg-success text-white' : 'bg-danger text-white'"
+    header-class="p-3 bg-light"
+    class="v-modal-custom"
     modal-class="zoomIn"
     centered
     no-close-on-backdrop
   >
-    <div class="text-center">
-      <div class="mb-3">
-        <i
-          :class="statusResult.variant === 'success' ? 'ri-checkbox-circle-fill text-success' : 'ri-close-circle-fill text-danger'"
-          style="font-size: 4rem"
-        ></i>
+    <form class="customform">
+      <div class="m-5 text-center">
+        <div>{{ statusResult.message }}</div>
       </div>
-      <h5 class="mb-3">{{ statusResult.title }}</h5>
-      <p class="text-muted mb-0">{{ statusResult.message }}</p>
-    </div>
+    </form>
 
     <template v-slot:footer>
-      <div class="d-flex justify-content-center">
-        <b-button
-          @click="closeResultModal"
-          variant="light"
-          style="border-radius: 8px"
-        >
-          <i class="ri-close-line me-1"></i>Close
-        </b-button>
-      </div>
+      <b-button
+        @click="closeResultModal"
+        variant="light"
+        block
+      >
+        Close
+      </b-button>
     </template>
   </b-modal>
 </template>
@@ -136,8 +123,12 @@ export default {
         .patch(`/faims/suppliers/${this.supplier.id}/status`, {
           is_active: newStatus,
         })
-        .then(() => {
-          this.supplier.is_active = newStatus;
+        .then((response) => {
+          const updatedSupplier = response?.data?.data || {
+            ...this.supplier,
+            is_active: newStatus,
+          };
+
           this.showStatusModal = false;
           this.statusResult = {
             title: "Success",
@@ -146,7 +137,7 @@ export default {
           };
           this.showResultModal = true;
           this.statusChanging = false;
-          this.$emit('status-changed', this.supplier);
+          this.$emit('status-changed', updatedSupplier);
         })
         .catch((err) => {
           console.error(err);
@@ -173,9 +164,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-.bg-gradient-primary {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-}
-</style>

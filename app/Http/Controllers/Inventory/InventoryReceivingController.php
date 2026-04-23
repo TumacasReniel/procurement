@@ -3,48 +3,55 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Inventory\Concerns\RespondsWithInventoryResults;
 use App\Http\Requests\Inventory\InventoryReceivingRequest;
-use App\Http\Resources\Inventory\InventoryReceivingResource;
 use App\Models\InventoryReceiving;
+use App\Services\Inventory\InventoryStockClass;
+use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
 
 class InventoryReceivingController extends Controller
 {
+    use HandlesTransaction;
+    use RespondsWithInventoryResults;
+
+    public function __construct(public InventoryStockClass $inventory)
+    {
+    }
+
     public function index(Request $request)
     {
-        $receivings = InventoryReceiving::with(['item', 'approvedBy.profile', 'status'])
-            ->orderByDesc('id')
-            ->paginate((int) $request->input('count', 10));
+        if (!$this->shouldReturnJson($request)) {
+            return redirect('/inventory-stocks?tab=receivings');
+        }
 
-        return InventoryReceivingResource::collection($receivings);
+        return $this->inventory->receivings($request);
     }
 
     public function store(InventoryReceivingRequest $request)
     {
-        $receiving = InventoryReceiving::create($request->validated());
+        $result = $this->handleTransaction(function () use ($request) {
+            return $this->inventory->saveReceiving($request);
+        });
 
-        return response()->json([
-            'data' => new InventoryReceivingResource($receiving->load(['item', 'approvedBy.profile', 'status'])),
-            'message' => 'Inventory receiving created successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'receivings');
     }
 
     public function update(InventoryReceivingRequest $request, InventoryReceiving $inventory_receiving)
     {
-        $inventory_receiving->update($request->validated());
+        $result = $this->handleTransaction(function () use ($request, $inventory_receiving) {
+            return $this->inventory->updateReceiving($request, $inventory_receiving);
+        });
 
-        return response()->json([
-            'data' => new InventoryReceivingResource($inventory_receiving->load(['item', 'approvedBy.profile', 'status'])),
-            'message' => 'Inventory receiving updated successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'receivings');
     }
 
-    public function destroy(InventoryReceiving $inventory_receiving)
+    public function destroy(Request $request, InventoryReceiving $inventory_receiving)
     {
-        $inventory_receiving->delete();
+        $result = $this->handleTransaction(function () use ($inventory_receiving) {
+            return $this->inventory->deleteReceiving($inventory_receiving);
+        });
 
-        return response()->json([
-            'message' => 'Inventory receiving deleted successfully.',
-        ]);
+        return $this->inventoryResultResponse($request, $result, 'receivings');
     }
 }

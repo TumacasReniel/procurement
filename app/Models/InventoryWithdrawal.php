@@ -10,7 +10,7 @@ class InventoryWithdrawal extends Model
     use HasFactory;
 
     protected $fillable = [
-        'item_id',
+        'inventory_id',
         'requested_by_id',
         'approved_by_id',
         'status_id',
@@ -24,7 +24,7 @@ class InventoryWithdrawal extends Model
 
     public function item()
     {
-        return $this->belongsTo(InventoryItem::class, 'item_id');
+        return $this->belongsTo(InventoryItem::class, 'inventory_id');
     }
 
     public function requestedBy()

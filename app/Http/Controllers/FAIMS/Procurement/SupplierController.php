@@ -4,6 +4,7 @@ namespace App\Http\Controllers\FAIMS\Procurement;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Requests\Procurement\SupplierRequest;
 use App\Services\FAIMS\Procurement\SupplierClass;
 use App\Services\FAIMS\Procurement\ViewClass;
 use App\Services\DropdownClass;
@@ -35,17 +36,30 @@ class SupplierController extends Controller
                 return inertia('Modules/FAIMS/Procurement/Suppliers/Index', [
                     'dropdowns' => [
                         'roles'  =>  \Auth::user()->roles,
+                        'statuses' => [
+                            ['value' => 'active', 'name' => 'Active'],
+                            ['value' => 'inactive', 'name' => 'Inactive'],
+                            ['value' => 'pending_approval', 'name' => 'Pending Approval'],
+                        ],
                         'attachment_types' => $this->dropdown->attachment_types(),
                     ],
                 ]); 
         }   
     }
 
-     public function store(Request $request) {
+     public function store(SupplierRequest $request) {
         $result = $this->handleTransaction(function () use ($request) {
             return $this->supplier->save($request);
         });
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $result['data'],
+                'message' => $result['message'],
+                'info' => $result['info'],
+                'status' => $result['status'],
+            ], 201);
+        }
 
         return back()->with([
             'data' => $result['data'],
@@ -57,11 +71,20 @@ class SupplierController extends Controller
     }
 
     
-    public function update(Request $request, $id) {
+    public function update(SupplierRequest $request, $id) {
         $request->merge(['id' => $id]);
         $result = $this->handleTransaction(function () use ($request) {
             return $this->supplier->update($request);
         });
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $result['data'],
+                'message' => $result['message'],
+                'info' => $result['info'],
+                'status' => $result['status'],
+            ]);
+        }
 
         return back()->with([
             'data' => $result['data'],
@@ -70,6 +93,20 @@ class SupplierController extends Controller
             'status' => $result['status'],
         ]);
 
+    }
+
+    public function approve($id)
+    {
+        $result = $this->handleTransaction(function () use ($id) {
+            return $this->supplier->approve($id);
+        });
+
+        return response()->json([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
+        ]);
     }
 
     public function status(Request $request, $id) {
@@ -88,15 +125,14 @@ class SupplierController extends Controller
     public function supply_officers(){
         $data = User::with('roles' , 'profile')
         ->whereHas('roles', function ($query) {
-            $query->where('role_id', 12);
-        })->get()->map(function ($item) {
+            $query->where('list_roles.name', 'Supply Officer')
+                ->where('user_roles.is_active', 1);
+        })->orderBy('id')->get()->map(function ($item) {
             return [
                 'value' => $item->id,
-                'name' => $item->profile->full_name ,
+                'name' => $item->profile?->full_name ?? ('User #' . $item->id),
             ];
         });
-
-
 
         return $data;
     }

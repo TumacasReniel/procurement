@@ -62,41 +62,17 @@
 
         <span
           v-if="
-          actionType !== 'revert' &&
-          ((form.status?.name === 'PO Issued')|| ((form.status?.name === 'Pending' || form.status?.name === 'Created')  && (type == 'NOA' || type == 'PO')) &&
-            type != 'NOA Not Conformed' &&
-            type != 'PO Not Conformed')
-          "
-        >
-          Update status from
-          <span :class="statusTextClass">"{{ form.status?.name }}"</span>
-          to
-          <span class="text-primary" v-if="type == 'NOA'">"Served to Supplier"</span>
-          <span class="text-primary" v-if="type == 'PO'">"Served to Supplier"</span>
-          
-          ?
-        </span> 
-
-        <span
-          v-if="
             actionType !== 'revert' &&
-            (form.status?.name === 'Served to Supplier' || form.status?.name === 'Issued') &&
-            type != 'NOA Not Conformed' &&
-            type != 'PO Not Conformed'
+            nextStatusLabel &&
+            type !== 'NOA Not Conformed' &&
+            type !== 'PO Not Conformed' &&
+            type !== 'BACResolution'
           "
         >
           Update status from
           <span :class="statusTextClass">"{{ form.status?.name }}"</span>
           to
-          <span class="text-primary">"Conformed"</span>
-          ?
-        </span>
-
-        <span v-if="actionType !== 'revert' && form.status?.name === 'Conformed'">
-          Update status from
-          <span :class="statusTextClass">"{{ form.status?.name }}"</span>
-          to
-          <span class="text-primary">"Delivered/For Inspection"</span>
+          <span class="text-primary">"{{ nextStatusLabel }}"</span>
           ?
         </span>
         <br />
@@ -137,6 +113,10 @@
             Please type "confirm" to proceed
           </small>
         </div>
+
+        <div v-if="form.errors.status" class="alert alert-warning mt-3 mb-0 text-start">
+          {{ form.errors.status }}
+        </div>
       </div>
     </form>
     <template v-slot:footer>
@@ -149,6 +129,7 @@
 </template>
 <script>
 import { useForm } from "@inertiajs/vue3";
+import axios from "axios";
 import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
 import TextInput from "@/Shared/Components/Forms/TextInput.vue";
 
@@ -169,7 +150,9 @@ export default {
         quotations: this.procurement.quotations.filter((q) =>
           q.items.some(
             (item) =>
-              item.status.name ="Awarded" && item.bid_price != null && item.is_rebid == 0
+              item.status?.name === "Awarded" &&
+              item.bid_price != null &&
+              item.is_rebid == 0
           )
         ),
         bac_reso_type: null,
@@ -197,21 +180,9 @@ export default {
     submit() {
       if (this.actionType === "revert") {
         if (this.type == "NOA") {
-          this.form.put("/faims/notice-of-awards/" + this.form.id, {
-            preserveScroll: true,
-            onSuccess: () => {
-              this.$emit("add", true);
-              this.hide();
-            },
-          });
+          this.submitNoaRequest("/faims/notice-of-awards/" + this.form.id);
         } else if (this.type == "PO") {
-          this.form.put("/faims/purchase-orders/" + this.form.id, {
-            preserveScroll: true,
-            onSuccess: () => {
-              this.$emit("add", true);
-              this.hide();
-            },
-          });
+          this.submitPoRequest("/faims/purchase-orders/" + this.form.id);
         }
         return;
       }
@@ -228,25 +199,98 @@ export default {
         if (this.type == "NOA Not Conformed") {
           this.form.option = "not_conformed";
         }
-        this.form.put("/faims/notice-of-awards/" + this.form.id, {
-          preserveScroll: true,
-          onSuccess: (response) => {
-            this.$emit("add", true);
-            this.hide();
-          },
-        });
+        this.submitNoaRequest("/faims/notice-of-awards/" + this.form.id);
       } else if (this.type == "PO" || this.type == "PO Not Conformed") {
         if (this.type == "PO Not Conformed") {
           this.form.option = "not_conformed";
         }
-        this.form.put("/faims/purchase-orders/" + this.form.id, {
-          preserveScroll: true,
-          onSuccess: (response) => {
-            this.$emit("add", true);
-            this.hide();
-          },
-        });
+        this.submitPoRequest("/faims/purchase-orders/" + this.form.id);
       }
+    },
+    submitNoaRequest(url) {
+      this.form.clearErrors();
+      this.form.processing = true;
+
+      axios
+        .put(
+          url,
+          {
+            id: this.form.id,
+            code: this.form.code,
+            status: this.form.status,
+            items: this.form.items,
+            quotations: this.form.quotations,
+            bac_reso_type: this.form.bac_reso_type,
+            comment: this.form.comment,
+            option: this.form.option,
+          },
+          {
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        )
+        .then(() => {
+          this.$emit("add", true);
+          this.hide();
+        })
+        .catch((error) => {
+          if (error.response?.status === 422 && error.response?.data?.errors) {
+            this.form.setError(error.response.data.errors);
+            return;
+          }
+
+          console.error(error);
+        })
+        .finally(() => {
+          this.form.processing = false;
+        });
+    },
+    submitPoRequest(url) {
+      this.form.clearErrors();
+      this.form.processing = true;
+
+      axios
+        .put(
+          url,
+          {
+            id: this.form.id,
+            code: this.form.code,
+            status: this.form.status,
+            comment: this.form.comment,
+            option: this.form.option,
+          },
+          {
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        )
+        .then((response) => {
+          const status = response?.data?.status;
+
+          if (status !== true && status !== "success") {
+            this.form.setError(
+              "status",
+              response?.data?.info || "Unable to update this Purchase Order."
+            );
+            return;
+          }
+
+          this.$emit("add", true);
+          this.hide();
+        })
+        .catch((error) => {
+          if (error.response?.status === 422 && error.response?.data?.errors) {
+            this.form.setError(error.response.data.errors);
+            return;
+          }
+
+          console.error(error);
+        })
+        .finally(() => {
+          this.form.processing = false;
+        });
     },
     handleInput(field) {
       this.form.errors[field] = false;
@@ -266,10 +310,60 @@ export default {
       this.form.option = "update_status";
       this.actionType = "update";
     },
+    normalizeStatus(statusName) {
+      const normalized = String(statusName || "").trim();
+
+      if (!normalized) {
+        return "";
+      }
+
+      if (
+        ["PO Conformed", "Partially Conformed", "PO Partially Conformed"].includes(normalized)
+      ) {
+        return "Conformed";
+      }
+
+      if (
+        [
+          "Items Delivered",
+          "PO Items Delivered",
+          "Partially Delivered/For Inspection",
+          "PO Delivered/For Inspection",
+          "PO Partially Delivered/For Inspection",
+          "Items Partially Delivered",
+          "PO Items Partially Delivered",
+        ].includes(normalized)
+      ) {
+        return "Items Delivered";
+      }
+
+      return normalized;
+    },
   },
   computed: {
     isConfirmed() {
       return this.confirmText.toUpperCase() === "CONFIRM";
+    },
+    normalizedCurrentStatus() {
+      return this.normalizeStatus(this.form.status?.name || "");
+    },
+    nextStatusLabel() {
+      const current = this.normalizedCurrentStatus;
+
+      if (this.type === "NOA") {
+        if (current === "Pending") return "Served to Supplier";
+        if (current === "Served to Supplier") return "Conformed";
+        if (current === "Conformed") return "Items Delivered";
+      }
+
+      if (this.type === "PO") {
+        if (current === "Created") return "Issued";
+        if (current === "Issued") return "Conformed";
+        if (current === "Conformed") return "Items Delivered";
+        if (current === "Items Delivered") return "Completed";
+      }
+
+      return null;
     },
     statusTextClass() {
       const raw = this.form.status?.color || "";
@@ -279,14 +373,14 @@ export default {
         .join(" ");
     },
     revertTargetStatus() {
-      const current = this.form.status?.name || "";
+      const current = this.normalizedCurrentStatus;
       if (this.type === "NOA") {
-        if (current === "Delivered/For Inspection") return "Conformed";
+        if (current === "Items Delivered") return "Conformed";
         if (current === "Conformed") return "Served to Supplier";
         if (current === "Served to Supplier") return "Pending";
       }
       if (this.type === "PO") {
-        if (current === "Delivered/For Inspection") return "Conformed";
+        if (current === "Items Delivered") return "Conformed";
         if (current === "Conformed") return "Issued";
         if (current === "Issued") return "Created";
       }

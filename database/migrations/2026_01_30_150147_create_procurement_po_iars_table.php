@@ -17,7 +17,11 @@ return new class extends Migration
             $table->foreign('procurement_id')->references('id')->on('procurements');
             $table->integer('po_id')->unsigned()->index();
             $table->foreign('po_id')->references('id')->on('procurement_noa_pos');
+            $table->string('invoice_no')->nullable();
+            $table->date('invoice_date')->nullable();
             $table->string('code')->unique();
+            $table->unsignedInteger('inspected_by_id')->nullable();
+            $table->foreign('inspected_by_id')->references('id')->on('users');
             $table->timestamps();
         });
     }

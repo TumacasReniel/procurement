@@ -6,417 +6,381 @@ use App\Http\Resources\Inventory\InventoryItemResource;
 use App\Http\Resources\Inventory\InventoryReceivingResource;
 use App\Http\Resources\Inventory\InventoryStockResource;
 use App\Http\Resources\Inventory\InventoryWithdrawalResource;
-use App\Models\Inventory;
-use App\Models\InventoryReceivingTransfer;
+use App\Models\InventoryItem;
+use App\Models\InventoryReceiving;
 use App\Models\InventoryStock;
 use App\Models\InventoryWithdrawal;
 use App\Models\ListDropdown;
 use App\Models\ListStatus;
-use App\Models\ProcurementItem;
-use App\Models\ProcurementNoaPo;
-use App\Services\DropdownClass;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use Illuminate\Http\Request;
 
 class InventoryStockClass
 {
-    public function __construct(public DropdownClass $dropdown)
+    public function indexData(Request $request): array
     {
+        return [
+            'dropdowns' => [
+                'categories' => ListDropdown::where('classification', 'Inventory Category')
+                    ->orderBy('name')
+                    ->get(['id', 'name']),
+                'statuses' => $this->inventoryStatuses(),
+            ],
+            'users' => User::with('profile')
+                ->get()
+                ->map(fn ($user) => [
+                    'id' => $user->id,
+                    'name' => $user->profile?->fullname ?? $user->username,
+                ])
+                ->sortBy('name')
+                ->values(),
+            'stockOptions' => InventoryStock::orderBy('name')
+                ->get(['id', 'code', 'name'])
+                ->map(fn ($stock) => [
+                    'id' => $stock->id,
+                    'code' => $stock->code,
+                    'name' => $stock->name,
+                ])
+                ->values(),
+            'itemOptions' => InventoryItem::orderBy('name')
+                ->get(['id', 'code', 'name'])
+                ->map(fn ($item) => [
+                    'id' => $item->id,
+                    'code' => $item->code,
+                    'name' => $item->name,
+                ])
+                ->values(),
+            'stocks' => $this->stocks($request),
+            'items' => $this->items($request),
+            'receivings' => $this->receivings($request),
+            'withdrawals' => $this->withdrawals($request),
+        ];
     }
 
-    public function lists($request)
+    public function stocks(Request $request)
     {
-        $count = max((int) $request->input('count', 10), 1);
-        $completedStatusId = ListStatus::getID('Completed', 'Procurement');
-        $receivedItemNames = ProcurementNoaPo::with(['noa.items.item.item:id,item_description'])
-            ->where('status_id', $completedStatusId)
-            ->get()
-            ->flatMap(fn ($po) => collect($po->noa?->items ?? []))
-            ->map(fn ($item) => trim((string) $item->item?->item?->item_description))
-            ->filter()
-            ->unique()
-            ->values();
+        return InventoryStockResource::collection(
+            $this->stocksQuery($request)->paginate($this->perPage($request))
+        );
+    }
 
-        if ($receivedItemNames->isEmpty()) {
-            return InventoryStockResource::collection(collect());
+    public function items(Request $request)
+    {
+        return InventoryItemResource::collection(
+            $this->itemsQuery($request)->paginate($this->perPage($request))
+        );
+    }
+
+    public function receivings(Request $request)
+    {
+        return InventoryReceivingResource::collection(
+            $this->receivingsQuery($request)->paginate($this->perPage($request))
+        );
+    }
+
+    public function withdrawals(Request $request)
+    {
+        return InventoryWithdrawalResource::collection(
+            $this->withdrawalsQuery($request)->paginate($this->perPage($request))
+        );
+    }
+
+    public function saveStock($request): array
+    {
+        $payload = $request->validated();
+        $payload['code'] = InventoryStock::generateCode();
+
+        if (empty($payload['entry_date'])) {
+            $payload['entry_date'] = now();
         }
 
-        $data = InventoryStock::with(['inventory.category', 'inventory.unit', 'location'])
-            ->whereHas('inventory', function ($query) use ($receivedItemNames) {
-                $query->whereIn('name', $receivedItemNames->all());
-            })
+        $stock = InventoryStock::create($payload);
+
+        return $this->stockResult(
+            $stock,
+            'Inventory stock created successfully.',
+            "You've successfully created a stock group."
+        );
+    }
+
+    public function updateStock($request, InventoryStock $stock): array
+    {
+        $stock->update($request->validated());
+
+        return $this->stockResult(
+            $stock,
+            'Inventory stock updated successfully.',
+            "You've successfully updated the stock group."
+        );
+    }
+
+    public function deleteStock(InventoryStock $stock): array
+    {
+        $id = $stock->id;
+        $stock->delete();
+
+        return $this->deleteResult($id, 'Inventory stock deleted successfully.', "You've successfully deleted the stock group.");
+    }
+
+    public function saveItem($request): array
+    {
+        $item = InventoryItem::create($request->validated());
+
+        return $this->itemResult(
+            $item,
+            'Inventory item created successfully.',
+            "You've successfully created an inventory item."
+        );
+    }
+
+    public function updateItem($request, InventoryItem $item): array
+    {
+        $item->update($request->validated());
+
+        return $this->itemResult(
+            $item,
+            'Inventory item updated successfully.',
+            "You've successfully updated the inventory item."
+        );
+    }
+
+    public function deleteItem(InventoryItem $item): array
+    {
+        $id = $item->id;
+        $item->delete();
+
+        return $this->deleteResult($id, 'Inventory item deleted successfully.', "You've successfully deleted the inventory item.");
+    }
+
+    public function saveReceiving($request): array
+    {
+        $receiving = InventoryReceiving::create($request->validated());
+
+        return $this->receivingResult(
+            $receiving,
+            'Inventory receiving created successfully.',
+            "You've successfully logged a receiving record."
+        );
+    }
+
+    public function updateReceiving($request, InventoryReceiving $receiving): array
+    {
+        $receiving->update($request->validated());
+
+        return $this->receivingResult(
+            $receiving,
+            'Inventory receiving updated successfully.',
+            "You've successfully updated the receiving record."
+        );
+    }
+
+    public function deleteReceiving(InventoryReceiving $receiving): array
+    {
+        $id = $receiving->id;
+        $receiving->delete();
+
+        return $this->deleteResult($id, 'Inventory receiving deleted successfully.', "You've successfully deleted the receiving record.");
+    }
+
+    public function saveWithdrawal($request): array
+    {
+        $withdrawal = InventoryWithdrawal::create($request->validated());
+
+        return $this->withdrawalResult(
+            $withdrawal,
+            'Inventory withdrawal created successfully.',
+            "You've successfully logged a withdrawal record."
+        );
+    }
+
+    public function updateWithdrawal($request, InventoryWithdrawal $withdrawal): array
+    {
+        $withdrawal->update($request->validated());
+
+        return $this->withdrawalResult(
+            $withdrawal,
+            'Inventory withdrawal updated successfully.',
+            "You've successfully updated the withdrawal record."
+        );
+    }
+
+    public function deleteWithdrawal(InventoryWithdrawal $withdrawal): array
+    {
+        $id = $withdrawal->id;
+        $withdrawal->delete();
+
+        return $this->deleteResult($id, 'Inventory withdrawal deleted successfully.', "You've successfully deleted the withdrawal record.");
+    }
+
+    protected function stocksQuery(Request $request)
+    {
+        return InventoryStock::query()
+            ->withCount('items')
+            ->withSum('items as total_quantity', 'quantity')
             ->when($request->filled('keyword'), function ($query) use ($request) {
                 $keyword = trim((string) $request->input('keyword'));
 
                 $query->where(function ($inner) use ($keyword) {
-                    $inner->where('status', 'like', "%{$keyword}%")
-                        ->orWhereHas('inventory', function ($inventory) use ($keyword) {
-                            $inventory->where('name', 'like', "%{$keyword}%");
+                    $inner->where('code', 'like', "%{$keyword}%")
+                        ->orWhere('name', 'like', "%{$keyword}%");
+                });
+            })
+            ->orderByDesc('entry_date')
+            ->orderByDesc('id');
+    }
+
+    protected function itemsQuery(Request $request)
+    {
+        return $this->applyItemSorting(
+            InventoryItem::with(['stock:id,code,name', 'category:id,name'])
+                ->when($request->filled('stock_id'), function ($query) use ($request) {
+                    $query->where('stock_id', $request->integer('stock_id'));
+                })
+                ->when($request->filled('keyword'), function ($query) use ($request) {
+                    $keyword = trim((string) $request->input('keyword'));
+
+                    $query->where(function ($inner) use ($keyword) {
+                        $inner->where('code', 'like', "%{$keyword}%")
+                            ->orWhere('name', 'like', "%{$keyword}%")
+                            ->orWhereHas('stock', function ($stock) use ($keyword) {
+                                $stock->where('code', 'like', "%{$keyword}%")
+                                    ->orWhere('name', 'like', "%{$keyword}%");
+                            })
+                            ->orWhereHas('category', function ($category) use ($keyword) {
+                                $category->where('name', 'like', "%{$keyword}%");
+                            });
+                    });
+                }),
+            (string) $request->input('sort', 'latest')
+        );
+    }
+
+    protected function receivingsQuery(Request $request)
+    {
+        return InventoryReceiving::with(['item', 'approvedBy.profile', 'status'])
+            ->when($request->filled('keyword'), function ($query) use ($request) {
+                $keyword = trim((string) $request->input('keyword'));
+
+                $query->where(function ($inner) use ($keyword) {
+                    $inner->where('remarks', 'like', "%{$keyword}%")
+                        ->orWhereHas('item', function ($item) use ($keyword) {
+                            $item->where('name', 'like', "%{$keyword}%")
+                                ->orWhere('code', 'like', "%{$keyword}%");
                         })
-                        ->orWhereHas('location', function ($location) use ($keyword) {
-                            $location->where('name', 'like', "%{$keyword}%");
+                        ->orWhereHas('approvedBy', function ($user) use ($keyword) {
+                            $user->where('username', 'like', "%{$keyword}%");
+                        })
+                        ->orWhereHas('status', function ($status) use ($keyword) {
+                            $status->where('name', 'like', "%{$keyword}%");
                         });
                 });
             })
-            ->when($request->filled('status'), function ($query) use ($request) {
-                $query->where('status', $request->input('status'));
+            ->orderByDesc('received_at')
+            ->orderByDesc('id');
+    }
+
+    protected function withdrawalsQuery(Request $request)
+    {
+        return InventoryWithdrawal::with(['item', 'requestedBy.profile', 'approvedBy.profile', 'status'])
+            ->when($request->filled('keyword'), function ($query) use ($request) {
+                $keyword = trim((string) $request->input('keyword'));
+
+                $query->where(function ($inner) use ($keyword) {
+                    $inner->where('remarks', 'like', "%{$keyword}%")
+                        ->orWhereHas('item', function ($item) use ($keyword) {
+                            $item->where('name', 'like', "%{$keyword}%")
+                                ->orWhere('code', 'like', "%{$keyword}%");
+                        })
+                        ->orWhereHas('requestedBy', function ($user) use ($keyword) {
+                            $user->where('username', 'like', "%{$keyword}%");
+                        })
+                        ->orWhereHas('approvedBy', function ($user) use ($keyword) {
+                            $user->where('username', 'like', "%{$keyword}%");
+                        })
+                        ->orWhereHas('status', function ($status) use ($keyword) {
+                            $status->where('name', 'like', "%{$keyword}%");
+                        });
+                });
             })
-            ->when($request->filled('location_id'), function ($query) use ($request) {
-                $query->where('location_id', $request->input('location_id'));
-            })
-            ->orderByDesc('last_updated')
-            ->orderByDesc('id')
-            ->paginate($count);
-
-        return InventoryStockResource::collection($data);
-    }
-
-    public function transferReceiving($request): array
-    {
-        $receiving = ProcurementNoaPo::with(['noa.items.item.item_unit_type', 'place_of_delivery:id,name'])
-            ->findOrFail((int) $request->input('receiving_id'));
-
-        $result = $this->transferCompletedPoItemsToInventory($receiving);
-
-        if ($result['transferred'] === 0) {
-            return [
-                'data' => $result,
-                'message' => 'No items were transferred.',
-                'info' => $result['skipped']
-                    ? 'This receiving was already transferred or its items could not be mapped to inventory units.'
-                    : 'There are no completed procurement items available to transfer.',
-                'status' => 'warning',
-            ];
-        }
-
-        return [
-            'data' => $result,
-            'message' => 'Receiving transferred to inventory successfully.',
-            'info' => "Transferred {$result['transferred']} item(s) from {$receiving->code} to inventory stock.",
-            'status' => 'success',
-        ];
-    }
-
-    private function transferCompletedPoItemsToInventory(ProcurementNoaPo $po): array
-    {
-        $categoryId = $this->defaultInventoryCategoryId();
-
-        if (!$categoryId) {
-            return ['transferred' => 0, 'skipped' => 0];
-        }
-
-        $procurementItems = collect($po->noa?->items ?? [])
-            ->map(fn ($item) => $item->item)
-            ->filter();
-
-        $transferred = 0;
-        $skipped = 0;
-
-        foreach ($procurementItems as $item) {
-            $existingTransfer = InventoryReceivingTransfer::where('po_id', $po->id)
-                ->where('procurement_item_id', $item->id)
-                ->exists();
-
-            if ($existingTransfer) {
-                $skipped++;
-                continue;
-            }
-
-            $unitId = $this->resolveInventoryUnitIdFromProcurementItem($item);
-            if (!$unitId) {
-                $skipped++;
-                continue;
-            }
-
-            $itemName = trim((string) $item->item_description);
-            if ($itemName === '') {
-                $itemName = 'Procurement Item #' . $item->id;
-            }
-
-            $inventory = Inventory::firstOrCreate(
-                [
-                    'name' => $itemName,
-                    'unit_id' => $unitId,
-                ],
-                [
-                    'description' => $item->item_description,
-                    'category_id' => $categoryId,
-                    'min_stock_level' => 0,
-                ]
-            );
-
-            $stock = InventoryStock::firstOrNew([
-                'inventory_id' => $inventory->id,
-                'location_id' => $po->place_of_delivery_id,
-            ]);
-
-            $currentQuantity = (float) ($stock->quantity ?? 0);
-            $incomingQuantity = (float) ($item->item_quantity ?? 0);
-            $newQuantity = $currentQuantity + $incomingQuantity;
-
-            $stock->quantity = $newQuantity;
-            $stock->status = $this->resolveInventoryStockStatus($newQuantity, (float) $inventory->min_stock_level);
-            $stock->last_updated = $po->updated_at ?? now();
-            $stock->save();
-
-            InventoryReceivingTransfer::create([
-                'po_id' => $po->id,
-                'procurement_item_id' => $item->id,
-                'inventory_id' => $inventory->id,
-                'inventory_stock_id' => $stock->id,
-                'quantity' => $incomingQuantity,
-                'transferred_at' => now(),
-            ]);
-
-            $transferred++;
-        }
-
-        return ['transferred' => $transferred, 'skipped' => $skipped];
-    }
-
-    private function resolveInventoryUnitIdFromProcurementItem(ProcurementItem $item): ?int
-    {
-        $unitType = $item->item_unit_type;
-        if (!$unitType) {
-            return null;
-        }
-
-        $candidates = collect([
-            $unitType->name_short ?? null,
-            $unitType->name_long ?? null,
-        ])->filter()->map(fn ($name) => trim((string) $name))->filter()->values();
-
-        foreach ($candidates as $candidate) {
-            $unit = ListDropdown::where('classification', 'Unit')
-                ->where(function ($query) use ($candidate) {
-                    $query->whereRaw('LOWER(name) = ?', [strtolower($candidate)])
-                        ->orWhereRaw('LOWER(others) = ?', [strtolower($candidate)]);
-                })
-                ->first();
-
-            if ($unit) {
-                return (int) $unit->id;
-            }
-        }
-
-        return null;
-    }
-
-    private function defaultInventoryCategoryId(): ?int
-    {
-        return ListDropdown::where('classification', 'Inventory Category')
-            ->orderBy('id')
-            ->value('id');
-    }
-
-    private function resolveInventoryStockStatus(float $quantity, float $minStockLevel): string
-    {
-        if ($quantity <= 0) {
-            return 'out';
-        }
-
-        if ($quantity <= $minStockLevel) {
-            return 'low';
-        }
-
-        return 'available';
-    }
-
-    public function receivings($request)
-    {
-        $count = max((int) $request->input('count', 10), 1);
-        $completedStatusId = ListStatus::getID('Completed', 'Procurement');
-
-        $data = ProcurementNoaPo::with([
-                'status:id,name',
-                'place_of_delivery:id,name',
-                'noa.procurement:id,code,title,purpose',
-                'noa.procurement_quotation.supplier:id,name',
-            ])
-            ->where('status_id', $completedStatusId)
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->paginate($count);
-
-        return InventoryReceivingResource::collection($data);
-    }
-
-    public function withdrawals($request)
-    {
-        $count = max((int) $request->input('count', 10), 1);
-
-        $data = InventoryWithdrawal::with(['requested_by.profile', 'location'])
             ->orderByDesc('released_at')
-            ->orderByDesc('id')
-            ->paginate($count);
-
-        return InventoryWithdrawalResource::collection($data);
+            ->orderByDesc('id');
     }
 
-    public function receivingWithdrawalItems($request)
+    protected function inventoryStatuses()
     {
-        $receivingId = (int) $request->input('receiving_id');
-
-        $receiving = ProcurementNoaPo::with([
-                'place_of_delivery:id,name',
-                'noa.items.item.item:id,item_description',
-            ])
-            ->findOrFail($receivingId);
-
-        $itemNames = collect($receiving->noa?->items ?? [])
-            ->map(fn ($item) => trim((string) $item->item?->item?->item_description))
-            ->filter()
-            ->unique()
+        return ListStatus::query()
+            ->where('is_active', 1)
+            ->whereIn('name', ['Pending', 'Approved', 'Completed', 'Cancelled', 'Disapproved'])
+            ->orderBy('id')
+            ->get(['id', 'name'])
+            ->unique('name')
             ->values();
-
-        if ($itemNames->isEmpty()) {
-            return InventoryStockResource::collection(collect());
-        }
-
-        $stocks = InventoryStock::with(['inventory.category', 'inventory.unit', 'location'])
-            ->where('location_id', $receiving->place_of_delivery_id)
-            ->where('quantity', '>', 0)
-            ->whereHas('inventory', function ($query) use ($itemNames) {
-                $query->whereIn('name', $itemNames->all());
-            })
-            ->orderByDesc('last_updated')
-            ->orderByDesc('id')
-            ->get()
-            ->sortBy(fn ($stock) => array_search($stock->inventory?->name, $itemNames->all(), true))
-            ->values();
-
-        return InventoryStockResource::collection($stocks);
     }
 
-    public function indexData(): array
+    protected function applyItemSorting($query, string $sort)
     {
-        return [
-            'dropdowns' => [
-                'locations' => $this->dropdown->dropdowns('Location'),
-                'categories' => $this->dropdown->dropdowns('Inventory Category'),
-                'units' => $this->dropdown->dropdowns('Unit'),
-            ],
-            'inventories' => InventoryItemResource::collection(
-                Inventory::with(['category:id,name', 'unit:id,name'])
-                    ->orderBy('name')
-                    ->get(['id', 'name', 'category_id', 'unit_id'])
-            ),
-            'receivings' => InventoryReceivingResource::collection(
-                ProcurementNoaPo::with([
-                        'status:id,name',
-                        'place_of_delivery:id,name',
-                        'noa.procurement:id,code,title,purpose',
-                        'noa.procurement_quotation.supplier:id,name',
-                    ])
-                    ->where('status_id', ListStatus::getID('Completed', 'Procurement'))
-                    ->orderByDesc('updated_at')
-                    ->orderByDesc('id')
-                    ->paginate(10)
-            ),
-            'withdrawals' => InventoryWithdrawalResource::collection(
-                InventoryWithdrawal::with(['requested_by.profile', 'location'])
-                    ->orderByDesc('released_at')
-                    ->orderByDesc('id')
-                    ->paginate(10)
-            ),
-        ];
+        return match ($sort) {
+            'oldest' => $query->orderBy('id'),
+            'name_asc' => $query->orderBy('name')->orderByDesc('id'),
+            'name_desc' => $query->orderByDesc('name')->orderByDesc('id'),
+            'quantity_desc' => $query->orderByDesc('quantity')->orderByDesc('id'),
+            'quantity_asc' => $query->orderBy('quantity')->orderByDesc('id'),
+            'expiration_asc' => $query->orderBy('expiration')->orderByDesc('id'),
+            'expiration_desc' => $query->orderByDesc('expiration')->orderByDesc('id'),
+            default => $query->orderByDesc('id'),
+        };
     }
 
-    public function save($request): array
+    protected function perPage(Request $request): int
     {
-        $inventoryId = $request->inventory_id;
+        return max((int) $request->input('count', 10), 1);
+    }
 
-        if ($request->inventory_id === '__NEW__') {
-            $inventory = Inventory::create([
-                'name' => $request->new_inventory_name,
-                'description' => $request->new_inventory_description,
-                'category_id' => $request->new_category_id,
-                'unit_id' => $request->new_unit_id,
-                'min_stock_level' => $request->new_min_stock_level ?? 0,
-            ]);
-
-            $inventoryId = $inventory->id;
-        }
-
-        $stock = InventoryStock::create([
-            'inventory_id' => $inventoryId,
-            'location_id' => $request->location_id,
-            'quantity' => $request->quantity,
-            'status' => $request->status,
-            'last_updated' => $request->last_updated ?? now(),
-        ]);
-
-        $stock->load(['inventory.category', 'inventory.unit', 'location']);
+    protected function stockResult(InventoryStock $stock, string $message, string $info): array
+    {
+        $stock->loadCount('items');
+        $stock->setAttribute('total_quantity', (int) $stock->items()->sum('quantity'));
 
         return [
             'data' => new InventoryStockResource($stock),
-            'message' => 'Inventory stock created successfully.',
-            'info' => "You've successfully created an inventory stock.",
+            'message' => $message,
+            'info' => $info,
         ];
     }
 
-    public function update($request, InventoryStock $inventoryStock): array
+    protected function itemResult(InventoryItem $item, string $message, string $info): array
     {
-        $inventoryStock->loadMissing(['inventory', 'location']);
-
-        $previousQuantity = (float) ($inventoryStock->quantity ?? 0);
-        $newQuantity = (float) $request->quantity;
-        $releasedQuantity = $previousQuantity > $newQuantity ? ($previousQuantity - $newQuantity) : 0;
-
-        if ($releasedQuantity > 0) {
-            $this->recordWithdrawal($inventoryStock, $releasedQuantity, $request);
-        }
-
-        $inventoryStock->update([
-            'inventory_id' => $request->inventory_id,
-            'location_id' => $request->location_id,
-            'quantity' => $request->quantity,
-            'status' => $request->status,
-            'last_updated' => $request->last_updated ?? $inventoryStock->last_updated ?? now(),
-        ]);
-
-        $inventoryStock->load(['inventory.category', 'inventory.unit', 'location']);
-
         return [
-            'data' => new InventoryStockResource($inventoryStock),
-            'message' => 'Inventory stock updated successfully.',
-            'info' => "You've successfully updated the inventory stock.",
+            'data' => new InventoryItemResource($item->load(['stock', 'category'])),
+            'message' => $message,
+            'info' => $info,
         ];
     }
 
-    public function delete(InventoryStock $inventoryStock): array
+    protected function receivingResult(InventoryReceiving $receiving, string $message, string $info): array
     {
-        $id = $inventoryStock->id;
-        $inventoryStock->delete();
+        return [
+            'data' => new InventoryReceivingResource($receiving->load(['item', 'approvedBy.profile', 'status'])),
+            'message' => $message,
+            'info' => $info,
+        ];
+    }
 
+    protected function withdrawalResult(InventoryWithdrawal $withdrawal, string $message, string $info): array
+    {
+        return [
+            'data' => new InventoryWithdrawalResource($withdrawal->load(['item', 'requestedBy.profile', 'approvedBy.profile', 'status'])),
+            'message' => $message,
+            'info' => $info,
+        ];
+    }
+
+    protected function deleteResult(int $id, string $message, string $info): array
+    {
         return [
             'data' => ['id' => $id],
-            'message' => 'Inventory stock deleted successfully.',
-            'info' => "You've successfully deleted the inventory stock.",
+            'message' => $message,
+            'info' => $info,
         ];
     }
-
-    private function recordWithdrawal(InventoryStock $inventoryStock, float $releasedQuantity, $request): void
-    {
-        $user = Auth::user();
-        $inventoryStock->loadMissing(['inventory', 'location']);
-
-        InventoryWithdrawal::create([
-            'reference_no' => InventoryWithdrawal::generateReferenceNumber(),
-            'inventory_id' => $inventoryStock->inventory_id,
-            'inventory_stock_id' => $inventoryStock->id,
-            'location_id' => $inventoryStock->location_id,
-            'requested_by_id' => $request->input('requested_by_id') ?: $user?->id,
-            'item_name' => $inventoryStock->inventory?->name ?? 'Inventory Item',
-            'quantity' => $releasedQuantity,
-            'released_at' => $request->last_updated ?? now(),
-            'status' => 'Released',
-            'remarks' => $request->input('withdrawal_remarks') ?: 'Recorded automatically from inventory stock reduction.',
-        ]);
-    }
 }
-
-
-
-
-
-

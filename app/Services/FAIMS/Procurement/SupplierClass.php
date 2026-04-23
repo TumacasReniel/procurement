@@ -3,52 +3,88 @@
 namespace App\Services\FAIMS\Procurement;
 
 use App\Models\Supplier;
+use App\Models\User;
 use App\Http\Resources\FAIMS\Procurement\SupplierResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class SupplierClass
 {
-    public function lists($request){
+    public function lists($request)
+    {
         $data = SupplierResource::collection(
-            Supplier::with(['address', 'conformes', 'attachments'])
+            Supplier::query()
+            ->with(['address', 'conformes', 'attachments', 'created_by.profile', 'approved_by.profile'])
+            ->withCount(['conformes', 'attachments'])
             ->when($request->keyword, function ($query, $keyword) {
-                $query->where('name', 'LIKE', "%{$keyword}%")
+                $query->where(function ($searchQuery) use ($keyword) {
+                    $searchQuery->where('name', 'LIKE', "%{$keyword}%")
                         ->orWhere('code', 'LIKE', "%{$keyword}%")
+                        ->orWhere('tin', 'LIKE', "%{$keyword}%")
+                        ->orWhere('approval_status', 'LIKE', "%{$keyword}%")
                         ->orWhereHas('address', function ($q) use ($keyword) {
                             $q->where('address', 'LIKE', "%{$keyword}%");
+                        })
+                        ->orWhereHas('conformes', function ($q) use ($keyword) {
+                            $q->where('name', 'LIKE', "%{$keyword}%")
+                                ->orWhere('position', 'LIKE', "%{$keyword}%")
+                                ->orWhere('contact_no', 'LIKE', "%{$keyword}%");
+                        })
+                        ->orWhereHas('created_by.profile', function ($q) use ($keyword) {
+                            $q->where('firstname', 'LIKE', "%{$keyword}%")
+                                ->orWhere('middlename', 'LIKE', "%{$keyword}%")
+                                ->orWhere('lastname', 'LIKE', "%{$keyword}%");
+                        })
+                        ->orWhereHas('approved_by.profile', function ($q) use ($keyword) {
+                            $q->where('firstname', 'LIKE', "%{$keyword}%")
+                                ->orWhere('middlename', 'LIKE', "%{$keyword}%")
+                                ->orWhere('lastname', 'LIKE', "%{$keyword}%");
                         });
+                });
             })
-            ->when($request->status !== null, function ($query) use ($request) {
-                $query->where('is_active', $request->status);
+            ->when($request->status !== null && $request->status !== '', function ($query) use ($request) {
+                if ($request->status === 'pending_approval') {
+                    $query->where('approval_status', 'Pending Approval');
+                    return;
+                }
+
+                if ($request->status === 'active' || (string) $request->status === '1') {
+                    $query->where('approval_status', 'Approved')->where('is_active', 1);
+                    return;
+                }
+
+                if ($request->status === 'inactive' || (string) $request->status === '0') {
+                    $query->where('approval_status', 'Approved')->where('is_active', 0);
+                }
             })
-            ->orderBy('created_at','DESC')
-            ->paginate($request->count ?: 15)
+            ->orderBy('created_at', 'DESC')
+            ->paginate($request->count ?: 10)
         );
+
         return $data;
     }
 
     public function save($request)
     {
-
         $code = Supplier::generateCode();
-        // Create the supplier with basic fields
+        $user = Auth::user();
+        $is_directly_approvable = $this->canApproveSupplier($user);
+
         $supplier = Supplier::create([
             'name' => $request->name,
             'code' => $code,
+            'tin' => $request->tin,
+            'approval_status' => $is_directly_approvable ? 'Approved' : 'Pending Approval',
+            'approved_by_id' => $is_directly_approvable ? $user?->id : null,
+            'approved_at' => $is_directly_approvable ? now() : null,
             'is_active' => $request->is_active ?? 1,
             'user_id' => Auth::id(),
         ]);
 
-        // dd($supplier);
-
-        // Handle address
         if ($request->address) {
-            $address = $supplier->address()->create(['address' => $request->address]);
+            $supplier->address()->create(['address' => $request->address]);
         }
 
-
-
-        // Handle conformes
         if ($request->conformes && is_array($request->conformes)) {
             foreach ($request->conformes as $conforme) {
                 if (!empty($conforme['name'])) {
@@ -61,56 +97,42 @@ class SupplierClass
             }
         }
 
-     
-        // Handle attachments
-        if ($request->hasFile('attachments')) {
-            $attachment_codes = $request->attachment_codes ?? [];
-            $attachment_types = $request->attachment_types ?? [];
-
-            foreach ($request->file('attachments') as $index => $file) {
-                $path = $file->store('supplier_attachments', 'public');
-                if ($path) {
-                    $supplier->attachments()->create([
-                        'name' => $file->getClientOriginalName(),
-                        'path' => $path,
-                        'type_id' => $attachment_types[$index] ?? null,
-                        'code' => $attachment_codes[$index] ?? null,
-                    ]);
-                }
-            }
-        }
+        $this->syncAttachments($supplier, $request);
 
         return [
-            'data' => new SupplierResource($supplier),
-            'message' => 'Supplier created successfully!',
-            'info' => "You've successfully added new Supplier.",
+            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments', 'created_by.profile', 'approved_by.profile'])),
+            'message' => $is_directly_approvable
+                ? 'Supplier created successfully!'
+                : 'Supplier submitted for approval successfully!',
+            'info' => $is_directly_approvable
+                ? "You've successfully added new Supplier."
+                : 'The supplier has been submitted and is now waiting for Procurement Officer approval.',
         ];
     }
 
     public function update($request)
     {
-
-        // Find the existing Supplier by ID
         $supplier = Supplier::findOrFail($request->id);
 
-        // Update the Supplier with the new data
         $supplier->update([
             'name' => $request->name,
             'code' => $request->code,
+            'tin' => $request->tin,
             'is_active' => $request->is_active ?? $supplier->is_active,
         ]);
 
-        // Handle address
-        if ($request->address) {
+        if (filled($request->address)) {
             $supplier->address()->updateOrCreate(
                 ['supplier_id' => $supplier->id],
                 ['address' => $request->address]
             );
+        } else {
+            $supplier->address()->delete();
         }
 
-        // Handle conformes - delete existing and create new ones
-        if ($request->conformes && is_array($request->conformes)) {
-            $supplier->conformes()->delete(); // Delete existing conformes
+        $supplier->conformes()->delete();
+
+        if (is_array($request->conformes)) {
             foreach ($request->conformes as $conforme) {
                 if (!empty($conforme['name'])) {
                     $supplier->conformes()->create([
@@ -122,58 +144,142 @@ class SupplierClass
             }
         }
 
-        // Handle attachments
-        $existingAttachmentIds = $request->existing_attachments ?? [];
-        $attachmentCodes = $request->attachment_codes ?? [];
-        $attachmentTypes = $request->attachment_types ?? [];
-
-        // Delete attachments that are no longer present
-        $supplier->attachments()->whereNotIn('id', $existingAttachmentIds)->delete();
-
-        // Update existing attachments
-        foreach ($existingAttachmentIds as $index => $attachmentId) {
-            if (isset($attachmentCodes[$index]) || isset($attachmentTypes[$index])) {
-                $supplier->attachments()->where('id', $attachmentId)->update([
-                    'code' => $attachmentCodes[$index] ?? null,
-                    'type_id' => $attachmentTypes[$index] ?? null,
-                ]);
-            }
-        }
-
-        // Add new attachments
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $index => $file) {
-                $path = $file->store('supplier_attachments', 'public');
-                if ($path) {
-                    $supplier->attachments()->create([
-                        'name' => $file->getClientOriginalName(),
-                        'path' => $path,
-                        'type_id' => $attachmentTypes[$index] ?? null,
-                        'code' => $attachmentCodes[$index] ?? null,
-                    ]);
-                }
-            }
-        }
+        $this->syncAttachments($supplier, $request, true);
 
         return [
-            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments'])),
+            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments', 'created_by.profile', 'approved_by.profile'])),
             'message' => 'Supplier updated successfully!',
             'info' => "You've successfully updated the Supplier.",
+        ];
+    }
+
+    public function approve($id)
+    {
+        $user = Auth::user();
+
+        if (!$this->canApproveSupplier($user)) {
+            abort(403, 'Only Procurement Officer or Administrator can approve suppliers.');
+        }
+
+        $supplier = Supplier::findOrFail($id);
+
+        $supplier->update([
+            'approval_status' => 'Approved',
+            'approved_by_id' => $user?->id,
+            'approved_at' => now(),
+        ]);
+
+        return [
+            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments', 'created_by.profile', 'approved_by.profile'])),
+            'message' => 'Supplier approved successfully!',
+            'info' => 'The supplier is now approved and available for use when active.',
         ];
     }
 
     public function status($request, $id)
     {
         $supplier = Supplier::findOrFail($id);
+
+        if (($supplier->approval_status ?: 'Approved') !== 'Approved') {
+            throw new \Exception('Only approved suppliers can be activated or deactivated.');
+        }
+
         $supplier->update([
             'is_active' => $request->is_active,
         ]);
 
         return [
-            'data' => new SupplierResource($supplier),
+            'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments', 'created_by.profile', 'approved_by.profile'])),
             'message' => 'Supplier status updated successfully!',
             'info' => "You've successfully " . ($request->is_active ? 'activated' : 'deactivated') . " the supplier.",
         ];
+    }
+
+    protected function canApproveSupplier(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $user->hasRole('Procurement Officer') || $user->hasRole('Administrator');
+    }
+
+    protected function syncAttachments(Supplier $supplier, $request, bool $isUpdate = false): void
+    {
+        $rows = $request->input('attachment_rows', []);
+        $retainedAttachmentIds = [];
+
+        foreach ($rows as $index => $row) {
+            $documentType = trim((string) data_get($row, 'document_type'));
+            $code = filled(data_get($row, 'code')) ? trim((string) data_get($row, 'code')) : null;
+            $attachmentId = data_get($row, 'id');
+            $uploadedFile = $request->file("attachment_rows.$index.file");
+
+            if (!$attachmentId && !$uploadedFile && $documentType === '' && blank($code)) {
+                continue;
+            }
+
+            if ($attachmentId) {
+                $attachment = $supplier->attachments()->find($attachmentId);
+
+                if (!$attachment) {
+                    continue;
+                }
+
+                $payload = [
+                    'code' => $code,
+                    'document_type' => $documentType ?: null,
+                ];
+
+                if ($uploadedFile) {
+                    if ($attachment->path && Storage::disk('public')->exists($attachment->path)) {
+                        Storage::disk('public')->delete($attachment->path);
+                    }
+
+                    $payload['name'] = $uploadedFile->getClientOriginalName();
+                    $payload['path'] = $uploadedFile->store('supplier_attachments', 'public');
+                }
+
+                $attachment->update($payload);
+                $retainedAttachmentIds[] = $attachment->id;
+
+                continue;
+            }
+
+            if (!$uploadedFile) {
+                continue;
+            }
+
+            $attachment = $supplier->attachments()->create([
+                'name' => $uploadedFile->getClientOriginalName(),
+                'path' => $uploadedFile->store('supplier_attachments', 'public'),
+                'type_id' => null,
+                'document_type' => $documentType ?: null,
+                'code' => $code,
+            ]);
+
+            $retainedAttachmentIds[] = $attachment->id;
+        }
+
+        if (!$isUpdate) {
+            return;
+        }
+
+        $attachmentsToDelete = $supplier->attachments()
+            ->when(!empty($retainedAttachmentIds), function ($query) use ($retainedAttachmentIds) {
+                $query->whereNotIn('id', $retainedAttachmentIds);
+            }, function ($query) {
+                $query->whereNotNull('id');
+            })
+            ->get();
+
+        foreach ($attachmentsToDelete as $attachment) {
+            if ($attachment->path && Storage::disk('public')->exists($attachment->path)) {
+                Storage::disk('public')->delete($attachment->path);
+            }
+
+            $attachment->delete();
+        }
     }
 
 }

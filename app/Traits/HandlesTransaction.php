@@ -2,6 +2,9 @@
 
 namespace App\Traits;
 
+use Illuminate\Database\QueryException;
+use PDOException;
+
 trait HandlesTransaction
 {
     public static function handleTransaction($callback){
@@ -20,8 +23,8 @@ trait HandlesTransaction
         } catch (QueryException $e) {
             $info = 'Transaction failed: ' . $e->getMessage();
             $message = 'Error occured';
-        } catch (DeadlockException $e) {
-            $info = 'Transaction failed due to deadlock: ' . $e->getMessage();
+        } catch (PDOException $e) {
+            $info = 'Transaction failed due to a database driver error: ' . $e->getMessage();
             $message = 'Error occured';
         } catch (\Exception $e) {
             $info = 'An unexpected error occurred: ' . $e->getMessage();

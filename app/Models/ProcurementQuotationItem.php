@@ -13,12 +13,16 @@ class ProcurementQuotationItem extends Model
         'technical_proposal',
         'bid_price',
         'is_free',
+        'is_no_offer',
+        'is_not_applicable',
         'status_id',
         'is_rebid'
     ];
 
     protected $casts = [
         'is_free' => 'boolean',
+        'is_no_offer' => 'boolean',
+        'is_not_applicable' => 'boolean',
         'is_checked' => 'boolean',
         'is_rebid' => 'boolean',
     ];

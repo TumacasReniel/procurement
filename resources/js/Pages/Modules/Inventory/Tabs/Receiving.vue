@@ -22,36 +22,47 @@
       </div>
     </div>
 
-    <div class="card-body bg-white rounded-bottom mt-3">
-      <b-row class="mb-5 ms-1 me-1">
+    <div class="card-body bg-white rounded-bottom receiving-card-body">
+      <b-row class="mb-3">
         <b-col lg>
-          <div class="input-group mb-1 ledger-toolbar">
-            <span class="input-group-text">
-              <i class="ri-search-line search-icon"></i>
-            </span>
-            <input
-              v-model="filters.keyword"
-              type="text"
-              placeholder="Search Receiving Ledger"
-              class="form-control"
-              style="width: 40%"
-            />
+          <div class="ledger-toolbar-wrap">
+            <div class="ledger-toolbar">
+              <div class="input-group ledger-search-group">
+                <span class="input-group-text">
+                  <i class="ri-search-line search-icon"></i>
+                </span>
+                <input
+                  v-model="filters.keyword"
+                  type="text"
+                  placeholder="Search Receiving Ledger"
+                  class="form-control"
+                />
+              </div>
+            </div>
+
+            <select v-model="filters.sort" class="form-select ledger-sort-select" aria-label="Sort receiving records">
+              <option value="latest">Latest Received</option>
+              <option value="oldest">Oldest Received</option>
+              <option value="item_asc">Item A-Z</option>
+              <option value="status_asc">Status A-Z</option>
+            </select>
+
             <button
               type="button"
-              class="btn btn-primary ms-2"
-              @click="$emit('create')"
-            >
-              <i class="ri-add-circle-fill me-1"></i>Create
-            </button>
-            <span
-              class="input-group-text"
-              style="cursor: pointer"
+              class="btn ledger-refresh-btn"
               title="Refresh"
               v-b-tooltip.hover
               @click="handleRefresh"
             >
               <i class="bx bx-refresh search-icon"></i>
-            </span>
+            </button>
+            <button
+              type="button"
+              class="btn receiving-create-btn"
+              @click="$emit('create')"
+            >
+              <i class="ri-add-circle-fill me-2"></i>Create
+            </button>
           </div>
         </b-col>
       </b-row>
@@ -72,10 +83,10 @@
             <tr v-if="loading">
               <td colspan="6" class="text-center text-muted py-4">Loading receiving records...</td>
             </tr>
-            <tr v-else-if="filteredRows.length === 0">
+            <tr v-else-if="sortedRows.length === 0">
               <td colspan="6" class="text-center text-muted py-4">No receiving records found.</td>
             </tr>
-            <tr v-else v-for="item in filteredRows" :key="item.id">
+            <tr v-else v-for="item in sortedRows" :key="item.id">
               <td class="fw-semibold">{{ item.item_name }}</td>
               <td>{{ item.approved_by }}</td>
               <td>
@@ -117,7 +128,7 @@
         v-if="meta && meta.total"
         :links="links"
         :pagination="meta"
-        :lists="filteredRows.length"
+        :lists="sortedRows.length"
         @fetch="(pageUrl) => $emit('fetch', pageUrl)"
       />
     </div>
@@ -125,12 +136,11 @@
 </template>
 
 <script>
-import Multiselect from '@vueform/multiselect';
 import Pagination from '@/Shared/Components/Pagination.vue';
 
 export default {
   name: 'ReceivingLedger',
-  components: { Multiselect, Pagination },
+  components: { Pagination },
   props: {
     rows: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
@@ -143,6 +153,7 @@ export default {
       filters: {
         keyword: '',
         status: '',
+        sort: 'latest',
       },
     };
   },
@@ -159,6 +170,24 @@ export default {
         return searchable.includes(keyword);
       });
     },
+    sortedRows() {
+      const rows = [...this.filteredRows];
+      const normalizeText = (value) => String(value || '').toLowerCase();
+      const normalizeDate = (value) => {
+        if (!value) return 0;
+
+        const timestamp = new Date(String(value).replace(' ', 'T')).getTime();
+        return Number.isNaN(timestamp) ? 0 : timestamp;
+      };
+
+      const sorters = {
+        oldest: (left, right) => normalizeDate(left.received_at) - normalizeDate(right.received_at),
+        item_asc: (left, right) => normalizeText(left.item_name).localeCompare(normalizeText(right.item_name)),
+        status_asc: (left, right) => normalizeText(left.status).localeCompare(normalizeText(right.status)),
+      };
+
+      return rows.sort(sorters[this.filters.sort] || ((left, right) => normalizeDate(right.received_at) - normalizeDate(left.received_at)));
+    },
   },
   methods: {
     handleRefresh() {
@@ -174,10 +203,75 @@ export default {
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.receiving-card-body {
+  padding: 0.65rem;
+}
+
 .ledger-table-wrap {
-  margin-top: -39px;
-  max-height: calc(100vh - 350px);
+  max-height: calc(100vh - 278px);
   overflow: auto;
+}
+
+.ledger-toolbar-wrap {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0;
+  width: 100%;
+}
+
+.ledger-toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ledger-search-group {
+  height: 100%;
+}
+
+.ledger-sort-select {
+  flex: 0 0 190px;
+  min-width: 190px;
+  border-left: 0;
+  border-radius: 0;
+}
+
+.ledger-refresh-btn {
+  flex: 0 0 52px;
+  cursor: pointer;
+  min-width: 52px;
+  border: 1px solid #d7dfef;
+  border-left: 0;
+  border-radius: 0;
+  background: #f8fbff;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ledger-refresh-btn:hover,
+.ledger-refresh-btn:focus {
+  background: #eef4ff;
+  color: #1d4ed8;
+}
+
+.receiving-create-btn {
+  flex: 0 0 176px;
+  min-width: 176px;
+  border-radius: 0 4px 4px 0;
+  background: #3f4d85;
+  border: 1px solid #3f4d85;
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.receiving-create-btn:hover,
+.receiving-create-btn:focus {
+  background: #364273;
+  border-color: #364273;
+  color: #fff;
 }
 
 .ledger-table thead th {
@@ -200,5 +294,47 @@ export default {
 
 .receiving-action-btn {
   border-width: 1px;
+}
+
+:global([data-bs-theme="dark"]) .ledger-card,
+:global([data-bs-theme="dark"]) .ledger-card .card-header,
+:global([data-bs-theme="dark"]) .receiving-card-body,
+:global([data-bs-theme="dark"]) .ledger-table-wrap {
+  border-color: #2e3a59 !important;
+  background-color: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.table) {
+  --vz-table-bg: #111827;
+  --vz-table-color: #e5e7eb;
+  --vz-table-hover-bg: #182035;
+  --vz-table-border-color: #2e3a59;
+  background-color: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.table-light th) {
+  background-color: #182035 !important;
+  color: #dbeafe !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-toolbar-wrap :deep(.input-group-text),
+:global([data-bs-theme="dark"]) .ledger-toolbar-wrap :deep(.form-control),
+:global([data-bs-theme="dark"]) .ledger-sort-select,
+:global([data-bs-theme="dark"]) .ledger-refresh-btn {
+  border-color: #2e3a59 !important;
+  background-color: #182035 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .ledger-toolbar-wrap :deep(.form-control::placeholder) {
+  color: #8ea0b8 !important;
+}
+
+@media (max-width: 768px) {
+  .ledger-toolbar-wrap {
+    overflow-x: auto;
+  }
 }
 </style>

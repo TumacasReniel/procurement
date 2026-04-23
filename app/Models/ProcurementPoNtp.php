@@ -8,6 +8,7 @@ class ProcurementPoNtp extends Model
 {
     protected $fillable = [
         'code',
+        'remarks',
         'po_id',
         'created_by_id',
         'approved_by_id',
@@ -19,7 +20,7 @@ class ProcurementPoNtp extends Model
 
     public function po()
     {
-        return $this->belongsTo('App\Models\procurementNoaPo', 'po_id' );
+        return $this->belongsTo('App\Models\ProcurementNoaPo', 'po_id');
     }
 
       

@@ -1,65 +1,59 @@
 <template>
   <b-modal
     :model-value="modelValue"
-    header-class="p-3 bg-light"
+    header-class="p-3 bg-body-tertiary border-bottom"
+    content-class="border-0 shadow-lg"
+    body-class="bg-body"
+    footer-class="bg-body-tertiary border-top"
     :title="form?.id ? 'Edit Stock' : 'Add Stock'"
+    size="lg"
     class="v-modal-custom"
     modal-class="zoomIn"
     centered
     no-close-on-backdrop
-    hide-footer
     @update:modelValue="(value) => $emit('update:modelValue', value)"
   >
     <form class="customform" @submit.prevent="$emit('submit')">
-      <BRow class="g-3">
-        <BCol lg="12" class="mt-0">
-          <InputLabel for="stock_code" value="Code" :message="errors.code" />
-          <TextInput id="stock_code" :model-value="form.code" type="text" class="form-control" :light="true" @update:modelValue="updateField('code', $event)" />
-        </BCol>
-        <BCol lg="12" class="mt-0">
-          <InputLabel for="stock_name" value="Name" :message="errors.name" />
-          <TextInput id="stock_name" :model-value="form.name" type="text" class="form-control" :light="true" @update:modelValue="updateField('name', $event)" />
-        </BCol>
-        <BCol lg="12" class="mt-0">
-          <InputLabel for="inventory_id" value="Inventory Item" :message="errors.inventory_id" />
-          <select
-            id="inventory_id"
-            :value="form.inventory_id"
-            class="form-select"
-            :class="{ 'is-invalid': errors.inventory_id }"
-            @change="updateField('inventory_id', $event.target.value)"
-          >
-            <option value="">Select Inventory Item</option>
-            <option v-for="item in inventories" :key="item.id" :value="String(item.id)">
-              {{ item.name || item.inventory_name }} ({{ item.unit || item.unit_type || 'Unit' }})
-            </option>
-          </select>
-          <div class="invalid-feedback d-block" v-if="errors.inventory_id">{{ errors.inventory_id }}</div>
-        </BCol>
+      <div class="alert alert-info bg-info-subtle border-info-subtle text-body mb-3 d-flex align-items-start gap-3">
+        <span class="avatar-title rounded bg-primary-subtle text-primary fs-4 flex-shrink-0" style="width: 42px; height: 42px">
+          <i class="ri-stack-line"></i>
+        </span>
+        <div>
+          <h6 class="mb-1">{{ form?.id ? 'Update stock group' : 'Create a stock group' }}</h6>
+          <p class="mb-0 text-muted">Use stock groups to organize inventory items by shelf, storage area, or supply category. The entry date is saved automatically.</p>
+        </div>
+      </div>
 
-        <BCol lg="12" class="mt-0">
-          <InputLabel for="entry_date" value="Entry Date" :message="errors.entry_date" />
-          <TextInput
-            id="entry_date"
-            :model-value="form.entry_date"
-            type="datetime-local"
-            class="form-control"
-            :light="true"
-            @update:modelValue="updateField('entry_date', $event)"
-          />
-          <div class="invalid-feedback d-block" v-if="errors.entry_date">{{ errors.entry_date }}</div>
-        </BCol>
-
-        <BCol lg="12" class="mt-2">
-          <div class="d-flex justify-content-end gap-2">
-            <b-button type="button" variant="light" @click="$emit('update:modelValue', false)">Cancel</b-button>
-            <b-button type="submit" variant="primary" :disabled="saving">
-              {{ saving ? 'Saving...' : (form?.id ? 'Update' : 'Submit') }}
-            </b-button>
-          </div>
-        </BCol>
-      </BRow>
+      <div class="card border shadow-none mb-0">
+        <div class="card-body">
+        <BRow class="g-3">
+          <BCol v-if="form?.id" lg="6" class="mt-0">
+            <InputLabel for="stock_code" value="Code" :message="errors.code" />
+            <TextInput
+              id="stock_code"
+              :model-value="form.code"
+              type="text"
+              class="form-control"
+              :light="true"
+              placeholder="e.g. STK-042026-0001"
+              @update:modelValue="updateField('code', $event)"
+            />
+          </BCol>
+          <BCol :lg="form?.id ? 6 : 12" class="mt-0">
+            <InputLabel for="stock_name" value="Name" :message="errors.name" />
+            <TextInput id="stock_name" :model-value="form.name" type="text" class="form-control" :light="true" placeholder="Enter stock name" @update:modelValue="updateField('name', $event)" />
+          </BCol>
+        </BRow>
+        </div>
+      </div>
     </form>
+
+    <template #footer>
+      <b-button type="button" variant="light" @click="$emit('update:modelValue', false)">Cancel</b-button>
+      <b-button type="button" variant="primary" :disabled="saving" @click="$emit('submit')">
+        {{ form?.id ? 'Update Stock' : 'Save Stock' }}
+      </b-button>
+    </template>
   </b-modal>
 </template>
 
@@ -75,7 +69,6 @@ export default {
     form: { type: Object, default: () => ({}) },
     errors: { type: Object, default: () => ({}) },
     saving: { type: Boolean, default: false },
-    inventories: { type: Array, default: () => [] },
   },
   emits: ['update:modelValue', 'update:form', 'submit'],
   methods: {

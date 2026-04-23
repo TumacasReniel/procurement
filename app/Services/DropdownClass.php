@@ -152,9 +152,10 @@ class DropdownClass
         return $grouped;
     }
 
-    public function dropdowns($class, $type = null)
+    public function dropdowns($classifications, $type = null)
     {
-        $data = ListDropdown::where('classification', $class)
+       
+        $data = ListDropdown::where('classification', $classifications)
             ->when($type, function ($query) use ($type) {
                 $query->where('type', $type);
             })
@@ -177,6 +178,24 @@ class DropdownClass
             ];
         });
         return $data;
+    }
+
+    protected function resolveDropdownClassifications(string $classification): array
+    {
+        return match ($classification) {
+            'mode_of_procurement', 'modes_of_procurement' => [
+                'mode_of_procurement',
+                'modes_of_procurement',
+                'Mode of Procurement',
+            ],
+            'app_type', 'app_types', 'APP Type', 'App Type', 'APP Type Classification' => [
+                'APP Type',
+                'App Type',
+                'app_type',
+                'app_types',
+            ],
+            default => [$classification],
+        };
     }
 
     public function units($code)
@@ -340,31 +359,45 @@ class DropdownClass
         return $data;
     }
 
-    public function users($keyword, $is_regular = null)
+    public function users($keyword, $is_regular = null, $limit = 10)
     {
+        $limit = max(1, min((int) $limit, 25));
+
         $data = User::with('profile')
-            ->with('organization.position', 'organization.division')
+            ->with('organization.position', 'organization.division', 'organization.type')
             ->when(!is_null($is_regular) && $is_regular == 1, function ($query) {
                 $query->whereHas('organization', function ($query) {
                     $query->where('type_id', 15);
                 });
             })
             ->when($keyword, function ($query) use ($keyword) {
-                $query->whereHas('profile', function ($q) use ($keyword) {
-                    $q->where('lastname', 'like', '%' . $keyword . '%');
+                $keyword = trim((string) $keyword);
+
+                $query->where(function ($query) use ($keyword) {
+                    $query
+                        ->where('username', 'like', '%' . $keyword . '%')
+                        ->orWhereHas('profile', function ($q) use ($keyword) {
+                            $q->where('firstname', 'like', '%' . $keyword . '%')
+                                ->orWhere('middlename', 'like', '%' . $keyword . '%')
+                                ->orWhere('lastname', 'like', '%' . $keyword . '%');
+                        });
                 });
             })
-            ->limit(5)->get()->map(function ($item) {
+            ->limit($limit)->get()->map(function ($item) {
+                $profile = $item->profile;
+                $middleInitial = $profile?->middlename ? substr($profile->middlename, 0, 1) . '.' : '';
+                $name = trim(($profile?->lastname ? $profile->lastname . ', ' : '') . ($profile?->firstname ?? '') . ' ' . $middleInitial);
+
                 return [
                     'id' => $item->id,
                     'value' => $item->id,
                     'username' => $item->username,
                     'signatory' => $item->signatory,
-                    'name' => $item->profile->lastname . ', ' . $item->profile->firstname . ' ' . $item->profile->middlename[0] . '.',
-                    'position' => optional($item->organization->position)->name,
-                    'division' => optional($item->organization->division)->name,
-                    'division_id' => optional($item->organization->division)->id,
-                    'type' => $item->organization->type->name,
+                    'name' => $name ?: ($item->username ?: 'User #' . $item->id),
+                    'position' => optional($item->organization?->position)->name,
+                    'division' => optional($item->organization?->division)->name,
+                    'division_id' => optional($item->organization?->division)->id,
+                    'type' => optional($item->organization?->type)->name,
                     'avatar' => ($item->profile && $item->profile->avatar && $item->profile->avatar !== 'noavatar.jpg')
                         ? asset('storage/' . $item->profile->avatar)
                         : asset('images/avatars/avatar.jpg'),
@@ -392,9 +425,20 @@ class DropdownClass
     public function procurement_codes()
     {
         $data = ProcurementCode::get()->map(function ($item) {
+            $label = $item->code;
+            $remainingBudget = (float) ($item->remaining_budget ?? $item->allocated_budget ?? 0);
+
+            if (!empty($item->title)) {
+                $label .= ' - ' . $item->title;
+            }
+
             return [
                 'value' => $item->id,
                 'code' => $item->code,
+                'title' => $item->title,
+                'allocated_budget' => (float) $item->allocated_budget,
+                'remaining_budget' => $remainingBudget,
+                'label' => $label,
             ];
         });
         return $data;
@@ -462,31 +506,28 @@ class DropdownClass
 
     public function supply_officers()
     {
-        $data = User::with('roles', 'profile')
+        return User::with('roles', 'profile')
             ->whereHas('roles', function ($query) {
-                $query->whereIn('list_roles.name', [
-                    'Supply Officer',
-                ]);
+                $query->where('list_roles.name', 'Supply Officer')
+                    ->where('user_roles.is_active', 1);
             })
+            ->orderBy('id')
             ->get()
             ->map(function ($item) {
                 return [
                     'value' => $item->id,
-                    'name' => $item->profile?->fullname ?? 'User #' . $item->id,
+                    'name' => $item->profile?->full_name ?? ('User #' . $item->id),
                 ];
             });
-
-        return $data->isEmpty()
-            ? User::with('profile')->get()->map(fn($item) => [
-                'value' => $item->id,
-                'name' => $item->profile?->fullname ?? 'User #' . $item->id,
-            ])
-            : $data;
     }
 
     public function suppliers()
     {
-        $data = Supplier::with('conformes')->where('is_active', 1)->get()->map(function ($item) {
+        $data = Supplier::with('conformes')
+            ->where('is_active', 1)
+            ->where('approval_status', 'Approved')
+            ->get()
+            ->map(function ($item) {
             return [
                 'value' => $item->id,
                 'name' => $item->name,
@@ -600,35 +641,19 @@ class DropdownClass
 
     public function iar_chairperson()
     {
-        $data = OrgChart::where('designation_id', ListDropdown::getID('IAR Chairperson', 'Designation'))->first();
+        $data = OrgChart::with('user.profile', 'oic.profile', 'designation')
+            ->where('designation_id', ListDropdown::getID('IAR Chairperson', 'Designation'))
+            ->first();
 
         if (!$data) {
             return null; // or return an empty array []
         }
 
-        return [
-            'value' => $data->id,
-            'name' => strtoupper(
-                $data->user->profile->full_name ?? null,
-            ),
-            'designation' => $data->designation
-        ];
-    }
-
-    public function iar_vice_chairperson()
-    {
-        $data = OrgChart::where('designation_id', ListDropdown::getID('IAR Vice Chairperson', 'Designation'))->first();
-
-
-        if (!$data) {
-            return null; // or return an empty array []
-        }
+        $name = $this->resolveOrgChartDisplayName($data, true);
 
         return [
             'value' => $data->id,
-            'name' => strtoupper(
-                $data->user->profile->full_name ?? null,
-            ),
+            'name' => $name,
             'designation' => $data->designation
         ];
     }
@@ -636,15 +661,37 @@ class DropdownClass
 
     public function iar_members()
     {
-        $data = OrgChart::where('designation_id', ListDropdown::getID('IAR Member', 'Designation'))
+        $data = OrgChart::with('user.profile', 'oic.profile')
+            ->where('designation_id', ListDropdown::getID('IAR Member', 'Designation'))
             ->get()->map(function ($item) {
                 return [
                     'value' => $item->id,
-                    'name' => $item->user->profile->full_name,
+                    'name' => $this->resolveOrgChartDisplayName($item),
                 ];
-            });
+            })->filter(fn ($item) => filled($item['name']))->values();
 
         return $data;
+    }
+
+    private function resolveOrgChartDisplayName($item, $uppercase = false)
+    {
+        $person = null;
+
+        if ($item?->is_oic && $item?->oic) {
+            $person = $item->oic;
+        } elseif ($item?->user) {
+            $person = $item->user;
+        } elseif ($item?->oic) {
+            $person = $item->oic;
+        }
+
+        $name = $person?->profile?->full_name;
+
+        if (!filled($name)) {
+            return null;
+        }
+
+        return $uppercase ? strtoupper($name) : $name;
     }
 
     public function division_head($division_id)
@@ -709,7 +756,10 @@ class DropdownClass
 
     public function creditors()
     {
-        $suppliers = Supplier::where('is_active', 1)->get()->map(function ($item) {
+        $suppliers = Supplier::where('is_active', 1)
+            ->where('approval_status', 'Approved')
+            ->get()
+            ->map(function ($item) {
             return [
                 'value' => 'supplier_' . $item->id,
                 'label' => $item->name . ' (Supplier)',

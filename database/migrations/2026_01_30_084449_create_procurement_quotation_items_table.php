@@ -25,6 +25,8 @@ return new class extends Migration
             $table->tinyInteger('status_id')->unsigned()->index();
             $table->foreign('status_id')->references('id')->on('list_statuses')->onDelete('cascade');
             $table->boolean('is_free')->default(false);
+             $table->boolean('is_no_offer')->default(false);
+             $table->boolean('is_not_applicable')->default(false);
             $table->timestamps();
         });
     }
