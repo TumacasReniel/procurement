@@ -126,7 +126,7 @@
 
                             <div
                               v-if="showClassificationField"
-                              class="col-12"
+                              class="col-lg-6"
                             >
                               <div class="form-group compact-form-group">
                                 <InputLabel
@@ -140,6 +140,27 @@
                                   :searchable="true"
                                   label="name"
                                   placeholder="Select Classification"
+                                  class="modern-select"
+                                />
+                              </div>
+                            </div>
+
+                            <div
+                              v-if="showReferenceAppField"
+                              class="col-lg-6"
+                            >
+                              <div class="form-group compact-form-group">
+                                <InputLabel
+                                  for="reference_app"
+                                  value="Reference APP"
+                                  :message="form.errors.reference_app_id"
+                                />
+                                <Multiselect
+                                  :options="referenceAppOptions"
+                                  v-model="form.reference_app_id"
+                                  :searchable="true"
+                                  label="name"
+                                  placeholder="Select Reference APP"
                                   class="modern-select"
                                 />
                               </div>
@@ -284,8 +305,6 @@
                   </div>
                 </div>
               </div>
-
-
 
               <!-- Assignees Section -->
               <div class="row g-3 mb-3">
@@ -432,6 +451,7 @@ export default {
         unit_id: null,
         fund_cluster_id: null,
         classification_id: null,
+        reference_app_id: null,
         items: null,
         requested_by_id: null,
         approved_by_id: null,
@@ -477,6 +497,7 @@ export default {
         this.form.unit_id = this.procurement.unit_id;
         this.form.fund_cluster_id = this.procurement.fund_cluster_id;
         this.form.classification_id = this.procurement.classification_id;
+        this.form.reference_app_id = this.procurement.reference_app_id;
         this.form.procurement_code_ids = this.procurement.codes.map(
           (code) => code.procurement_code_id
         );
@@ -502,10 +523,20 @@ export default {
     showClassificationField() {
       return ["review", "approve"].includes(this.option) || Boolean(this.form.classification_id);
     },
+    showReferenceAppField() {
+      return ["review", "approve"].includes(this.option) || Boolean(this.form.reference_app_id);
+    },
     classificationOptions() {
       const options =
         this.dropdowns?.classifications ??
         this.dropdowns?.procurement_classifications ??
+        [];
+
+      return Array.isArray(options) ? options : Object.values(options);
+    },
+    referenceAppOptions() {
+      const options =
+        this.dropdowns?.reference_apps ??
         [];
 
       return Array.isArray(options) ? options : Object.values(options);
@@ -524,10 +555,7 @@ export default {
         return {
           ...option,
           remaining_budget: remainingBudget,
-          label:
-            this.option === "create"
-              ? `${baseLabel} (${this.formatCurrency(remainingBudget)} remaining)`
-              : baseLabel,
+          label: baseLabel,
         };
       });
     },
@@ -629,7 +657,7 @@ export default {
       return this.hasEnoughSelectedProcurementCodeBalance ? "text-muted" : "text-danger";
     },
     canReviewRequest() {
-      return Boolean(this.form.classification_id);
+      return Boolean(this.form.classification_id  && this.form.reference_app_id );
     },
     canCreateRequest() {
       return this.isFormValid && this.hasEnoughSelectedProcurementCodeBalance;

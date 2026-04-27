@@ -201,7 +201,7 @@
                 <td>{{ $item->item->item->item_no }}</td>
                 <td colspan="4" style="padding: 6px; text-align: justify;">
                     <span>{{ $item->item->item->item_name }}</span>
-                    <div style="margin-top:-5px; line-height: 1; word-wrap: break-word;">
+                    <div style=" line-height: 1; word-wrap: break-word;">
                         {!! $item->item->item->item_description !!}
                     </div>
                 </td>

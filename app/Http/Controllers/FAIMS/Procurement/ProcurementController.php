@@ -10,6 +10,7 @@ use App\Models\Procurement;
 use App\Models\ProcurementCode;
 use App\Models\RequestComment;
 use App\Models\User;
+use App\Notifications\PendingSupplierApprovalNotification;
 use App\Notifications\ProcurementCommentMentioned;
 use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
@@ -87,7 +88,9 @@ class ProcurementController extends Controller
                     'regional_director'  =>  $regionalDirector,
                     'is_regional_director' => $regionalDirector && $regionalDirector['value'] == \Auth::id(),
                     'procurement_approval_user_ids' => $procurementApprovalUserIds,
-                    'chat_request_id' => $request->integer('chat_request_id') ?: null,
+                    'comment_request_id' => $request->integer('comment_request_id')
+                        ?: $request->integer('chat_request_id')
+                        ?: null,
                 ]);
         }
     }
@@ -118,6 +121,7 @@ class ProcurementController extends Controller
                         'divisions' => $this->dropdown->dropdowns('Division'),
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
                         'classifications' => $this->dropdown->dropdowns('Classification'),
+                        'reference_apps' => $this->dropdown->dropdowns('Reference APP'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
                         'requesters' => $this->dropdown->requesters(),
@@ -137,6 +141,15 @@ class ProcurementController extends Controller
         $result = $this->handleTransaction(function () use ($request) {
             return $this->procurement->save($request);
         });
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $result['data'],
+                'message' => $result['message'],
+                'info' => $result['info'],
+                'status' => $result['status'] ?? true,
+            ]);
+        }
 
         return redirect()->route('procurement.index')->with([
             'data' => $result['data'],
@@ -389,7 +402,10 @@ class ProcurementController extends Controller
 
         $query = $request->user()
             ->unreadNotifications()
-            ->where('type', ProcurementCommentMentioned::class)
+            ->whereIn('type', [
+                ProcurementCommentMentioned::class,
+                PendingSupplierApprovalNotification::class,
+            ])
             ->latest();
 
         $unreadCount = (clone $query)->count();
@@ -398,32 +414,9 @@ class ProcurementController extends Controller
             ->limit($limit)
             ->get()
             ->map(function ($notification) {
-                $procurementId = data_get($notification->data, 'procurement.id');
-                $reason = data_get($notification->data, 'reason', 'mention');
-                $actor = data_get($notification->data, 'actor')
-                    ?: data_get($notification->data, 'mentioned_by');
-
-                return [
-                    'id' => $notification->id,
-                    'reason' => $reason,
-                    'procurement_id' => data_get($notification->data, 'procurement.id'),
-                    'procurement_code' => data_get($notification->data, 'procurement.code'),
-                    'procurement_purpose' => data_get($notification->data, 'procurement.purpose'),
-                    'comment_id' => data_get($notification->data, 'comment.id'),
-                    'comment_content' => data_get($notification->data, 'comment.content'),
-                    'actor' => $actor,
-                    'mentioned_by' => $actor,
-                    'created_at' => $notification->created_at,
-                    'created_ago' => $notification->created_at?->diffForHumans(),
-                    'context_label' => $reason === 'owner' ? 'Your PR' : 'Mentioned You',
-                    'target' => [
-                        'route' => '/faims/procurements',
-                        'query' => [
-                            'chat_request_id' => $procurementId,
-                        ],
-                    ],
-                ];
+                return $this->transformProcurementNotification($notification);
             })
+            ->filter()
             ->values();
 
         return response()->json([
@@ -451,7 +444,10 @@ class ProcurementController extends Controller
 
         $notification = $request->user()
             ->notifications()
-            ->where('type', ProcurementCommentMentioned::class)
+            ->whereIn('type', [
+                ProcurementCommentMentioned::class,
+                PendingSupplierApprovalNotification::class,
+            ])
             ->findOrFail($notificationId);
 
         if (!$notification->read_at) {
@@ -563,6 +559,67 @@ class ProcurementController extends Controller
             ->get()
             ->unique('id')
             ->values();
+    }
+
+    private function transformProcurementNotification($notification): ?array
+    {
+        $actor = data_get($notification->data, 'actor')
+            ?: data_get($notification->data, 'mentioned_by');
+
+        if ($notification->type === PendingSupplierApprovalNotification::class) {
+            $supplierId = data_get($notification->data, 'supplier.id');
+
+            return [
+                'id' => $notification->id,
+                'notification_type' => 'supplier_pending_approval',
+                'reason' => data_get($notification->data, 'reason', 'approval_required'),
+                'supplier_id' => $supplierId,
+                'procurement_id' => null,
+                'procurement_code' => data_get($notification->data, 'supplier.code'),
+                'procurement_purpose' => data_get($notification->data, 'supplier.name'),
+                'comment_id' => null,
+                'comment_content' => data_get($notification->data, 'message'),
+                'actor' => $actor,
+                'mentioned_by' => $actor,
+                'created_at' => $notification->created_at,
+                'created_ago' => $notification->created_at?->diffForHumans(),
+                'context_label' => 'Supplier Approval',
+                'action_label' => 'Review supplier',
+                'target' => [
+                    'route' => '/faims/suppliers',
+                    'query' => array_filter([
+                        'status' => 'pending_approval',
+                        'supplier_id' => $supplierId,
+                    ]),
+                ],
+            ];
+        }
+
+        $procurementId = data_get($notification->data, 'procurement.id');
+        $reason = data_get($notification->data, 'reason', 'mention');
+
+        return [
+            'id' => $notification->id,
+            'notification_type' => data_get($notification->data, 'type', 'procurement_comment_notification'),
+            'reason' => $reason,
+            'procurement_id' => $procurementId,
+            'procurement_code' => data_get($notification->data, 'procurement.code'),
+            'procurement_purpose' => data_get($notification->data, 'procurement.purpose'),
+            'comment_id' => data_get($notification->data, 'comment.id'),
+            'comment_content' => data_get($notification->data, 'comment.content'),
+            'actor' => $actor,
+            'mentioned_by' => $actor,
+            'created_at' => $notification->created_at,
+            'created_ago' => $notification->created_at?->diffForHumans(),
+            'context_label' => $reason === 'owner' ? 'Your PR' : 'Mentioned You',
+            'action_label' => 'Open PR chat',
+            'target' => [
+                'route' => '/faims/procurements',
+                'query' => [
+                    'comment_request_id' => $procurementId,
+                ],
+            ],
+        ];
     }
 
 

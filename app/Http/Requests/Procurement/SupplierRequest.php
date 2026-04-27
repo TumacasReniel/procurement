@@ -17,6 +17,13 @@ class SupplierRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'tin' => $this->formatTin($this->input('tin')),
+        ]);
+    }
+
     public function rules(): array
     {
         $supplierId = optional($this->route('supplier'))->id ?? $this->route('supplier') ?? $this->id;
@@ -87,11 +94,19 @@ class SupplierRequest extends FormRequest
 
                 $hasExistingAttachment = filled(data_get($rows, "$matchingIndex.id"));
                 $hasUploadedFile = $this->hasFile("attachment_rows.$matchingIndex.file");
+                $hasCode = filled(data_get($rows, "$matchingIndex.code"));
 
                 if (!$hasExistingAttachment && !$hasUploadedFile) {
                     $validator->errors()->add(
                         "attachment_rows.$matchingIndex.file",
                         "{$requiredDocumentType} is required."
+                    );
+                }
+
+                if (!$hasCode) {
+                    $validator->errors()->add(
+                        "attachment_rows.$matchingIndex.code",
+                        "Please enter the reference number for {$requiredDocumentType}."
                     );
                 }
             }
@@ -112,5 +127,21 @@ class SupplierRequest extends FormRequest
     protected function normalizeDocumentType($value): string
     {
         return preg_replace('/\s+/', ' ', strtolower(trim((string) $value)));
+    }
+
+    protected function normalizeTin($value): string
+    {
+        return substr(preg_replace('/\D+/', '', (string) $value), 0, 12);
+    }
+
+    protected function formatTin($value): ?string
+    {
+        $digits = $this->normalizeTin($value);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        return implode('-', str_split($digits, 3));
     }
 }

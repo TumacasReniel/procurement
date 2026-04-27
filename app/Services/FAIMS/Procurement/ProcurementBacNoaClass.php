@@ -305,24 +305,22 @@ class ProcurementBacNoaClass
 
         // update Quotation items status to "Not Conformed" only items which is related to the noa
         $noa_items = ProcurementBacNoaItem::where('procurement_bac_noa_id', $noa->id)->get();
+        $targetProcurementItemIds = [];
         foreach ($noa_items as $noa_item) {
             $quotation_item = $noa_item->item;
+            if ($quotation_item?->procurement_item_id) {
+                $targetProcurementItemIds[] = (int) $quotation_item->procurement_item_id;
+            }
             $quotation_item->update([
                 'status_id' => ListStatus::getID('Not Conformed','Procurement')
             ]);
         }
 
-        // Update the next item to be awarded in other quotations
-        $procurement = $noa->procurement_bac->procurement;
-        $other_quotations = $procurement->quotations->where('id', '!=', $noa->procurement_quotation_id);
-        $available_items = $other_quotations->flatMap->items->filter(fn($item) =>
-            $item->status_id == ListStatus::getID('Available for Re-award','Procurement') &&
-            ($item->is_free || (float) $item->bid_price > 0)
+        $this->promoteNextReawardSuppliers(
+            $procurement,
+            (int) $noa->procurement_quotation_id,
+            $targetProcurementItemIds
         );
-        if ($available_items->isNotEmpty()) {
-            $next_item = $available_items->sortBy('bid_price')->first();
-            $next_item->update(['status_id' => ListStatus::getID('Awarded','Procurement')]);
-        }
 
     
         return [
@@ -404,6 +402,40 @@ class ProcurementBacNoaClass
             'info' => "You've successfully reverted NOA Status.",
             'status' => 'success',
         ];
+    }
+
+    protected function promoteNextReawardSuppliers(Procurement $procurement, int $excludeQuotationId, array $targetProcurementItemIds): void
+    {
+        $availableForReawardStatusId = ListStatus::getID('Available for Re-award', 'Procurement');
+        $awardedStatusId = ListStatus::getID('Awarded', 'Procurement');
+
+        foreach (collect($targetProcurementItemIds)->map(fn ($id) => (int) $id)->filter()->unique() as $procurementItemId) {
+            ProcurementQuotationItem::whereHas('quotation', function ($query) use ($procurement) {
+                $query->where('procurement_id', $procurement->id);
+            })
+                ->where('procurement_item_id', $procurementItemId)
+                ->where('status_id', $awardedStatusId)
+                ->update(['status_id' => $availableForReawardStatusId]);
+
+            $nextItem = ProcurementQuotationItem::whereHas('quotation', function ($query) use ($procurement, $excludeQuotationId) {
+                $query->where('procurement_id', $procurement->id)
+                    ->where('id', '!=', $excludeQuotationId);
+            })
+                ->where('procurement_item_id', $procurementItemId)
+                ->where('status_id', $availableForReawardStatusId)
+                ->where(function ($query) {
+                    $query->where('is_free', true)
+                        ->orWhere('bid_price', '>', 0);
+                })
+                ->orderByRaw('CASE WHEN is_free = 1 THEN 0 ELSE 1 END')
+                ->orderByRaw('COALESCE(bid_price, 0) ASC')
+                ->orderBy('id')
+                ->first();
+
+            if ($nextItem) {
+                $nextItem->update(['status_id' => $awardedStatusId]);
+            }
+        }
     }
 
     

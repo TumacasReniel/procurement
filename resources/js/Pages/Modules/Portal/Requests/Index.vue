@@ -82,10 +82,11 @@
                                     <th style="width: 3%;" class="text-center">#</th>
                                     <th>Code</th>
                                     <th v-if="!filter.type" style="width: 14%;" class="text-center">Type</th>
-                                    <th v-else-if="filter.type == 156" style="width: 14%;" class="text-center">Mode</th>
-                                    <th v-else-if="filter.type == 158" style="width: 14%;" class="text-center">Type</th>
-                                    <th v-else-if="filter.type == 157" style="width: 14%;" class="text-center">Vehicle</th>
-                                    <th v-else-if="filter.type == 165" style="width: 14%;" class="text-center">Type</th>
+                                    <th v-else-if="selectedRequestTypeName === 'Travel Order'" style="width: 14%;" class="text-center">Mode</th>
+                                    <th v-else-if="selectedRequestTypeName === 'Leave Form'" style="width: 14%;" class="text-center">Type</th>
+                                    <th v-else-if="selectedRequestTypeName === 'Vehicle Reservation'" style="width: 14%;" class="text-center">Vehicle</th>
+                                    <th v-else-if="isProcurementType" style="width: 14%;" class="text-center">Type</th>
+                                    <th v-else style="width: 14%;" class="text-center">Type</th>
                                     <th style="width: 10%;" class="text-center">Personnel</th>
                                     <th style="width: 15%;" class="text-center">Dates</th>
                                     <th style="width: 15%;" class="text-center">Date Filed</th>
@@ -106,6 +107,7 @@
                                         <span v-else-if="list.type == 'Travel Order'" class="badge bg-success-subtle text-success">{{list.type}}</span>
                                         <span v-else-if="list.type == 'Leave Form'" class="badge bg-danger-subtle text-danger">{{list.type}}</span>
                                         <span v-else-if="list.type == 'Render Overtime Service'" class="badge bg-info-subtle text-info">{{list.type}}</span>
+                                        <span v-else-if="list.type == 'Procurement'" class="badge bg-primary-subtle text-primary">{{list.type}}</span>
                                     </td>
                                     <td class="text-center" v-else>
                                         <span :class="'badge bg-primary'">{{list.subtype}}</span>
@@ -138,7 +140,7 @@
                                                         <i class="ri-more-fill"></i>
                                                     </template>
                                                     <li>
-                                                        <Link :href="`/requests/${list.link}`" class="dropdown-item d-flex align-items-center" role="button">
+                                                        <Link :href="list.href || `/requests/${list.link}`" class="dropdown-item d-flex align-items-center" role="button">
                                                             <i class="ri-eye-fill me-2"></i> View
                                                         </Link>
                                                     </li>
@@ -147,15 +149,17 @@
                                                             <i class="ri-information-fill me-2"></i> Details
                                                         </a>
                                                     </li>
-                                                    <li><hr class="dropdown-divider"></li>
-                                                    <li>
-                                                        <a @click="openPrint(list.key,index,list.type)" class="dropdown-item d-flex align-items-center" role="button">
-                                                            <i class="ri-printer-fill me-2"></i> Print
-                                                        </a>
-                                                        <a @click="openPrint(list.key,index)" class="dropdown-item d-flex align-items-center" role="button">
-                                                            <i class="ri-download-cloud-fill me-2"></i> Download
-                                                        </a>
-                                                    </li>
+                                                    <template v-if="list.key">
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li>
+                                                            <a @click="openPrint(list.key,index,list.type)" class="dropdown-item d-flex align-items-center" role="button">
+                                                                <i class="ri-printer-fill me-2"></i> Print
+                                                            </a>
+                                                            <a @click="openPrint(list.key,index)" class="dropdown-item d-flex align-items-center" role="button">
+                                                                <i class="ri-download-cloud-fill me-2"></i> Download
+                                                            </a>
+                                                        </li>
+                                                    </template>
                                                </BDropdown>
                                             </div>
                                         </div>
@@ -175,6 +179,7 @@
     :vehicle_dropdowns="vehicle_dropdowns" 
     :travel_dropdowns="travel_dropdowns"
     :leave_dropdowns="leave_dropdowns"
+    :procurement_dropdowns="procurement_dropdowns"
     ref="create"/>
 </template>
 <script>
@@ -185,7 +190,7 @@ import PageHeader from '@/Shared/Components/PageHeader.vue';
 import Pagination from "@/Shared/Components/Pagination.vue";
 export default {
     components: { PageHeader, Pagination, Multiselect, Create },
-    props: ['counts','leave_dropdowns','travel_dropdowns','vehicle_dropdowns','dropdowns'],
+    props: ['counts','leave_dropdowns','travel_dropdowns','vehicle_dropdowns','procurement_dropdowns','dropdowns'],
     data(){
         return {
             currentUrl: window.location.origin,
@@ -200,9 +205,22 @@ export default {
                 expense: null,
                 leave: null
             },
-            icons: ['ri-flight-takeoff-fill','ri-car-fill','ri-calendar-2-fill','ri-alarm-fill'],
+            icons: ['ri-flight-takeoff-fill','ri-car-fill','ri-calendar-2-fill','ri-alarm-fill','ri-shopping-bag-3-fill'],
             index: null,
             units: []
+        }
+    },
+    computed: {
+        selectedRequestTypeName() {
+            if (!this.filter.type || !Array.isArray(this.dropdowns?.requests)) {
+                return null;
+            }
+
+            const selected = this.dropdowns.requests.find((item) => Number(item.value) === Number(this.filter.type));
+            return selected?.name || null;
+        },
+        isProcurementType() {
+            return ['Procurement', 'Purchase Request', 'Procurement Request'].includes(this.selectedRequestTypeName);
         }
     },
     watch: {

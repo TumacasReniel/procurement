@@ -483,12 +483,12 @@
         </table>
         <table style="width:100%; text-align:center; margin-bottom:30px; border-collapse: collapse; border: none; table-layout: fixed;">
             <tr>
-                <th style="border: none;"><u>{{ $bac_chairperson['name'] }}</u></th>
-                <th style="border: none;"><u>{{ $bac_vice_chairperson['name'] }}</u></th>
+                <th style="border: none;"><u>{{ data_get($bac_chairperson, 'name', '') }}</u></th>
+                <th style="border: none;"><u>{{ data_get($bac_vice_chairperson, 'name', '') }}</u></th>
                 @foreach ($bac_members as $member)
-                    <th style="border: none;"><u>{{ strtoupper($member['name']) }}</u></th>
+                    <th style="border: none;"><u>{{ strtoupper(data_get($member, 'name', '')) }}</u></th>
                 @endforeach
-                <th style="border: none;"><u>{{ $regional_director['name'] }}</u></th>
+                <th style="border: none;"><u>{{ data_get($regional_director, 'name', '') }}</u></th>
             </tr>
             <tr>
                 <td style="border: none;">Chairperson, BAC</td>

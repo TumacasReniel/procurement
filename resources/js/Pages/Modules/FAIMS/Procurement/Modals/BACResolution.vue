@@ -606,32 +606,70 @@ export default {
       };
     },
 
+    extractSectionNumber(sectionValue) {
+      const normalizedSection = String(sectionValue || "").trim();
+      if (!normalizedSection) {
+        return null;
+      }
+
+      const match = normalizedSection.match(/(\d+(?:\.\d+)?)/);
+      return match ? match[1] : null;
+    },
+
     procurementSectionNumber(modeName) {
       const normalizedMode = (modeName || "").trim().toLowerCase();
       const sectionMap = {
-        "competitive public bidding": "10",
-        "limited source bidding": "49",
-        "direct contracting": "50",
-        "repeat order": "51",
-        shopping: "52",
-        "negotiated procurement": "53",
-        "two failed biddings": "53.1",
-        "emergency cases": "53.2",
-        "take-over of contracts": "53.3",
-        "take over of contracts": "53.3",
-        "adjacent or contiguous": "53.4",
-        "agency-to-agency": "53.5",
-        "agency to agency": "53.5",
-        "scientific, scholarly or artistic work": "53.6",
+        "competitive bidding": "27",
+        "competitive public bidding": "27",
+        "limited source bidding": "28",
+        "competitive dialogue": "29",
+        "unsolicited offer with bid matching": "30",
+        "direct contracting": "31",
+        "direct acquisition": "32",
+        "repeat order": "33",
+        shopping: "34",
+        "small value procurement": "34",
+        "negotiated procurement": "35",
+        "negotiated procurement - two failed biddings": "35.1",
+        "two failed biddings": "35.1",
+        "negotiated procurement - emergency cases": "35.2",
+        "emergency cases": "35.2",
+        "negotiated procurement - take-over of contracts": "35.3",
+        "negotiated procurement - take over of contracts": "35.3",
+        "take-over of contracts": "35.3",
+        "take over of contracts": "35.3",
+        "negotiated procurement - adjacent of contiguous": "35.4",
+        "negotiated procurement - adjacent or contiguous": "35.4",
+        "adjacent of contiguous": "35.4",
+        "adjacent or contiguous": "35.4",
+        "negotiated procurement - agency-to-agency": "35.5",
+        "negotiated procurement - agency to agency": "35.5",
+        "agency-to-agency": "35.5",
+        "agency to agency": "35.5",
+        "negotiated procurement - scientific, scholarly or artistic work, exclusive technology and media services":
+          "35.6",
+        "scientific, scholarly or artistic work": "35.6",
         "scientific, scholarly or artistic work, exclusive technology and media services":
-          "53.6",
-        "exclusive technology and media services": "53.6",
-        "highly technical consultant": "53.7",
-        "highly technical consultants": "53.7",
-        "small value procurement": "53.9",
-        "lease of venue and community facilities": "53.10",
-        "lease of real property and venue": "53.10",
-        "lease of real property or venue": "53.10",
+          "35.6",
+        "exclusive technology and media services": "35.6",
+        "negotiated procurement - highly technical consultants": "35.7",
+        "highly technical consultant": "35.7",
+        "highly technical consultants": "35.7",
+        "negotiated procurement - defense cooperation agreements and inventory-based items":
+          "35.8",
+        "negotiated procurement - lease of real property and venue": "35.9",
+        "lease of venue and community facilities": "35.9",
+        "lease of real property and venue": "35.9",
+        "lease of real property or venue": "35.9",
+        "negotiated procurement - non-government organization (ngo) participation":
+          "35.10",
+        "negotiated procurement - community participation": "35.11",
+        "negotiated procurement - united nations (un) agencies, international organizations or international financing institutions":
+          "35.12",
+        "negotiated procurement - direct retail purchase of petroleum fuel, oil and lubricant products, electronic charging devices, and online subscriptions":
+          "35.13",
+        "direct sales": "36",
+        "direct procurement for science, technology, and innovation": "37",
       };
 
       return sectionMap[normalizedMode] || null;
@@ -639,14 +677,21 @@ export default {
 
     procurementModeContext() {
       const codes = this.procurement.codes || [];
+
       const modeNames = this.uniqueTextValues(
         codes.map((code) => code.procurement_code?.mode_of_procurement?.name)
       );
       const sectionNumbers = this.uniqueTextValues(
-        modeNames.map((modeName) => this.procurementSectionNumber(modeName))
+        codes.map((code) => {
+          const mode = code.procurement_code?.mode_of_procurement;
+          return (
+            this.extractSectionNumber(mode?.others) ||
+            this.procurementSectionNumber(mode?.name)
+          );
+        })
       );
 
-      let sectionLabel = "the applicable procurement section";
+      let sectionLabel = "";
       if (sectionNumbers.length === 1) {
         sectionLabel = `Section ${sectionNumbers[0]}`;
       } else if (sectionNumbers.length > 1) {
@@ -892,8 +937,8 @@ export default {
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
             <b>WHEREAS</b>, the BAC initiated the procurement through its secretariat through dissemination
-            of ${quotation_context.quotation_count} ${quotation_context.quotation_label} to ${quotation_context.supplier_count}
-            ${quotation_context.supplier_label} of known qualifications${quotation_context.supplier_location_phrase},
+            of ${quotation_context.quotation_count} ${quotation_context.quotation_label} to 
+            suppliers of known qualifications,
             to wit: ${quotation_context.supplier_names};
           </p>
 
@@ -938,29 +983,118 @@ export default {
       submission_not_later_than_with_format,
       bidders
     ) {
-      const reawardStatuses = ["Awarded", "Available for Re-award"];
-      const reawarded_quotations = (this.procurement.quotations || []).filter((quotation) =>
-        (quotation.items || []).some(
-          (item) =>
-            reawardStatuses.includes(item.status?.name) &&
-            item.bid_price != null
+      const resolveProcurementItemId = (item) =>
+        item?.procurement_item_id ?? item?.item?.id ?? item?.item?.procurement_item_id ?? null;
+      const latestFailedNoa = [...(this.procurement.noas || [])]
+        .filter((noa) =>
+          ["Not Conformed", "PO Not Conformed"].includes(noa.status?.name)
         )
+        .sort((left, right) => {
+          const leftDate = new Date(left?.updated_at || left?.created_at || 0).getTime();
+          const rightDate = new Date(right?.updated_at || right?.created_at || 0).getTime();
+
+          return rightDate - leftDate;
+        })[0];
+      const failedNoaTargetItemIds = new Set(
+        (latestFailedNoa?.items || [])
+          .map((noaItem) => resolveProcurementItemId(noaItem?.item))
+          .filter((itemId) => itemId != null)
       );
+      const notConformedTargetItemIds = new Set(
+        (this.procurement.quotations || [])
+          .flatMap((quotation) => quotation.items || [])
+          .filter((item) => item.status?.name === "Not Conformed")
+          .map((item) => resolveProcurementItemId(item))
+          .filter((itemId) => itemId != null)
+      );
+      const reawardTargetItemIds =
+        failedNoaTargetItemIds.size > 0
+          ? failedNoaTargetItemIds
+          : notConformedTargetItemIds;
+      const selectedReawardedItems = Array.from(reawardTargetItemIds)
+        .map((targetItemId) => {
+          const candidates = (this.procurement.quotations || []).flatMap((quotation) =>
+            (quotation.items || [])
+              .filter((item) => {
+                return (
+                  item.status?.name === "Awarded" &&
+                  item.bid_price != null &&
+                  resolveProcurementItemId(item) === targetItemId
+                );
+              })
+              .map((item) => ({
+                quotation,
+                item,
+              }))
+          );
+
+          if (!candidates.length) {
+            return null;
+          }
+
+          return candidates.sort((left, right) => {
+            const leftFreeRank = left.item?.is_free ? 0 : 1;
+            const rightFreeRank = right.item?.is_free ? 0 : 1;
+
+            if (leftFreeRank !== rightFreeRank) {
+              return leftFreeRank - rightFreeRank;
+            }
+
+            const leftPrice = Number(left.item?.bid_price) || 0;
+            const rightPrice = Number(right.item?.bid_price) || 0;
+
+            if (leftPrice !== rightPrice) {
+              return leftPrice - rightPrice;
+            }
+
+            return (Number(left.quotation?.id) || 0) - (Number(right.quotation?.id) || 0);
+          })[0];
+        })
+        .filter(Boolean);
+      const reawardedQuotationsMap = new Map();
+
+      selectedReawardedItems.forEach(({ quotation, item }) => {
+        const key = quotation?.id ?? quotation?.supplier_id;
+
+        if (!reawardedQuotationsMap.has(key)) {
+          reawardedQuotationsMap.set(key, {
+            quotation,
+            awarded_items: [],
+          });
+        }
+
+        reawardedQuotationsMap.get(key).awarded_items.push(item);
+      });
+
+      const reawarded_quotations = Array.from(reawardedQuotationsMap.values());
 
       const bidder_count = new Set(bidders).size;
 
       const bid_type_cap = bidder_count === 1 ? "SINGLE" : "LOWEST";
       const bid_type_small_cap = bidder_count === 1 ? "single" : "lowest";
 
+      const reawarded_supplier_name_values = this.uniqueTextValues(
+        reawarded_quotations.map(({ quotation }) => quotation.supplier?.name)
+      );
+      const reawarded_supplier_names_display = this.joinWithAnd(
+        reawarded_supplier_name_values
+      );
+      const reawarded_supplier_names = reawarded_supplier_names_display.toUpperCase();
+      const reawarded_supplier_count = reawarded_supplier_name_values.length;
+      const reawarded_bidder_label_cap =
+        reawarded_supplier_count === 1 ? "BIDDER" : "BIDDERS";
+      const reawarded_bidder_label_small =
+        reawarded_supplier_count === 1 ? "bidder" : "bidders";
+      const reawarded_quotation_label =
+        reawarded_supplier_count === 1 ? "price quotation" : "price quotations";
+      const reawarded_pronoun = reawarded_supplier_count === 1 ? "its" : "their";
+
       let counter = 2;
       const reawarded_quotations_list = reawarded_quotations
-        .map((quotation) => {
-          const filtered_items = (quotation.items || []).filter((item) =>
-            reawardStatuses.includes(item.status?.name) && item.bid_price != null
-          );
-          if (filtered_items.length === 0) return "";
-          const item_numbers = filtered_items.map((item) => item.item.item_no).join(", ");
-          const total_price = filtered_items.reduce((sum, item) => {
+        .map(({ quotation, awarded_items }) => {
+          if (awarded_items.length === 0) return "";
+          const item_numbers = awarded_items.map((item) => item.item.item_no).join(", ");
+          const total_price = awarded_items.reduce((sum, item) => {
             const bp = parseFloat(item.bid_price) || 0;
             const bq = parseFloat(item.item.item_quantity) || 0;
             return sum + bp * bq;
@@ -982,35 +1116,26 @@ export default {
         })
         .join("");
 
-      const reawarded_supplier_names = reawarded_quotations
-        .map((quotation) => quotation.supplier?.name)
-        .filter(Boolean)
-        .join(", ")
-        .toUpperCase();
-
-      const reawarded_bid_total_price = reawarded_quotations.reduce((total, quotation) => {
-        const filtered_items = (quotation.items || []).filter(
-          (item) => reawardStatuses.includes(item.status?.name) && item.bid_price != null
-        );
-        const total_price_for_bid = filtered_items.reduce((sum, item) => {
-          const bp = parseFloat(item.bid_price) || 0;
-          const bq = parseFloat(item.item.item_quantity) || 0;
-          return sum + bp * bq;
-        }, 0);
-        return total + total_price_for_bid;
-      }, 0);
+      const reawarded_bid_total_price = reawarded_quotations.reduce(
+        (total, { awarded_items }) => {
+          const total_price_for_bid = awarded_items.reduce((sum, item) => {
+            const bp = parseFloat(item.bid_price) || 0;
+            const bq = parseFloat(item.item.item_quantity) || 0;
+            return sum + bp * bq;
+          }, 0);
+          return total + total_price_for_bid;
+        },
+        0
+      );
 
       const reaward_total_amount_contract_in_words = this.numberToWords(
         reawarded_bid_total_price
       );
 
       const reawarded_table_rows = reawarded_quotations
-        .map((quotation) => {
-          const filtered_items = (quotation.items || []).filter(
-            (item) => reawardStatuses.includes(item.status?.name) && item.bid_price != null
-          );
-          if (filtered_items.length === 0) return null;
-          const item_ids = filtered_items.map((item) => item.item.item_no).join(", ");
+        .map(({ quotation, awarded_items }) => {
+          if (awarded_items.length === 0) return null;
+          const item_ids = awarded_items.map((item) => item.item.item_no).join(", ");
           return `
             <tr>
               <td>${quotation.supplier?.name}</td>
@@ -1021,7 +1146,7 @@ export default {
         .filter((row) => row !== null);
 
       const reawarded_table_html =
-        bidder_count > 2
+        reawarded_supplier_count > 1
           ? `
         <b>WHEREAS</b>, after thorough evaluation on the technical specifications of the bidders, the BAC
         determined the following:
@@ -1042,7 +1167,7 @@ export default {
             <b>
               RECOMMENDING FOR RE-AWARD OF CONTRACT TO ${reawarded_supplier_names}, AS THE ${this.toOrdinal(
         this.procurement.reawarded_count + 1
-      )} ${bid_type_cap} CALCULATED AND RESPONSIVE BIDDER FOR THE PROCUREMENT
+      )} ${bid_type_cap} CALCULATED AND RESPONSIVE ${reawarded_bidder_label_cap} FOR THE PROCUREMENT
               "${this.procurement.title.toUpperCase()}" UNDERTAKEN THROUGH ${mode_of_procurement_sections.toUpperCase()} (${mode_of_procurement_names})
               OF THE REVISED IMPLEMENTING RULES AND REGULATIONS OF (${mode_of_procurement_ra_nos})
             </b>
@@ -1074,14 +1199,13 @@ export default {
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
             <b>WHEREAS</b>, the BAC initiated the procurement through its secretariat through dissemination
-            of ${quotation_context.quotation_count} ${quotation_context.quotation_label} to ${quotation_context.supplier_count}
-            ${quotation_context.supplier_label} of known qualifications${quotation_context.supplier_location_phrase},
+            of ${quotation_context.quotation_count} ${quotation_context.quotation_label} to suppliers of known qualifications${quotation_context.supplier_location_phrase},
             to wit: ${quotation_context.supplier_names};
           </p>
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
             <b>WHEREAS</b>, among the above-mentioned bidders, ${reawarded_supplier_names} responded by submitting
-            its price quotation to the BAC before opening of bids on ${submission_not_later_than_with_format}.
+            ${reawarded_pronoun} ${reawarded_quotation_label} to the BAC before opening of bids on ${submission_not_later_than_with_format}.
           </p>
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
@@ -1096,7 +1220,7 @@ export default {
 
           <p style="text-align: justify;  margin-bottom: 1em; margin-top: 20px; margin-left: 0 ">
             <ul style="list-style-type: none;">
-              <li style="text-align: justify; margin-bottom: 1em; "><b>I. </b> To declare ${reawarded_supplier_names} as the ${bid_type_small_cap} Calculated and Responsive Bidder of the procurement for
+              <li style="text-align: justify; margin-bottom: 1em; "><b>I. </b> To declare ${reawarded_supplier_names} as the ${bid_type_small_cap} Calculated and Responsive ${reawarded_bidder_label_small} of the procurement for
                 <b>"${this.procurement.title.toUpperCase()}"</b>
               </li>
               ${reawarded_quotations_list}

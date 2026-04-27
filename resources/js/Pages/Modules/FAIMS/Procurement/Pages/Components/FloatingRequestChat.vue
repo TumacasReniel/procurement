@@ -3,21 +3,26 @@
     <BCard
       v-if="open"
       no-body
-      class="shadow-lg border-0 overflow-hidden mb-3 ms-auto"
+      class="shadow-lg border-0 overflow-hidden mb-3 ms-auto floating-chat-panel"
       :style="panelStyle"
     >
-      <BCardHeader class="bg-primary border-0 text-white p-3">
+      <BCardHeader class="border-0 text-white p-3 floating-chat-header">
         <div class="d-flex align-items-start justify-content-between gap-3">
-          <div class="flex-grow-1 overflow-hidden">
-            <h5 class="mb-1 text-white">Request Chat</h5>
-            <p class="mb-0 small text-white-50 text-truncate">
-              {{ selectedRequest ? selectedRequest.code : "Choose a purchase request" }}
-            </p>
+          <div class="flex-grow-1 overflow-hidden d-flex align-items-center gap-3">
+            <div class="floating-chat-header-icon rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0">
+              <i class="ri-messenger-line fs-5"></i>
+            </div>
+            <div class="flex-grow-1 overflow-hidden">
+              <h5 class="mb-1 text-white">Comments</h5>
+              <p class="mb-0 small text-white-50 text-truncate">
+                {{ selectedRequest ? selectedRequest.code : "Choose a purchase request" }}
+              </p>
+            </div>
           </div>
           <BButton
             variant="light"
             size="sm"
-            class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0 p-0"
+            class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0 p-0 floating-chat-close"
             style="width: 36px; height: 36px;"
             @click="$emit('toggle')"
           >
@@ -26,30 +31,48 @@
         </div>
       </BCardHeader>
 
-      <BCardBody class="p-0 bg-light-subtle overflow-auto" :style="bodyStyle">
-        <div class="p-3 border-bottom bg-light-subtle">
-          <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-            <label class="form-label mb-0 fw-semibold">Select Request</label>
-            <BButton
-              v-if="selectedRequest"
-              variant="light"
-              size="sm"
-              class="flex-shrink-0"
-              @click="clearSelectedRequest"
-            >
-              Unselect PR
-            </BButton>
+      <BCardBody class="p-0 overflow-hidden d-flex flex-column floating-chat-body" :style="bodyStyle">
+        <div
+          class="p-3 border-bottom floating-chat-sidebar"
+          :class="{ 'pb-2': isRequestPickerCollapsed && selectedRequest }"
+        >
+          <div class="d-flex align-items-center justify-content-between gap-2 mb-3 floating-chat-sidebar-header">
+            <label class="form-label mb-0 fw-semibold floating-chat-sidebar-title">Select Request</label>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+              <BButton
+                v-if="selectedRequest"
+                variant="light"
+                size="sm"
+                class="rounded-pill px-3"
+                @click="isRequestPickerCollapsed = !isRequestPickerCollapsed"
+              >
+                {{ isRequestPickerCollapsed ? "Show PRs" : "Hide PRs" }}
+              </BButton>
+              <BButton
+                v-if="selectedRequest"
+                variant="light"
+                size="sm"
+                class="rounded-pill px-3"
+                @click="clearSelectedRequest"
+              >
+                Unselect PR
+              </BButton>
+            </div>
           </div>
-          <div class="border rounded floating-chat-surface overflow-hidden">
-            <div class="p-2 border-bottom bg-body-tertiary">
+          <div
+            v-show="!isRequestPickerCollapsed || !selectedRequest"
+            class="border rounded-4 floating-chat-surface overflow-hidden floating-chat-request-shell"
+          >
+            <div class="p-3 border-bottom floating-chat-searchbar">
               <div class="d-flex align-items-center gap-2">
-                <BInputGroup size="sm" class="flex-grow-1">
-                  <BInputGroupText>
+                <BInputGroup size="sm" class="flex-grow-1 floating-chat-input-group">
+                  <BInputGroupText class="floating-chat-search-icon">
                     <i class="ri-search-line"></i>
                   </BInputGroupText>
                   <BFormInput
                     v-model="requestSearch"
                     type="search"
+                    class="floating-chat-search-input"
                     placeholder="Search by PR code or purpose"
                   />
                 </BInputGroup>
@@ -57,18 +80,18 @@
                   v-if="hasRequestSearch"
                   variant="light"
                   size="sm"
-                  class="flex-shrink-0"
+                  class="flex-shrink-0 rounded-pill px-3"
                   @click="resetRequestSearch"
                 >
                   Clear
                 </BButton>
               </div>
-              <div v-if="requestOptions.length" class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <BBadge class="bg-primary-subtle text-primary">
+              <div v-if="requestOptions.length" class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                <BBadge pill class="floating-chat-stat-badge floating-chat-stat-badge-primary">
                   {{ activeRequestOptions.length }} active PR{{ activeRequestOptions.length === 1 ? "" : "s" }}
                 </BBadge>
-                <BBadge class="bg-info-subtle text-info">
-                  {{ totalChatCount }} total {{ totalChatCount === 1 ? "chat" : "chats" }}
+                <BBadge pill class="floating-chat-stat-badge floating-chat-stat-badge-info">
+                  {{ totalChatCount }} total {{ totalChatCount === 1 ? "comment" : "comments" }}
                 </BBadge>
                 <div class="ms-auto d-inline-flex align-items-center gap-1 floating-chat-sort">
                   <button
@@ -85,7 +108,7 @@
                     :class="{ active: activeSort === 'popular' }"
                     @click="setActiveSort('popular')"
                   >
-                    Most Chats
+                    Most Comments
                   </button>
                 </div>
               </div>
@@ -105,7 +128,7 @@
               class="px-3 py-4 text-center text-muted small"
             >
               <div class="fw-semibold text-body mb-1">
-                {{ hasRequestSearch ? "No matching procurement request found." : "No active chats yet" }}
+                {{ hasRequestSearch ? "No matching procurement request found." : "No active comments yet" }}
               </div>
               <div>
                 {{
@@ -116,16 +139,15 @@
               </div>
             </div>
 
-            <div v-else class="px-3 py-2 border-bottom floating-chat-surface">
+            <div
+              v-else-if="hasRequestSearch"
+              class="px-3 py-3 border-bottom floating-chat-request-heading"
+            >
               <div class="small fw-semibold text-body">
-                {{ hasRequestSearch ? `Search Results (${displayedRequestOptions.length})` : `Active PR Chats (${displayedRequestOptions.length})` }}
+                {{ `Search Results (${displayedRequestOptions.length})` }}
               </div>
               <div class="small text-muted">
-                {{
-                  hasRequestSearch
-                    ? "Showing matching PRs from all procurement requests."
-                    : "Search above to browse every PR."
-                }}
+                Showing matching PRs from all procurement requests.
               </div>
               <div v-if="hasMoreRequestOptions" class="small text-muted mt-1">
                 Showing {{ displayedRequestOptions.length }} of {{ requestSelectionOptions.length }}
@@ -138,43 +160,50 @@
                 :key="request.id"
                 button
                 action
-                class="text-start py-3"
+                class="text-start py-3 floating-chat-request-item"
                 :active="Number(request.id) === normalizedSelectedRequestId"
                 @click="selectRequestOption(request.id)"
               >
-                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
-                  <div class="fw-semibold text-truncate">
-                    {{ request.code }}
+                <div class="d-flex align-items-start gap-3">
+                  <div class="floating-chat-request-avatar rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0">
+                    <i class="ri-file-list-3-line"></i>
                   </div>
-                  <BBadge
-                    v-if="hasComments(request.comments_count)"
-                    pill
-                    class="floating-chat-count-badge"
-                  >
-                    {{ request.comments_count }}
-                  </BBadge>
-                </div>
-                <div
-                  class="small text-wrap"
-                  :class="Number(request.id) === normalizedSelectedRequestId ? 'text-white-50' : 'text-muted'"
-                >
-                  {{ hasRequestSearch ? truncateText(request.purpose || request.title, 88) : latestChatPreview(request) }}
-                </div>
-                <div
-                  v-if="hasComments(request.comments_count) || request.latest_comment_at"
-                  class="small mt-2 d-flex flex-wrap align-items-center gap-2"
-                  :class="Number(request.id) === normalizedSelectedRequestId ? 'text-white-50' : 'text-muted'"
-                >
-                  <span v-if="!hasRequestSearch && request.latest_comment?.user">
-                    {{ latestChatAuthor(request) }}
-                  </span>
-                  <span v-if="hasComments(request.comments_count)">
-                    {{ formatChatLabel(request.comments_count) }}
-                  </span>
-                  <span v-if="request.latest_comment_at">
-                    <i class="ri-time-line me-1"></i>
-                    {{ formatActivityDate(request.latest_comment_at) }}
-                  </span>
+                  <div class="flex-grow-1 min-w-0">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                      <div class="fw-semibold text-truncate">
+                        {{ request.code }}
+                      </div>
+                      <BBadge
+                        v-if="hasComments(request.comments_count)"
+                        pill
+                        class="floating-chat-count-badge"
+                      >
+                        {{ request.comments_count }}
+                      </BBadge>
+                    </div>
+                    <div
+                      class="small text-wrap"
+                      :class="Number(request.id) === normalizedSelectedRequestId ? 'text-white-50' : 'text-muted'"
+                    >
+                      {{ hasRequestSearch ? truncateText(request.purpose || request.title, 88) : latestChatPreview(request) }}
+                    </div>
+                    <div
+                      v-if="hasComments(request.comments_count) || request.latest_comment_at"
+                      class="small mt-2 d-flex flex-wrap align-items-center gap-2"
+                      :class="Number(request.id) === normalizedSelectedRequestId ? 'text-white-50' : 'text-muted'"
+                    >
+                      <span v-if="!hasRequestSearch && request.latest_comment?.user">
+                        {{ latestChatAuthor(request) }}
+                      </span>
+                      <span v-if="hasComments(request.comments_count)">
+                        {{ formatChatLabel(request.comments_count) }}
+                      </span>
+                      <span v-if="request.latest_comment_at">
+                        <i class="ri-time-line me-1"></i>
+                        {{ formatActivityDate(request.latest_comment_at) }}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </BListGroupItem>
             </BListGroup>
@@ -185,42 +214,147 @@
               <BButton
                 variant="light"
                 size="sm"
-                class="w-100 floating-chat-show-more"
+                class="w-100 floating-chat-show-more rounded-pill"
                 @click="showMoreRequests"
               >
-                Show {{ nextRequestLoadCount }} more {{ hasRequestSearch ? "results" : "PR chats" }}
+                Show {{ nextRequestLoadCount }} more {{ hasRequestSearch ? "results" : "PR comments" }}
               </BButton>
             </div>
           </div>
         </div>
 
-        <div v-if="loading" class="px-4 py-5 text-center text-muted">
+        <div v-if="loading" class="px-4 py-5 text-center text-muted floating-chat-empty-state">
           <div class="spinner-border text-primary mb-3" role="status"></div>
           <div class="fw-semibold text-body">Loading request conversation...</div>
         </div>
 
-        <div v-else-if="selectedRequest" class="p-3">
-          <BCard no-body class="bg-light-subtle shadow-none border mb-3">
-            <BCardBody class="p-3">
-              <div class="fw-bold text-primary mb-1">{{ selectedRequest.code }}</div>
-              <p class="mb-3 small text-muted">
-                {{ selectedRequest.purpose || selectedRequest.title || "No purpose provided." }}
-              </p>
-              <div class="d-flex flex-wrap gap-2">
-                <BBadge class="bg-primary-subtle text-primary">
-                  {{ selectedRequest.status?.name || "No status" }}
-                </BBadge>
-                <BBadge
-                  v-if="selectedRequest.sub_status?.name"
-                  class="bg-info-subtle text-info"
+        <div
+          v-else-if="selectedRequest"
+          class="pt-3 px-3 pb-0 d-flex flex-column flex-grow-1 overflow-hidden floating-chat-conversation"
+        >
+          <BCard no-body class="shadow-none border mb-3 floating-chat-conversation-header">
+            <BCardBody :class="isConversationHeaderCollapsed ? 'p-2' : 'p-3'">
+              <div
+                class="d-flex gap-3"
+                :class="isConversationHeaderCollapsed ? 'align-items-center' : 'align-items-start'"
+              >
+                <div
+                  class="floating-chat-request-avatar rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                  :class="{ 'floating-chat-request-avatar-compact': isConversationHeaderCollapsed }"
                 >
-                  {{ selectedRequest.sub_status.name }}
-                </BBadge>
+                  <i class="ri-file-list-3-line"></i>
+                </div>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex align-items-center justify-content-between gap-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2 min-w-0">
+                      <div class="fw-bold text-body text-truncate">{{ selectedRequest.code }}</div>
+                      <span class="floating-chat-online-pill">active comment</span>
+                    </div>
+                    <BButton
+                      variant="light"
+                      size="sm"
+                      class="rounded-pill px-3 flex-shrink-0"
+                      @click="isConversationHeaderCollapsed = !isConversationHeaderCollapsed"
+                    >
+                      {{ isConversationHeaderCollapsed ? "Show" : "Hide" }}
+                      <i
+                        class="ms-1"
+                        :class="isConversationHeaderCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'"
+                      ></i>
+                    </BButton>
+                  </div>
+                  <div v-if="!isConversationHeaderCollapsed" class="mt-2">
+                    <p class="mb-3 small text-muted">
+                      {{ selectedRequest.purpose || selectedRequest.title || "No purpose provided." }}
+                    </p>
+                    <div class="d-flex flex-wrap gap-2">
+                      <BBadge pill class="floating-chat-stat-badge floating-chat-stat-badge-primary">
+                        {{ selectedRequest.status?.name || "No status" }}
+                      </BBadge>
+                      <BBadge
+                        v-if="selectedRequest.sub_status?.name"
+                        pill
+                        class="floating-chat-stat-badge floating-chat-stat-badge-info"
+                      >
+                        {{ selectedRequest.sub_status.name }}
+                      </BBadge>
+                    </div>
+                  </div>
+                </div>
               </div>
             </BCardBody>
           </BCard>
 
-          <BCard no-body class="bg-light-subtle shadow-none border mb-3">
+          <div
+            v-if="sortedComments.length"
+            ref="thread_container"
+            class="d-grid gap-3 flex-grow-1 overflow-auto floating-chat-thread pe-1"
+          >
+              <div
+                class="floating-chat-thread-inner d-grid gap-3"
+              >
+                <div
+                  v-for="comment in sortedComments"
+                  :key="comment.id"
+                  class="d-flex align-items-end gap-2"
+                  :class="is_own_comment(comment) ? 'justify-content-end' : 'justify-content-start'"
+                >
+                  <img
+                    v-if="!is_own_comment(comment)"
+                    :src="resolveAvatar(comment.user)"
+                    :alt="resolveName(comment.user)"
+                    class="rounded-circle border floating-chat-avatar flex-shrink-0 align-self-start"
+                    :style="avatarStyle"
+                  />
+                  <div
+                    class="floating-chat-message-wrap d-flex flex-column"
+                    :class="is_own_comment(comment) ? 'ms-2 align-items-end' : 'me-2 align-items-start'"
+                  >
+                    <div
+                      class="small text-muted mb-1 d-flex flex-wrap align-items-center gap-2"
+                      :class="is_own_comment(comment) ? 'justify-content-end' : 'justify-content-start'"
+                    >
+                      <span class="fw-semibold text-body">{{ resolveName(comment.user) }}</span>
+                      <span>{{ formatDate(comment.created_at) }}</span>
+                    </div>
+                    <div
+                      class="floating-chat-bubble"
+                      :class="is_own_comment(comment) ? 'floating-chat-bubble-own' : 'floating-chat-bubble-other'"
+                    >
+                      <div
+                        class="small mb-0"
+                        :style="messageStyle"
+                        v-html="renderCommentContent(comment.content)"
+                      ></div>
+                    </div>
+                  </div>
+                  <img
+                    v-if="is_own_comment(comment)"
+                    :src="resolveAvatar(comment.user)"
+                    :alt="resolveName(comment.user)"
+                    class="rounded-circle border floating-chat-avatar flex-shrink-0 align-self-start"
+                    :style="avatarStyle"
+                  />
+                </div>
+              </div>
+          </div>
+
+          <BCard
+            v-else
+            no-body
+            class="shadow-none border flex-grow-1 floating-chat-empty-state"
+          >
+            <BCardBody class="px-4 py-5 text-center text-muted">
+              <i class="ri-chat-smile-2-line d-block fs-2 text-primary mb-3"></i>
+              <div class="fw-semibold text-body">No comments yet</div>
+              <div class="small">Start the conversation for this procurement request.</div>
+            </BCardBody>
+          </BCard>
+
+          <BCard
+            no-body
+            class="shadow-none border mt-3 mb-0 flex-shrink-0 floating-chat-composer"
+          >
             <BCardBody class="p-3">
               <div class="d-flex align-items-start gap-3">
                 <img
@@ -235,7 +369,8 @@
                       ref="commentTextarea"
                       v-model="newComment"
                       rows="3"
-                      placeholder="Leave a follow-up comment for this request... Use @ to tag a user."
+                      class="floating-chat-textarea"
+                      placeholder="Comment here..."
                       :disabled="commentSubmitting"
                       @input="handleCommentInput"
                       @click="updateMentionContext"
@@ -300,56 +435,9 @@
               </div>
             </BCardBody>
           </BCard>
-
-          <div v-if="sortedComments.length" class="d-grid gap-3">
-            <BCard
-              v-for="comment in sortedComments"
-              :key="comment.id"
-              no-body
-              class="bg-light-subtle shadow-none border"
-            >
-              <BCardBody class="p-3">
-                <div class="d-flex align-items-start gap-3">
-                  <img
-                    :src="resolveAvatar(comment.user)"
-                    :alt="resolveName(comment.user)"
-                    class="rounded-circle border floating-chat-avatar flex-shrink-0"
-                    :style="avatarStyle"
-                  />
-                  <div class="flex-grow-1">
-                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
-                      <div class="fw-semibold text-body">
-                        {{ resolveName(comment.user) }}
-                      </div>
-                      <small class="text-muted">
-                        {{ formatDate(comment.created_at) }}
-                      </small>
-                    </div>
-                    <div
-                      class="small text-body mb-0"
-                      :style="messageStyle"
-                      v-html="renderCommentContent(comment.content)"
-                    ></div>
-                  </div>
-                </div>
-              </BCardBody>
-            </BCard>
-          </div>
-
-          <BCard
-            v-else
-            no-body
-            class="bg-light-subtle shadow-none border"
-          >
-            <BCardBody class="px-4 py-5 text-center text-muted">
-              <i class="ri-chat-smile-2-line d-block fs-2 text-primary mb-3"></i>
-              <div class="fw-semibold text-body">No comments yet</div>
-              <div class="small">Start the conversation for this procurement request.</div>
-            </BCardBody>
-          </BCard>
         </div>
 
-        <div v-else class="px-4 py-5 text-center text-muted">
+        <div v-else class="px-4 py-5 text-center text-muted floating-chat-empty-state m-3">
           <i class="ri-message-3-line d-block fs-2 text-primary mb-3"></i>
           <div class="fw-semibold text-body">Pick a request first</div>
           <div class="small">
@@ -363,15 +451,14 @@
       variant="primary"
       class="rounded-circle shadow-lg position-relative d-inline-flex align-items-center justify-content-center border-0 p-0"
       :style="triggerStyle"
-      :title="open ? 'Close request chat' : 'Open request chat'"
+      :title="open ? 'Close request comment' : 'Open request comment'"
       @click="$emit('toggle')"
     >
       <i class="ri-chat-1-line fs-4"></i>
       <BBadge
         v-if="commentCount > 0"
-        bg-variant="danger"
         pill
-        class="position-absolute top-0 start-100 translate-middle"
+        class="position-absolute top-0 start-100 translate-middle bg-danger text-white"
       >
         {{ commentCount }}
       </BBadge>
@@ -400,7 +487,9 @@ export default {
       activeSort: "recent",
       activeVisibleCount: 8,
       searchVisibleCount: 12,
+      isRequestPickerCollapsed: false,
       commentSubmitting: false,
+      isConversationHeaderCollapsed: false,
       subscribedRequestId: null,
       mentionStartIndex: null,
       mentionQuery: "",
@@ -544,7 +633,7 @@ export default {
         : [];
 
       return comments.sort((left, right) => {
-        return new Date(right.created_at) - new Date(left.created_at);
+        return new Date(left.created_at) - new Date(right.created_at);
       });
     },
     commentCount() {
@@ -552,18 +641,19 @@ export default {
     },
     panelStyle() {
       return {
-        width: "420px",
-        maxWidth: "calc(100vw - 1.5rem)",
+        width: "720px",
+        maxWidth: "calc(100vw - 1rem)",
       };
     },
     bodyStyle() {
       return {
-        maxHeight: "min(72vh, 760px)",
+        height: "min(88vh, 980px)",
+        maxHeight: "min(88vh, 980px)",
       };
     },
     requestListStyle() {
       return {
-        maxHeight: "320px",
+        maxHeight: this.selectedRequest ? "220px" : "320px",
       };
     },
     triggerStyle() {
@@ -601,8 +691,33 @@ export default {
         this.resetRequestSearch();
         this.resetMentionState();
         this.form.clearErrors();
+        this.isRequestPickerCollapsed = Boolean(newId);
         this.syncCommentChannel(newId ? Number(newId) : null);
+
+        this.$nextTick(() => {
+          this.scroll_thread_to_bottom("auto");
+        });
       },
+    },
+    commentCount(new_count, old_count) {
+      if (!new_count) {
+        return;
+      }
+
+      const behavior = old_count ? "smooth" : "auto";
+
+      this.$nextTick(() => {
+        this.scroll_thread_to_bottom(behavior);
+      });
+    },
+    loading(is_loading) {
+      if (is_loading) {
+        return;
+      }
+
+      this.$nextTick(() => {
+        this.scroll_thread_to_bottom("auto");
+      });
     },
     requestSearch() {
       this.searchVisibleCount = 12;
@@ -665,6 +780,22 @@ export default {
         "User"
       );
     },
+    is_own_comment(comment) {
+      const current_user_id = Number(this.$page?.props?.user?.data?.id || 0);
+      return Number(comment?.user?.id || 0) === current_user_id;
+    },
+    scroll_thread_to_bottom(behavior = "auto") {
+      const thread_element = this.$refs.thread_container;
+
+      if (!thread_element) {
+        return;
+      }
+
+      thread_element.scrollTo({
+        top: thread_element.scrollHeight,
+        behavior,
+      });
+    },
     formatDate(dateString) {
       const date = new Date(dateString);
 
@@ -682,7 +813,7 @@ export default {
     },
     formatChatLabel(count) {
       const total = Number(count) || 0;
-      return `${total} ${total === 1 ? "chat" : "chats"}`;
+      return `${total} ${total === 1 ? "comment" : "comments"}`;
     },
     formatActivityDate(dateString) {
       const date = new Date(dateString);
@@ -691,7 +822,7 @@ export default {
         return "";
       }
 
-      return `Last chat ${date.toLocaleString("en-US", {
+      return `Last comment ${date.toLocaleString("en-US", {
         month: "short",
         day: "numeric",
         hour: "2-digit",
@@ -1007,56 +1138,326 @@ export default {
 };
 </script>
 <style scoped>
+.floating-chat-panel,
+.floating-chat-header,
+.floating-chat-body,
+.floating-chat-sidebar,
+.floating-chat-searchbar,
+.floating-chat-close,
+.floating-chat-stat-badge-primary,
+.floating-chat-request-avatar,
+.floating-chat-count-badge,
+.floating-chat-sort-btn.active,
+.floating-chat-request-item.active,
+.floating-chat-bubble-own,
+:deep(.chat-mention) {
+  --request-chat-accent: #3f4f8a;
+  --request-chat-accent-strong: #2e3c70;
+  --request-chat-accent-soft: rgba(63, 79, 138, 0.12);
+  --request-chat-accent-soft-2: rgba(63, 79, 138, 0.2);
+  --request-chat-accent-border: rgba(63, 79, 138, 0.22);
+  --request-chat-mention-bg: #ffe36a;
+  --request-chat-mention-color: #5f4700;
+}
+
+.floating-chat-panel {
+  border-radius: 1.5rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 253, 0.98)),
+    var(--vz-body-bg);
+}
+
+.floating-chat-header {
+  background: linear-gradient(135deg, #4c5fa3 0%, #34457d 100%);
+}
+
+.floating-chat-header-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.floating-chat-close {
+  box-shadow: 0 0.5rem 1rem rgba(79, 93, 155, 0.22);
+}
+
+.floating-chat-body {
+  background:
+    radial-gradient(circle at top right, rgba(63, 79, 138, 0.08), transparent 36%),
+    linear-gradient(180deg, #f8faff, #f1f4fb);
+}
+
+.floating-chat-sidebar {
+  position: relative;
+  background: rgba(63, 79, 138, 0.035);
+}
+
+.floating-chat-sidebar-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  flex-wrap: wrap;
+  row-gap: 0.75rem;
+  min-height: 2.5rem;
+  padding-bottom: 0.35rem;
+  background:
+    linear-gradient(180deg, rgba(248, 250, 255, 0.98), rgba(248, 250, 255, 0.92));
+}
+
+.floating-chat-sidebar-title {
+  line-height: 1.25;
+  padding-top: 0.15rem;
+}
+
 .floating-chat-surface {
   background-color: var(--vz-secondary-bg);
   color: var(--vz-body-color);
+}
+
+.floating-chat-request-shell {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border-color: rgba(63, 79, 138, 0.08) !important;
+}
+
+.floating-chat-searchbar {
+  background:
+    linear-gradient(180deg, rgba(63, 79, 138, 0.05), rgba(63, 79, 138, 0.015)),
+    #f8faff;
+}
+
+.floating-chat-input-group :deep(.input-group-text),
+.floating-chat-input-group :deep(.form-control) {
+  border-color: rgba(63, 79, 138, 0.1);
+  background: #fff;
+}
+
+.floating-chat-input-group :deep(.input-group-text) {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+}
+
+.floating-chat-input-group :deep(.form-control) {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+  box-shadow: none;
+}
+
+.floating-chat-input-group :deep(.form-control:focus) {
+  border-color: var(--request-chat-accent-border);
+  box-shadow: 0 0 0 0.2rem rgba(63, 79, 138, 0.08);
+}
+
+.floating-chat-search-icon {
+  color: var(--request-chat-accent);
+}
+
+.floating-chat-stat-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.45rem 0.7rem;
+}
+
+.floating-chat-stat-badge-primary {
+  background: #eef2ff;
+  color: var(--request-chat-accent);
+}
+
+.floating-chat-stat-badge-info {
+  background: #eef8ff;
+  color: #2878b8;
 }
 
 .floating-chat-avatar {
   background-color: var(--vz-secondary-bg);
 }
 
+.floating-chat-request-avatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  background: linear-gradient(135deg, #eef2ff, #e4eafc);
+  color: var(--request-chat-accent);
+  border: 1px solid rgba(63, 79, 138, 0.1);
+}
+
 .floating-chat-count-badge {
-  background-color: var(--vz-danger);
+  background: linear-gradient(135deg, var(--request-chat-accent), var(--request-chat-accent-strong));
   color: #fff;
+  min-width: 1.65rem;
 }
 
 .floating-chat-sort {
   flex-wrap: wrap;
+  background: #edf1f9;
+  border-radius: 999px;
+  padding: 0.2rem;
 }
 
 .floating-chat-sort-btn {
-  border: 1px solid var(--vz-border-color);
-  background: var(--vz-secondary-bg);
+  border: 0;
+  background: transparent;
   color: var(--vz-body-color);
   border-radius: 999px;
-  padding: 0.2rem 0.65rem;
+  padding: 0.4rem 0.9rem;
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .floating-chat-sort-btn.active {
-  background: rgba(var(--vz-primary-rgb), 0.14);
-  border-color: rgba(var(--vz-primary-rgb), 0.24);
-  color: var(--vz-primary);
+  background: #fff;
+  color: var(--request-chat-accent);
+  box-shadow: 0 0.2rem 0.7rem rgba(46, 60, 112, 0.12);
 }
 
 .floating-chat-sort-btn:hover {
-  background: var(--vz-tertiary-bg);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.floating-chat-request-heading {
+  background: #f8faff;
+}
+
+.floating-chat-request-item {
+  border: 0 !important;
+  border-bottom: 1px solid rgba(63, 79, 138, 0.08) !important;
+  background: transparent;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.floating-chat-request-item:hover {
+  background: #f5f8ff;
+}
+
+.floating-chat-request-item.active {
+  background: linear-gradient(135deg, #5368ae, #3a4a83) !important;
+  color: #fff !important;
+}
+
+.floating-chat-request-item.active .floating-chat-request-avatar {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
 }
 
 .floating-chat-show-more {
-  background-color: var(--vz-tertiary-bg);
-  border-color: var(--vz-border-color);
-  color: var(--vz-body-color);
+  background-color: #f1f5ff;
+  border-color: rgba(63, 79, 138, 0.12);
+  color: var(--request-chat-accent);
 }
 
 .floating-chat-show-more:hover,
 .floating-chat-show-more:focus {
-  background-color: rgba(var(--vz-primary-rgb), 0.12);
-  border-color: rgba(var(--vz-primary-rgb), 0.24);
-  color: var(--vz-primary);
+  background-color: #e8efff;
+  border-color: rgba(63, 79, 138, 0.18);
+  color: var(--request-chat-accent-strong);
+}
+
+.floating-chat-conversation {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at top left, rgba(63, 79, 138, 0.05), transparent 34%),
+    transparent;
+  min-height: 0;
+}
+
+.floating-chat-conversation-header {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  border-color: rgba(63, 79, 138, 0.08) !important;
+}
+
+.floating-chat-request-avatar-compact {
+  width: 2.3rem;
+  height: 2.3rem;
+}
+
+.floating-chat-composer {
+  background: #ffffff;
+  z-index: 2;
+  border-color: rgba(63, 79, 138, 0.08) !important;
+  box-shadow: 0 -0.35rem 1.25rem rgba(15, 23, 42, 0.08);
+}
+
+.floating-chat-composer :deep(.card-body) {
+  background: #ffffff;
+}
+
+.floating-chat-thread {
+  flex: 1 1 auto;
+  min-height: 0;
+  scroll-behavior: smooth;
+  padding: 0.5rem 0.35rem 0.75rem;
+}
+
+.floating-chat-thread-inner {
+  min-height: 0;
+}
+
+.floating-chat-message-wrap {
+  max-width: min(92%, 560px);
+}
+
+.floating-chat-bubble {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(63, 79, 138, 0.08);
+  box-shadow: 0 0.25rem 1rem rgba(15, 23, 42, 0.04);
+}
+
+.floating-chat-bubble-own {
+  background: linear-gradient(135deg, #5168b7, #3c4d8e);
+  border-color: transparent;
+  color: #fff;
+  border-radius: 1.1rem 1.1rem 0.35rem 1.1rem;
+}
+
+.floating-chat-bubble-other {
+  background: #ffffff;
+  color: #24314d;
+  border-radius: 1.1rem 1.1rem 1.1rem 0.35rem;
+}
+
+.floating-chat-textarea :deep(textarea) {
+  min-height: 90px;
+  border-radius: 1rem;
+  border-color: rgba(63, 79, 138, 0.12);
+  background-color: #fff;
+  box-shadow: none;
+  resize: none;
+}
+
+.floating-chat-textarea :deep(textarea:focus) {
+  border-color: rgba(63, 79, 138, 0.28);
+  box-shadow: 0 0 0 0.2rem rgba(63, 79, 138, 0.08);
+}
+
+.floating-chat-online-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(49, 208, 88, 0.12);
+  color: #1f9d45;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.floating-chat-online-pill::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #31d058;
+}
+
+.floating-chat-empty-state {
+  background: rgba(255, 255, 255, 0.86);
+  border-radius: 1.25rem;
 }
 
 .mention-picker {
@@ -1081,20 +1482,32 @@ export default {
 
 .mention-picker-item:hover,
 .mention-picker-item.active {
-  background: rgba(var(--vz-primary-rgb), 0.08);
+  background: #f7f9ff;
 }
 
 :deep(.chat-mention) {
   display: inline-block;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  background: rgba(var(--vz-primary-rgb), 0.12);
-  color: var(--vz-primary);
+  padding: 0.05rem 0.45rem;
+  border-radius: 0.55rem;
+  background: var(--request-chat-mention-bg);
+  color: var(--request-chat-mention-color);
   font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(95, 71, 0, 0.08);
 }
 
 [data-bs-theme="dark"] .floating-chat-count-badge {
   background-color: var(--vz-danger);
   color: #fff;
+}
+
+[data-bs-theme="dark"] .floating-chat-panel,
+[data-bs-theme="dark"] .floating-chat-conversation-header,
+[data-bs-theme="dark"] .floating-chat-request-shell,
+[data-bs-theme="dark"] .floating-chat-empty-state {
+  backdrop-filter: none;
+}
+
+[data-bs-theme="dark"] .floating-chat-bubble {
+  box-shadow: none;
 }
 </style>
