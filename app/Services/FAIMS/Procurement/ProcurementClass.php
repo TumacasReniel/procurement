@@ -237,6 +237,7 @@ class ProcurementClass
             'unit_id',
             'fund_cluster_id',
             'classification_id',
+            'reference_app_id',
             'requested_by_id',
             'approved_by_id'
         )));

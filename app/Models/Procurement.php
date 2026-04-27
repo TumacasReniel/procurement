@@ -19,6 +19,7 @@ class Procurement extends Model
         'unit_id',
         'fund_cluster_id',
         'classification_id',
+        'reference_app_id',
         'created_by_id',
         'requested_by_id',
         'approved_by_id',
@@ -53,6 +54,11 @@ class Procurement extends Model
     public function classification()
     {
         return $this->belongsTo('App\Models\ListDropdown', 'classification_id', 'id');
+    }
+
+    public function reference_app()
+    {
+        return $this->belongsTo('App\Models\ListDropdown', 'reference_app_id', 'id');
     }
 
     public function created_by()
@@ -151,7 +157,7 @@ class Procurement extends Model
 
     public function getActivitylogOptions(): LogOptions {
         return LogOptions::defaults()
-        ->logOnly(['code','date','purpose','title','division_id','unit_id','fund_cluster_id','classification_id','created_by_id','requested_by_id','approved_by_id','reawarded_count','rebidded_count','quotation_count','status_id','sub_status_id'])
+        ->logOnly(['code','date','purpose','title','division_id','unit_id','fund_cluster_id','classification_id','reference_app_id','created_by_id','requested_by_id','approved_by_id','reawarded_count','rebidded_count','quotation_count','status_id','sub_status_id'])
         ->setDescriptionForEvent(fn(string $eventName) => "Procurement {$eventName}")
         ->useLogName('Procurement')
         ->logOnlyDirty()

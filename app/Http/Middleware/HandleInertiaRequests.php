@@ -147,7 +147,7 @@ class HandleInertiaRequests extends Middleware
                     'target' => [
                         'route' => '/faims/procurements',
                         'query' => [
-                            'chat_request_id' => $procurementId,
+                            'comment_request_id' => $procurementId,
                         ],
                     ],
                 ];

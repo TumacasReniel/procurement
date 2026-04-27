@@ -50,6 +50,18 @@
                         </div>
                     </div>
                 </div>
+                <div class="col-sm-6">
+                    <div data-bs-toggle="collapse" data-bs-target="#paymentmethodCollapse.show" aria-expanded="false"
+                        aria-controls="paymentmethodCollapse">
+                        <div class="form-check card-radio">
+                            <input id="paymentMethod05" name="paymentMethod" v-model="selectedType" value="procurement" type="radio" class="form-check-input">
+                            <label class="form-check-label" for="paymentMethod05">
+                                <span class="fs-16 text-muted me-2"><i class="ri-shopping-bag-3-fill align-bottom"></i></span>
+                                <span class="fs-14 text-wrap">Purchase Request</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
             </BRow>
         </form> 
         <template v-slot:footer>
@@ -61,15 +73,17 @@
     <Travel @success="fetch()" :dropdowns="travel_dropdowns" ref="travel"/>
     <Leave @success="fetch()" :dropdowns="leave_dropdowns" ref="leave"/>
     <Overtime @success="fetch()" :dropdowns="leave_dropdowns" ref="overtime"/>
+    <Procurement @success="fetch()" :dropdowns="procurement_dropdowns" ref="procurement"/>
 </template>
 <script>
 import Travel from './Travel.vue';
 import Vehicle from './Vehicle.vue';
 import Leave from './Leave.vue';
 import Overtime from './Overtime.vue';
+import Procurement from './Procurement.vue';
 export default {
-    components : { Travel, Vehicle, Leave, Overtime },
-    props: ['leave_dropdowns','travel_dropdowns','vehicle_dropdowns'],
+    components : { Travel, Vehicle, Leave, Overtime, Procurement },
+    props: ['leave_dropdowns','travel_dropdowns','vehicle_dropdowns','procurement_dropdowns'],
     data(){
         return {
             currentUrl: window.location.origin,
@@ -80,6 +94,7 @@ export default {
 
     methods: { 
         show(){
+            this.selectedType = null;
             this.showModal = true;
         },
         continueToForm(){
@@ -91,6 +106,8 @@ export default {
                 this.$refs.leave.show();
             } else if (this.selectedType === 'overtime') {
                 this.$refs.overtime.show();
+            } else if (this.selectedType === 'procurement') {
+                this.$refs.procurement.show();
             }
             this.hide();
         },
@@ -101,6 +118,7 @@ export default {
             this.$emit('update',true);
         },
         hide(){
+            this.selectedType = null;
             this.showModal = false;
         }
     }

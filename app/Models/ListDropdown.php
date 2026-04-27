@@ -31,7 +31,13 @@ class ListDropdown extends Model
     }
 
     public static function getID($designation , $classification){
-        $status = self::where('name', $designation)->where('classification', $classification)->first();
+        $status = self::where('name', $designation)
+            ->where(function ($query) use ($classification) {
+                $query->where('classification', $classification)
+                    ->orWhere('type', $classification);
+            })
+            ->first();
+
         return $status ? $status->id : null;
     }
 }

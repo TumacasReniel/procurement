@@ -376,7 +376,7 @@ import Multiselect from "@vueform/multiselect";
 import Cancel from "./Modals/Cancel.vue";
 export default {
     components: { PageHeader, Pagination, Multiselect, Cancel, FloatingRequestChat },
-    props: ["dropdowns", "roles", "chat_request_id"],
+    props: ["dropdowns", "roles", "comment_request_id"],
     data() {
         return {
             currentUrl: window.location.origin,
@@ -408,11 +408,11 @@ export default {
             chatRequests: [],
             activeChatRequestId: null,
             activeChatRequest: null,
-            pendingChatRequestId: this.chat_request_id ? Number(this.chat_request_id) : null,
+            pendingChatRequestId: this.comment_request_id ? Number(this.comment_request_id) : null,
         };
     },
     watch: {
-        chat_request_id: {
+        comment_request_id: {
             handler(newValue) {
                 this.pendingChatRequestId = newValue ? Number(newValue) : null;
                 this.tryOpenPendingChat();
@@ -747,11 +747,11 @@ export default {
         clearPendingChatQuery() {
             const url = new URL(window.location.href);
 
-            if (!url.searchParams.has("chat_request_id")) {
+            if (!url.searchParams.has("comment_request_id")) {
                 return;
             }
 
-            url.searchParams.delete("chat_request_id");
+            url.searchParams.delete("comment_request_id");
             const nextUrl = `${url.pathname}${url.search}${url.hash}`;
 
             window.history.replaceState({}, "", nextUrl);

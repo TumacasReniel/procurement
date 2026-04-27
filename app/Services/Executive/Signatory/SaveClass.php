@@ -35,8 +35,18 @@ class SaveClass
     public function designate($request)
     {
         $userId = $request->user_id;
+        $data = $this->resolveDesignationChart($request->signatory_id);
+
+        if (!$data) {
+            return [
+                'data' => null,
+                'message' => 'Unable to assign designated official',
+                'info' => 'The selected designation could not be found. Please reopen the designation and try again.',
+                'status' => false,
+            ];
+        }
+
         if ($request->is_oic) {
-            $data = OrgChart::find($request->signatory_id);
             $data->update(['oic_id' => $request->user_id, 'is_oic' => 1]);
             if ($data) {
                 $signatory = $data->designationable;
@@ -55,7 +65,6 @@ class SaveClass
                 ]);
             }
         } else {
-            $data = OrgChart::find($request->signatory_id);
             $data->update([
                 'user_id' => $request->user_id,
                 'oic_id' => null,
@@ -83,6 +92,18 @@ class SaveClass
             'message' => 'Employee created successfully',
             'info' => 'You can now manage this employee\'s details in the system',
         ];
+    }
+
+    private function resolveDesignationChart($signatoryId): ?OrgChart
+    {
+        return OrgChart::with('designationable')
+            ->where(function ($query) use ($signatoryId) {
+                $query->where('id', $signatoryId)
+                    ->orWhereHas('designationable', function ($signatoryQuery) use ($signatoryId) {
+                        $signatoryQuery->where('id', $signatoryId);
+                    });
+            })
+            ->first();
     }
 
     public function bacMember($request)

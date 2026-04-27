@@ -302,15 +302,22 @@ export default {
                     this.fetchMentionNotifications();
 
                     const targetRoute = notification?.target?.route || "/faims/procurements";
+                    const fallbackRequestId =
+                        notification?.target?.query?.comment_request_id
+                        || notification?.target?.query?.chat_request_id
+                        || notification?.procurement_id;
                     const targetQuery = notification?.target?.query || {
-                        chat_request_id: notification.procurement_id,
+                        comment_request_id: fallbackRequestId,
                     };
 
-                    if (!targetQuery?.chat_request_id) {
+                    if (!fallbackRequestId) {
                         return;
                     }
 
-                    router.get(targetRoute, targetQuery);
+                    router.get(targetRoute, {
+                        ...targetQuery,
+                        comment_request_id: targetQuery?.comment_request_id || targetQuery?.chat_request_id || fallbackRequestId,
+                    });
                 });
         },
     },

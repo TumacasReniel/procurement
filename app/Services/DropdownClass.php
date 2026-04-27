@@ -551,19 +551,20 @@ class DropdownClass
 
     public function regional_director()
     {
-        $data = OrgChart::with('user')
-            ->where('designation_id', ListDropdown::getID('Regional Director', 'Designation'))->first();
+        $records = $this->designationQuery('Regional Director')->get();
+        $data = $records->first(fn ($item) => filled($this->resolveOrgChartDisplayName($item)))
+            ?? $records->first();
 
 
         if (!$data) {
             return null; // or return an empty array []
         }
 
+        $name = $this->resolveOrgChartDisplayName($data, true);
+
         return [
-            'value' => $data->user_id,
-            'name' => strtoupper(
-                $data->user->profile->full_name ?? null,
-            ),
+            'value' => $data->id,
+            'name' => $name,
             'designation' => $data->designation
         ];
     }
@@ -571,14 +572,16 @@ class DropdownClass
 
     public function bac_members()
     {
-        $data = OrgChart::where('designation_id', ListDropdown::getID('BAC Member', 'Designation'))
+        $this->ensureBacCommitteeSlots();
+
+        $data = $this->designationQuery('BAC Member')
             ->get()
             ->map(function ($item) {
                 return [
                     'value' => $item->id,
-                    'name' => $item->user->profile->full_name,
+                    'name' => $this->resolveOrgChartDisplayName($item),
                 ];
-            });
+            })->filter(fn ($item) => filled($item['name']))->values();
 
         return $data;
     }
@@ -586,36 +589,43 @@ class DropdownClass
 
     public function bac_chairperson()
     {
-        $data = OrgChart::where('designation_id', ListDropdown::getID('BAC Chairperson', 'Designation'))->first();
+        $this->ensureBacCommitteeSlots();
+
+        $records = $this->designationQuery('BAC Chairperson')->get();
+        $data = $records->first(fn ($item) => filled($this->resolveOrgChartDisplayName($item)))
+            ?? $records->first();
 
 
         if (!$data) {
             return null; // or return an empty array []
         }
 
+        $name = $this->resolveOrgChartDisplayName($data, true);
+
         return [
             'value' => $data->id,
-            'name' => strtoupper(
-                $data->user->profile->full_name ?? null,
-            ),
+            'name' => $name,
             'designation' => $data->designation
         ];
     }
 
     public function bac_vice_chairperson()
     {
+        $this->ensureBacCommitteeSlots();
 
-        $data = OrgChart::where('designation_id', ListDropdown::getID('BAC Vice Chairperson', 'Designation'))->first();
+        $records = $this->designationQuery('BAC Vice Chairperson')->get();
+        $data = $records->first(fn ($item) => filled($this->resolveOrgChartDisplayName($item)))
+            ?? $records->first();
 
         if (!$data) {
             return null; // or return an empty array []
         }
 
+        $name = $this->resolveOrgChartDisplayName($data, true);
+
         return [
             'value' => $data->id,
-            'name' => strtoupper(
-                $data->user->profile->full_name ?? null,
-            ),
+            'name' => $name,
             'designation' => $data->designation
         ];
     }
@@ -641,9 +651,11 @@ class DropdownClass
 
     public function iar_chairperson()
     {
-        $data = OrgChart::with('user.profile', 'oic.profile', 'designation')
-            ->where('designation_id', ListDropdown::getID('IAR Chairperson', 'Designation'))
-            ->first();
+        $this->ensureIarCommitteeSlots();
+
+        $records = $this->designationQuery('IAR Chairperson')->get();
+        $data = $records->first(fn ($item) => filled($this->resolveOrgChartDisplayName($item)))
+            ?? $records->first();
 
         if (!$data) {
             return null; // or return an empty array []
@@ -661,8 +673,9 @@ class DropdownClass
 
     public function iar_members()
     {
-        $data = OrgChart::with('user.profile', 'oic.profile')
-            ->where('designation_id', ListDropdown::getID('IAR Member', 'Designation'))
+        $this->ensureIarCommitteeSlots();
+
+        $data = $this->designationQuery('IAR Member')
             ->get()->map(function ($item) {
                 return [
                     'value' => $item->id,
@@ -673,17 +686,121 @@ class DropdownClass
         return $data;
     }
 
+    private function designationQuery(string $designationName)
+    {
+        return OrgChart::with('designation')
+            ->with([
+                'designationable.schedules' => function ($query) {
+                    $query->where('is_completed', 0)
+                        ->whereIn('is_ongoing', [0, 1])
+                        ->where('is_designated', 0)
+                        ->where(function ($scheduleQuery) {
+                            $scheduleQuery->whereNull('end_at')
+                                ->orWhereDate('end_at', '>=', now()->toDateString());
+                        })
+                        ->with([
+                            'user:id,email,username',
+                            'user.profile:user_id,firstname,middlename,lastname,suffix_id,avatar',
+                        ]);
+                },
+                'designationable.user:id,email,username',
+                'designationable.user.profile:user_id,firstname,middlename,lastname,suffix_id,avatar',
+                'designationable.oic:id,email,username',
+                'designationable.oic.profile:user_id,firstname,middlename,lastname,suffix_id,avatar',
+                'user:id,email,username',
+                'user.profile:user_id,firstname,middlename,lastname,suffix_id,avatar',
+                'oic:id,email,username',
+                'oic.profile:user_id,firstname,middlename,lastname,suffix_id,avatar',
+            ])
+            ->where('designation_id', ListDropdown::getID($designationName, 'Designation'))
+            ->orderByRaw('CASE WHEN user_id IS NOT NULL OR oic_id IS NOT NULL THEN 0 ELSE 1 END')
+            ->orderByDesc('is_active')
+            ->orderBy('order')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id');
+    }
+
+    private function ensureBacCommitteeSlots(): void
+    {
+        $this->ensureCommitteeSlots([
+            ['designation' => 'BAC Chairperson', 'order' => 4, 'count' => 1],
+            ['designation' => 'BAC Vice Chairperson', 'order' => 5, 'count' => 1],
+            ['designation' => 'BAC Member', 'order' => 6, 'count' => 3],
+        ]);
+    }
+
+    private function ensureIarCommitteeSlots(): void
+    {
+        $this->ensureCommitteeSlots([
+            ['designation' => 'IAR Chairperson', 'order' => 8, 'count' => 1],
+            ['designation' => 'IAR Member', 'order' => 10, 'count' => 3],
+        ]);
+    }
+
+    private function ensureCommitteeSlots(array $slots): void
+    {
+        $defaultAssignedId = ListDropdown::getID('Regional Office', 'Station');
+
+        foreach ($slots as $slot) {
+            $designationId = ListDropdown::getID($slot['designation'], 'Designation');
+
+            if (!$designationId) {
+                continue;
+            }
+
+            $charts = OrgChart::with('designationable')
+                ->where('designation_id', $designationId)
+                ->where('order', $slot['order'])
+                ->orderBy('id')
+                ->get();
+
+            foreach ($charts as $chart) {
+                $this->ensureSignatory($chart);
+            }
+
+            $missingCount = max(0, $slot['count'] - $charts->count());
+            $assignedId = $charts->value('assigned_id') ?? $defaultAssignedId;
+
+            if (!$assignedId) {
+                continue;
+            }
+
+            for ($i = 0; $i < $missingCount; $i++) {
+                $chart = new OrgChart();
+                $chart->order = $slot['order'];
+                $chart->designation_id = $designationId;
+                $chart->assigned_id = $assignedId;
+                $chart->user_id = null;
+                $chart->oic_id = null;
+                $chart->is_oic = 0;
+                $chart->is_active = 1;
+                $chart->save();
+
+                $this->ensureSignatory($chart);
+            }
+        }
+    }
+
+    private function ensureSignatory(OrgChart $chart): void
+    {
+        $chart->loadMissing('designationable');
+
+        if ($chart->designationable) {
+            return;
+        }
+
+        $chart->designationable()->create([
+            'user_id' => $chart->user_id,
+            'oic_id' => $chart->oic_id,
+            'is_oic' => $chart->is_oic,
+            'is_topmanagement' => 0,
+            'is_active' => $chart->is_active,
+        ]);
+    }
+
     private function resolveOrgChartDisplayName($item, $uppercase = false)
     {
-        $person = null;
-
-        if ($item?->is_oic && $item?->oic) {
-            $person = $item->oic;
-        } elseif ($item?->user) {
-            $person = $item->user;
-        } elseif ($item?->oic) {
-            $person = $item->oic;
-        }
+        $person = $this->resolveOrgChartPerson($item);
 
         $name = $person?->profile?->full_name;
 
@@ -692,6 +809,48 @@ class DropdownClass
         }
 
         return $uppercase ? strtoupper($name) : $name;
+    }
+
+    private function resolveOrgChartPerson($item)
+    {
+        $scheduleUser = collect($item?->designationable?->schedules ?? [])
+            ->first(function ($schedule) {
+                return (int) $schedule->is_completed === 0
+                    && (int) $schedule->is_ongoing === 1
+                    && (int) $schedule->is_designated === 0;
+            })?->user;
+
+        if ($scheduleUser) {
+            return $scheduleUser;
+        }
+
+        $signatory = $item?->designationable;
+
+        if ($signatory?->is_oic && $signatory?->oic) {
+            return $signatory->oic;
+        }
+
+        if ($signatory?->user) {
+            return $signatory->user;
+        }
+
+        if ($signatory?->oic) {
+            return $signatory->oic;
+        }
+
+        if ($item?->is_oic && $item?->oic) {
+            return $item->oic;
+        }
+
+        if ($item?->user) {
+            return $item->user;
+        }
+
+        if ($item?->oic) {
+            return $item->oic;
+        }
+
+        return null;
     }
 
     public function division_head($division_id)

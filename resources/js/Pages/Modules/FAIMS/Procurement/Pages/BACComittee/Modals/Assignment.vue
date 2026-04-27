@@ -96,7 +96,7 @@ export default {
             this.user = null;
             this.names = [];
             this.selected = data;
-            this.form.signatory_id = this.selected.signatory.id;
+            this.form.signatory_id = this.selected.id;
             this.form.is_oic = false;
             this.showModal = true;
         },

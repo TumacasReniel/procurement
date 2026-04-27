@@ -87,7 +87,9 @@ class ProcurementController extends Controller
                     'regional_director'  =>  $regionalDirector,
                     'is_regional_director' => $regionalDirector && $regionalDirector['value'] == \Auth::id(),
                     'procurement_approval_user_ids' => $procurementApprovalUserIds,
-                    'chat_request_id' => $request->integer('chat_request_id') ?: null,
+                    'comment_request_id' => $request->integer('comment_request_id')
+                        ?: $request->integer('chat_request_id')
+                        ?: null,
                 ]);
         }
     }
@@ -118,6 +120,7 @@ class ProcurementController extends Controller
                         'divisions' => $this->dropdown->dropdowns('Division'),
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
                         'classifications' => $this->dropdown->dropdowns('Classification'),
+                        'reference_apps' => $this->dropdown->dropdowns('Reference APP'),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
                         'requesters' => $this->dropdown->requesters(),
@@ -137,6 +140,15 @@ class ProcurementController extends Controller
         $result = $this->handleTransaction(function () use ($request) {
             return $this->procurement->save($request);
         });
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $result['data'],
+                'message' => $result['message'],
+                'info' => $result['info'],
+                'status' => $result['status'] ?? true,
+            ]);
+        }
 
         return redirect()->route('procurement.index')->with([
             'data' => $result['data'],
@@ -419,7 +431,7 @@ class ProcurementController extends Controller
                     'target' => [
                         'route' => '/faims/procurements',
                         'query' => [
-                            'chat_request_id' => $procurementId,
+                            'comment_request_id' => $procurementId,
                         ],
                     ],
                 ];

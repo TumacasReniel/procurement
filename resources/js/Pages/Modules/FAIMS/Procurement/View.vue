@@ -463,7 +463,7 @@
   />
 </template>
 <script>
-import Overview from "./Pages/EmployeeDetail.vue";
+import Overview from "./Pages/Detail.vue";
 import Quotation from "./Pages/Quotation.vue";
 import BACResolution from "./Pages/BACResolution.vue";
 import AbstractOfBids from "./Pages/Bids.vue";
@@ -471,9 +471,9 @@ import NoticeOfAward from "./Pages/NoticeOfAward.vue";
 import PurchaseOrder from "./Pages/PurchaseOrder.vue";
 import CreatePO from "./Pages/CreatePO.vue";
 import RightSidebar from "./Pages/Components/RightSidebar.vue";
-import ProcurementProgressModal from "./Pages/Components/Modals/ProcurementProgressModal.vue";
-import ProcurementAssignModal from "./Pages/Components/Modals/ProcurementAssignModal.vue";
-import ProcurementStatusTipModal from "./Pages/Components/Modals/ProcurementStatusTipModal.vue";
+import ProcurementProgressModal from "./Pages/Components/Modals/Progress.vue";
+import ProcurementAssignModal from "./Pages/Components/Modals/Assign.vue";
+import ProcurementStatusTipModal from "./Pages/Components/Modals/StatusTip.vue";
 import { router } from "@inertiajs/vue3";
 
 import PageHeader from "@/Shared/Components/PageHeader.vue";

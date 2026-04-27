@@ -606,32 +606,70 @@ export default {
       };
     },
 
+    extractSectionNumber(sectionValue) {
+      const normalizedSection = String(sectionValue || "").trim();
+      if (!normalizedSection) {
+        return null;
+      }
+
+      const match = normalizedSection.match(/(\d+(?:\.\d+)?)/);
+      return match ? match[1] : null;
+    },
+
     procurementSectionNumber(modeName) {
       const normalizedMode = (modeName || "").trim().toLowerCase();
       const sectionMap = {
-        "competitive public bidding": "10",
-        "limited source bidding": "49",
-        "direct contracting": "50",
-        "repeat order": "51",
-        shopping: "52",
-        "negotiated procurement": "53",
-        "two failed biddings": "53.1",
-        "emergency cases": "53.2",
-        "take-over of contracts": "53.3",
-        "take over of contracts": "53.3",
-        "adjacent or contiguous": "53.4",
-        "agency-to-agency": "53.5",
-        "agency to agency": "53.5",
-        "scientific, scholarly or artistic work": "53.6",
+        "competitive bidding": "27",
+        "competitive public bidding": "27",
+        "limited source bidding": "28",
+        "competitive dialogue": "29",
+        "unsolicited offer with bid matching": "30",
+        "direct contracting": "31",
+        "direct acquisition": "32",
+        "repeat order": "33",
+        shopping: "34",
+        "small value procurement": "34",
+        "negotiated procurement": "35",
+        "negotiated procurement - two failed biddings": "35.1",
+        "two failed biddings": "35.1",
+        "negotiated procurement - emergency cases": "35.2",
+        "emergency cases": "35.2",
+        "negotiated procurement - take-over of contracts": "35.3",
+        "negotiated procurement - take over of contracts": "35.3",
+        "take-over of contracts": "35.3",
+        "take over of contracts": "35.3",
+        "negotiated procurement - adjacent of contiguous": "35.4",
+        "negotiated procurement - adjacent or contiguous": "35.4",
+        "adjacent of contiguous": "35.4",
+        "adjacent or contiguous": "35.4",
+        "negotiated procurement - agency-to-agency": "35.5",
+        "negotiated procurement - agency to agency": "35.5",
+        "agency-to-agency": "35.5",
+        "agency to agency": "35.5",
+        "negotiated procurement - scientific, scholarly or artistic work, exclusive technology and media services":
+          "35.6",
+        "scientific, scholarly or artistic work": "35.6",
         "scientific, scholarly or artistic work, exclusive technology and media services":
-          "53.6",
-        "exclusive technology and media services": "53.6",
-        "highly technical consultant": "53.7",
-        "highly technical consultants": "53.7",
-        "small value procurement": "53.9",
-        "lease of venue and community facilities": "53.10",
-        "lease of real property and venue": "53.10",
-        "lease of real property or venue": "53.10",
+          "35.6",
+        "exclusive technology and media services": "35.6",
+        "negotiated procurement - highly technical consultants": "35.7",
+        "highly technical consultant": "35.7",
+        "highly technical consultants": "35.7",
+        "negotiated procurement - defense cooperation agreements and inventory-based items":
+          "35.8",
+        "negotiated procurement - lease of real property and venue": "35.9",
+        "lease of venue and community facilities": "35.9",
+        "lease of real property and venue": "35.9",
+        "lease of real property or venue": "35.9",
+        "negotiated procurement - non-government organization (ngo) participation":
+          "35.10",
+        "negotiated procurement - community participation": "35.11",
+        "negotiated procurement - united nations (un) agencies, international organizations or international financing institutions":
+          "35.12",
+        "negotiated procurement - direct retail purchase of petroleum fuel, oil and lubricant products, electronic charging devices, and online subscriptions":
+          "35.13",
+        "direct sales": "36",
+        "direct procurement for science, technology, and innovation": "37",
       };
 
       return sectionMap[normalizedMode] || null;
@@ -639,14 +677,21 @@ export default {
 
     procurementModeContext() {
       const codes = this.procurement.codes || [];
+
       const modeNames = this.uniqueTextValues(
         codes.map((code) => code.procurement_code?.mode_of_procurement?.name)
       );
       const sectionNumbers = this.uniqueTextValues(
-        modeNames.map((modeName) => this.procurementSectionNumber(modeName))
+        codes.map((code) => {
+          const mode = code.procurement_code?.mode_of_procurement;
+          return (
+            this.extractSectionNumber(mode?.others) ||
+            this.procurementSectionNumber(mode?.name)
+          );
+        })
       );
 
-      let sectionLabel = "the applicable procurement section";
+      let sectionLabel = "";
       if (sectionNumbers.length === 1) {
         sectionLabel = `Section ${sectionNumbers[0]}`;
       } else if (sectionNumbers.length > 1) {
@@ -892,8 +937,8 @@ export default {
 
           <p style="text-align: justify;  margin-bottom: 1em; ">
             <b>WHEREAS</b>, the BAC initiated the procurement through its secretariat through dissemination
-            of ${quotation_context.quotation_count} ${quotation_context.quotation_label} to ${quotation_context.supplier_count}
-            ${quotation_context.supplier_label} of known qualifications${quotation_context.supplier_location_phrase},
+            of ${quotation_context.quotation_count} ${quotation_context.quotation_label} to 
+            suppliers of known qualifications,
             to wit: ${quotation_context.supplier_names};
           </p>
 

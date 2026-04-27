@@ -124,7 +124,20 @@ export default {
     Multiselect,
     CustomEditorMini
   },
-  props: ["dropdowns", "refresh"],
+  props: {
+    dropdowns: {
+      type: Object,
+      required: true,
+    },
+    refresh: {
+      type: Function,
+      required: false,
+    },
+    storageKey: {
+      type: String,
+      default: "itemsAdded",
+    },
+  },
   data() {
     return {
       currentUrl: window.location.origin,
@@ -239,7 +252,7 @@ export default {
 
     addItem(item) {
       // Step 1: Parse the existing array
-      this.itemsAdded = JSON.parse(localStorage.getItem("itemsAdded")) || [];
+      this.itemsAdded = JSON.parse(localStorage.getItem(this.storageKey)) || [];
 
       if (this.isEditing) {
         // Update existing item
@@ -253,7 +266,7 @@ export default {
       }
 
       // Step 4: Save it back to localStorage
-      localStorage.setItem("itemsAdded", JSON.stringify(this.itemsAdded));
+      localStorage.setItem(this.storageKey, JSON.stringify(this.itemsAdded));
 
       // Step 5: Notify parent to refresh data
       this.$emit("refresh");

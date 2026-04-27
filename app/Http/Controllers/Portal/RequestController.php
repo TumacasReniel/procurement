@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Crypt;
 use App\Traits\HandlesTransaction;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\ListData;
 use App\Services\DropdownClass;
 use App\Services\Portal\Request\CtoClass;
 use App\Services\Portal\Request\SaveClass;
@@ -57,10 +58,12 @@ class RequestController extends Controller
                 return $this->print->document($request);
             break;
             default:
+                $requestTypes = $this->requestTypes();
+
                 return inertia('Modules/Portal/Requests/Index',[
-                    'counts' => $this->view->counts($this->dropdown->datas('Request Type')),
+                    'counts' => $this->view->counts($requestTypes),
                     'dropdowns' => [
-                        'requests' => $this->dropdown->datas('Request Type'),
+                        'requests' => $requestTypes,
                         'statuses' => $this->dropdown->statuses('Request'),
                     ],
                     'leave_dropdowns' => [
@@ -77,9 +80,37 @@ class RequestController extends Controller
                     'vehicle_dropdowns' => [
                         'transportations' => $this->dropdown->datas('Public Conveyance'),
                         'regions' => $this->dropdown->regions()
+                    ],
+                    'procurement_dropdowns' => [
+                        'divisions' => $this->dropdown->dropdowns('Division'),
+                        'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
+                        'classifications' => $this->dropdown->dropdowns('Classification'),
+                        'procurement_codes' => $this->dropdown->procurement_codes(),
+                        'unit_types' => $this->dropdown->unit_types(),
+                        'requesters' => $this->dropdown->requesters(),
+                        'approvers' => $this->dropdown->approvers(),
+                        'regional_director' => $this->dropdown->regional_director(),
                     ]
                 ]); 
         }   
+    }
+
+    protected function requestTypes()
+    {
+        $types = collect($this->dropdown->datas('Request Type'));
+        $procurementTypeId = ListData::getID('Procurement');
+
+        if (
+            $procurementTypeId &&
+            !$types->contains(fn ($type) => (int) ($type['value'] ?? 0) === (int) $procurementTypeId)
+        ) {
+            $types->push([
+                'value' => $procurementTypeId,
+                'name' => 'Procurement',
+            ]);
+        }
+
+        return $types->values()->all();
     }
 
     public function store(MyrequestRequest $request){

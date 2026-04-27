@@ -1,6 +1,7 @@
 <template>
   <div class="floating-comments-wrapper">
     <button
+      v-if="isRightCollapsed"
       class="floating-comment-trigger"
       type="button"
       @click="toggleRightSidebar"
@@ -18,7 +19,7 @@
               <i class="ri-chat-1-line"></i>
               <span v-if="commentCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">{{ commentCount }}</span>
             </span>
-            <span class="text-white">Procurement Comments</span>
+            <span>Comments</span>
           </h5>
           <button
             @click="toggleRightSidebar"
@@ -29,91 +30,219 @@
             <i class="ri-close-line text-primary fs-6"></i>
           </button>
         </div>
-        <div class="card-body p-0 floating-comment-body">
-          <div class="p-3">
-            <div class="comment-form mb-4">
-              <div class="d-flex align-items-start">
-                <div class="comment-avatar me-3">
-                  <img
-                    :src="$page.props.user.data.avatar"
-                    :alt="$page.props.user.data.name || 'User'"
-                    class="rounded-circle"
-                    style="width: 40px; height: 40px; object-fit: cover"
-                  />
-                </div>
-                <div class="flex-grow-1">
-                  <textarea
-                    v-model="newComment"
-                    class="form-control mb-2"
-                    rows="3"
-                    placeholder="Add a comment..."
-                    :disabled="commentSubmitting"
-                  ></textarea>
-                  <small v-if="form.errors.content" class="text-danger d-block mb-2">{{ form.errors.content }}</small>
-                  <div class="d-flex justify-content-end">
-                    <button
-                      @click="submitComment"
-                      :disabled="!newComment.trim() || commentSubmitting"
-                      class="btn btn-primary btn-sm"
-                    >
-                      <i class="ri-send-plane-line me-1"></i>
-                      {{ commentSubmitting ? 'Posting...' : 'Post Comment' }}
-                    </button>
+        <div class="card-body p-0 overflow-hidden d-flex flex-column floating-comment-body">
+          <div class="px-3 pt-3">
+            <div class="border rounded-4 p-3 floating-comment-summary">
+              <div class="d-flex align-items-start justify-content-between gap-3">
+                <div class="min-w-0">
+                  <div class="fw-bold text-body text-truncate">
+                    {{ procurement?.code || "Procurement Request" }}
                   </div>
+                  <p class="mb-0 small text-muted">
+                    {{
+                      procurement?.purpose ||
+                      procurement?.title ||
+                      "Overview conversation across procurement stages."
+                    }}
+                  </p>
                 </div>
+                <span class="floating-comment-online-pill">overview</span>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mt-3">
+                <span class="floating-comment-stat-badge floating-comment-stat-badge-primary">
+                  {{ commentCount }} total {{ commentCount === 1 ? "comment" : "comments" }}
+                </span>
+                <span
+                  v-if="procurement?.status?.name"
+                  class="floating-comment-stat-badge floating-comment-stat-badge-info"
+                >
+                  {{ procurement.status.name }}
+                </span>
               </div>
             </div>
+          </div>
 
-            <div v-if="sortedComments && sortedComments.length > 0" class="comments-list">
-              <div v-for="comment in sortedComments" :key="comment.id" class="comment-item p-3 mb-3">
-                <div class="d-flex align-items-start">
-                  <div class="comment-avatar me-3">
-                    <img
-                      :src="comment.user?.profile?.avatar ? '/storage/' + comment.user.profile.avatar : '/images/avatars/avatar.jpg'"
-                      alt="image"
-                      class="rounded-circle"
-                      style="width: 40px; height: 40px; object-fit: cover"
-                    />
+          <div
+            v-if="sortedComments.length"
+            ref="thread_container"
+            class="px-3 py-3 d-grid gap-3 flex-grow-1 overflow-auto floating-comment-thread"
+          >
+            <div class="floating-comment-thread-inner d-grid gap-3">
+              <div
+                v-for="comment in sortedComments"
+                :key="comment.id"
+                class="d-flex align-items-end gap-2"
+                :class="isOwnComment(comment) ? 'justify-content-end' : 'justify-content-start'"
+              >
+                <template v-if="!isOwnComment(comment)">
+                  <img
+                    v-if="resolveAvatar(comment.user)"
+                    :src="resolveAvatar(comment.user)"
+                    :alt="resolveName(comment.user)"
+                    class="rounded-circle border floating-comment-avatar flex-shrink-0 align-self-start"
+                  />
+                  <div
+                    v-else
+                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-fallback flex-shrink-0 align-self-start"
+                  >
+                    {{ resolveInitials(comment.user) }}
                   </div>
-                  <div class="flex-grow-1">
-                    <div class="comment-header d-flex justify-content-between align-items-start mb-2">
-                      <div>
-                        <strong>{{ comment.user?.profile?.fullname }}</strong>
-                        <small class="text-muted fs-10">{{ comment.source }} - {{ formatDate(comment.created_at) }}</small>
-                      </div>
-                    </div>
-                    <div class="comment-content mb-2">
-                      <p class="mb-0">{{ comment.content }}</p>
-                    </div>
-                    <div v-if="comment.replies && comment.replies.length > 0" class="replies-section mt-3">
-                      <div v-for="reply in comment.replies" :key="reply.id" class="reply-item p-2 mb-2 ms-4 border-start">
-                        <div class="d-flex align-items-start">
-                          <div class="reply-avatar me-2">
-                            <img
-                              :src="reply.user?.profile?.avatar || '/images/avatars/avatar.jpg'"
-                              :alt="reply.user?.profile?.firstname"
-                              class="rounded-circle"
-                              style="width: 30px; height: 30px; object-fit: cover"
-                            />
-                          </div>
-                          <div class="flex-grow-1">
-                            <div class="reply-header mb-1">
-                              <strong class="small">{{ reply.user?.profile?.firstname }} {{ reply.user?.profile?.lastname }}</strong>
-                              <small class="text-muted ms-2">{{ formatDate(reply.created_at) }}</small>
-                            </div>
-                            <div class="reply-content">
-                              <p class="mb-0 small">{{ reply.content }}</p>
-                            </div>
-                          </div>
+                </template>
+
+                <div
+                  class="floating-comment-message-wrap d-flex flex-column"
+                  :class="isOwnComment(comment) ? 'ms-2 align-items-end' : 'me-2 align-items-start'"
+                >
+                  <div
+                    class="small text-muted mb-1 d-flex flex-wrap align-items-center gap-2"
+                    :class="isOwnComment(comment) ? 'justify-content-end' : 'justify-content-start'"
+                  >
+                    <span class="fw-semibold text-body">{{ resolveName(comment.user) }}</span>
+                    <span class="floating-comment-source-badge">{{ comment.source }}</span>
+                    <span>{{ formatDate(comment.created_at) }}</span>
+                  </div>
+                  <div
+                    class="floating-comment-bubble"
+                    :class="isOwnComment(comment) ? 'floating-comment-bubble-own' : 'floating-comment-bubble-other'"
+                  >
+                    <div
+                      class="small mb-0"
+                      v-html="renderCommentContent(comment.content)"
+                    ></div>
+                  </div>
+
+                  <div
+                    v-if="comment.replies && comment.replies.length"
+                    class="d-grid gap-2 mt-2 floating-comment-replies"
+                  >
+                    <div
+                      v-for="reply in comment.replies"
+                      :key="`${comment.id}-${reply.id}`"
+                      class="d-flex align-items-end gap-2"
+                      :class="isOwnComment(reply) ? 'justify-content-end' : 'justify-content-start'"
+                    >
+                      <template v-if="!isOwnComment(reply)">
+                        <img
+                          v-if="resolveAvatar(reply.user)"
+                          :src="resolveAvatar(reply.user)"
+                          :alt="resolveName(reply.user)"
+                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm flex-shrink-0 align-self-start"
+                        />
+                        <div
+                          v-else
+                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-fallback flex-shrink-0 align-self-start"
+                        >
+                          {{ resolveInitials(reply.user) }}
+                        </div>
+                      </template>
+
+                      <div
+                        class="floating-comment-message-wrap d-flex flex-column"
+                        :class="isOwnComment(reply) ? 'ms-2 align-items-end' : 'me-2 align-items-start'"
+                      >
+                        <div
+                          class="small text-muted mb-1 d-flex flex-wrap align-items-center gap-2"
+                          :class="isOwnComment(reply) ? 'justify-content-end' : 'justify-content-start'"
+                        >
+                          <span class="fw-semibold text-body">{{ resolveName(reply.user) }}</span>
+                          <span>{{ formatDate(reply.created_at) }}</span>
+                        </div>
+                        <div
+                          class="floating-comment-bubble floating-comment-bubble-reply"
+                          :class="isOwnComment(reply) ? 'floating-comment-bubble-own' : 'floating-comment-bubble-other'"
+                        >
+                          <div
+                            class="small mb-0"
+                            v-html="renderCommentContent(reply.content)"
+                          ></div>
                         </div>
                       </div>
+
+                      <template v-if="isOwnComment(reply)">
+                        <img
+                          v-if="resolveAvatar(reply.user)"
+                          :src="resolveAvatar(reply.user)"
+                          :alt="resolveName(reply.user)"
+                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm flex-shrink-0 align-self-start"
+                        />
+                        <div
+                          v-else
+                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-fallback flex-shrink-0 align-self-start"
+                        >
+                          {{ resolveInitials(reply.user) }}
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <template v-if="isOwnComment(comment)">
+                  <img
+                    v-if="resolveAvatar(comment.user)"
+                    :src="resolveAvatar(comment.user)"
+                    :alt="resolveName(comment.user)"
+                    class="rounded-circle border floating-comment-avatar flex-shrink-0 align-self-start"
+                  />
+                  <div
+                    v-else
+                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-fallback flex-shrink-0 align-self-start"
+                  >
+                    {{ resolveInitials(comment.user) }}
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="px-3 py-3 flex-grow-1 d-flex">
+            <div class="border rounded-4 w-100 px-4 py-5 text-center text-muted floating-comment-empty-state">
+              <i class="ri-chat-smile-2-line d-block fs-2 text-primary mb-3"></i>
+              <div class="fw-semibold text-body">No comments yet</div>
+              <div class="small">Start the conversation for this procurement overview.</div>
+            </div>
+          </div>
+
+          <div class="px-3 pb-0 flex-shrink-0">
+            <div class="card shadow-none border floating-comment-composer">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-start gap-3">
+                  <img
+                    v-if="currentUserAvatar"
+                    :src="currentUserAvatar"
+                    :alt="currentUserName"
+                    class="rounded-circle border floating-comment-avatar flex-shrink-0"
+                  />
+                  <div
+                    v-else
+                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-fallback flex-shrink-0"
+                  >
+                    {{ currentUserInitials }}
+                  </div>
+
+                  <div class="flex-grow-1">
+                    <textarea
+                      v-model="newComment"
+                      class="form-control floating-comment-textarea"
+                      rows="3"
+                      placeholder="Comment here..."
+                      :disabled="commentSubmitting"
+                    ></textarea>
+                    <small v-if="form.errors.content" class="text-danger d-block mt-2">
+                      {{ form.errors.content }}
+                    </small>
+                    <div class="d-flex justify-content-end mt-3">
+                      <button
+                        @click="submitComment"
+                        :disabled="!newComment.trim() || commentSubmitting"
+                        class="btn btn-primary"
+                      >
+                        <i class="ri-send-plane-line me-1"></i>
+                        {{ commentSubmitting ? "Posting..." : "Post Comment" }}
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-            <div v-else class="text-center text-muted mt-3">
-              <small>No comments yet. Be the first to comment!</small>
             </div>
           </div>
         </div>
@@ -175,6 +304,9 @@ export default {
     };
   },
   computed: {
+    currentUser() {
+      return this.$page?.props?.user?.data || {};
+    },
     currentRoles() {
       return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
     },
@@ -233,10 +365,19 @@ export default {
         });
       }
 
-      return allComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return allComments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     },
     commentCount() {
       return this.sortedComments.length;
+    },
+    currentUserAvatar() {
+      return this.resolveAvatar(this.currentUser);
+    },
+    currentUserName() {
+      return this.resolveName(this.currentUser);
+    },
+    currentUserInitials() {
+      return this.resolveInitials(this.currentUser);
     },
     procAssigneeMap() {
       const fromAssignments = {};
@@ -375,6 +516,24 @@ export default {
     localStorage.setItem("activeRightTab", "1");
     this.listenForComments();
   },
+  watch: {
+    isRightCollapsed(value) {
+      if (!value) {
+        this.$nextTick(() => {
+          this.scrollThreadToBottom();
+        });
+      }
+    },
+    commentCount(newCount, oldCount) {
+      if (newCount === oldCount || this.isRightCollapsed) {
+        return;
+      }
+
+      this.$nextTick(() => {
+        this.scrollThreadToBottom(oldCount ? "smooth" : "auto");
+      });
+    },
+  },
   methods: {
     toggleRightSidebar() {
       this.$emit("toggleRightSidebar");
@@ -461,6 +620,90 @@ export default {
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+      });
+    },
+    normalizeAvatarPath(avatar) {
+      if (!avatar) {
+        return null;
+      }
+
+      const value = String(avatar).trim();
+
+      if (!value) {
+        return null;
+      }
+
+      if (
+        value.startsWith("http://") ||
+        value.startsWith("https://") ||
+        value.startsWith("/")
+      ) {
+        return value;
+      }
+
+      return `/storage/${value.replace(/^storage\//, "")}`;
+    },
+    resolveAvatar(user) {
+      return this.normalizeAvatarPath(user?.profile?.avatar || user?.avatar || null);
+    },
+    resolveName(user) {
+      return (
+        user?.profile?.fullname ||
+        user?.profile?.full_name ||
+        user?.name ||
+        user?.username ||
+        "User"
+      );
+    },
+    resolveInitials(user) {
+      const profile = user?.profile || {};
+      const parts = [
+        profile.firstname,
+        profile.middlename,
+        profile.lastname,
+      ].filter((value) => String(value || "").trim().length);
+
+      if (parts.length) {
+        return parts
+          .map((value) => String(value).trim().charAt(0).toUpperCase())
+          .join("")
+          .slice(0, 3);
+      }
+
+      return this.resolveName(user)
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((value) => value.charAt(0).toUpperCase())
+        .join("")
+        .slice(0, 3) || "USR";
+    },
+    isOwnComment(comment) {
+      const currentUserId = Number(this.currentUser?.id || 0);
+      return Number(comment?.user?.id || 0) === currentUserId;
+    },
+    escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    },
+    renderCommentContent(content) {
+      return this.escapeHtml(content)
+        .replace(/(@[A-Za-z0-9._-]+)/g, '<span class="overview-comment-mention">$1</span>')
+        .replace(/\n/g, "<br>");
+    },
+    scrollThreadToBottom(behavior = "auto") {
+      const threadElement = this.$refs.thread_container;
+
+      if (!threadElement) {
+        return;
+      }
+
+      threadElement.scrollTo({
+        top: threadElement.scrollHeight,
+        behavior,
       });
     },
     submitComment() {
@@ -557,6 +800,22 @@ export default {
   z-index: 1050;
 }
 
+.floating-comment-panel,
+.floating-comment-header,
+.floating-comment-body,
+.floating-comment-summary,
+.floating-comment-composer,
+.floating-comment-bubble-own,
+:deep(.overview-comment-mention) {
+  --overview-comment-accent: #3f4f8a;
+  --overview-comment-accent-strong: #2e3c70;
+  --overview-comment-accent-soft: rgba(63, 79, 138, 0.12);
+  --overview-comment-accent-soft-2: rgba(63, 79, 138, 0.2);
+  --overview-comment-accent-border: rgba(63, 79, 138, 0.14);
+  --overview-comment-mention-bg: #ffe36a;
+  --overview-comment-mention-color: #5f4700;
+}
+
 .floating-comment-trigger {
   position: relative;
   width: 64px;
@@ -583,22 +842,180 @@ export default {
 .floating-comment-panel {
   position: absolute;
   right: 0;
-  bottom: 78px;
-  width: 380px;
+  bottom: 0;
+  width: 480px;
   max-width: calc(100vw - 32px);
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(63, 79, 138, 0.08), transparent 34%),
+    linear-gradient(135deg, #f8f9fa 0%, #eef2f7 100%);
+  border-radius: 20px;
   overflow: hidden;
 }
 
 .floating-comment-header {
   padding: 1rem;
+  box-shadow: 0 0.5rem 1.25rem rgba(15, 23, 42, 0.12);
 }
 
 .floating-comment-body {
-  max-height: min(70vh, 760px);
-  overflow: auto;
-  border-radius: 0 0 18px 18px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: min(76vh, 840px);
+  min-height: min(66vh, 720px);
+  overflow: hidden;
+  border-radius: 0 0 20px 20px;
+}
+
+.floating-comment-summary {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(63, 79, 138, 0.08) !important;
+  backdrop-filter: blur(12px);
+}
+
+.floating-comment-online-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(49, 208, 88, 0.12);
+  color: #1f9d45;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.floating-comment-online-pill::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #31d058;
+}
+
+.floating-comment-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.floating-comment-stat-badge-primary {
+  background: rgba(63, 79, 138, 0.12);
+  color: var(--overview-comment-accent);
+}
+
+.floating-comment-stat-badge-info {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+.floating-comment-thread {
+  flex: 1 1 auto;
+  min-height: 0;
+  scroll-behavior: smooth;
+  padding-right: 0.85rem !important;
+}
+
+.floating-comment-thread-inner {
+  min-height: min-content;
+}
+
+.floating-comment-message-wrap {
+  max-width: min(88%, 340px);
+}
+
+.floating-comment-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: cover;
+  background: #f8faff;
+}
+
+.floating-comment-avatar-sm {
+  width: 2rem;
+  height: 2rem;
+}
+
+.floating-comment-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #eef3ff, #dfe7ff);
+  color: var(--overview-comment-accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.floating-comment-source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(63, 79, 138, 0.08);
+  color: var(--overview-comment-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.floating-comment-bubble {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(63, 79, 138, 0.08);
+  box-shadow: 0 0.25rem 1rem rgba(15, 23, 42, 0.04);
+}
+
+.floating-comment-bubble-own {
+  background: linear-gradient(135deg, #5168b7, #3c4d8e);
+  border-color: transparent;
+  color: #fff;
+  border-radius: 1.1rem 1.1rem 0.35rem 1.1rem;
+}
+
+.floating-comment-bubble-other {
+  background: #ffffff;
+  color: #24314d;
+  border-radius: 1.1rem 1.1rem 1.1rem 0.35rem;
+}
+
+.floating-comment-bubble-reply {
+  padding: 0.7rem 0.85rem;
+}
+
+.floating-comment-replies {
+  padding-left: 0.25rem;
+}
+
+.floating-comment-empty-state {
+  background: rgba(255, 255, 255, 0.86);
+  border-color: rgba(63, 79, 138, 0.08) !important;
+}
+
+.floating-comment-composer {
+  background: #ffffff;
+  border-color: rgba(63, 79, 138, 0.08) !important;
+  box-shadow: 0 -0.35rem 1.25rem rgba(15, 23, 42, 0.08);
+}
+
+.floating-comment-composer :deep(.card-body) {
+  background: #ffffff;
+}
+
+.floating-comment-textarea {
+  min-height: 90px;
+  border-radius: 1rem;
+  border-color: rgba(63, 79, 138, 0.12);
+  background-color: #fff;
+  box-shadow: none;
+  resize: none;
+}
+
+.floating-comment-textarea:focus {
+  border-color: rgba(63, 79, 138, 0.28);
+  box-shadow: 0 0 0 0.2rem rgba(63, 79, 138, 0.08);
 }
 
 .comment-panel-enter-active,
@@ -619,216 +1036,20 @@ export default {
   }
 
   .floating-comment-panel {
-    width: min(360px, calc(100vw - 24px));
+    width: min(440px, calc(100vw - 24px));
     right: -4px;
     bottom: 74px;
   }
 }
 
-/* Enhanced Comment Avatar Styling */
-.comment-avatar {
-  position: relative;
-}
-
-.comment-avatar img {
-  border: 2px solid #e9ecef;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-}
-
-.comment-avatar img:hover {
-  border-color: #007bff;
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
-  transform: scale(1.05);
-}
-
-.reply-avatar {
-  position: relative;
-}
-
-.reply-avatar img {
-  border: 2px solid #dee2e6;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  transition: all 0.2s ease;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-}
-
-.reply-avatar img:hover {
-  border-color: #6c757d;
-  box-shadow: 0 2px 6px rgba(108, 117, 125, 0.15);
-  transform: scale(1.02);
-}
-
-/* Avatar Online Indicator */
-.comment-avatar::after,
-.reply-avatar::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 10px;
-  height: 10px;
-  background: #28a745;
-  border: 2px solid white;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-/* Enhanced Comment Content Styling */
-.comment-item {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-  margin-bottom: 1rem;
-}
-
-.comment-item:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
-}
-
-.comment-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #f1f3f4;
-}
-
-.comment-header .comment-user-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.comment-header strong {
-  color: #2c3e50;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.comment-header small {
-  color: #6c757d;
-  font-size: 0.8rem;
-  font-weight: 500;
-  background: rgba(108, 117, 125, 0.1);
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
+:deep(.overview-comment-mention) {
   display: inline-block;
-}
-
-.comment-content {
-  color: #495057;
-  line-height: 1.6;
-  font-size: 0.9rem;
-  margin-bottom: 0;
-}
-
-.comment-content p {
-  margin-bottom: 0;
-  word-wrap: break-word;
-}
-
-/* Reply Styling */
-.reply-item {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  margin-left: 2rem;
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  position: relative;
-}
-
-.reply-item::before {
-  content: '';
-  position: absolute;
-  left: -1rem;
-  top: 1rem;
-  width: 0;
-  height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 8px solid #dee2e6;
-}
-
-.reply-item::after {
-  content: '';
-  position: absolute;
-  left: -0.75rem;
-  top: 1rem;
-  width: 0;
-  height: 0;
-  border-top: 7px solid transparent;
-  border-bottom: 7px solid transparent;
-  border-right: 7px solid #f8f9fa;
-}
-
-.reply-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.reply-header strong {
-  color: #495057;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.reply-header small {
-  color: #6c757d;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.reply-content {
-  color: #6c757d;
-  font-size: 0.85rem;
-  line-height: 1.5;
-}
-
-.reply-content p {
-  margin-bottom: 0;
-}
-
-/* Comment Form Styling */
-.comment-form {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.comment-form textarea {
-  border: 1px solid #ced4da;
-  border-radius: 8px;
-  resize: vertical;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.comment-form textarea:focus {
-  border-color: #007bff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-}
-
-.comment-form .btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.comment-form .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0.05rem 0.45rem;
+  border-radius: 0.55rem;
+  background: var(--overview-comment-mention-bg);
+  color: var(--overview-comment-mention-color);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(95, 71, 0, 0.08);
 }
 
 /* Log Item Styling */

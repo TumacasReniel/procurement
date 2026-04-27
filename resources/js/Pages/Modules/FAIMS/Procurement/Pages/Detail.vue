@@ -754,7 +754,7 @@ export default {
 
 .employee-hero__title {
   margin: 0;
-  font-size: clamp(1.8rem, 2.5vw, 2.45rem);
+  font-size: clamp(1.5rem, 2.5vw, 1.45rem);
   font-weight: 800;
   letter-spacing: -0.04em;
   color: #ffffff;
