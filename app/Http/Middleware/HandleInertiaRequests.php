@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Notifications\PendingSupplierApprovalNotification;
 use App\Notifications\ProcurementCommentMentioned;
 use App\Models\OrgSignatory;
 use App\Models\Procurement;
@@ -117,7 +118,10 @@ class HandleInertiaRequests extends Middleware
         $limit = 6;
 
         $query = $user->unreadNotifications()
-            ->where('type', ProcurementCommentMentioned::class)
+            ->whereIn('type', [
+                ProcurementCommentMentioned::class,
+                PendingSupplierApprovalNotification::class,
+            ])
             ->latest();
 
         $unreadCount = (clone $query)->count();
@@ -126,32 +130,9 @@ class HandleInertiaRequests extends Middleware
             ->limit($limit)
             ->get()
             ->map(function ($notification) {
-                $procurementId = data_get($notification->data, 'procurement.id');
-                $reason = data_get($notification->data, 'reason', 'mention');
-                $actor = data_get($notification->data, 'actor')
-                    ?: data_get($notification->data, 'mentioned_by');
-
-                return [
-                    'id' => $notification->id,
-                    'reason' => $reason,
-                    'procurement_id' => $procurementId,
-                    'procurement_code' => data_get($notification->data, 'procurement.code'),
-                    'procurement_purpose' => data_get($notification->data, 'procurement.purpose'),
-                    'comment_id' => data_get($notification->data, 'comment.id'),
-                    'comment_content' => data_get($notification->data, 'comment.content'),
-                    'actor' => $actor,
-                    'mentioned_by' => $actor,
-                    'created_at' => $notification->created_at,
-                    'created_ago' => $notification->created_at?->diffForHumans(),
-                    'context_label' => $reason === 'owner' ? 'Your PR' : 'Mentioned You',
-                    'target' => [
-                        'route' => '/faims/procurements',
-                        'query' => [
-                            'comment_request_id' => $procurementId,
-                        ],
-                    ],
-                ];
+                return $this->transformProcurementNotification($notification);
             })
+            ->filter()
             ->values()
             ->all();
 
@@ -160,6 +141,67 @@ class HandleInertiaRequests extends Middleware
             'meta' => [
                 'unread_count' => $unreadCount,
                 'has_more' => $unreadCount > count($notifications),
+            ],
+        ];
+    }
+
+    private function transformProcurementNotification($notification): ?array
+    {
+        $actor = data_get($notification->data, 'actor')
+            ?: data_get($notification->data, 'mentioned_by');
+
+        if ($notification->type === PendingSupplierApprovalNotification::class) {
+            $supplierId = data_get($notification->data, 'supplier.id');
+
+            return [
+                'id' => $notification->id,
+                'notification_type' => 'supplier_pending_approval',
+                'reason' => data_get($notification->data, 'reason', 'approval_required'),
+                'supplier_id' => $supplierId,
+                'procurement_id' => null,
+                'procurement_code' => data_get($notification->data, 'supplier.code'),
+                'procurement_purpose' => data_get($notification->data, 'supplier.name'),
+                'comment_id' => null,
+                'comment_content' => data_get($notification->data, 'message'),
+                'actor' => $actor,
+                'mentioned_by' => $actor,
+                'created_at' => $notification->created_at,
+                'created_ago' => $notification->created_at?->diffForHumans(),
+                'context_label' => 'Supplier Approval',
+                'action_label' => 'Review supplier',
+                'target' => [
+                    'route' => '/faims/suppliers',
+                    'query' => array_filter([
+                        'status' => 'pending_approval',
+                        'supplier_id' => $supplierId,
+                    ]),
+                ],
+            ];
+        }
+
+        $procurementId = data_get($notification->data, 'procurement.id');
+        $reason = data_get($notification->data, 'reason', 'mention');
+
+        return [
+            'id' => $notification->id,
+            'notification_type' => data_get($notification->data, 'type', 'procurement_comment_notification'),
+            'reason' => $reason,
+            'procurement_id' => $procurementId,
+            'procurement_code' => data_get($notification->data, 'procurement.code'),
+            'procurement_purpose' => data_get($notification->data, 'procurement.purpose'),
+            'comment_id' => data_get($notification->data, 'comment.id'),
+            'comment_content' => data_get($notification->data, 'comment.content'),
+            'actor' => $actor,
+            'mentioned_by' => $actor,
+            'created_at' => $notification->created_at,
+            'created_ago' => $notification->created_at?->diffForHumans(),
+            'context_label' => $reason === 'owner' ? 'Your PR' : 'Mentioned You',
+            'action_label' => 'Open PR chat',
+            'target' => [
+                'route' => '/faims/procurements',
+                'query' => [
+                    'comment_request_id' => $procurementId,
+                ],
             ],
         ];
     }

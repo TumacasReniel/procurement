@@ -154,18 +154,36 @@ class DropdownClass
 
     public function dropdowns($classifications, $type = null)
     {
-       
-        $data = ListDropdown::where('classification', $classifications)
+        $resolvedClassifications = collect(
+            $this->resolveDropdownClassifications((string) $classifications)
+        )->map(function ($classification) {
+            return trim((string) $classification);
+        })->filter()->unique()->values();
+
+        if ($resolvedClassifications->contains(function ($classification) {
+            return strcasecmp($classification, 'Place of Delivery') === 0;
+        })) {
+            $this->ensureDefaultPlaceOfDeliveryOptions();
+        }
+
+        $data = ListDropdown::query()
+            ->where(function ($query) use ($resolvedClassifications) {
+                foreach ($resolvedClassifications as $index => $classification) {
+                    $method = $index === 0 ? 'whereRaw' : 'orWhereRaw';
+                    $query->{$method}('LOWER(TRIM(classification)) = ?', [strtolower($classification)]);
+                }
+            })
             ->when($type, function ($query) use ($type) {
                 $query->where('type', $type);
             })
+            ->orderBy('name')
             ->get()->map(function ($item) {
                 return [
                     'value' => $item->id,
                     'name' => $item->name,
                     'others' => $item->others
                 ];
-            });
+            })->values();
         return $data;
     }
 
@@ -194,8 +212,35 @@ class DropdownClass
                 'app_type',
                 'app_types',
             ],
+            'place_of_delivery', 'place_of_deliveries', 'Place Of Delivery', 'Place of Delivery' => [
+                'Place of Delivery',
+                'Place Of Delivery',
+                'place_of_delivery',
+                'place_of_deliveries',
+            ],
             default => [$classification],
         };
+    }
+
+    protected function ensureDefaultPlaceOfDeliveryOptions(): void
+    {
+        foreach ([
+            'DOST IX Pettit Barracks Zamboanga City',
+            'DOST IX ZDS',
+        ] as $name) {
+            ListDropdown::firstOrCreate(
+                [
+                    'classification' => 'Place of Delivery',
+                    'name' => $name,
+                ],
+                [
+                    'type' => '',
+                    'color' => 'n/a',
+                    'others' => 'n/a',
+                    'is_active' => 1,
+                ]
+            );
+        }
     }
 
     public function units($code)

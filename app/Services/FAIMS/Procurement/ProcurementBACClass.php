@@ -198,53 +198,109 @@ class ProcurementBACClass
 
     public function createNOA($request, $bac_resolution , $user, $bac_reso_type = null)
     {
-        $procurement = Procurement::with('quotations.items.status')
+        $procurement = Procurement::with('quotations.items.status', 'noas.status', 'noas.items.item')
             ->findOrFail($bac_resolution->procurement_id);
 
         if($bac_reso_type == 'Re-award'){
-            $eligibleStatusIds = [
-                ListStatus::getID('Not Conformed','Procurement'),
-                ListStatus::getID('Available for Re-award','Procurement'),
-            ];
+            $awardedStatusId = ListStatus::getID('Awarded', 'Procurement');
+            $targetProcurementItemIds = $this->resolveReawardTargetProcurementItemIds($procurement);
 
-            $all_items = collect();
-            $first_quotation_id = null;
+            $selectedAwardedItems = collect($targetProcurementItemIds)
+                ->map(function ($procurementItemId) use ($procurement, $awardedStatusId) {
+                    $candidates = collect();
 
-            foreach ($procurement->quotations as $quotation) {
-                $eligibleItems = $quotation->items->filter(function ($item) use ($eligibleStatusIds) {
-                    return in_array((int) $item->status_id, $eligibleStatusIds, true);
-                });
+                    foreach ($procurement->quotations as $quotation) {
+                        $matchingItems = $quotation->items->filter(function ($item) use ($awardedStatusId, $procurementItemId) {
+                            return (int) $item->status_id === (int) $awardedStatusId
+                                && (int) $item->procurement_item_id === (int) $procurementItemId;
+                        });
 
-                if ($eligibleItems->isNotEmpty() && !$first_quotation_id) {
-                    $first_quotation_id = $quotation->id;
-                }
+                        foreach ($matchingItems as $item) {
+                            $candidates->push([
+                                'quotation' => $quotation,
+                                'item' => $item,
+                            ]);
+                        }
+                    }
 
-                $all_items = $all_items->merge($eligibleItems);
-            }
+                    if ($candidates->isEmpty()) {
+                        return null;
+                    }
 
-            if (!$first_quotation_id || $all_items->isEmpty()) {
-                \Log::warning('Approved re-award BAC resolution has no eligible NOA items.', [
+                    return $candidates->sort(function ($left, $right) {
+                        $leftFreeRank = $left['item']->is_free ? 0 : 1;
+                        $rightFreeRank = $right['item']->is_free ? 0 : 1;
+
+                        if ($leftFreeRank !== $rightFreeRank) {
+                            return $leftFreeRank <=> $rightFreeRank;
+                        }
+
+                        $leftPrice = (float) ($left['item']->bid_price ?? 0);
+                        $rightPrice = (float) ($right['item']->bid_price ?? 0);
+
+                        if ($leftPrice !== $rightPrice) {
+                            return $leftPrice <=> $rightPrice;
+                        }
+
+                        return (int) ($left['quotation']->id ?? 0) <=> (int) ($right['quotation']->id ?? 0);
+                    })->first();
+                })
+                ->filter();
+
+            if ($selectedAwardedItems->isEmpty()) {
+                \Log::warning('Approved re-award BAC resolution has no awarded next-supplier items.', [
                     'bac_resolution_id' => $bac_resolution->id,
                     'procurement_id' => $bac_resolution->procurement_id,
+                    'target_procurement_item_ids' => $targetProcurementItemIds,
                 ]);
 
                 return;
             }
 
-            $noa = ProcurementBacNoa::where('procurement_bac_id', $bac_resolution->id)->first();
+            $groupedBySupplier = $selectedAwardedItems->groupBy(function ($entry) {
+                return $entry['quotation']->supplier_id ?: $entry['quotation']->id;
+            });
 
-            if (!$noa) {
-                $noa = ProcurementBacNoa::create([
-                    'code' => ProcurementBacNoa::generateNOANumber(),
-                    'procurement_id' => $bac_resolution->procurement_id,
-                    'procurement_bac_id' => $bac_resolution->id,
-                    'procurement_quotation_id' => $first_quotation_id,
-                    'created_by_id' => $user->id,
-                    'status_id' => ListStatus::getID('Pending','Procurement'),
-                ]);
+            foreach ($groupedBySupplier as $supplierEntries) {
+                $firstEntry = $supplierEntries->first();
+                $quotationIds = $supplierEntries
+                    ->pluck('quotation.id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values();
+                $firstQuotation = $firstEntry['quotation'] ?? null;
+                $awardedItemIds = $supplierEntries
+                    ->pluck('item.id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (!$firstQuotation || empty($awardedItemIds)) {
+                    continue;
+                }
+
+                $noa = ProcurementBacNoa::where('procurement_bac_id', $bac_resolution->id)
+                    ->when($quotationIds->isNotEmpty(), function ($query) use ($quotationIds) {
+                        $query->whereIn('procurement_quotation_id', $quotationIds->all());
+                    })
+                    ->first();
+
+                if (!$noa) {
+                    $noa = ProcurementBacNoa::create([
+                        'code' => ProcurementBacNoa::generateNOANumber(),
+                        'procurement_id' => $bac_resolution->procurement_id,
+                        'procurement_bac_id' => $bac_resolution->id,
+                        'procurement_quotation_id' => $firstQuotation->id,
+                        'created_by_id' => $user->id,
+                        'status_id' => ListStatus::getID('Pending','Procurement'),
+                    ]);
+                }
+
+                $this->syncNOAItems($noa, $awardedItemIds);
             }
-
-            $this->syncNOAItems($noa, $all_items->pluck('id')->unique()->values()->all());
 
             return;
         }
@@ -313,14 +369,27 @@ class ProcurementBACClass
 
     protected function syncNOAItems(ProcurementBacNoa $noa, array $itemIds): void
     {
+        $normalizedItemIds = collect($itemIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
         $existingItemIds = ProcurementBacNoaItem::where('procurement_bac_noa_id', $noa->id)
             ->pluck('item_id')
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        $missingItemIds = collect($itemIds)
-            ->map(fn ($id) => (int) $id)
-            ->unique()
+        $staleItemIds = collect($existingItemIds)
+            ->reject(fn ($id) => $normalizedItemIds->contains($id))
+            ->values();
+
+        if ($staleItemIds->isNotEmpty()) {
+            ProcurementBacNoaItem::where('procurement_bac_noa_id', $noa->id)
+                ->whereIn('item_id', $staleItemIds->all())
+                ->delete();
+        }
+
+        $missingItemIds = $normalizedItemIds
             ->reject(fn ($id) => in_array($id, $existingItemIds, true));
 
         foreach ($missingItemIds as $itemId) {
@@ -329,6 +398,37 @@ class ProcurementBACClass
                 'item_id' => $itemId,
             ]);
         }
+    }
+
+    protected function resolveReawardTargetProcurementItemIds(Procurement $procurement): array
+    {
+        $latestFailedNoa = $procurement->noas
+            ->filter(function ($noa) {
+                return in_array($noa->status?->name, ['Not Conformed', 'PO Not Conformed'], true);
+            })
+            ->sortByDesc(function ($noa) {
+                return optional($noa->updated_at ?? $noa->created_at)->getTimestamp() ?? 0;
+            })
+            ->first();
+
+        $failedNoaItemIds = collect($latestFailedNoa?->items ?? [])
+            ->map(fn ($noaItem) => (int) ($noaItem->item?->procurement_item_id ?? 0))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($failedNoaItemIds->isNotEmpty()) {
+            return $failedNoaItemIds->all();
+        }
+
+        return $procurement->quotations
+            ->flatMap->items
+            ->filter(fn ($item) => (int) $item->status_id === (int) ListStatus::getID('Not Conformed', 'Procurement'))
+            ->map(fn ($item) => (int) $item->procurement_item_id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
 

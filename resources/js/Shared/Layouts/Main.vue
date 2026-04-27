@@ -209,6 +209,10 @@ export default {
         resolveMentionHeadline(notification) {
             const actor = this.resolveMentionActorName(notification);
 
+            if (notification?.notification_type === "supplier_pending_approval") {
+                return `${actor} submitted a supplier for approval`;
+            }
+
             if (notification?.reason === "owner") {
                 return `${actor} commented on your PR`;
             }
@@ -302,22 +306,19 @@ export default {
                     this.fetchMentionNotifications();
 
                     const targetRoute = notification?.target?.route || "/faims/procurements";
-                    const fallbackRequestId =
-                        notification?.target?.query?.comment_request_id
-                        || notification?.target?.query?.chat_request_id
-                        || notification?.procurement_id;
-                    const targetQuery = notification?.target?.query || {
-                        comment_request_id: fallbackRequestId,
+                    const targetQuery = {
+                        ...(notification?.target?.query || {}),
                     };
+                    const fallbackRequestId =
+                        targetQuery?.comment_request_id
+                        || targetQuery?.chat_request_id
+                        || notification?.procurement_id;
 
-                    if (!fallbackRequestId) {
-                        return;
+                    if (!Object.keys(targetQuery).length && fallbackRequestId) {
+                        targetQuery.comment_request_id = fallbackRequestId;
                     }
 
-                    router.get(targetRoute, {
-                        ...targetQuery,
-                        comment_request_id: targetQuery?.comment_request_id || targetQuery?.chat_request_id || fallbackRequestId,
-                    });
+                    router.get(targetRoute, targetQuery);
                 });
         },
     },

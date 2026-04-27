@@ -11,6 +11,68 @@
   >
     <form class="customform">
       <BRow>
+        <BCol lg="12" class="mt-2">
+          <div class="offer-edit-summary">
+            <div class="offer-edit-summary__header">
+              <div>
+                <div class="offer-edit-summary__eyebrow">Item Being Edited</div>
+                <div class="offer-edit-summary__title">
+                  {{ editingItemDetails.item_name }}
+                </div>
+              </div>
+              <span class="offer-edit-summary__status">
+                {{ editingItemDetails.status_name }}
+              </span>
+            </div>
+
+            <div class="offer-edit-summary__grid">
+              <div class="offer-edit-summary__card">
+                <span class="offer-edit-summary__label">Item No.</span>
+                <span class="offer-edit-summary__value">{{ editingItemDetails.item_no }}</span>
+              </div>
+              <div class="offer-edit-summary__card">
+                <span class="offer-edit-summary__label">Supplier</span>
+                <span class="offer-edit-summary__value">{{ editingItemDetails.supplier_name }}</span>
+              </div>
+              <div class="offer-edit-summary__card">
+                <span class="offer-edit-summary__label">Quantity / Unit</span>
+                <span class="offer-edit-summary__value">{{ editingItemDetails.quantity_label }}</span>
+              </div>
+              <div class="offer-edit-summary__card">
+                <span class="offer-edit-summary__label">Unit Cost</span>
+                <span class="offer-edit-summary__value">{{ formatCurrency(editingItemDetails.unit_cost) }}</span>
+              </div>
+              <div class="offer-edit-summary__card">
+                <span class="offer-edit-summary__label">ABC</span>
+                <span class="offer-edit-summary__value">{{ formatCurrency(editingItemDetails.abc) }}</span>
+              </div>
+              <div class="offer-edit-summary__card">
+                <span class="offer-edit-summary__label">Current Bid</span>
+                <span class="offer-edit-summary__value">{{ editingItemDetails.current_bid_label }}</span>
+              </div>
+            </div>
+
+            <div
+              v-if="editingItemDetails.description"
+              class="offer-edit-summary__description"
+            >
+              <div class="offer-edit-summary__description-header">
+                <div class="offer-edit-summary__label mb-0">Item Description</div>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary offer-edit-summary__toggle"
+                  @click="isItemDescriptionExpanded = !isItemDescriptionExpanded"
+                >
+                  {{ isItemDescriptionExpanded ? "Hide Description" : "View Description" }}
+                </button>
+              </div>
+              <div v-if="isItemDescriptionExpanded" class="offer-edit-summary__description-body">
+                <div v-html="editingItemDetails.description"></div>
+              </div>
+            </div>
+          </div>
+        </BCol>
+
         <BCol lg="6" class="mt-2">
           <InputLabel value="Bid Price" :message="form.errors.bid_price" />
           <Amount @amount="amount" ref="amountComponent" :readonly="isBidPriceLocked" />
@@ -155,6 +217,7 @@ export default {
       currentItem: null,
       currentBid: null,
       lastEditableTechnicalProposal: "",
+      isItemDescriptionExpanded: false,
 
     };
   },
@@ -165,6 +228,24 @@ export default {
     },
     isTechnicalProposalLocked() {
       return this.isNoOffer || this.isNotApplicable;
+    },
+    editingItemDetails() {
+      const procurementItem = this.currentItem?.item || {};
+      const quantity = Number(procurementItem?.item_quantity) || 0;
+      const unitType = procurementItem?.item_unit_type || {};
+      const currentBid = Number(this.currentItem?.bid_price);
+
+      return {
+        item_name: procurementItem?.item_name || "-",
+        item_no: procurementItem?.item_no || "-",
+        supplier_name: this.currentBid?.supplier?.name || "-",
+        status_name: this.currentItem?.status?.name || "Pending",
+        quantity_label: this.formatQuantityLabel(quantity, unitType),
+        unit_cost: Number(procurementItem?.item_unit_cost) || 0,
+        abc: Number(procurementItem?.total_cost) || 0,
+        current_bid_label: this.offerDisplayValue(currentBid, this.currentItem),
+        description: procurementItem?.item_description || "",
+      };
     },
   },
 
@@ -199,6 +280,46 @@ export default {
       if (this.isBidPriceLocked) return;
       this.form.bid_price = this.cleanCurrency(val);
     },
+    formatCurrency(value) {
+      const amount = Number(value) || 0;
+      return new Intl.NumberFormat("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      }).format(amount);
+    },
+    formatQuantityLabel(quantity, unitType = {}) {
+      const qty = Number(quantity);
+      const unitLabel =
+        qty > 1
+          ? unitType?.name_long || unitType?.name_short
+          : unitType?.name_short || unitType?.name_long;
+
+      if (!Number.isFinite(qty) || qty <= 0) {
+        return unitLabel || "-";
+      }
+
+      return `${qty} ${unitLabel || ""}`.trim();
+    },
+    offerDisplayValue(value, options = {}) {
+      if (options?.is_free) {
+        return "free";
+      }
+
+      if (options?.is_no_offer) {
+        return "no offer";
+      }
+
+      if (options?.is_not_applicable) {
+        return "not applicable";
+      }
+
+      const amount = Number(value);
+      if (amount > 0) {
+        return this.formatCurrency(amount);
+      }
+
+      return "not set";
+    },
     cleanCurrency(value) {
       if (value === null || value === undefined || value === "") return null;
       const cleaned = value.toString().replace(/[^0-9.]/g, "");
@@ -229,6 +350,7 @@ export default {
       this.isNoOffer = Boolean(item.is_no_offer);
       this.isNotApplicable = Boolean(item.is_not_applicable);
       this.confirmFinalOffer = false;
+      this.isItemDescriptionExpanded = false;
       this.form.bid_price = this.normalizeBidPrice(
         item.bid_price,
         this.isFree,
@@ -273,6 +395,7 @@ export default {
             this.currentItem.is_not_applicable = offerFlags.isNotApplicable;
             this.currentItem.technical_proposal = this.form.technical_proposal;
             this.currentItem.delivery_term = this.form.delivery_term;
+            this.currentItem.is_checked = this.canKeepAwardSelection(this.currentItem);
           }
           if (this.currentBid) {
             this.currentBid.delivery_term = this.form.delivery_term;
@@ -297,6 +420,7 @@ export default {
       this.isNotApplicable = false;
       this.confirmFinalOffer = false;
       this.lastEditableTechnicalProposal = "";
+      this.isItemDescriptionExpanded = false;
       this.syncAmountInput();
       this.currentItem = null;
       this.currentBid = null;
@@ -408,7 +532,29 @@ export default {
       if (isFree) return 0;
       if (isNoOffer || isNotApplicable) return null;
       const cleaned = this.cleanCurrency(value);
-      return cleaned === null || cleaned <= 0 ? null : cleaned;
+        return cleaned === null || cleaned <= 0 ? null : cleaned;
+    },
+    canKeepAwardSelection(item) {
+      if (item?.is_free) {
+        return Boolean(item?.is_checked);
+      }
+
+      if (item?.is_no_offer || item?.is_not_applicable) {
+        return false;
+      }
+
+      const bidPrice = Number(item?.bid_price) || 0;
+      const unitCost = Number(item?.item?.item_unit_cost) || 0;
+
+      if (!(bidPrice > 0)) {
+        return false;
+      }
+
+      if (unitCost > 0 && bidPrice > unitCost) {
+        return false;
+      }
+
+      return Boolean(item?.is_checked);
     },
     normalizeTechnicalProposal(value, isNoOffer = false, isNotApplicable = false) {
       if (isNoOffer || isNotApplicable) {
@@ -430,3 +576,137 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.offer-edit-summary {
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.offer-edit-summary__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.offer-edit-summary__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.offer-edit-summary__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.offer-edit-summary__status {
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.offer-edit-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.offer-edit-summary__card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.offer-edit-summary__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.offer-edit-summary__value {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #1e293b;
+  word-break: break-word;
+}
+
+.offer-edit-summary__description {
+  margin-top: 1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.95rem;
+  color: #334155;
+}
+
+.offer-edit-summary__description-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.offer-edit-summary__description-body {
+  margin-top: 0.9rem;
+}
+
+.offer-edit-summary__toggle {
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.offer-edit-summary__description :deep(p:last-child),
+.offer-edit-summary__description :deep(ul:last-child),
+.offer-edit-summary__description :deep(ol:last-child) {
+  margin-bottom: 0;
+}
+
+.offer-edit-summary__description :deep(ul),
+.offer-edit-summary__description :deep(ol) {
+  padding-left: 1.25rem;
+}
+
+[data-bs-theme="dark"] .offer-edit-summary {
+  background: #1b2230;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .offer-edit-summary__card,
+[data-bs-theme="dark"] .offer-edit-summary__description,
+[data-bs-theme="dark"] .offer-edit-summary__status {
+  background: #232c3a;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .offer-edit-summary__eyebrow,
+[data-bs-theme="dark"] .offer-edit-summary__label {
+  color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .offer-edit-summary__title,
+[data-bs-theme="dark"] .offer-edit-summary__value,
+[data-bs-theme="dark"] .offer-edit-summary__status,
+[data-bs-theme="dark"] .offer-edit-summary__description {
+  color: #e5edf7;
+}
+</style>

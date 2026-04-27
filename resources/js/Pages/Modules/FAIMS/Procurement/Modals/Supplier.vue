@@ -60,7 +60,9 @@
                   v-model="form.tin"
                   type="text"
                   class="form-control-lg rounded-3"
-                  placeholder="Enter supplier TIN"
+                  placeholder="000-000-000-000"
+                  inputmode="numeric"
+                  maxlength="15"
                 />
                 <InputError :message="form.errors.tin" class="mt-1" />
               </div>
@@ -172,51 +174,98 @@
             v-for="(attachment, index) in required_attachments"
             :key="attachment.document_type"
             class="bg-light-subtle border rounded-3 p-3 mb-3"
-            :class="{ 'border-danger': attachmentError('required', index, 'file') }"
+            :class="{ 'border-danger': attachmentError('required', index, 'file') || attachmentError('required', index, 'code') }"
           >
             <b-row class="g-3 align-items-end">
-              <b-col lg="4">
+              <b-col lg="5">
                 <InputLabel :value="`${attachment.document_type} *`" class="fw-bold" />
-                <b-form-file
-                  :model-value="isNativeFile(attachment.file) ? attachment.file : null"
-                  class="rounded-3"
-                  @update:model-value="setAttachmentFile($event, 'required', index)"
+                <input
+                  :id="attachmentInputId('required', index)"
+                  type="file"
+                  class="d-none"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  placeholder="Choose a file"
+                  @change="setAttachmentFile($event.target.files[0] || null, 'required', index)"
                 />
-                <div v-if="hasAttachmentFile(attachment)" class="small text-success mt-2">
-                  <i class="ri-check-line me-1"></i>{{ resolvedAttachmentName(attachment) }}
+                <div
+                  class="supplier-required-upload"
+                  :class="{
+                    'is-filled': hasAttachmentFile(attachment),
+                    'is-error': attachmentError('required', index, 'file'),
+                  }"
+                >
+                  <div class="supplier-required-upload__content">
+                    <span class="supplier-required-upload__icon">
+                      <i :class="hasAttachmentFile(attachment) ? 'ri-file-check-line' : 'ri-upload-cloud-2-line'"></i>
+                    </span>
+                    <div class="supplier-required-upload__text">
+                      <div
+                        class="supplier-required-upload__title"
+                        :title="hasAttachmentFile(attachment) ? resolvedAttachmentName(attachment) : ''"
+                      >
+                        {{ hasAttachmentFile(attachment) ? resolvedAttachmentName(attachment) : `Upload ${attachment.document_type}` }}
+                      </div>
+                      <div class="supplier-required-upload__hint">
+                        {{ hasAttachmentFile(attachment)
+                          ? "File attached. You can preview or replace it before saving."
+                          : "Accepted: PDF, DOC, DOCX, JPG, JPEG, PNG" }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <b-button
+                    @click="openAttachmentPicker('required', index)"
+                    type="button"
+                    variant="outline-primary"
+                    size="sm"
+                    class="supplier-required-upload__button"
+                  >
+                    <i :class="hasAttachmentFile(attachment) ? 'ri-refresh-line me-1' : 'ri-upload-2-line me-1'"></i>
+                    {{ hasAttachmentFile(attachment) ? "Replace" : "Choose File" }}
+                  </b-button>
                 </div>
                 <InputError :message="attachmentError('required', index, 'file')" class="mt-1" />
               </b-col>
 
-              <b-col lg="5">
-                <InputLabel value="Reference No. / Permit No." class="fw-bold" />
+              <b-col lg="4">
+                <InputLabel value="Reference No. / Permit No. *" class="fw-bold" />
                 <TextInput
                   v-model="attachment.code"
                   type="text"
                   class="rounded-3"
                   placeholder="Enter document reference number"
                 />
+                <InputError :message="attachmentError('required', index, 'code')" class="mt-1" />
               </b-col>
 
               <b-col lg="3">
-                <div class="d-flex align-items-center justify-content-between gap-2">
-                  <span class="badge rounded-pill" :class="hasAttachmentFile(attachment) ? 'bg-success' : 'bg-danger'">
+                <div class="supplier-required-meta">
+                  <span
+                    class="badge rounded-pill supplier-required-meta__badge"
+                    :class="hasAttachmentFile(attachment) ? 'is-ready' : 'is-missing'"
+                  >
                     {{ hasAttachmentFile(attachment) ? "Ready" : "Missing" }}
                   </span>
 
-                  <b-button
-                    v-if="hasAttachmentFile(attachment)"
-                    @click="viewFile(attachment.file)"
-                    type="button"
-                    variant="outline-info"
-                    size="sm"
-                    v-b-tooltip.hover
-                    title="View File"
-                  >
-                    <i class="ri-eye-line"></i>
-                  </b-button>
+                  <small class="text-muted">
+                    {{ hasAttachmentFile(attachment)
+                      ? "Preview the uploaded document before submitting."
+                      : "This document is required before approval." }}
+                  </small>
+
+                  <div class="d-flex gap-2 flex-wrap">
+                    <b-button
+                      v-if="hasAttachmentFile(attachment)"
+                      @click="viewFile(attachment.file)"
+                      type="button"
+                      variant="outline-info"
+                      size="sm"
+                      class="supplier-required-meta__button"
+                      v-b-tooltip.hover
+                      title="View File"
+                    >
+                      <i class="ri-eye-line me-1"></i>View
+                    </b-button>
+                  </div>
                 </div>
               </b-col>
             </b-row>
@@ -504,9 +553,40 @@ export default {
       return this.missingRequiredDocuments.length === 0;
     },
   },
+  watch: {
+    "form.tin"(value) {
+      const formattedTin = this.formatTin(value);
+
+      if (formattedTin !== value) {
+        this.form.tin = formattedTin;
+      }
+    },
+  },
   methods: {
     isNativeFile(value) {
       return typeof File !== "undefined" && value instanceof File;
+    },
+
+    normalizeTin(value) {
+      return String(value || "")
+        .replace(/\D/g, "")
+        .slice(0, 12);
+    },
+
+    formatTin(value) {
+      const digits = this.normalizeTin(value);
+
+      if (!digits) {
+        return null;
+      }
+
+      const segments = [];
+
+      for (let index = 0; index < digits.length; index += 3) {
+        segments.push(digits.slice(index, index + 3));
+      }
+
+      return segments.join("-");
     },
 
     show() {
@@ -524,7 +604,7 @@ export default {
       this.form.id = data.id;
       this.form.name = data.name;
       this.form.code = data.code;
-      this.form.tin = data.tin || null;
+      this.form.tin = this.formatTin(data.tin || null);
       this.form.address = data.address;
       this.form.is_active = data.is_active == 1;
       this.form.conformes = data.conformes && data.conformes.length > 0
@@ -683,6 +763,21 @@ export default {
       this.supporting_attachments = [createAttachment()];
     },
 
+    attachmentInputId(group, index) {
+      return `supplier-${group}-attachment-${index}`;
+    },
+
+    openAttachmentPicker(group, index) {
+      const input = document.getElementById(this.attachmentInputId(group, index));
+
+      if (!input) {
+        return;
+      }
+
+      input.value = "";
+      input.click();
+    },
+
     setAttachmentFile(file, group, index) {
       const collection = group === "required"
         ? this.required_attachments
@@ -744,15 +839,21 @@ export default {
       }
 
       this.required_attachments.forEach((attachment, index) => {
-        if (this.hasAttachmentFile(attachment)) {
-          return;
+        if (!this.hasAttachmentFile(attachment)) {
+          this.form.setError(
+            `attachment_rows.${index}.file`,
+            `${attachment.document_type} is required.`,
+          );
+          hasError = true;
         }
 
-        this.form.setError(
-          `attachment_rows.${index}.file`,
-          `${attachment.document_type} is required.`,
-        );
-        hasError = true;
+        if (!String(attachment.code || "").trim()) {
+          this.form.setError(
+            `attachment_rows.${index}.code`,
+            `Please enter the reference number for ${attachment.document_type}.`,
+          );
+          hasError = true;
+        }
       });
 
       this.supporting_attachments.forEach((attachment, index) => {
@@ -799,7 +900,7 @@ export default {
 
       formData.append("name", this.form.name || "");
       formData.append("code", this.form.code || "");
-      formData.append("tin", this.form.tin || "");
+      formData.append("tin", this.formatTin(this.form.tin) || "");
       formData.append("address", this.form.address || "");
       formData.append("is_active", this.form.is_active ? "1" : "0");
 
@@ -877,5 +978,116 @@ export default {
 
 .form-group {
   margin-bottom: 1rem;
+}
+
+.supplier-required-upload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 88px;
+  padding: 0.9rem 1rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 1rem;
+  background: #fff;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.supplier-required-upload.is-filled {
+  border-style: solid;
+  border-color: #a7f3d0;
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.supplier-required-upload.is-error {
+  border-style: solid;
+  border-color: #fda4af;
+  background: #fff1f2;
+}
+
+.supplier-required-upload__content {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.supplier-required-upload__icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #2563eb;
+  background: #dbeafe;
+  font-size: 1.1rem;
+}
+
+.supplier-required-upload.is-filled .supplier-required-upload__icon {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.supplier-required-upload__text {
+  min-width: 0;
+}
+
+.supplier-required-upload__title {
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.supplier-required-upload__hint {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.supplier-required-upload__button,
+.supplier-required-meta__button {
+  border-radius: 999px;
+}
+
+.supplier-required-meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 100%;
+}
+
+.supplier-required-meta__badge {
+  align-self: flex-start;
+  border: 1px solid transparent;
+}
+
+.supplier-required-meta__badge.is-ready {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+.supplier-required-meta__badge.is-missing {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+@media (max-width: 991.98px) {
+  .supplier-required-upload {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .supplier-required-upload__button {
+    width: 100%;
+  }
 }
 </style>

@@ -55,7 +55,7 @@
         </BCol>
 
         <BCol lg="6" class="mt-2">
-          <InputLabel value="Delivery Term" :message="form.errors.date_of_delivery" />
+          <InputLabel value="Delivery Term" :message="form.errors.delivery_term" />
           <TextInput
             v-model="form.delivery_term"
             type="text"
@@ -81,7 +81,7 @@
           />
 
           <Multiselect
-            :options="dropdowns.delivery_places"
+            :options="deliveryPlaceOptions"
             v-model="form.place_of_delivery_id"
             :searchable="true"
             label="name"
@@ -199,6 +199,8 @@ export default {
       }),
       showModal: false,
       currentNoa: this.noa,
+      deliveryTermTemplate: "",
+      isSyncingDeliveryTerm: false,
     };
   },
 
@@ -215,10 +217,37 @@ export default {
     supplierAddress() {
       return this.form.supplier?.address?.address || "";
     },
+    deliveryPlaceOptions() {
+      if (Array.isArray(this.dropdowns?.delivery_places)) {
+        return this.dropdowns.delivery_places;
+      }
+
+      if (this.dropdowns?.delivery_places && typeof this.dropdowns.delivery_places === "object") {
+        return Object.values(this.dropdowns.delivery_places);
+      }
+
+      return [];
+    },
     totalAmount() {
       return this.form.items.reduce((sum, item) => {
         return sum + item.item.bid_price * item.item.item.item_quantity;
       }, 0);
+    },
+  },
+
+  watch: {
+    "form.po_date"() {
+      this.syncDeliveryTermWithDeliveryDate();
+    },
+    "form.date_of_delivery"() {
+      this.syncDeliveryTermWithDeliveryDate();
+    },
+    "form.delivery_term"(value) {
+      if (this.isSyncingDeliveryTerm) {
+        return;
+      }
+
+      this.deliveryTermTemplate = String(value || "").trim();
     },
   },
 
@@ -229,6 +258,11 @@ export default {
 
       if (existingPO) {
         this.currentNoa = existingPO.noa || this.noa;
+        const baseTerm =
+          existingPO.delivery_term
+          || this.currentNoa?.procurement_quotation?.delivery_term
+          || "";
+
         this.form.id = existingPO.id;
         this.form.procurement_id = existingPO.procurement_id || this.procurement.id;
         this.form.noa_id = existingPO.noa_id || this.currentNoa?.id;
@@ -239,32 +273,48 @@ export default {
           existingPO.place_of_delivery_id ||
           this.currentNoa?.procurement_quotation?.place_of_delivery_id ||
           null;
-        this.form.date_of_delivery = this.normalizeDateInput(existingPO.date_of_delivery);
-        this.form.delivery_term = existingPO.delivery_term;
+        this.form.date_of_delivery =
+          this.normalizeDateInput(existingPO.date_of_delivery) ||
+          this.addCalendarDays(
+            this.form.po_date,
+            this.extractDeliveryTermDays(baseTerm) ?? 15
+          );
+        this.form.delivery_term = baseTerm;
         this.form.payment_term = existingPO.payment_term;
         this.form.items = this.currentNoa?.items || [];
         this.form.option = "update";
+        this.deliveryTermTemplate = baseTerm;
+        this.syncDeliveryTermWithDeliveryDate();
       } else {
         this.currentNoa = this.noa;
+        const baseTerm = this.currentNoa?.procurement_quotation?.delivery_term || "";
+
         this.form.id = null;
         this.form.procurement_id = this.procurement.id;
         this.form.noa_id = this.currentNoa?.id;
         this.form.po_date = this.getCurrentDate();
         this.form.code = null;
         this.form.supplier = this.currentNoa?.procurement_quotation?.supplier || null;
-        this.form.delivery_term = this.currentNoa?.procurement_quotation?.delivery_term || null;
         this.form.place_of_delivery_id =
           this.currentNoa?.procurement_quotation?.place_of_delivery_id || null;
-        this.form.date_of_delivery = this.getDatePlusWorkingDays(15);
+        this.deliveryTermTemplate = baseTerm;
+        this.form.date_of_delivery = this.addCalendarDays(
+          this.form.po_date,
+          this.extractDeliveryTermDays(baseTerm) ?? 15
+        );
+        this.form.delivery_term = baseTerm;
         this.form.payment_term = "within 30 calendar days after IAR";
         this.form.items = this.currentNoa?.items || [];
         this.form.option = "";
+        this.syncDeliveryTermWithDeliveryDate();
       }
     },
     hide() {
       this.form.reset();
       this.showModal = false;
       this.currentNoa = this.noa;
+      this.deliveryTermTemplate = "";
+      this.isSyncingDeliveryTerm = false;
     },
 
     formatCurrency(value) {
@@ -360,6 +410,103 @@ export default {
       const day = String(date.getDate()).padStart(2, "0");
 
       return `${year}-${month}-${day}`;
+    },
+
+    parseDateInput(value) {
+      const normalized = this.normalizeDateInput(value);
+
+      if (!normalized) {
+        return null;
+      }
+
+      const [year, month, day] = normalized.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    },
+
+    formatDateInput(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return null;
+      }
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+    },
+
+    extractDeliveryTermDays(term) {
+      const match = String(term || "").match(/(\d+)/);
+
+      return match ? Number.parseInt(match[1], 10) : null;
+    },
+
+    addCalendarDays(baseDateValue, days) {
+      const baseDate = this.parseDateInput(baseDateValue) || new Date();
+      const normalizedDays = Math.max(0, Number(days) || 0);
+      const nextDate = new Date(baseDate);
+
+      nextDate.setDate(nextDate.getDate() + normalizedDays);
+
+      return this.formatDateInput(nextDate);
+    },
+
+    getCalendarDayDifference(startValue, endValue) {
+      const startDate = this.parseDateInput(startValue);
+      const endDate = this.parseDateInput(endValue);
+
+      if (!startDate || !endDate) {
+        return null;
+      }
+
+      const millisecondsPerDay = 24 * 60 * 60 * 1000;
+      const rawDifference = Math.round((endDate - startDate) / millisecondsPerDay);
+
+      return Math.max(0, rawDifference);
+    },
+
+    buildDeliveryTerm(days) {
+      const normalizedDays = Math.max(0, Number(days) || 0);
+      const dayLabel = `day${normalizedDays === 1 ? "" : "s"}`;
+      const template = String(this.deliveryTermTemplate || "").trim();
+
+      if (!template) {
+        return `${normalizedDays} ${dayLabel}`;
+      }
+
+      if (/\d+/.test(template)) {
+        return template.replace(/\d+/, String(normalizedDays));
+      }
+
+      if (/day/i.test(template)) {
+        return `${normalizedDays} ${template}`.trim();
+      }
+
+      return `${normalizedDays} ${dayLabel} ${template}`.trim();
+    },
+
+    syncDeliveryTermWithDeliveryDate() {
+      const days = this.getCalendarDayDifference(
+        this.form.po_date,
+        this.form.date_of_delivery
+      );
+
+      if (days === null) {
+        return;
+      }
+
+      const nextDeliveryTerm = this.buildDeliveryTerm(days);
+
+      if (this.form.delivery_term === nextDeliveryTerm) {
+        return;
+      }
+
+      this.isSyncingDeliveryTerm = true;
+      this.form.delivery_term = nextDeliveryTerm;
+
+      this.$nextTick(() => {
+        this.isSyncingDeliveryTerm = false;
+      });
     },
 
     getDatePlusWorkingDays(days) {

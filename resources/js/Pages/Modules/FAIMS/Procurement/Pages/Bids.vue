@@ -259,7 +259,8 @@
                           class="form-check-input aob-award-checkbox"
                           :disabled="
                             isOtherSupplierChecked(itemIndex, bid) ||
-                            !hasAwardableOffer(item)
+                            !hasAwardableOffer(item) ||
+                            isBidPriceOverUnitCost(item)
                           "
                           @change="handleCheckboxChange(itemIndex, bid)"
                         />
@@ -741,7 +742,9 @@ export default {
     },
     hasCheckedBidItems() {
       return this.availableBids.some((bid) =>
-        (bid.items || []).some((item) => Boolean(item.is_checked))
+        (bid.items || []).some(
+          (item) => Boolean(item.is_checked) && !this.isBidPriceOverUnitCost(item)
+        )
       );
     },
     allOffersForSelectedItem() {
@@ -830,6 +833,16 @@ export default {
         style: "currency",
         currency: "PHP",
       }).format(value);
+    },
+    isBidPriceOverUnitCost(item) {
+      if (item?.is_free || item?.is_no_offer || item?.is_not_applicable) {
+        return false;
+      }
+
+      const bidPrice = Number(item?.bid_price) || 0;
+      const unitCost = Number(item?.item?.item_unit_cost) || 0;
+
+      return bidPrice > 0 && unitCost > 0 && bidPrice > unitCost;
     },
     hasAwardableOffer(item) {
       return Boolean(item?.is_free) || Number(item?.bid_price) > 0;
@@ -931,6 +944,13 @@ export default {
     },
 
     handleCheckboxChange(itemIndex, currentBid) {
+      if (
+        !this.hasAwardableOffer(currentBid.items[itemIndex]) ||
+        this.isBidPriceOverUnitCost(currentBid.items[itemIndex])
+      ) {
+        currentBid.items[itemIndex].is_checked = false;
+        return;
+      }
       // If checked → store supplier name
       if (currentBid.items[itemIndex].is_checked) {
         this.availableBids.forEach((bid) => {
@@ -945,7 +965,9 @@ export default {
 
     getCheckedItems() {
       return this.availableBids.flatMap((bid) =>
-        (bid.items || []).filter((item) => item.is_checked)
+        (bid.items || []).filter(
+          (item) => item.is_checked && !this.isBidPriceOverUnitCost(item)
+        )
       );
     },
 
@@ -959,7 +981,9 @@ export default {
 
     //count how how many items checked in a supplier
     getCheckedBidsCount(items) {
-      return items.filter((item) => Boolean(item.is_checked)).length;
+      return items.filter(
+        (item) => Boolean(item.is_checked) && !this.isBidPriceOverUnitCost(item)
+      ).length;
     },
     getSupplierCheckedCount(bid) {
       return this.getCheckedBidsCount(bid.items || []);

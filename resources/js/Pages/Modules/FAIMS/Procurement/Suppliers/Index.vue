@@ -347,6 +347,7 @@ export default {
       selectedSupplierForApproval: null,
       showApproveModal: false,
       approvingSupplier: false,
+      isBootstrappingFilters: false,
       filter: {
         keyword: null,
         status: null,
@@ -368,13 +369,33 @@ export default {
       this.checkSearchStr(value);
     },
     "filter.status"() {
+      if (this.isBootstrappingFilters) {
+        return;
+      }
+
       this.fetch();
     },
   },
   created() {
+    this.isBootstrappingFilters = true;
+    this.applyFiltersFromQuery();
+    this.isBootstrappingFilters = false;
     this.fetch();
   },
   methods: {
+    applyFiltersFromQuery() {
+      const query = new URLSearchParams(window.location.search);
+      const status = query.get("status");
+      const supplierId = query.get("supplier_id");
+
+      if (status) {
+        this.filter.status = status;
+      }
+
+      if (supplierId) {
+        this.selectedRow = Number(supplierId);
+      }
+    },
     checkSearchStr: _.debounce(function () {
       this.fetch();
     }, 300),

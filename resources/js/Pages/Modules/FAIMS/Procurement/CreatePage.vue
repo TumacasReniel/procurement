@@ -555,10 +555,7 @@ export default {
         return {
           ...option,
           remaining_budget: remainingBudget,
-          label:
-            this.option === "create"
-              ? `${baseLabel} (${this.formatCurrency(remainingBudget)} remaining)`
-              : baseLabel,
+          label: baseLabel,
         };
       });
     },

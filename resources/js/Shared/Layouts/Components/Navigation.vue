@@ -143,7 +143,7 @@
                                 <div class="d-flex align-items-start justify-content-between gap-3">
                                     <div>
                                         <h6 class="mb-1 fw-semibold fs-15">Notifications</h6>
-                                        <p class="mb-0 text-muted fs-12"> alerts show up here in requests you are tagged or mention.</p>
+                                        <p class="mb-0 text-muted fs-12">Procurement mentions and approval alerts show up here.</p>
                                     </div>
                                     <span class="badge bg-danger text-white fs-11">
                                         {{ mentionNotificationState.unreadCount }}
@@ -194,7 +194,7 @@
                                                     <span class="text-muted fs-11">
                                                         {{ notification.created_ago || "Just now" }}
                                                     </span>
-                                                    <span class="badge bg-light text-body">Open PR chat</span>
+                                                    <span class="badge bg-light text-body">{{ notification.action_label || "Open alert" }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -209,13 +209,13 @@
                                     </div>
                                 </div>
                                 <h6 class="mb-1 fw-semibold">No new alerts</h6>
-                                <p class="mb-0 text-muted fs-12">Mentions and updates on your procurement requests will appear here.</p>
+                                <p class="mb-0 text-muted fs-12">Procurement mentions and supplier approval alerts will appear here.</p>
                             </div>
 
                             <div class="mention-notification-footer">
                                 <div class="d-flex align-items-center justify-content-between gap-3">
                                     <small class="text-muted">
-                                        {{ mentionNotificationState.hasMore ? "Showing the latest unread PR alerts." : "This updates automatically." }}
+                                        {{ mentionNotificationState.hasMore ? "Showing the latest unread procurement alerts." : "This updates automatically." }}
                                     </small>
                                     <button type="button" class="btn btn-sm btn-light" @click="refreshMentionNotifications">
                                         Refresh

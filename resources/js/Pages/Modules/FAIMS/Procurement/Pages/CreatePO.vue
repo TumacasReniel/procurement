@@ -133,6 +133,11 @@
         class="po-content po-content-scroll px-3 py-2"
         ref="box"
       >
+        <PurchaseOrderStatusFlow
+          class="mb-3"
+          :purchase-order="purchase_order"
+        />
+
         <b-tabs v-model="activePOTab" class="po-view-tabs">
           <b-tab>
             <template #title>
@@ -287,6 +292,7 @@ import RevertResultModal from "@/Shared/Components/RevertResultModal.vue";
 import PODetailsTab from "./Components/PurchaseOrderTabs/PODetails.vue";
 import PODeliveryTab from "./Components/PurchaseOrderTabs/PODelivery.vue";
 import POInspectionTab from "./Components/PurchaseOrderTabs/POInspection.vue";
+import PurchaseOrderStatusFlow from "./Components/PurchaseOrderStatusFlow.vue";
 
 export default {
   props: ["noa", "procurement", "dropdowns"],
@@ -300,6 +306,7 @@ export default {
     PODetailsTab,
     PODeliveryTab,
     POInspectionTab,
+    PurchaseOrderStatusFlow,
   },
   data() {
     return {

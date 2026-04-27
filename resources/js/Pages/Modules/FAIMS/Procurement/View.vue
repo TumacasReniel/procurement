@@ -63,7 +63,7 @@
               <button
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
-                  activeTab === 1
+                  navActiveTab === 1
                     ? 'bg-primary text-white shadow-sm'
                     : 'bg-white text-dark hover-bg-light',
                 ]"
@@ -77,7 +77,7 @@
                 v-if="canManageProcurementWorkflow"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
-                  activeTab === 2
+                  navActiveTab === 2
                     ? 'bg-primary text-white shadow-sm'
                     : isProcessDoneTab(2)
                     ? 'tab-done-light-success'
@@ -100,7 +100,7 @@
                 v-if="canManageProcurementWorkflow"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
-                  activeTab === 3
+                  navActiveTab === 3
                     ? 'bg-primary text-white shadow-sm'
                     : isProcessDoneTab(3)
                     ? 'tab-done-light-success'
@@ -122,7 +122,7 @@
                 v-if="canManageProcurementWorkflow"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
-                  activeTab === 4
+                  navActiveTab === 4
                     ? 'bg-primary text-white shadow-sm'
                     : isProcessDoneTab(4)
                     ? 'tab-done-light-success'
@@ -142,7 +142,7 @@
                 v-if="canManageProcurementWorkflow"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
-                  activeTab === 5
+                  navActiveTab === 5
                     ? 'bg-primary text-white shadow-sm'
                     : isProcessDoneTab(5)
                     ? 'tab-done-light-success'
@@ -162,7 +162,7 @@
                 v-if="canShowPurchaseOrderTab"
                 :class="[
                   'nav-link text-start mb-2 rounded-pill border-0 transition-all',
-                  activeTab === 6
+                  navActiveTab === 6
                     ? 'bg-primary text-white shadow-sm'
                     : isProcessDoneTab(6)
                     ? 'tab-done-light-success'
@@ -196,7 +196,7 @@
             <button
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-                activeTab === 1
+                navActiveTab === 1
                   ? 'bg-primary text-white shadow-sm'
                   : 'bg-white text-dark hover-bg-light',
               ]"
@@ -211,7 +211,7 @@
               v-if="canManageProcurementWorkflow"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-                activeTab === 2
+                navActiveTab === 2
                   ? 'bg-primary text-white shadow-sm'
                   : isProcessDoneTab(2)
                   ? 'tab-done-light-success'
@@ -229,7 +229,7 @@
               v-if="canManageProcurementWorkflow"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-                activeTab === 3
+                navActiveTab === 3
                   ? 'bg-primary text-white shadow-sm'
                   : isProcessDoneTab(3)
                   ? 'tab-done-light-success'
@@ -247,7 +247,7 @@
               v-if="canManageProcurementWorkflow"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-                activeTab === 4
+                navActiveTab === 4
                   ? 'bg-primary text-white shadow-sm'
                   : isProcessDoneTab(4)
                   ? 'tab-done-light-success'
@@ -265,7 +265,7 @@
               v-if="canManageProcurementWorkflow"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-                activeTab === 5
+                navActiveTab === 5
                   ? 'bg-primary text-white shadow-sm'
                   : isProcessDoneTab(5)
                   ? 'tab-done-light-success'
@@ -283,7 +283,7 @@
               v-if="canShowPurchaseOrderTab"
               :class="[
                 'nav-link mb-2 rounded-pill border-0 transition-all p-2',
-                activeTab === 6
+                navActiveTab === 6
                   ? 'bg-primary text-white shadow-sm'
                   : isProcessDoneTab(6)
                   ? 'tab-done-light-success'
@@ -493,7 +493,7 @@ export default {
     ProcurementAssignModal,
     ProcurementStatusTipModal,
   },
-  props: ["dropdowns", "procurement", "tab", "logs", "noa"],
+  props: ["dropdowns", "procurement", "tab", "logs", "noa", "create_po"],
   data() {
     return {
       activeTab: 1,
@@ -524,6 +524,9 @@ export default {
   },
 
   computed: {
+    navActiveTab() {
+      return this.activeTab;
+    },
     currentRoles() {
       return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
     },
@@ -651,9 +654,9 @@ export default {
           { name: 'For Bids', isCurrent: false },
           { name: 'For BAC Resolution', isCurrent: false },
           { name: 'For Approval of BAC Resolution', isCurrent: false },
+          { name: currentStatus, isCurrent: true },
           { name: 'For NOA', isCurrent: false },
           { name: 'NOA Served to Supplier', isCurrent: false },
-          { name: currentStatus, isCurrent: true },
           { name: 'NOA Conformed', isCurrent: false },
           { name: 'PO Created', isCurrent: false },
           { name: 'PO Issued', isCurrent: false },
@@ -970,17 +973,27 @@ export default {
         "NOA Served to Supplier": 5,
         "NOA Served": 5,
         "NOA Conformed": 5,
-        "PO Created": 5,
-        "PO Issued": 5,
-        "PO Conformed": 5,
+        "PO Created": 6,
+        "PO Issued": 6,
+        "PO Conformed": 6,
+        "Partially Conformed": 6,
+        "PO Partially Conformed": 6,
         "Items Delivered": 6,
         "PO Items Delivered": 6,
+        "Partially Delivered/For Inspection": 6,
+        "PO Partially Delivered/For Inspection": 6,
+        "Delivered/For Inspection": 6,
+        "PO Delivered/For Inspection": 6,
+        "Items Partially Delivered": 6,
+        "PO Items Partially Delivered": 6,
         Delivered: 6,
         Completed: 6,
       };
 
-      if (defaultTabByStatus[status] && this.canAccessTab(defaultTabByStatus[status])) {
-        return defaultTabByStatus[status];
+      const resolvedStatusTab = defaultTabByStatus[status];
+
+      if (resolvedStatusTab && this.canAccessTab(resolvedStatusTab)) {
+        return resolvedStatusTab;
       }
 
       return 1;
@@ -1029,7 +1042,7 @@ export default {
       this.activeTab = 6;
       localStorage.setItem("activeTab", 6);
       router.visit(
-        `/faims/procurements/${this.procurement.id}?option=view&tab=6&noa_id=${data.id}`,
+        `/faims/procurements/${this.procurement.id}?option=view&tab=6&noa_id=${data.id}&create_po=1`,
         { replace: true, preserveState: true }
       );
     },
@@ -1123,8 +1136,18 @@ export default {
         2: ["Approved", "For Quotations", "For RFQ"],
         3: ["For Bids", "For BAC Resolution"],
         4: ["For Approval of BAC Resolution", "Re-award", "Rebid"],
-        5: ["For NOA", "NOA Served to Supplier", "NOA Conformed", "PO Created", "PO Issued", "PO Conformed"],
-        6: ["Items Delivered", "PO Items Delivered", "Delivered", "Completed"],
+        5: ["For NOA", "NOA Served to Supplier", "NOA Conformed"],
+        6: [
+          "PO Created",
+          "PO Issued",
+          "PO Conformed",
+          "Items Delivered",
+          "PO Items Delivered",
+          "Delivered/For Inspection",
+          "PO Delivered/For Inspection",
+          "Delivered",
+          "Completed",
+        ],
       };
 
       return (doneStatusMap[tab] || []).includes(status);

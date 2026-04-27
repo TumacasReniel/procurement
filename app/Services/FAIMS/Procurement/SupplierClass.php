@@ -4,8 +4,10 @@ namespace App\Services\FAIMS\Procurement;
 
 use App\Models\Supplier;
 use App\Models\User;
+use App\Notifications\PendingSupplierApprovalNotification;
 use App\Http\Resources\FAIMS\Procurement\SupplierResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class SupplierClass
@@ -17,7 +19,9 @@ class SupplierClass
             ->with(['address', 'conformes', 'attachments', 'created_by.profile', 'approved_by.profile'])
             ->withCount(['conformes', 'attachments'])
             ->when($request->keyword, function ($query, $keyword) {
-                $query->where(function ($searchQuery) use ($keyword) {
+                $normalizedKeyword = preg_replace('/\D+/', '', (string) $keyword);
+
+                $query->where(function ($searchQuery) use ($keyword, $normalizedKeyword) {
                     $searchQuery->where('name', 'LIKE', "%{$keyword}%")
                         ->orWhere('code', 'LIKE', "%{$keyword}%")
                         ->orWhere('tin', 'LIKE', "%{$keyword}%")
@@ -40,6 +44,10 @@ class SupplierClass
                                 ->orWhere('middlename', 'LIKE', "%{$keyword}%")
                                 ->orWhere('lastname', 'LIKE', "%{$keyword}%");
                         });
+
+                    if ($normalizedKeyword !== '') {
+                        $searchQuery->orWhereRaw("REPLACE(tin, '-', '') LIKE ?", ["%{$normalizedKeyword}%"]);
+                    }
                 });
             })
             ->when($request->status !== null && $request->status !== '', function ($query) use ($request) {
@@ -98,6 +106,10 @@ class SupplierClass
         }
 
         $this->syncAttachments($supplier, $request);
+
+        if (!$is_directly_approvable) {
+            $this->notifyPendingSupplierApprovalRecipients($supplier, $user);
+        }
 
         return [
             'data' => new SupplierResource($supplier->load(['address', 'conformes', 'attachments', 'created_by.profile', 'approved_by.profile'])),
@@ -202,6 +214,28 @@ class SupplierClass
         }
 
         return $user->hasRole('Procurement Officer') || $user->hasRole('Administrator');
+    }
+
+    protected function notifyPendingSupplierApprovalRecipients(Supplier $supplier, ?User $actor): void
+    {
+        if (!$actor || !Schema::hasTable('notifications')) {
+            return;
+        }
+
+        $recipients = User::query()
+            ->with('profile')
+            ->where('is_active', 1)
+            ->where('id', '!=', $actor->id)
+            ->whereHas('roles', function ($query) {
+                $query->where('list_roles.name', 'Procurement Officer')
+                    ->where('user_roles.is_active', 1);
+            })
+            ->get()
+            ->unique('id');
+
+        foreach ($recipients as $recipient) {
+            $recipient->notify(new PendingSupplierApprovalNotification($supplier, $actor));
+        }
     }
 
     protected function syncAttachments(Supplier $supplier, $request, bool $isUpdate = false): void

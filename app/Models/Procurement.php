@@ -152,7 +152,7 @@ class Procurement extends Model
                      ->whereMonth('date', $month)
                      ->count() + 1;
 
-        return 'PR-' . $year . $month . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        return 'PR-' . $year . '-' .  $month . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
     }
 
     public function getActivitylogOptions(): LogOptions {
