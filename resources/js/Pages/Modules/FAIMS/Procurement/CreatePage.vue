@@ -111,7 +111,7 @@
 
                             <div class="col-12">
                               <div class="form-group compact-form-group">
-                                <InputLabel for="Mode Procurement " value="Mode of Procurement" :message="form.errors.procurement_code_ids" />
+                                <InputLabel for="Mode Procurement " value="Procurement Codes" :message="form.errors.procurement_code_ids" />
                                 <Multiselect
                                   :options="availableProcurementCodes"
                                   v-model="form.procurement_code_ids"
@@ -121,6 +121,12 @@
                                   mode="tags"
                                   class="modern-select"
                                 />
+                                <small
+                                  v-if="form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage"
+                                  class="text-danger d-block mt-2 fs-5 fw-bold"
+                                >
+                                  {{ form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage }}
+                                </small>
                               </div>
                             </div>
 
@@ -656,6 +662,21 @@ export default {
     procurementCodeBalanceHelperClass() {
       return this.hasEnoughSelectedProcurementCodeBalance ? "text-muted" : "text-danger";
     },
+    procurementCodeBudgetErrorMessage() {
+      if (this.option !== "create") {
+        return null;
+      }
+
+      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+        return null;
+      }
+
+      if (this.totalCostSum <= 0 || this.hasEnoughSelectedProcurementCodeBalance) {
+        return null;
+      }
+
+      return `The selected PAP codes only have ${this.formatCurrency(this.selectedProcurementCodeBalance)} remaining, which is not enough for the request total of ${this.formatCurrency(this.totalCostSum)}. You cannot create this procurement request until the selected balance is enough.`;
+    },
     canReviewRequest() {
       return Boolean(this.form.classification_id  && this.form.reference_app_id );
     },
@@ -682,6 +703,7 @@ export default {
     this.action = this.option;
     if (this.option === 'create' && this.dropdowns.regional_director) {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
+ 
     }
     try {
       this.isRightCollapsed = JSON.parse(localStorage.getItem("isRightCollapsed")) ?? true;
@@ -756,6 +778,10 @@ export default {
     },
 
     submit() {
+      if (!this.canCreateRequest) {
+        return;
+      }
+
       this.form.post("/faims/procurements", {
         onSuccess: () => {
           localStorage.removeItem("itemsAdded");
@@ -927,7 +953,7 @@ export default {
 }
 
 .hero-gradient {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #4c5f98;
   padding: 0.45rem 0;
   position: relative;
 }
@@ -1290,7 +1316,7 @@ export default {
 }
 
 .items-table thead {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: #4c5f98;
   color: white;
 }
 

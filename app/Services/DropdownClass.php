@@ -600,15 +600,21 @@ class DropdownClass
         $data = $records->first(fn ($item) => filled($this->resolveOrgChartDisplayName($item)))
             ?? $records->first();
 
-
         if (!$data) {
             return null; // or return an empty array []
         }
 
-        $name = $this->resolveOrgChartDisplayName($data, true);
+        $person = $this->resolveOrgChartPerson($data);
+
+        if (!$person?->id) {
+            return null;
+        }
+
+        $name = $this->resolveOrgChartDisplayName($data, true)
+            ?? strtoupper($person->profile?->full_name ?? $person->username ?? '');
 
         return [
-            'value' => $data->id,
+            'value' => $person->id,
             'name' => $name,
             'designation' => $data->designation
         ];
