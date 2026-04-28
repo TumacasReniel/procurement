@@ -1,561 +1,363 @@
 <template>
-	<div class="procurement-dashboard-page">
-	<Head title="Procurement Dashboard" />
-	<PageHeader title="Procurement Dashboard" pageTitle="Overview" />
+  <div class="procurement-dashboard-page">
+    <Head title="Procurement Dashboard" />
+    <PageHeader title="Procurement Dashboard" pageTitle="Overview" />
 
-	<!-- Hero Summary -->
-	<BRow class="mb-4">
-		<BCol xl="12">
-			<BCard class="procurement-hero border-0">
-				<BCardBody>
-					<div class="d-flex flex-column flex-xl-row gap-3 align-items-xl-center justify-content-between">
-						<div>
-							<p class="text-uppercase fw-semibold text-white-50 mb-1">Procurement Overview</p>
-							<h3 class="text-white mb-2">Keep a close pulse on requests, approvals, and completions.</h3>
-							<div class="d-flex flex-wrap gap-2">
-								<span class="badge bg-white text-primary fw-semibold px-3 py-2">
-									Total {{ dashboard.total_procurements }}
-								</span>
-								<span class="badge bg-white text-success fw-semibold px-3 py-2">
-									Completed {{ dashboard.completed_procurements }}
-								</span>
-								<span class="badge bg-white text-warning fw-semibold px-3 py-2">
-									For Review {{ dashboard.for_reviews }}
-								</span>
-								<span class="badge bg-white text-warning fw-semibold px-3 py-2">
-									For Approval {{ dashboard.for_approvals }}
-								</span>
-								<span class="badge bg-white text-dark fw-semibold px-3 py-2">
-									Completion {{ completionRate }}%
-								</span>
-							</div>
-						</div>
-						<div class="d-flex flex-wrap gap-2">
-							<BButton variant="light" class="btn-soft" @click="goCreatePage">
-								<i class="ri-add-circle-line me-1"></i> New Request
-							</BButton>
-							<BButton variant="outline-light" @click="goViewAll">
-								<i class="ri-file-list-3-line me-1"></i> View Requests
-							</BButton>
-						</div>
-					</div>
-					<p v-if="lastUpdated" class="text-white-50 mb-0 mt-3 fs-12">
-						Last updated: {{ formatDateTime(lastUpdated) }}
-					</p>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+    <!-- Hero -->
+    <section class="card border-0 overflow-hidden mb-3 procurement-hero">
+      <div class="card-body">
+        <div class="row g-3 align-items-center">
+          <div class="col-xl-7">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <span class="hero-kicker">Procurement Overview</span>
+              <BBadge class="bg-white bg-opacity-10 text-white border border-white border-opacity-25 rounded-pill">
+                <i class="ri-calendar-line me-1"></i>{{ filteredPeriodLabel }}
+              </BBadge>
+            </div>
+
+            <h3 class="text-white fw-bold mb-2">
+              Keep a close pulse on requests, approvals, and completions.
+            </h3>
+
+            <p class="text-white-50 mb-3">
+              Track request volume, queue pressure, and unit activity from one focused workspace.
+            </p>
+
+            <div class="d-flex flex-wrap gap-2">
+              <BBadge class="hero-pill">Total {{ dashboard.total_procurements }}</BBadge>
+              <BBadge class="hero-pill text-success">Completed {{ dashboard.completed_procurements }}</BBadge>
+              <BBadge class="hero-pill text-warning">For Review {{ dashboard.for_reviews }}</BBadge>
+              <BBadge class="hero-pill text-warning">For Approval {{ dashboard.for_approvals }}</BBadge>
+              <BBadge class="hero-pill text-dark">Completion {{ completionRate }}%</BBadge>
+            </div>
+
+            <p v-if="lastUpdated" class="text-white-50 mb-0 mt-3 fs-12">
+              Last updated: {{ formatDateTime(lastUpdated) }}
+            </p>
+          </div>
+
+          <div class="col-xl-5">
+            <div class="hero-stat-grid">
+              <div class="hero-stat-card">
+                <span>Open Requests</span>
+                <strong>{{ openRequests }}</strong>
+                <small>Still moving through the pipeline</small>
+              </div>
+
+              <div class="hero-stat-card">
+                <span>Active Units</span>
+                <strong>{{ activeUnitsCount }}</strong>
+                <small>Units with procurement activity</small>
+              </div>
+
+              <div class="hero-stat-card">
+                <span>Distributed</span>
+                <strong>{{ formatCompactCurrency(divisionTotalAmount) }}</strong>
+                <small>Value in current view</small>
+              </div>
+
+              <div class="hero-stat-card d-flex flex-column justify-content-center gap-2">
+                <BButton variant="light" class="fw-semibold rounded-3" @click="goCreatePage">
+                  <i class="ri-add-circle-line me-1"></i> New Request
+                </BButton>
+
+                <BButton variant="outline-light" class="fw-semibold rounded-3" @click="goViewAll">
+                  <i class="ri-file-list-3-line me-1"></i> View Requests
+                </BButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="card border-0 shadow-sm rounded-4 mb-3">
+      <div class="card-body compact-card">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    
+
+          <div class="d-flex flex-wrap gap-2">
+            <BBadge class="bg-primary-subtle text-primary rounded-pill px-3 py-2">
+              <i class="ri-focus-3-line me-1"></i>{{ filteredPeriodLabel }}
+            </BBadge>
+
+          </div>
+        </div>
+
+        <BRow class="g-2 align-items-end">
+          <BCol md="3">
+            <label class="form-label small text-muted">Filter Period</label>
+            <Multiselect v-model="dashboardFilter.period" :options="periodOptions" placeholder="Select period" @select="onPeriodChange" />
+          </BCol>
+
+          <BCol md="2" v-if="isQuarterSelected || ['monthly', 'quarterly', 'yearly'].includes(dashboardFilter.period)">
+            <label class="form-label small text-muted">Year</label>
+            <Multiselect v-model="dashboardFilter.year" :options="yearOptions" placeholder="Select year" @select="fetchDashboard" />
+          </BCol>
+
+          <BCol md="2" v-if="dashboardFilter.period === 'monthly'">
+            <label class="form-label small text-muted">Month</label>
+            <Multiselect v-model="dashboardFilter.month" :options="monthOptions" placeholder="Select month" @select="fetchDashboard" />
+          </BCol>
+
+          <BCol md="2" v-if="dashboardFilter.period === 'quarterly'">
+            <label class="form-label small text-muted">Quarter</label>
+            <Multiselect v-model="dashboardFilter.quarter" :options="quarterOptions" placeholder="Select quarter" @select="fetchDashboard" />
+          </BCol>
+
+          <BCol md="3" v-if="dashboardFilter.period === 'custom'">
+            <label class="form-label small text-muted">Start Date</label>
+            <input type="date" class="form-control" v-model="dashboardFilter.start_date" @change="fetchDashboard" />
+          </BCol>
+
+          <BCol md="3" v-if="dashboardFilter.period === 'custom'">
+            <label class="form-label small text-muted">End Date</label>
+            <input type="date" class="form-control" v-model="dashboardFilter.end_date" @change="fetchDashboard" />
+          </BCol>
+        </BRow>
+      </div>
+    </section>
+
+    <!-- Metrics -->
+    <BRow class="g-3 mb-3">
+      <BCol xl="3" md="6" v-for="(metric, i) in metrics" :key="i">
+        <BCard class="metric-card h-100">
+          <BCardBody>
+            <div class="d-flex align-items-center gap-3">
+              <div class="metric-icon" :class="[metric.bgClass, metric.textClass]">
+                <i :class="metric.icon"></i>
+              </div>
+
+              <div class="min-w-0">
+                <p class="text-uppercase text-muted fw-semibold fs-12 mb-1 text-truncate">
+                  {{ metric.label }}
+                </p>
+                <h4 class="fw-bold mb-1">{{ metric.value }}</h4>
+                <p class="text-muted fs-12 mb-0">{{ metric.note }}</p>
+              </div>
+            </div>
+          </BCardBody>
+        </BCard>
+      </BCol>
+    </BRow>
 
 
-	<!-- Dashboard Filters -->
-	<BRow class="mb-4">
-		<BCol xl="12">
-			<BCard class="filter-card">
-				<BCardBody class="py-3">
-					<BRow class="align-items-end g-3">
-						<BCol md="3">
-							<label class="form-label">Filter Period</label>
-							<Multiselect
-								v-model="dashboardFilter.period"
-								:options="periodOptions"
-								placeholder="Select period"
-								@select="onPeriodChange"
-							/>
-						</BCol>
-						<BCol md="2" v-if="isQuarterSelected || dashboardFilter.period === 'monthly' || dashboardFilter.period === 'quarterly' || dashboardFilter.period === 'yearly'">
-							<label class="form-label">Year</label>
-							<Multiselect
-								v-model="dashboardFilter.year"
-								:options="yearOptions"
-								placeholder="Select year"
-								@select="fetchDashboard"
-							/>
-						</BCol>
-						<BCol md="2" v-if="dashboardFilter.period === 'monthly'">
-							<label class="form-label">Month</label>
-							<Multiselect
-								v-model="dashboardFilter.month"
-								:options="monthOptions"
-								placeholder="Select month"
-								@select="fetchDashboard"
-							/>
-						</BCol>
-						<BCol md="2" v-if="dashboardFilter.period === 'quarterly'">
-							<label class="form-label">Quarter</label>
-							<Multiselect
-								v-model="dashboardFilter.quarter"
-								:options="quarterOptions"
-								placeholder="Select quarter"
-								@select="fetchDashboard"
-							/>
-						</BCol>
-						<BCol md="3" v-if="dashboardFilter.period === 'custom'">
-							<label class="form-label">Start Date</label>
-							<input
-								type="date"
-								class="form-control"
-								v-model="dashboardFilter.start_date"
-								@change="fetchDashboard"
-							/>
-						</BCol>
-						<BCol md="3" v-if="dashboardFilter.period === 'custom'">
-							<label class="form-label">End Date</label>
-							<input
-								type="date"
-								class="form-control"
-								v-model="dashboardFilter.end_date"
-								@change="fetchDashboard"
-							/>
-						</BCol>
-						<!-- <BCol md="3">
-							<b-button variant="primary" @click="fetchDashboard">
-								<i class="ri-refresh-line me-1"></i> Apply Filters
-							</b-button>
-						</BCol> -->
-					</BRow>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+    <BRow class="g-2 mb-1">
+      <BCol v-for="module in workspaceModules" :key="module.key" xl="4" md="6">
+        <BCard class="module-card">
+          <BCardBody>
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="module-icon" :class="[module.iconBgClass, module.iconTextClass]">
+                <i :class="module.icon"></i>
+              </div>
 
-	<!-- Dashboard Metrics Cards -->
-	<BRow class="mb-3 dashboard-section">
-		<BCol xl="12">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">At a Glance</p>
-					<h4 class="section-title">Core Procurement Metrics</h4>
-				</div>
-				<span class="section-meta">Updated {{ lastUpdated ? formatDateTime(lastUpdated) : 'just now' }}</span>
-			</div>
-		</BCol>
-	</BRow>
-	<BRow class="mb-4">
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-primary-subtle text-primary rounded-2 fs-2">
-								<i class="ri-file-list-3-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Total Procurements</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_procurements">{{ dashboard.total_procurements }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+              <BBadge class="bg-primary-subtle text-primary rounded-pill">
+                {{ module.tag }}
+              </BBadge>
+            </div>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-warning-subtle text-warning rounded-2 fs-2">
-								<i class="ri-time-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">For Reviews</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.for_reviews">{{ dashboard.for_reviews }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+            <p class="fw-bold text-dark">{{ module.title }}</p>
 
-    	<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-warning-subtle text-warning rounded-2 fs-2">
-								<i class="ri-time-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">For Approval</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.for_approvals">{{ dashboard.for_approvals }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+            <h4 class="fw-bold text-primary " :class="module.isTextValue ? 'fs-5' : 'fs-2'">
+              {{ module.value }}
+            </h4>
+          </BCardBody>
+        </BCard>
+      </BCol>
+    </BRow>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-success-subtle text-success rounded-2 fs-2">
-								<i class="ri-check-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Completed</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.completed_procurements">{{ dashboard.completed_procurements }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+    <!-- Charts -->
+    <BRow class="g-3 mb-3">
+      <BCol xl="12">
+        <BCard class="panel-card h-100">
+          <BCardHeader>
+            <h5><i class="ri-bar-chart-line me-2"></i>Monthly Procurement Trends</h5>
+            <p>Request volume for {{ filteredPeriodLabel }}</p>
+          </BCardHeader>
 
-		
-	</BRow>
+          <BCardBody>
+            <apexchart type="bar" height="350" :options="monthlyChartOptions" :series="monthlyChartSeries" />
+          </BCardBody>
+        </BCard>
+      </BCol>
 
-	<!-- Additional Metrics Cards -->
-	<BRow class="mb-3 dashboard-section">
-		<BCol xl="12">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">Pipeline</p>
-					<h4 class="section-title">Documents & Outputs</h4>
-				</div>
-				<span class="section-meta">Totals across selected period</span>
-			</div>
-		</BCol>
-	</BRow>
-	<BRow class="mb-4">
-    <BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-info-subtle text-info rounded-2 fs-2">
-								<i class="ri-file-text-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Total Quotations</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_quotations">{{ dashboard.total_quotations }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-danger-subtle text-danger rounded-2 fs-2">
-								<i class="ri-file-paper-2-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">BAC Resolutions</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_bac_resolutions">{{ dashboard.total_bac_resolutions }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+    </BRow>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-secondary-subtle text-secondary rounded-2 fs-2">
-								<i class="ri-notification-2-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Notice of Awards</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_notice_of_awards">{{ dashboard.total_notice_of_awards }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+    <!-- Unit Breakdown -->
+    <BCard class="panel-card mb-3">
+      <BCardHeader class="d-flex justify-content-between align-items-center">
+        <div>
+          <h5><i class="ri-bar-chart-horizontal-line me-2"></i>Unit Breakdown</h5>
+          <p>Procurement activity by unit</p>
+        </div>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-dark-subtle text-dark rounded-2 fs-2">
-								<i class="ri-shopping-cart-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Purchase Orders</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_purchase_orders">{{ dashboard.total_purchase_orders }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+        <BBadge class="bg-primary-subtle text-primary px-3 py-2">
+          {{ sortedDivisionDistribution.length }} Units
+        </BBadge>
+      </BCardHeader>
 
-	<!-- Charts Row -->
-	<BRow class="mb-3 dashboard-section">
-		<BCol xl="12">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">Trends</p>
-					<h4 class="section-title">Monthly Movement & Unit Share</h4>
-				</div>
-				<span class="section-meta">Visual breakdown of activity</span>
-			</div>
-		</BCol>
-	</BRow>
-	<BRow class="mb-4">
-		<BCol xl="8">
-			<BCard class="panel-card">
-				<BCardHeader class="py-3">
-					<h4 class="card-title mb-0"><i class="ri-bar-chart-line me-2"></i>Monthly Procurement Trends</h4>
-				</BCardHeader>
-				<BCardBody>
-					<apexchart
-						type="bar"
-						height="350"
-						:options="monthlyChartOptions"
-						:series="monthlyChartSeries"
-					></apexchart>
-				</BCardBody>
-			</BCard>
-		</BCol>
+      <BCardBody>
+        <div v-if="sortedDivisionDistribution.length">
+          <apexchart
+            type="bar"
+            :height="unitBreakdownChartHeight"
+            :options="unitBreakdownChartOptions"
+            :series="unitBreakdownChartSeries"
+          />
 
-		<BCol xl="4">
-			<BCard class="panel-card unit-summary-card">
-				<BCardHeader class="py-3">
-					<h4 class="card-title mb-0"><i class="ri-donut-chart-line me-2"></i>Unit Distribution</h4>
-				</BCardHeader>
-				<BCardBody class="chart-body">
-					<div v-if="sortedDivisionDistribution.length" class="chart-container">
-						<apexchart
-							type="donut"
-							height="300"
-							:options="unitSummaryChartOptions"
-							:series="unitSummaryChartSeries"
-						></apexchart>
-					</div>
-					<div v-else class="empty-state text-center py-5">
-						<i class="ri-pie-chart-line fs-1 text-secondary"></i>
-						<p class="text-muted mt-2 mb-0">No unit data available</p>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+          <div class="unit-breakdown-footer mt-3">
+            <div class="unit-breakdown-stat">
+              <span>Total Procurements</span>
+              <strong>{{ divisionTotal }}</strong>
+              <small>Recorded requests across visible units</small>
+            </div>
 
-	<!-- Division Table -->
-	<BRow class="mb-4 dashboard-section">
-		<BCol xl="12">
-			<BCard class="panel-card unit-table-card">
-				<BCardHeader class="d-flex align-items-center justify-content-between py-3">
-					<h4 class="card-title mb-0"><i class="ri-layout-grid-line me-2"></i>Unit Breakdown</h4>
-					<span class="badge bg-primary-subtle text-primary px-3 py-2">
-						<i class="ri-information-line me-1"></i>{{ sortedDivisionDistribution.length }} Units
-					</span>
-				</BCardHeader>
-				<BCardBody class="pt-0">
-					<div class="table-responsive table-card">
-						<table class="table align-middle table-hover mb-0">
-							<thead class="table-light">
-								<tr class="fs-12 fw-semibold text-uppercase">
-									<th style="width: 5%" class="text-center"><i class="ri-hashtag"></i></th>
-									<th style="width: 34%"><i class="ri-building-line me-1"></i>Unit</th>
-									<th style="width: 16%" class="text-end"><i class="ri-file-list-3-line me-1"></i>Procurements</th>
-									<th style="width: 22%" class="text-end"><i class="ri-money-dollar-circle-line me-1"></i>Amount Distributed</th>
-									<th style="width: 23%"><i class="ri-pie-chart-line me-1"></i>Distribution</th>
-								</tr>
-							</thead>
-							<tbody class="table-group-divider">
-								<tr v-for="(item, index) in sortedDivisionDistribution" :key="index" class="unit-row">
-									<td class="text-center">
-										<span class="unit-number">{{ index + 1 }}</span>
-									</td>
-									<td class="fw-semibold">
-										<div class="d-flex align-items-center">
-											<div class="unit-icon me-2">
-												<i class="ri-community-line"></i>
-											</div>
-											<div>
-												<div>{{ getUnitLabel(item) }}</div>
-												<div class="text-muted fs-12">{{ getUnitDivisionLabel(item) }}</div>
-											</div>
-										</div>
-									</td>
-									<td class="text-end fw-semibold">
-										<span class="procurement-count">{{ item.count }}</span>
-									</td>
-									<td class="text-end fw-semibold">
-										<span class="distributed-amount">{{ formatCurrency(item.distributed_amount) }}</span>
-									</td>
-									<td>
-										<div class="d-flex align-items-center gap-2">
-											<div class="progress flex-grow-1 unit-progress" style="height: 10px;">
-												<div class="progress-bar bg-gradient" role="progressbar" :style="{ width: item.share + '%' }" :aria-valuenow="item.share" aria-valuemin="0" aria-valuemax="100"></div>
-											</div>
-											<span class="share-badge">{{ item.share }}%</span>
-										</div>
-									</td>
-								</tr>
-								<tr v-if="sortedDivisionDistribution.length > 0" class="table-light total-row">
-									<td class="text-center"><i class="ri-calculator-line"></i></td>
-									<td class="fw-semibold"><div class="d-flex align-items-center"><i class="ri-stack-line me-2"></i>All Units</div></td>
-									<td class="text-end fw-semibold">{{ divisionTotal }}</td>
-									<td class="text-end fw-semibold">{{ formatCurrency(divisionTotalAmount) }}</td>
-									<td>
-										<div class="d-flex align-items-center gap-2">
-											<div class="progress flex-grow-1" style="height: 10px;">
-												<div class="progress-bar bg-primary" role="progressbar" style="width: 100%"></div>
-											</div>
-											<span class="share-badge bg-primary text-white">100%</span>
-										</div>
-									</td>
-								</tr>
-								<tr v-if="sortedDivisionDistribution.length === 0">
-									<td colspan="5" class="text-center text-muted py-5">
-										<i class="ri-inbox-line fs-1 d-block mb-2 opacity-50"></i>
-										No unit data available
-									</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+            <div class="unit-breakdown-stat">
+              <span>Distributed Amount</span>
+              <strong>{{ formatCompactCurrency(divisionTotalAmount) }}</strong>
+              <small>{{ formatCurrency(divisionTotalAmount) }}</small>
+            </div>
 
-	<!-- Recent Activity -->
-	<BRow class="mb-4 dashboard-section">
-		<BCol xl="7">
-			<BCard class="panel-card">
-				<BCardHeader class="d-flex align-items-center justify-content-between py-3">
-					<h4 class="card-title mb-0"><i class="ri-time-line me-2"></i>Recent Procurements</h4>
-					<BButton size="sm" variant="outline-primary" @click="goViewAll">
-						View All
-					</BButton>
-				</BCardHeader>
-				<BCardBody class="pt-0">
-					<div class="table-responsive table-card">
-						<table class="table align-middle table-hover mb-0">
-							<thead class="table-light">
-								<tr class="fs-12 fw-semibold">
-									<th style="width: 20%">Code</th>
-									<th style="width: 30%">Purpose</th>
-									<th style="width: 16%">Division</th>
-									<th style="width: 14%">Status</th>
-									<th style="width: 20%">Date</th>
-								</tr>
-							</thead>
-							<tbody class="table-group-divider">
-								<tr v-for="(list, index) in lists" :key="index" class="cursor-pointer" @click="goViewPage(list)">
-									<td>
-										<div class="fw-semibold text-primary">{{ list.code }}</div>
-									</td>
-									<td>
-										<div class="text-truncate" style="max-width: 240px" v-b-tooltip.hover :title="list.purpose">
-											{{ list.purpose }}
-										</div>
-									</td>
-									<td>{{ list.division?.name }}</td>
-									<td>
-										<b-badge :class="list.status?.bg" class="fs-11">{{ list.status?.name }}</b-badge>
-									</td>
-									<td class="text-muted">{{ formatDate(list.date) }}</td>
-								</tr>
-								<tr v-if="lists.length === 0">
-									<td colspan="5" class="text-center text-muted py-4">No recent procurements found.</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-		<BCol xl="5">
-			<BCard class="insights-card panel-card">
-				<BCardHeader class="py-3">
-					<h4 class="card-title mb-0"><i class="ri-lightbulb-line me-2"></i>Insights</h4>
-				</BCardHeader>
-				<BCardBody>
-					<div class="d-flex align-items-center justify-content-between mb-3">
-						<div>
-							<p class="text-muted mb-1">Open Requests</p>
-							<h4 class="mb-0">
-								{{ dashboard.total_procurements - dashboard.completed_procurements }}
-							</h4>
-							<p class="text-muted mb-0 fs-12">
-								{{ completionRate }}% completion rate
-							</p>
-						</div>
-						<div class="avatar-sm">
-							<div class="avatar-title bg-soft-primary text-primary rounded-circle">
-								<i class="ri-folder-open-line fs-18"></i>
-							</div>
-						</div>
-					</div>
-					<div class="progress bg-soft-primary mb-4" style="height: 8px;">
-						<div class="progress-bar bg-primary" role="progressbar" :style="{ width: completionRate + '%' }" :aria-valuenow="completionRate" aria-valuemin="0" aria-valuemax="100"></div>
-					</div>
-					<div class="d-flex align-items-center justify-content-between mb-3">
-						<div>
-							<p class="text-muted mb-1">Top Unit</p>
-							<h4 class="mb-0">{{ topDivision.name }}</h4>
-							<p class="text-muted mb-0 fs-12">{{ topDivision.count }} procurements</p>
-						</div>
-						<div class="avatar-sm">
-							<div class="avatar-title bg-soft-info text-info rounded-circle">
-								<i class="ri-building-2-line fs-18"></i>
-							</div>
-						</div>
-					</div>
-					<div class="d-flex align-items-center justify-content-between mb-3">
-						<div>
-							<p class="text-muted mb-1">Review Queue</p>
-							<h4 class="mb-0">{{ dashboard.for_reviews }}</h4>
-							<p class="text-muted mb-0 fs-12">Pending review items</p>
-						</div>
-						<div class="avatar-sm">
-							<div class="avatar-title bg-soft-warning text-warning rounded-circle">
-								<i class="ri-time-line fs-18"></i>
-							</div>
-						</div>
-					</div>
-					<div class="d-flex align-items-center justify-content-between">
-						<div>
-							<p class="text-muted mb-1">Approval Queue</p>
-							<h4 class="mb-0">{{ dashboard.for_approvals }}</h4>
-							<p class="text-muted mb-0 fs-12">Awaiting approval</p>
-						</div>
-						<div class="avatar-sm">
-							<div class="avatar-title bg-soft-warning text-warning rounded-circle">
-								<i class="ri-task-line fs-18"></i>
-							</div>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+            <div class="unit-breakdown-stat">
+              <span>Top Unit</span>
+              <strong>{{ topDivision.name }}</strong>
+              <small>{{ topDivision.count }} procurements</small>
+            </div>
+          </div>
+        </div>
 
-	</div>
+        <div v-else class="empty-state py-5">
+          <i class="ri-inbox-line"></i>
+          <p>No unit data available</p>
+        </div>
+      </BCardBody>
+    </BCard>
+
+    <!-- Recent + Insights -->
+    <BRow class="g-3 mb-3">
+      <BCol xl="7">
+        <BCard class="panel-card h-100">
+          <BCardHeader class="d-flex justify-content-between align-items-center">
+            <div>
+              <h5><i class="ri-time-line me-2"></i>Recent Procurements</h5>
+              <p>Latest requests captured in the procurement workspace</p>
+            </div>
+
+            <BButton size="sm" variant="outline-primary" @click="goViewAll">
+              View All
+            </BButton>
+          </BCardHeader>
+
+          <BCardBody class="pt-0">
+            <div class="table-responsive">
+              <table class="table align-middle table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Code</th>
+                    <th>Purpose</th>
+                    <th>Division</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr v-for="(list, index) in lists" :key="index" class="cursor-pointer" @click="goViewPage(list)">
+                    <td class="fw-semibold text-primary">{{ list.code }}</td>
+
+                    <td>
+                      <div class="text-truncate" style="max-width: 240px" v-b-tooltip.hover :title="list.purpose">
+                        {{ list.purpose }}
+                      </div>
+                    </td>
+
+                    <td>{{ list.division?.name || 'N/A' }}</td>
+
+                    <td>
+                      <b-badge :class="list.status?.bg" class="fs-11">
+                        {{ list.status?.name }}
+                      </b-badge>
+                    </td>
+
+                    <td class="text-muted">{{ formatDate(list.date) }}</td>
+                  </tr>
+
+                  <tr v-if="lists.length === 0">
+                    <td colspan="5" class="text-center text-muted py-4">
+                      No recent procurements found.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </BCardBody>
+        </BCard>
+      </BCol>
+
+      <BCol xl="5">
+        <BCard class="panel-card insights-card h-100">
+          <BCardHeader>
+            <h5><i class="ri-lightbulb-line me-2"></i>Insights</h5>
+            <p>Operational snapshot of the current workload</p>
+          </BCardHeader>
+
+          <BCardBody>
+            <div class="insight-highlight mb-3">
+              <div>
+                <p class="text-muted mb-1">Completion Snapshot</p>
+                <h3 class="fw-bold mb-1">{{ completionRate }}%</h3>
+                <p class="text-muted fs-12 mb-0">
+                  {{ dashboard.completed_procurements }} of {{ dashboard.total_procurements }} requests completed
+                </p>
+              </div>
+
+              <div class="insight-icon">
+                <i class="ri-pulse-line"></i>
+              </div>
+            </div>
+
+            <div class="progress bg-primary-subtle mb-3" style="height: 8px;">
+              <div
+                class="progress-bar bg-primary"
+                :style="{ width: completionRate + '%' }"
+                :aria-valuenow="completionRate"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              ></div>
+            </div>
+
+            <div class="insight-grid">
+              <div class="insight-item">
+                <span>Open Requests</span>
+                <strong>{{ openRequests }}</strong>
+                <small>Still moving through the process</small>
+              </div>
+
+              <div class="insight-item">
+                <span>Top Unit</span>
+                <strong>{{ topDivision.name }}</strong>
+                <small>{{ topDivision.count }} procurements</small>
+              </div>
+
+              <div class="insight-item">
+                <span>Review Queue</span>
+                <strong>{{ dashboard.for_reviews }}</strong>
+                <small>Pending review items</small>
+              </div>
+
+              <div class="insight-item">
+                <span>Approval Queue</span>
+                <strong>{{ dashboard.for_approvals }}</strong>
+                <small>Awaiting approval sign-off</small>
+              </div>
+            </div>
+          </BCardBody>
+        </BCard>
+      </BCol>
+    </BRow>
+  </div>
 </template>
 
 <script>
@@ -588,6 +390,16 @@ export default {
         for_reviews: 0,
         for_approvals: 0,
         completed_procurements: 0,
+        total_assignments: 0,
+        total_pap_codes: 0,
+        total_remaining_pap_budget: 0,
+        total_allocated_pap_budget: 0,
+        total_responsibility_centers: 0,
+        total_modes_of_procurement: 0,
+        active_modes_of_procurement: 0,
+        total_suppliers: 0,
+        active_suppliers: 0,
+        pending_supplier_approvals: 0,
         total_quotations: 0,
         total_bac_resolutions: 0,
         total_notice_of_awards: 0,
@@ -673,97 +485,52 @@ export default {
       }],
       unitSummaryChartOptions: {
         chart: {
-          type: 'donut',
-          height: 300,
+          type: 'treemap',
+          height: 320,
           fontFamily: 'inherit',
+          toolbar: {
+            show: false,
+          },
         },
-        labels: [],
         colors: ['#405189', '#5c6bc0', '#7986cb', '#9fa8da', '#c5cae9', '#0ab39c', '#20c997', '#ffc107', '#6b7299'],
+        legend: {
+          show: false,
+        },
+        grid: {
+          show: false,
+        },
+        plotOptions: {
+          treemap: {
+            distributed: true,
+            enableShades: false,
+            borderRadius: 8,
+          },
+        },
         dataLabels: {
           enabled: true,
-          formatter: function (_val, opts) {
-            return opts.w.globals.labels[opts.seriesIndex] || '';
+          formatter: function (text, opts) {
+            const label = text && text.length > 18 ? `${text.slice(0, 18)}...` : (text || 'Unassigned');
+            return [label, `${opts.value} req`];
           },
           dropShadow: {
             enabled: false,
           },
           style: {
-            fontSize: '12px',
+            fontSize: '11px',
             fontWeight: '600',
-            colors: ['#1e293b'],
-          },
-        },
-        legend: {
-          position: 'bottom',
-          horizontalAlign: 'center',
-          floating: false,
-          fontSize: '12px',
-          fontWeight: '500',
-          color: '#475569',
-          itemMargin: {
-            horizontal: 8,
-            vertical: 4,
-          },
-          formatter: function (seriesName, opts) {
-            const count = opts.w.globals.series[opts.seriesIndex] || 0;
-            const total = opts.w.globals.seriesTotals.reduce((a, b) => a + b, 0) || 1;
-            const pct = Math.round((count / total) * 100);
-            return `<span class="legend-text">${seriesName}</span> <span class="legend-count">(${count})</span>`;
-          },
-        },
-        plotOptions: {
-          pie: {
-            donut: {
-              size: '65%',
-              labels: {
-                show: true,
-                name: {
-                  show: true,
-                  offsetY: -10,
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#405189',
-                  formatter: function () {
-                    return 'Total';
-                  },
-                },
-                value: {
-                  show: true,
-                  offsetY: 6,
-                  fontSize: '24px',
-                  fontWeight: '700',
-                  color: '#1e293b',
-                  formatter: function (val) {
-                    return val;
-                  },
-                },
-                total: {
-                  show: true,
-                  showAlways: true,
-                  label: 'Total',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#64748b',
-                  formatter: function (w) {
-                    const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
-                    return total;
-                  },
-                },
-              },
-            },
-            expandOnClick: true,
+            colors: ['#ffffff'],
           },
         },
         stroke: {
           show: true,
-          width: 3,
+          width: 4,
           colors: ['#fff'],
         },
         states: {
           hover: {
             filter: {
               type: 'lighten',
-              value: 0.1,
+              value: 0.08,
             },
           },
           active: {
@@ -779,38 +546,213 @@ export default {
           style: {
             fontSize: '12px',
           },
-          y: {
-            formatter: function (val, opts) {
-              const total = opts.w.globals.seriesTotals.reduce((a, b) => a + b, 0) || 1;
-              const pct = Math.round((val / total) * 100);
-              return `<strong>${val}</strong> procurements (${pct}%)`;
-            },
+          custom: function({ seriesIndex, dataPointIndex, w }) {
+            const point = w.config.series?.[seriesIndex]?.data?.[dataPointIndex] || {};
+            const count = Number(point.y) || 0;
+            const amount = Number(point.distributedAmount) || 0;
+            const share = Number(point.share) || 0;
+            const amountLabel = new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 2,
+            }).format(amount);
+
+            return [
+              '<div style="padding: 10px 12px; min-width: 220px;">',
+              `<div style="font-size: 13px; font-weight: 700; color: #0f172a;">${point.x || 'Unassigned'}</div>`,
+              point.divisionLabel ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${point.divisionLabel}</div>` : '',
+              `<div style="margin-top: 10px; font-size: 12px; color: #334155;"><strong>${count}</strong> procurements</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${share}% request share</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${amountLabel} distributed</div>`,
+              '</div>',
+            ].join('');
           },
         },
         responsive: [
           {
             breakpoint: 1200,
             options: {
-              chart: { height: 280 },
-              legend: { 
-                position: 'bottom',
-                fontSize: '11px',
+              chart: { height: 300 },
+              dataLabels: {
+                style: {
+                  fontSize: '10px',
+                },
               },
             },
           },
           {
             breakpoint: 768,
             options: {
-              chart: { height: 250 },
-              legend: { 
-                position: 'bottom',
-                fontSize: '10px',
+              chart: { height: 280 },
+              dataLabels: {
+                formatter: function (text) {
+                  if (!text) {
+                    return ['Unassigned'];
+                  }
+                  return [text.length > 12 ? `${text.slice(0, 12)}...` : text];
+                },
               },
             },
           },
         ],
       },
-      unitSummaryChartSeries: [],
+      unitSummaryChartSeries: [{
+        name: 'Unit Distribution',
+        data: [],
+      }],
+      unitBreakdownChartOptions: {
+        chart: {
+          type: 'bar',
+          height: 360,
+          toolbar: {
+            show: false,
+          },
+          fontFamily: 'inherit',
+          foreColor: '#475569',
+        },
+        plotOptions: {
+          bar: {
+            horizontal: true,
+            borderRadius: 8,
+            barHeight: '58%',
+            dataLabels: {
+              position: 'top',
+            },
+          },
+        },
+        grid: {
+          borderColor: '#e2e8f0',
+          strokeDashArray: 4,
+          xaxis: {
+            lines: {
+              show: true,
+            },
+          },
+          yaxis: {
+            lines: {
+              show: false,
+            },
+          },
+          padding: {
+            left: 12,
+            right: 24,
+          },
+        },
+        dataLabels: {
+          enabled: true,
+          textAnchor: 'start',
+          offsetX: 10,
+          style: {
+            fontSize: '12px',
+            fontWeight: '700',
+            colors: ['#405189'],
+          },
+          formatter: function (val) {
+            return `${val}`;
+          },
+        },
+        stroke: {
+          show: false,
+        },
+        fill: {
+          type: 'gradient',
+          gradient: {
+            shade: 'light',
+            type: 'horizontal',
+            shadeIntensity: 0.2,
+            inverseColors: false,
+            opacityFrom: 1,
+            opacityTo: 0.82,
+            stops: [0, 100],
+          },
+        },
+        colors: ['#405189'],
+        xaxis: {
+          min: 0,
+          title: {
+            text: 'Number of Procurements',
+            style: {
+              color: '#64748b',
+              fontSize: '12px',
+              fontWeight: 600,
+            },
+          },
+          labels: {
+            style: {
+              fontSize: '11px',
+              colors: ['#64748b'],
+            },
+          },
+        },
+        yaxis: {
+          labels: {
+            maxWidth: 240,
+            style: {
+              fontSize: '12px',
+              fontWeight: 600,
+              colors: ['#0f172a'],
+            },
+            formatter: function (value) {
+              if (!value) {
+                return 'Unassigned';
+              }
+              return value.length > 26 ? `${value.slice(0, 26)}...` : value;
+            },
+          },
+        },
+        legend: {
+          show: false,
+        },
+        tooltip: {
+          theme: 'light',
+          custom: function({ seriesIndex, dataPointIndex, w }) {
+            const point = w.config.series?.[seriesIndex]?.data?.[dataPointIndex] || {};
+            const count = Number(point.y) || 0;
+            const amount = Number(point.distributedAmount) || 0;
+            const share = Number(point.share) || 0;
+            const amountLabel = new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 2,
+            }).format(amount);
+
+            return [
+              '<div style="padding: 10px 12px; min-width: 220px;">',
+              `<div style="font-size: 13px; font-weight: 700; color: #0f172a;">${point.x || 'Unassigned'}</div>`,
+              point.divisionLabel ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${point.divisionLabel}</div>` : '',
+              `<div style="margin-top: 5px; font-size: 12px; color: #334155;"><strong>${count}</strong> procurements</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${amountLabel} distributed</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${share}% of total requests</div>`,
+              '</div>',
+            ].join('');
+          },
+        },
+        responsive: [
+          {
+            breakpoint: 768,
+            options: {
+              grid: {
+                padding: {
+                  left: 0,
+                  right: 8,
+                },
+              },
+              yaxis: {
+                labels: {
+                  maxWidth: 180,
+                },
+              },
+              dataLabels: {
+                offsetX: 6,
+              },
+            },
+          },
+        ],
+      },
+      unitBreakdownChartSeries: [{
+        name: 'Procurements',
+        data: [],
+      }],
       yearOptions: [],
       monthOptions: [
         { value: 1, label: 'January' },
@@ -845,6 +787,148 @@ export default {
     isQuarterSelected() {
       return ['q1', 'q2', 'q3', 'q4'].includes(this.dashboardFilter.period);
     },
+		userRoles() {
+			return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+		},
+		openRequests() {
+			const total = Number(this.dashboard.total_procurements) || 0;
+			const completed = Number(this.dashboard.completed_procurements) || 0;
+			return Math.max(total - completed, 0);
+		},
+		activeUnitsCount() {
+			return this.sortedDivisionDistribution.length;
+		},
+		filteredPeriodLabel() {
+			const period = this.dashboardFilter.period;
+			if (period === 'monthly') {
+				const selectedMonth = this.monthOptions.find((item) => item.value === this.dashboardFilter.month);
+				return `${selectedMonth ? selectedMonth.label : 'Month'} ${this.dashboardFilter.year}`;
+			}
+			if (period === 'quarterly') {
+				return `Q${this.dashboardFilter.quarter} ${this.dashboardFilter.year}`;
+			}
+			if (period === 'yearly') {
+				return `${this.dashboardFilter.year}`;
+			}
+			if (period === 'custom') {
+				if (this.dashboardFilter.start_date && this.dashboardFilter.end_date) {
+					return `${this.formatDate(this.dashboardFilter.start_date)} - ${this.formatDate(this.dashboardFilter.end_date)}`;
+				}
+				return 'Custom Date Range';
+			}
+			const selectedPeriod = this.periodOptions.find((item) => item.value === period);
+			return selectedPeriod ? selectedPeriod.label : 'All Time';
+		},
+		workspaceModules() {
+			const modules = [
+				{
+					key: 'pap_codes',
+					title: 'PAP Codes',
+					value: this.dashboard.total_pap_codes,
+					note: `${this.formatCompactCurrency(this.dashboard.total_remaining_pap_budget)} remaining from ${this.formatCompactCurrency(this.dashboard.total_allocated_pap_budget)} allocated budget`,
+					route: '/faims/procurement-codes',
+					action: 'Open PAP codes',
+					icon: 'ri-code-box-line',
+					iconBgClass: 'bg-success-subtle',
+					iconTextClass: 'text-success',
+					tag: 'Budget',
+					roles: ['Budget Officer', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'responsibility_centers',
+					title: 'Responsibility Centers',
+					value: this.dashboard.total_responsibility_centers,
+					note: `${this.dashboard.total_responsibility_centers} unit-to-center mappings available for coding`,
+					route: '/faims/responsibility-centers',
+					action: 'Open centers',
+					icon: 'ri-building-line',
+					iconBgClass: 'bg-info-subtle',
+					iconTextClass: 'text-info',
+					tag: 'Structure',
+					roles: ['Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'modes',
+					title: 'Modes of Procurement',
+					value: this.dashboard.total_modes_of_procurement,
+					note: `${this.dashboard.active_modes_of_procurement} active modes currently available for PAP code setup`,
+					route: '/faims/modes-of-procurement',
+					action: 'Open modes',
+					icon: 'ri-git-branch-line',
+					iconBgClass: 'bg-warning-subtle',
+					iconTextClass: 'text-warning',
+					tag: 'Reference',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'suppliers',
+					title: 'Suppliers',
+					value: this.dashboard.total_suppliers,
+					note: `${this.dashboard.active_suppliers} active suppliers, ${this.dashboard.pending_supplier_approvals} waiting for approval`,
+					route: '/faims/suppliers',
+					action: 'Open suppliers',
+					icon: 'ri-truck-line',
+					iconBgClass: 'bg-secondary-subtle',
+					iconTextClass: 'text-secondary',
+					tag: 'Vendors',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'bac_resolutions',
+					title: 'BAC Resolutions',
+					value: this.dashboard.total_bac_resolutions,
+					note: `${this.dashboard.total_bac_resolutions} BAC resolutions recorded in ${this.filteredPeriodLabel}`,
+					route: '/faims/bac-resolutions',
+					action: 'Open BAC resolutions',
+					icon: 'ri-government-line',
+					iconBgClass: 'bg-danger-subtle',
+					iconTextClass: 'text-danger',
+					tag: 'Records',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'notice_of_awards',
+					title: 'Notice of Awards',
+					value: this.dashboard.total_notice_of_awards,
+					note: `${this.dashboard.total_notice_of_awards} award notices prepared in ${this.filteredPeriodLabel}`,
+					route: '/faims/notice-of-awards',
+					action: 'Open notice of awards',
+					icon: 'ri-file-text-line',
+					iconBgClass: 'bg-primary-subtle',
+					iconTextClass: 'text-primary',
+					tag: 'Awards',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'purchase_orders',
+					title: 'Purchase Orders',
+					value: this.dashboard.total_purchase_orders,
+					note: `${this.dashboard.total_purchase_orders} purchase orders released in ${this.filteredPeriodLabel}`,
+					route: '/faims/purchase-orders',
+					action: 'Open purchase orders',
+					icon: 'ri-file-paper-2-line',
+					iconBgClass: 'bg-dark-subtle',
+					iconTextClass: 'text-dark',
+					tag: 'Orders',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'reports',
+					title: 'Procurement Reports',
+					value: this.dashboard.total_procurements,
+					note: `${this.dashboard.total_procurements} request records ready for reporting in ${this.filteredPeriodLabel}`,
+					route: '/faims/procurement-reports',
+					action: 'Open reports',
+					icon: 'ri-bar-chart-box-line',
+					iconBgClass: 'bg-success-subtle',
+					iconTextClass: 'text-success',
+					tag: 'Reports',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+			];
+
+			return modules.filter((module) => this.hasAnyRole(module.roles));
+		},
 		completionRate() {
 			if (!this.dashboard.total_procurements) {
 				return 0;
@@ -881,6 +965,10 @@ export default {
 		divisionTotalAmount() {
 			const source = this.dashboard.division_distribution || [];
 			return source.reduce((sum, item) => sum + (Number(item.distributed_amount) || 0), 0);
+		},
+		unitBreakdownChartHeight() {
+			const itemCount = this.sortedDivisionDistribution.length;
+			return Math.min(Math.max((itemCount * 56) + 60, 320), 760);
 		},
   },
 
@@ -922,11 +1010,35 @@ export default {
       if (this.dashboard && this.dashboard.division_distribution && Array.isArray(this.dashboard.division_distribution)) {
         const items = this.sortedDivisionDistribution;
         if (items.length > 0) {
-          this.unitSummaryChartOptions.labels = items.map(item => this.getUnitLabel(item));
-          this.unitSummaryChartSeries = items.map(item => item.count);
+          this.unitSummaryChartSeries = [{
+            name: 'Unit Distribution',
+            data: items.map((item) => ({
+              x: this.getUnitLabel(item),
+              y: item.count,
+              share: item.share,
+              distributedAmount: item.distributed_amount,
+              divisionLabel: this.getUnitDivisionLabel(item),
+            })),
+          }];
+          this.unitBreakdownChartSeries = [{
+            name: 'Procurements',
+            data: items.map((item) => ({
+              x: this.getUnitLabel(item),
+              y: item.count,
+              distributedAmount: item.distributed_amount,
+              share: item.share,
+              divisionLabel: this.getUnitDivisionLabel(item),
+            })),
+          }];
         } else {
-          this.unitSummaryChartOptions.labels = [];
-          this.unitSummaryChartSeries = [];
+          this.unitSummaryChartSeries = [{
+            name: 'Unit Distribution',
+            data: [],
+          }];
+          this.unitBreakdownChartSeries = [{
+            name: 'Procurements',
+            data: [],
+          }];
         }
       }
     },
@@ -969,6 +1081,17 @@ export default {
 			}).format(amount);
 		},
 
+		formatCompactCurrency(value) {
+			const amount = Number(value) || 0;
+			return new Intl.NumberFormat('en-PH', {
+				style: 'currency',
+				currency: 'PHP',
+				notation: 'compact',
+				minimumFractionDigits: 0,
+				maximumFractionDigits: 1,
+			}).format(amount);
+		},
+
 		formatDateTime(date) {
 			return new Date(date).toLocaleString('en-US', {
 				year: 'numeric',
@@ -1001,6 +1124,31 @@ export default {
       this.filter.keyword = null;
       this.fetch();
     },
+
+		hasAnyRole(roles = []) {
+			if (!roles.length) {
+				return true;
+			}
+
+			return roles.some((role) => this.userRoles.includes(role));
+		},
+
+		resetDashboardFilters() {
+			const currentDate = new Date();
+			this.dashboardFilter = {
+				period: 'all',
+				year: currentDate.getFullYear(),
+				month: currentDate.getMonth() + 1,
+				quarter: Math.floor(currentDate.getMonth() / 3) + 1,
+				start_date: null,
+				end_date: null,
+			};
+			this.fetchDashboard();
+		},
+
+		openModule(route) {
+			router.get(route);
+		},
 
     onPeriodChange() {
       // Reset custom dates when changing period
@@ -1040,423 +1188,243 @@ export default {
 </script>
 
 <style scoped>
-/* Hero Section */
+.procurement-dashboard-page {
+  --proc-brand: #405189;
+  --proc-brand-dark: #344272;
+  --proc-soft: rgba(64, 81, 137, 0.1);
+  padding-bottom: 1.5rem;
+}
+
 .procurement-hero {
-  background: radial-gradient(circle at top left, rgba(64, 81, 137, 0.95), rgba(64, 81, 137, 0.85)), linear-gradient(120deg, #405189, #6b7299);
-  color: #fff;
-  border-radius: 0.75rem;
-  box-shadow: 0 8px 32px rgba(64, 81, 137, 0.25);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(255,255,255,.18), transparent 34%),
+    linear-gradient(135deg, var(--proc-brand), var(--proc-brand-dark));
+  box-shadow: 0 18px 40px rgba(64, 81, 137, 0.22);
 }
 
-.procurement-hero .btn-soft {
-  background: rgba(255, 255, 255, 0.92);
-  border: none;
-  color: #405189;
-  font-weight: 600;
-  padding: 0.5rem 1.25rem;
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
+.procurement-hero .card-body,
+.compact-card {
+  padding: 1.25rem;
 }
 
-.procurement-hero .btn-soft:hover {
-  background: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.procurement-hero .btn-outline-light {
-  border-color: rgba(255, 255, 255, 0.6);
-  color: #fff;
-  font-weight: 500;
-  padding: 0.5rem 1.25rem;
-  border-radius: 0.5rem;
-}
-
-.procurement-hero .btn-outline-light:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: #fff;
-  color: #fff;
-}
-
-/* Section Headers */
-.dashboard-section {
-  position: relative;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-  padding: 6px 4px 0;
-}
-
+.hero-kicker,
 .section-kicker {
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 10px;
-  font-weight: 600;
   color: #64748b;
-  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
 }
 
-.section-title {
-  font-family: "Montserrat", "Segoe UI", sans-serif;
+.hero-kicker {
+  color: rgba(255,255,255,.75);
+}
+
+.hero-pill {
+  background: #fff;
+  color: var(--proc-brand);
   font-weight: 700;
+  padding: .5rem .75rem;
+  border-radius: 999px;
+}
+
+.hero-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.hero-stat-card {
+  padding: 1rem;
+  border-radius: 16px;
+  color: #fff;
+  background: rgba(255,255,255,.13);
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(8px);
+}
+
+.hero-stat-card span,
+.unit-breakdown-stat span,
+.insight-item span {
+  display: block;
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  opacity: .75;
+}
+
+.hero-stat-card strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.hero-stat-card small {
+  color: rgba(255,255,255,.72);
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: .75rem .25rem .5rem;
+}
+
+.section-heading h4 {
   margin: 0;
+  font-weight: 800;
   color: #0f172a;
 }
 
-.section-meta {
+.section-heading span {
   font-size: 12px;
   color: #94a3b8;
 }
 
-/* Metric Cards */
-.metric-card {
-  border: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  border-radius: 0.75rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-  position: relative;
-}
-
-.metric-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, #405189, #5c6bc0);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s ease;
-}
-
-.metric-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(64, 81, 137, 0.15);
-}
-
-.metric-card:hover::before {
-  transform: scaleX(1);
-}
-
-.metric-card .avatar-sm {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-}
-
-.metric-card .avatar-title {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.35rem;
-}
-
-.metric-card .fs-22 {
-  color: #1e293b;
-  font-weight: 700;
-}
-
-/* Panel Cards */
+.metric-card,
+.module-card,
 .panel-card {
   border: 0;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-  border-radius: 0.75rem;
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .07);
   overflow: hidden;
+}
+
+.metric-card .card-body,
+.module-card .card-body,
+.panel-card .card-body {
+  padding: 0;
+}
+
+.metric-icon,
+.module-icon {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+
+.module-card .card-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+    margin: 0;
+  padding: 0;
 }
 
 .panel-card .card-header {
   background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #eef2f7;
+  padding: .1rem;
 }
 
-.panel-card .card-title {
-  color: #405189;
-  font-weight: 600;
-  font-size: 1rem;
+.panel-card .card-header h5 {
   margin: 0;
+  color: var(--proc-brand);
+  font-weight: 800;
 }
 
-/* Unit Summary Card */
-.unit-summary-card .chart-body {
-  padding: 1rem;
+.panel-card .card-header p {
+  margin: .2rem 0 0;
+  color: #64748b;
+  font-size: .8rem;
 }
 
-.unit-summary-card .chart-container {
+.unit-breakdown-footer,
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.insight-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.unit-breakdown-stat,
+.insight-item,
+.insight-highlight {
+  padding: .9rem;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+}
+
+.unit-breakdown-stat strong,
+.insight-item strong {
+  display: block;
+  margin-top: .25rem;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.unit-breakdown-stat small,
+.insight-item small {
+  color: #64748b;
+  font-size: .75rem;
+}
+
+.insight-highlight {
   display: flex;
-  justify-content: center;
   align-items: center;
-  min-height: 280px;
+  justify-content: space-between;
 }
 
-.unit-summary-card .empty-state {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 200px;
-}
-
-.unit-summary-card .empty-state i {
-  opacity: 0.4;
-  font-size: 3rem;
-}
-
-/* Unit Table Card */
-.unit-table-card .unit-row {
-  transition: all 0.2s ease;
-}
-
-.unit-table-card .unit-row:hover {
-  background: linear-gradient(90deg, rgba(64, 81, 137, 0.04) 0%, transparent 100%);
-}
-
-.unit-table-card .unit-number {
+.insight-icon {
+  width: 42px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: linear-gradient(135deg, #405189 0%, #5c6bc0 100%);
-  color: #fff;
   border-radius: 50%;
-  font-weight: 600;
-  font-size: 0.75rem;
+  background: var(--proc-soft);
+  color: var(--proc-brand);
+  font-size: 1.25rem;
 }
 
-.unit-table-card .unit-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(64, 81, 137, 0.1);
-  color: #405189;
-  border-radius: 8px;
+.empty-state {
+  text-align: center;
+  color: #64748b;
 }
 
-.unit-table-card .procurement-count {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #405189;
+.empty-state i {
+  font-size: 2.5rem;
+  opacity: .4;
 }
 
-.unit-table-card .distributed-amount {
-  color: #0ab39c;
-  font-weight: 700;
-  white-space: nowrap;
+.fs-12 {
+  font-size: 12px;
 }
 
-.unit-table-card .unit-progress {
-  border-radius: 5px;
-  background: #e2e8f0;
+.fs-13 {
+  font-size: 13px;
 }
 
-.unit-table-card .unit-progress .progress-bar {
-  background: linear-gradient(90deg, #405189 0%, #5c6bc0 100%);
-  border-radius: 5px;
+.cursor-pointer {
+  cursor: pointer;
 }
 
-.unit-table-card .share-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 45px;
-  padding: 0.25rem 0.5rem;
-  background: rgba(64, 81, 137, 0.1);
-  color: #405189;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.75rem;
-}
-
-.unit-table-card .total-row {
-  background: linear-gradient(90deg, rgba(64, 81, 137, 0.06) 0%, transparent 100%);
-  border-top: 2px solid #e2e8f0;
-}
-
-.unit-table-card .total-row .unit-number {
-  background: #405189;
-}
-
-.unit-table-card .total-row .procurement-count {
-  color: #1e293b;
-}
-
-.unit-table-card .total-row .distributed-amount {
-  color: #0f766e;
-}
-
-.unit-table-card .badge {
-  font-weight: 600;
-}
-
-/* Donut Chart Legend Styling */
-:deep(.legend-text) {
-  color: #475569;
-  font-weight: 500;
-}
-
-:deep(.legend-count) {
-  color: #405189;
-  font-weight: 600;
-}
-
-:deep(.apexcharts-datalabel-value) {
-  font-weight: 700 !important;
-  color: #1e293b !important;
-}
-
-/* Insights Card */
-.insights-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 0.75rem;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-}
-
-.insights-card .card-header {
-  background: transparent;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 1rem 1.25rem;
-}
-
-.insights-card .card-title {
-  color: #405189;
-  font-weight: 600;
-  font-size: 1rem;
-}
-
-.insight-item {
-  padding: 0.875rem;
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
-}
-
-.insight-item:hover {
-  background: rgba(64, 81, 137, 0.04);
-}
-
-.insight-item .avatar-sm {
-  width: 40px;
-  height: 40px;
-}
-
-/* Progress Bars */
-.panel-card .progress {
-  height: 8px;
-  border-radius: 4px;
-  background: #e2e8f0;
-  overflow: hidden;
-}
-
-.panel-card .progress-bar {
-  border-radius: 4px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Table Styling */
-.panel-card .table thead th {
-  background: #f8fafc;
-  color: #475569;
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.panel-card .table tbody td {
-  padding: 0.875rem 1rem;
-  vertical-align: middle;
-  color: #334155;
-}
-
-.panel-card .table tbody tr {
-  transition: background 0.2s ease;
-}
-
-.panel-card .table tbody tr:hover {
-  background: #f8fafc;
-}
-
-.panel-card .table .fw-semibold {
-  color: #1e293b;
-}
-
-/* Badges */
-.panel-card .badge {
-  padding: 0.4em 0.75em;
-  font-weight: 500;
-  font-size: 0.7rem;
-}
-
-/* Filter Card */
-.filter-card {
-  border: 0;
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
-}
-
-.filter-card .form-label {
-  font-weight: 500;
-  color: #475569;
-  font-size: 0.85rem;
-  margin-bottom: 0.375rem;
-}
-
-/* Animations */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.metric-card {
-  animation: fadeInUp 0.5s ease forwards;
-  opacity: 0;
-}
-
-.metric-card:nth-child(1) { animation-delay: 0.05s; }
-.metric-card:nth-child(2) { animation-delay: 0.1s; }
-.metric-card:nth-child(3) { animation-delay: 0.15s; }
-.metric-card:nth-child(4) { animation-delay: 0.2s; }
-
-/* Responsive */
-@media (max-width: 1200px) {
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  
-  .metric-card .flex-grow-1 {
-    margin-top: 0.5rem;
-  }
+.min-w-0 {
+  min-width: 0;
 }
 
 @media (max-width: 768px) {
-  .metric-card .d-flex {
-    flex-direction: column;
-    align-items: flex-start !important;
+  .hero-stat-grid,
+  .unit-breakdown-footer,
+  .insight-grid {
+    grid-template-columns: 1fr;
   }
-  
-  .metric-card .avatar-sm {
-    margin-bottom: 0.75rem;
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

@@ -172,7 +172,7 @@
               </div>
               <div class="small text-body-secondary">Remaining Balance</div>
               <div
-                class=" fw-bold mb-1 fs-10"
+                class=" fw-bold mb-1 fs-3"
               >
                 {{ formatCurrency(papCode.remaining_budget) }}
               </div>

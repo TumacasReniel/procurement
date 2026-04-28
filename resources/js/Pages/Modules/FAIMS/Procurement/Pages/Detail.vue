@@ -150,7 +150,7 @@
             ]"
           >
             <div class="employee-personnel-item__avatar">
-              {{ getInitials(person.name) }}
+              {{ getInitials(person.person, person.name) }}
             </div>
 
             <div class="employee-personnel-item__copy">
@@ -464,6 +464,7 @@ export default {
       return [
         {
           role: "Created By",
+          person: this.procurement?.created_by,
           name: this.getPersonnelName(this.procurement?.created_by),
           accent: "blue",
           icon: "ri-draft-line",
@@ -471,6 +472,7 @@ export default {
         },
         {
           role: "Requested By",
+          person: this.procurement?.requested_by,
           name: this.getPersonnelName(this.procurement?.requested_by),
           accent: "amber",
           icon: "ri-user-received-line",
@@ -478,6 +480,7 @@ export default {
         },
         {
           role: "Approved By",
+          person: this.procurement?.approved_by,
           name: this.getPersonnelName(this.procurement?.approved_by),
           accent: "emerald",
           icon: "ri-shield-check-line",
@@ -509,15 +512,37 @@ export default {
         "Not yet assigned"
       );
     },
-    getInitials(name) {
-      if (!name) {
+    getInitials(person, fallbackName = null) {
+      const profile = person?.profile || null;
+      const profileInitials = [
+        profile?.firstname || profile?.first_name,
+        profile?.middlename || profile?.middle_name,
+        profile?.lastname || profile?.last_name,
+      ]
+        .filter((part) => typeof part === "string" && part.trim())
+        .map((part) => part.trim().charAt(0).toUpperCase())
+        .join("");
+
+      if (profileInitials) {
+        return profileInitials;
+      }
+
+      const name =
+        (typeof person === "string" ? person : null) ||
+        fallbackName ||
+        profile?.fullname ||
+        profile?.full_name ||
+        person?.name ||
+        null;
+
+      if (!name || name === "Not yet assigned") {
         return "NA";
       }
 
       return name
         .split(/\s+/)
         .filter(Boolean)
-        .slice(0, 2)
+        .slice(0, 3)
         .map((part) => part.charAt(0).toUpperCase())
         .join("");
     },
@@ -1138,9 +1163,9 @@ export default {
   justify-content: center;
   flex-shrink: 0;
   color: #ffffff;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   box-shadow: 0 8px 18px rgba(var(--employee-primary-rgb), 0.16);
 }
 

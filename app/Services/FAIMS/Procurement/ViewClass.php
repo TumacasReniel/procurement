@@ -11,6 +11,10 @@ use App\Models\ProcurementBacNoa;
 use App\Models\ProcurementNoaPo;
 use App\Models\ProcurementPoNtp;
 use App\Models\ProcurementAssignment;
+use App\Models\ProcurementCode;
+use App\Models\ResponsibilityCenter;
+use App\Models\Supplier;
+use App\Models\ListDropdown;
 use Spatie\Activitylog\Models\Activity;
 
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
@@ -390,6 +394,27 @@ class ViewClass
         $total_notice_of_awards = ProcurementBacNoa::whereIn('procurement_id', $query->pluck('id'))->count();
         $total_purchase_orders = ProcurementNoaPo::whereIn('procurement_id', $query->pluck('id'))->count();
 
+        $total_assignments = ProcurementAssignment::count();
+        $total_pap_codes = ProcurementCode::count();
+        $total_remaining_pap_budget = (float) ProcurementCode::sum('remaining_budget');
+        $total_allocated_pap_budget = (float) ProcurementCode::sum('allocated_budget');
+        $total_responsibility_centers = ResponsibilityCenter::count();
+        $total_modes_of_procurement = ListDropdown::query()
+            ->whereIn('classification', ['mode_of_procurement', 'modes_of_procurement', 'Mode of Procurement'])
+            ->count();
+        $active_modes_of_procurement = ListDropdown::query()
+            ->whereIn('classification', ['mode_of_procurement', 'modes_of_procurement', 'Mode of Procurement'])
+            ->where('is_active', 1)
+            ->count();
+        $total_suppliers = Supplier::count();
+        $active_suppliers = Supplier::query()
+            ->where('approval_status', 'Approved')
+            ->where('is_active', 1)
+            ->count();
+        $pending_supplier_approvals = Supplier::query()
+            ->where('approval_status', 'Pending Approval')
+            ->count();
+
         return response()->json([
             'total_procurements' => $total_procurements,
             'division_distribution' => $division_distribution,
@@ -402,6 +427,16 @@ class ViewClass
             'total_bac_resolutions' => $total_bac_resolutions,
             'total_notice_of_awards' => $total_notice_of_awards,
             'total_purchase_orders' => $total_purchase_orders,
+            'total_assignments' => $total_assignments,
+            'total_pap_codes' => $total_pap_codes,
+            'total_remaining_pap_budget' => $total_remaining_pap_budget,
+            'total_allocated_pap_budget' => $total_allocated_pap_budget,
+            'total_responsibility_centers' => $total_responsibility_centers,
+            'total_modes_of_procurement' => $total_modes_of_procurement,
+            'active_modes_of_procurement' => $active_modes_of_procurement,
+            'total_suppliers' => $total_suppliers,
+            'active_suppliers' => $active_suppliers,
+            'pending_supplier_approvals' => $pending_supplier_approvals,
         ]);
     }
 
