@@ -69,8 +69,9 @@
         }
         .rfq-supplier-block {
             margin-top: 28px;
+            margin-bottom: 20px;
             font-size: 10px;
-            line-height: 1.35;
+            line-height: .5;
             text-align: left;
         }
         .rfq-supplier-line {

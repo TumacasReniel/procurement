@@ -154,7 +154,7 @@
                  PO Number: <u>{{ $purchase_order->code }}</u>
                </p>
                <p>
-                 Date: <u>{{ $purchase_order->po_date }}</u>
+                 Date: <u>{{ $purchase_order->po_date->format('M d, Y') }}</u>
                </p>
                <p>
                 Mode of Procurement: 
@@ -180,7 +180,7 @@
         <tr>
            <td colspan="4" style="padding-left:5px">
                 <p>Place of Delivery: <u>{{ $purchase_order->place_of_delivery->name }}</u></p>
-                <p>Date of Delivery: <u>{{ $purchase_order->date_of_delivery }}</u></p>
+                <p>Date of Delivery: <u>{{ $purchase_order->date_of_delivery->format('m-d-Y') ?? '___________________________' }}</u></p>
            </td>
            <td colspan="3" style="padding-left:5px">
                 <p>Delivery Term: <u>{{ $purchase_order->delivery_term }}</u></p>
@@ -208,7 +208,7 @@
                 <td>{{ $item->item->item->item_no }}</td>
                 <td>{{ $item->item->item->item_unit_type->name_short ?? '' }}</td>
                   <td colspan="2" style="padding: 6px; text-align: justify;">
-                    <span>{{ $item->item->item->item_name ?? '' }}</span>
+                    <span><b>{{ $item->item->item->item_name ?? '' }}</b></span>
                     <div style="margin-top:-5px; line-height: 1; word-wrap: break-word;">
                         {!! $item->item->item->item_description !!}
                     </div>
@@ -240,29 +240,29 @@
             <p style="margin-bottom: 50px">
                         Conforme:
                     </p>
-                    <p style="margin-left: 80px;margin-bottom: -10px">_______________________</p>
-                    <p style="margin-left: 80px">
+                    <p style=" text-align:center; ;margin-bottom: -10px">_______________________</p>
+                    <p style="text-align:center; ">
                          Signature Over Printed Name
                     </p>
 
-                    <p style="margin-left: 80px;margin-bottom: -10px">_______________________</p>
-                    <p style="margin-left: 120px">
+                    <p style=" text-align:center;margin-bottom: -10px">_______________________</p>
+                    <p style=" text-align:center; margin-bottom: -10px;">
                         Date
                     </p>
 
             </td>
             <td colspan="3" style="padding:left: 10px;border-left:none;border-top:none">
-            <p style="margin-bottom: 50px">
+            <p style="margin-bottom: 50px; line-height:.5px; ">
                  
                     </p>
-                    <p style="margin-left: 100px;margin-bottom: -10px"><b><u>{{ $regional_director['name'] }}</u></b></p>
-                    <p style="margin-left: 80px">
+                    <p style="margin-bottom: -10px; text-align:center"><b><u>{{ $regional_director['name'] }}</u></b></p>
+                    <p style="text-align:center">
                         Signature Over Printed Name
                     </p>
                     <p style="margin-left: 110px;margin-top:-10px">Authorized Official</p>
 
-                    <p style="margin-left: 100px;margin-bottom: -10px"><b><u>{{ $regional_director['designation']['name'] ?? 'Regional Director' }}</u></b></p>
-                    <p style="margin-left: 120px">
+                    <p style="text-align:center ;margin-bottom: -10p"><b><u>{{ $regional_director['designation']['name'] ?? 'Regional Director' }}</u></b></p>
+                    <p style=" text-align:center; margin-top: -10px">
                         Designation
                     </p>
 

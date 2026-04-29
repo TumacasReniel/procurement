@@ -404,6 +404,7 @@
               v-if="canManageProcurementWorkflow && activeTab === 5 && !showCreatePOFlag"
               @changeTab="show"
               @showCreatePO="handleShowCreatePO"
+              @status-updated="refreshProcurementContext"
             />
             <CreatePO
               :dropdowns="dropdowns"
@@ -1045,6 +1046,13 @@ export default {
         `/faims/procurements/${this.procurement.id}?option=view&tab=6&noa_id=${data.id}&create_po=1`,
         { replace: true, preserveState: true }
       );
+    },
+    refreshProcurementContext() {
+      router.reload({
+        only: ["procurement", "logs"],
+        preserveState: true,
+        preserveScroll: true,
+      });
     },
     openStatusTip(statusName) {
       const assigned = this.getAssignedForStep(statusName);

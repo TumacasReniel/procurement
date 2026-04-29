@@ -17,81 +17,96 @@
       </div>
 
       <div class="d-flex flex-column align-items-start align-items-lg-end gap-2">
-        <b-badge
-          pill
-          class="po-status-flow-badge"
-          :class="purchaseOrder?.status?.bg || 'bg-secondary'"
-        >
-          {{ purchaseOrder?.status?.name || "N/A" }}
-        </b-badge>
-        <span v-if="statusHint" class="po-status-flow-hint">
+        <div class="d-flex align-items-center gap-2">
+          <b-badge
+            pill
+            class="po-status-flow-badge"
+            :class="purchaseOrder?.status?.bg || 'bg-secondary'"
+          >
+            {{ purchaseOrder?.status?.name || "N/A" }}
+          </b-badge>
+          <b-button
+            type="button"
+            size="sm"
+            variant="light"
+            class="po-status-flow-toggle"
+            :aria-expanded="String(!isCollapsed)"
+            @click="toggleCollapsed"
+          >
+            <i :class="isCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'"></i>
+            <span>{{ isCollapsed ? "Show" : "Hide" }}</span>
+          </b-button>
+        </div>
+        <span v-if="statusHint" class="po-status-flow-hint text-info">
           {{ statusHint }}
         </span>
       </div>
     </div>
 
-    <div class="po-status-flow-track">
-      <div
-        v-for="(step, index) in statusFlow"
-        :key="step.key"
-        class="po-status-flow-step-wrapper"
-      >
+    <b-collapse v-model="isExpanded">
+      <div class="po-status-flow-track">
         <div
-          v-if="index > 0"
-          class="po-status-flow-line"
-          :class="{
-            completed: statusFlow[index - 1].isPast,
-            active: statusFlow[index - 1].isPast && step.isCurrent,
-          }"
+          v-for="(step, index) in statusFlow"
+          :key="step.key"
+          class="po-status-flow-step-wrapper"
         >
-          <i class="ri-arrow-right-s-line"></i>
-        </div>
-
-        <div
-          class="po-status-flow-step"
-          :class="{
-            completed: step.isPast,
-            active: step.isCurrent,
-            pending: !step.isPast && !step.isCurrent,
-          }"
-        >
-          <div class="po-status-flow-dot">
-            <i v-if="step.isPast" class="ri-check-line"></i>
-            <i v-else-if="step.isCurrent" class="ri-star-fill"></i>
-            <i v-else class="ri-circle-line"></i>
-          </div>
-          <div class="po-status-flow-label">{{ step.name }}</div>
           <div
-            v-if="step.updatedAt || step.isCurrent || step.isPast"
-            class="po-status-flow-time"
-            :class="{ pending: !step.updatedAt }"
+            v-if="index > 0"
+            class="po-status-flow-line"
+            :class="{
+              completed: statusFlow[index - 1].isPast,
+              active: statusFlow[index - 1].isPast && step.isCurrent,
+            }"
           >
-            <template v-if="step.updatedAt">
-              <span>{{ formatTimelineDate(step.updatedAt) }}</span>
-              <span>{{ formatTimelineTime(step.updatedAt) }}</span>
-            </template>
-            <template v-else>
-              In progress
-            </template>
+            <i class="ri-arrow-right-s-line"></i>
           </div>
-          <div class="po-status-flow-note">
-            {{ step.note }}
+
+          <div
+            class="po-status-flow-step"
+            :class="{
+              completed: step.isPast,
+              active: step.isCurrent,
+              pending: !step.isPast && !step.isCurrent,
+            }"
+          >
+            <div class="po-status-flow-dot">
+              <i v-if="step.isPast" class="ri-check-line"></i>
+              <i v-else-if="step.isCurrent" class="ri-star-fill"></i>
+              <i v-else class="ri-circle-line"></i>
+            </div>
+            <div class="po-status-flow-label">{{ step.name }}</div>
+            <div
+              v-if="step.updatedAt || step.isCurrent || step.isPast"
+              class="po-status-flow-time"
+              :class="{ pending: !step.updatedAt }"
+            >
+              <template v-if="step.updatedAt">
+                <span>{{ formatTimelineDate(step.updatedAt) }}</span>
+                <span>{{ formatTimelineTime(step.updatedAt) }}</span>
+              </template>
+              <template v-else>
+                In progress
+              </template>
+            </div>
+            <div class="po-status-flow-note">
+              {{ step.note }}
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="po-status-flow-footer">
-      <span class="po-status-flow-chip">
-        Remaining deliveries: {{ deliverySummary.needs_delivery_items || 0 }}
-      </span>
-      <span class="po-status-flow-chip">
-        Pending IARs: {{ pendingIarReportsCount }}
-      </span>
-      <span class="po-status-flow-chip">
-        Target delivery: {{ formatTimelineDate(purchaseOrder?.date_of_delivery) }}
-      </span>
-    </div>
+      <div class="po-status-flow-footer">
+        <span class="po-status-flow-chip">
+          Remaining deliveries: {{ deliverySummary.needs_delivery_items || 0 }}
+        </span>
+        <span class="po-status-flow-chip">
+          Pending IARs: {{ pendingIarReportsCount }}
+        </span>
+        <span class="po-status-flow-chip">
+          Target delivery: {{ formatTimelineDate(purchaseOrder?.date_of_delivery) }}
+        </span>
+      </div>
+    </b-collapse>
   </b-card>
 </template>
 
@@ -103,24 +118,58 @@ export default {
       default: null,
     },
   },
+  data() {
+    return {
+      isExpanded: true,
+    };
+  },
   computed: {
+    isCollapsed() {
+      return !this.isExpanded;
+    },
+    collapseStorageKey() {
+      return `po-status-flow-expanded:${this.purchaseOrder?.id || this.purchaseOrder?.code || "default"}`;
+    },
     normalizedPurchaseOrderStatus() {
       return this.normalizePurchaseOrderStatus(this.purchaseOrder?.status?.name);
     },
     deliverySummary() {
       return this.purchaseOrder?.delivery_monitoring_summary || {
         needs_delivery_items: 0,
+        total_items: 0,
+        delivered_items: 0,
+        partial_items: 0,
       };
+    },
+    deliveryMonitoringItems() {
+      return Array.isArray(this.purchaseOrder?.delivery_monitoring_items)
+        ? this.purchaseOrder.delivery_monitoring_items
+        : [];
+    },
+    hasReceivedDeliveries() {
+      return this.deliveryMonitoringItems.some((item) => Number(item?.delivered_quantity || 0) > 0);
+    },
+    allItemsDelivered() {
+      return (
+        Number(this.deliverySummary.total_items || 0) > 0
+        && Number(this.deliverySummary.needs_delivery_items || 0) === 0
+      );
     },
     iarReports() {
       return Array.isArray(this.purchaseOrder?.iars)
         ? this.purchaseOrder.iars
         : (this.purchaseOrder?.iar ? [this.purchaseOrder.iar] : []);
     },
+    hasIarReports() {
+      return this.iarReports.length > 0;
+    },
     pendingIarReportsCount() {
       return this.iarReports.filter(
         (report) => String(report?.status?.name || "").trim() !== "Completed"
       ).length;
+    },
+    allIarReportsCompleted() {
+      return this.hasIarReports && this.pendingIarReportsCount === 0;
     },
     deliveredAt() {
       if (this.purchaseOrder?.resolved_actual_delivery_date) {
@@ -131,13 +180,25 @@ export default {
         return this.purchaseOrder.actual_delivery_date;
       }
 
-      const latestIar = [...this.iarReports]
-        .filter((report) => report?.created_at)
+      const latestDeliveryItem = [...this.deliveryMonitoringItems]
+        .filter((item) => item?.actual_delivery_date)
         .sort((left, right) => {
-          return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+          return new Date(right.actual_delivery_date).getTime() - new Date(left.actual_delivery_date).getTime();
         })[0];
 
-      return latestIar?.created_at || null;
+      return latestDeliveryItem?.actual_delivery_date || null;
+    },
+    inspectionUpdatedAt() {
+      const latestIar = [...this.iarReports]
+        .filter((report) => report?.updated_at || report?.created_at)
+        .sort((left, right) => {
+          const leftTime = new Date(left?.updated_at || left?.created_at || 0).getTime();
+          const rightTime = new Date(right?.updated_at || right?.created_at || 0).getTime();
+
+          return rightTime - leftTime;
+        })[0];
+
+      return latestIar?.updated_at || latestIar?.created_at || null;
     },
     completedAt() {
       if (this.normalizedPurchaseOrderStatus !== "Completed") {
@@ -167,12 +228,18 @@ export default {
         return "Issued";
       }
 
+      if (status === "Completed") {
+        return "Completed";
+      }
+
+      if (this.allItemsDelivered) {
+        return "Inspection";
+      }
+
       const stepMap = {
         Created: "Created",
         Issued: "Issued",
         Conformed: "Conformed",
-        "Items Delivered": "Items Delivered",
-        Completed: "Completed",
       };
 
       return stepMap[status] || "";
@@ -195,9 +262,11 @@ export default {
         },
         {
           key: "Conformed",
-          name: "PO Conformed",
+          name: "PO Conformed/Items For Delivery",
           updatedAt: this.purchaseOrder?.conformed_at || null,
-          note: "Supplier has confirmed the purchase order terms.",
+          note: this.hasReceivedDeliveries
+            ? "Supplier has conformed. Delivery receiving is in progress."
+            : "Supplier has confirmed the purchase order terms.",
         },
         {
           key: "Items Delivered",
@@ -205,7 +274,19 @@ export default {
           updatedAt: this.deliveredAt,
           note: (this.deliverySummary.needs_delivery_items || 0) > 0
             ? `${this.deliverySummary.needs_delivery_items} item(s) still need delivery tracking.`
-            : "Delivery records are complete for the ordered items.",
+            : "Supply has received all ordered items.",
+        },
+        {
+          key: "Inspection",
+          name: "For Inspection and Acceptance",
+          updatedAt: this.inspectionUpdatedAt,
+          note: !this.allItemsDelivered
+            ? "Inspection starts after all delivered items are received."
+            : !this.hasIarReports
+              ? "Generate the IAR for inspection and acceptance."
+              : this.pendingIarReportsCount > 0
+                ? `${this.pendingIarReportsCount} IAR report(s) still need inspection completion.`
+                : "IAR inspection and acceptance are complete.",
         },
         {
           key: "Completed",
@@ -230,10 +311,14 @@ export default {
         return "This purchase order has completed delivery, inspection, and acceptance.";
       }
 
-      if (this.normalizedPurchaseOrderStatus === "Items Delivered") {
+      if (this.allItemsDelivered) {
+        if (!this.hasIarReports) {
+          return "All items are delivered. IAR generation is the next inspection step.";
+        }
+
         return this.pendingIarReportsCount > 0
-          ? "Items have been delivered. Complete the remaining inspection and acceptance steps."
-          : "All delivered items are ready for final PO completion.";
+          ? "All items are delivered. Complete the remaining IAR inspection steps."
+          : "All items are delivered and accepted. The PO can proceed to completion.";
       }
 
       if (this.normalizedPurchaseOrderStatus === "Conformed") {
@@ -262,10 +347,10 @@ export default {
       }
 
       if (this.normalizedPurchaseOrderStatus === "Conformed") {
-        return "Next: record deliveries and generate IARs";
+        return "Next: receive delivered items";
       }
 
-      if (this.normalizedPurchaseOrderStatus === "Items Delivered") {
+      if (this.allItemsDelivered) {
         return "Next: complete inspection and acceptance";
       }
 
@@ -280,7 +365,18 @@ export default {
       return "";
     },
   },
+  mounted() {
+    const storedValue = localStorage.getItem(this.collapseStorageKey);
+
+    if (storedValue !== null) {
+      this.isExpanded = storedValue === "true";
+    }
+  },
   methods: {
+    toggleCollapsed() {
+      this.isExpanded = !this.isExpanded;
+      localStorage.setItem(this.collapseStorageKey, String(this.isExpanded));
+    },
     normalizePurchaseOrderStatus(statusName) {
       const normalized = String(statusName || "").trim();
 
@@ -411,6 +507,21 @@ export default {
 
 .po-status-flow-badge {
   font-size: 0.78rem;
+}
+
+.po-status-flow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--po-detail-border, rgba(148, 163, 184, 0.22));
+  color: var(--po-detail-text, #1e293b);
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+}
+
+.po-status-flow-toggle i {
+  font-size: 1rem;
 }
 
 .po-status-flow-track {
@@ -610,6 +721,11 @@ export default {
 
 [data-bs-theme="dark"] .po-status-flow-line.active {
   color: #fbbf24;
+}
+
+[data-bs-theme="dark"] .po-status-flow-toggle {
+  background: rgba(27, 34, 48, 0.94);
+  color: var(--po-detail-text, #e5edf7);
 }
 
 [data-bs-theme="dark"] .po-status-flow-chip {

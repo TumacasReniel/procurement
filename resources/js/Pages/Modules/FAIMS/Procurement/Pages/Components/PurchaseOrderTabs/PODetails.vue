@@ -161,17 +161,16 @@
         <table class="table table-hover align-middle mb-0">
           <thead class="table-light">
             <tr>
-              <th class="text-center">#</th>
+              <th class="text-center">Item No.</th>
               <th>Description</th>
-              <th class="text-center">Qty</th>
-              <th class="text-center">Unit</th>
-              <th class="text-end">Unit Cost</th>
-              <th class="text-end">Total</th>
+              <th class="text-center">Qty/Unit</th>
+              <th class="text-center">Unit Cost</th>
+              <th class="text-center">Total</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(item, index) in noa_items" :key="index">
-              <td class="text-center fw-semibold">{{ index + 1 }}</td>
+              <td class="text-center fw-semibold">{{ item.item.item.item_no }}</td>
               <td>
                 <div v-if="resolve_item_title(item)" class="fw-semibold mb-1">
                   {{ resolve_item_title(item) }}
@@ -185,23 +184,22 @@
                   -
                 </span>
               </td>
-              <td class="text-center">{{ format_quantity(item.item.item.item_quantity) }}</td>
-              <td class="text-center">{{ resolve_unit(item) }}</td>
-              <td class="text-end fw-semibold">{{ format_currency(item.item.bid_price) }}</td>
-              <td class="text-end fw-semibold">
+              <td class="text-center">{{ format_quantity(item.item.item.item_quantity) }} {{ resolve_unit(item) }}</td>
+              <td class="text-center fw-semibold">{{ format_currency(item.item.bid_price) }}</td>
+              <td class="text-center fw-semibold">
                 {{ format_currency(item.item.bid_price * item.item.item.item_quantity) }}
               </td>
             </tr>
             <tr v-if="!noa_items.length">
-              <td colspan="6" class="text-center py-4 text-muted">
+              <td colspan="5" class="text-center py-4 text-muted">
                 No purchase order items found.
               </td>
             </tr>
           </tbody>
           <tfoot v-if="noa_items.length" class="table-light">
             <tr>
-              <td colspan="5" class="text-end fw-semibold">Grand Total</td>
-              <td class="text-end fw-bold">{{ format_currency(total_amount) }}</td>
+              <td colspan="4" class="text-end fw-semibold">Grand Total</td>
+              <td class="text-center fw-bold">{{ format_currency(total_amount) }}</td>
             </tr>
           </tfoot>
         </table>

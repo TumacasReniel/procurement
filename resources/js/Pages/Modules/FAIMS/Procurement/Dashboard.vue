@@ -1188,6 +1188,49 @@ export default {
 </script>
 
 <style scoped>
+.procurement-hero .card-body {
+  padding: 3.5rem 4rem;
+}
+
+.procurement-hero .row {
+  min-height: 280px;
+  --bs-gutter-x: 4rem;
+}
+
+.procurement-hero h3 {
+  font-size: 2rem;
+  line-height: 1.35;
+  margin-bottom: 1rem !important;
+}
+
+.procurement-hero p {
+  font-size: 1rem;
+  margin-bottom: 1.5rem !important;
+}
+
+.hero-stat-grid {
+  gap: 1.5rem;
+}
+
+.hero-stat-card {
+  min-height: 120px;
+  padding: 1.5rem;
+}
+
+.hero-pill {
+  padding: .65rem 1.1rem;
+  margin-right: .35rem;
+}
+
+.hero-stat-card strong {
+  font-size: 1.8rem;
+  margin: .3rem 0;
+}
+
+.hero-stat-card small {
+  font-size: .9rem;
+}
+
 .procurement-dashboard-page {
   --proc-brand: #405189;
   --proc-brand-dark: #344272;

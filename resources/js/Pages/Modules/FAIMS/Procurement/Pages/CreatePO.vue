@@ -164,6 +164,7 @@
 
             <PODeliveryTab
               class="pt-1"
+              :purchase_order="purchase_order"
               :delivery_summary="deliverySummary"
               :delivery_monitoring_items="deliveryMonitoringItems"
               :can_update_delivered_items="canUpdateDeliveredItems"
@@ -420,17 +421,45 @@ export default {
     pendingIarReportsCount() {
       return this.iarReports.filter((report) => report?.status?.name !== "Completed").length;
     },
+    iarReportedQuantityByItem() {
+      return this.iarReports.reduce((items, report) => {
+        const selectedItems = Array.isArray(report?.selected_item_ids)
+          ? report.selected_item_ids
+          : [];
+
+        selectedItems.forEach((item) => {
+          const itemId = Number(item?.item_id ?? item?.id ?? item);
+
+          if (!itemId) {
+            return;
+          }
+
+          items[itemId] = (items[itemId] || 0) + Number(item?.delivered_quantity || 0);
+        });
+
+        return items;
+      }, {});
+    },
+    receivedItemsPendingIar() {
+      return this.deliveredMonitoringItems.filter((item) => {
+        const itemId = Number(item?.id);
+        const receivedQuantity = Number(item?.delivered_quantity || 0);
+        const reportedQuantity = Number(this.iarReportedQuantityByItem[itemId] || 0);
+
+        return receivedQuantity > reportedQuantity;
+      });
+    },
     inspectionAlertCount() {
       if (this.normalizedPurchaseOrderStatus !== "Items Delivered") {
         return 0;
       }
 
-      return this.pendingIarReportsCount;
+      return this.pendingIarReportsCount + this.receivedItemsPendingIar.length;
     },
     canGenerateIARReport() {
       return (
         Boolean(this.purchase_order)
-        && this.hasRemainingDeliveries
+        && this.receivedItemsPendingIar.length > 0
         && ["Conformed", "Items Delivered"].includes(this.normalizedPurchaseOrderStatus)
       );
     },
@@ -443,10 +472,23 @@ export default {
     },
     canUpdateDeliveredItems() {
       return Boolean(this.purchase_order)
-        && this.hasRemainingDeliveries
-        && ["Conformed", "Items Delivered"].includes(
-          this.normalizedPurchaseOrderStatus
-        );
+        && this.canEditReceivedItems;
+    },
+    canEditReceivedItems() {
+      if (!this.purchase_order) {
+        return false;
+      }
+
+      if (typeof this.purchase_order.can_edit_received_items !== "undefined") {
+        return Boolean(this.purchase_order.can_edit_received_items);
+      }
+
+      return this.hasReceivingRecords && this.iarReports.length === 0;
+    },
+    hasReceivingRecords() {
+      return Array.isArray(this.purchase_order?.received_deliveries)
+        ? this.purchase_order.received_deliveries.length > 0
+        : Array.isArray(this.purchase_order?.deliveries) && this.purchase_order.deliveries.length > 0;
     },
   },
 
@@ -515,19 +557,38 @@ export default {
         this.$refs.ntp.edit(this.purchase_order);
       }
     },
-    openDeliveredItemsEditor() {
+    openDeliveredItemsEditor(record = null) {
       if (!this.purchase_order || !this.canUpdateDeliveredItems) {
         return;
       }
 
       this.$refs.iarSelection.show(this.purchase_order, {
-        title: "Record Delivered Items",
-        submitLabel: "Generate IAR",
+        title: "Edit Received PO Items",
+        submitLabel: "Save Received Items",
         infoMessage:
-          "Only items with remaining quantity are shown. Select the newly delivered items and enter the quantity delivered for each one. Saving will create a generated IAR report for this delivery batch.",
+          "Update the received item quantities for this Purchase Order. This is allowed only before an IAR is generated.",
         printAfterSave: false,
+        submitUsingAxios: true,
+        keepOpenAfterSave: false,
+        referenceLabel: "Receiving No.",
+        referenceValue: record?.code || null,
+        referenceFallback: record?.code || "To be recorded",
+        selectionUrl: "/faims/receiving-deliveries",
+        saveUrl: `/faims/receiving-deliveries/${this.purchase_order.id}`,
+        selectionOption: "selection",
+        saveOption: "receive_delivery",
+        selectionParams: {
+          edit_received_items: 1,
+        },
+        savePayload: {
+          edit_received_items: 1,
+        },
+        errorContext: "receiving",
+        loadingMessage: "Loading received PO items...",
+        emptyItemsMessage: "No items are available for receiving on this Purchase Order.",
+        selectAllLabel: "Select all received items",
         onSuccess: () => {
-          this.focusInspectionTab();
+          this.fetch();
         },
       });
     },

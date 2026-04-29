@@ -57,6 +57,13 @@ class ProcurementNoaPo extends Model
             ->orderByDesc('created_at')
             ->orderByDesc('id');
     }
+
+    public function deliveries()
+    {
+        return $this->hasMany('App\Models\ProcurementPoDelivery', 'po_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
       
     public function status()
     {

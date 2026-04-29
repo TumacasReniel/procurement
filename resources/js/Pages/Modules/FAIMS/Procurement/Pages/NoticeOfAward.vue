@@ -168,8 +168,11 @@
   </b-card>
  <NOA :procurement="procurement" @update="fetch()" ref="NOA" />
 
-  <UpdateStatus :procurement="procurement"
-  @add="fetch()" ref="updateStatus" />
+  <UpdateStatus
+    :procurement="procurement"
+    @add="handleStatusUpdated"
+    ref="updateStatus"
+  />
   <RevertResultModal
     v-model="showRevertResultModal"
     :title="revertResultMessage"
@@ -230,7 +233,7 @@ export default {
     }, 300),
     fetch(page_url) {
       page_url = "/faims/notice-of-awards";
-      axios
+      return axios
         .get(page_url, {
           params: {
             keyword: this.filter.keyword,
@@ -246,6 +249,10 @@ export default {
           }
         })
         .catch((err) => console.log(err));
+    },
+    handleStatusUpdated() {
+      this.fetch();
+      this.$emit("status-updated");
     },
 
     editNOA(data) {

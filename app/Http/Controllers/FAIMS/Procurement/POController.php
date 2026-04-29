@@ -130,12 +130,18 @@ class POController extends Controller
             return response()->json($result);
         }
 
-        return back()->with([
+        $response = back()->with([
             'data' => $result['data'],
             'message' => $result['message'],
             'info' => $result['info'],
             'status' => $result['status'] ?? 'success',
         ]);
+
+        if (!empty($result['errors'])) {
+            $response->withErrors($result['errors']);
+        }
+
+        return $response;
         
     }
 

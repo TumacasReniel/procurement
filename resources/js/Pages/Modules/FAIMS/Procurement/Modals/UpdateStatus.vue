@@ -99,7 +99,7 @@
 
         <div class="mt-4 p-3 border rounded bg-light">
           <p class="mb-2 fw-bold text-danger ">
-            tYPE <span class="text-primary">"CONFIRM"</span> TO PROCEED:
+            TYPE <span class="text-primary">"CONFIRM"</span> TO PROCEED:
           </p>
           <b-form-input
             v-model="confirmText"
