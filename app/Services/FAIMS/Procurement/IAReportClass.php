@@ -20,7 +20,8 @@ class IAReportClass
     public function lists($request)
     {
         $sort_direction = $request->sort === 'oldest' ? 'ASC' : 'DESC';
-        $statusNames = $request->is('faims/ia-reports')
+        $isIarRoute = $request->is('faims/ia-reports');
+        $statusNames = $isIarRoute
             ? [
                 'Items Delivered',
                 'PO Items Delivered',
@@ -32,8 +33,18 @@ class IAReportClass
             ]
             : [
                 'Conformed',
+                'PO Conformed',
+                'Partially Conformed',
+                'PO Partially Conformed',
                 'Items Delivered',
                 'PO Items Delivered',
+                'Delivered/For Inspection',
+                'PO Delivered/For Inspection',
+                'Items Partially Delivered',
+                'PO Items Partially Delivered',
+                'Partially Delivered / For Inspection',
+                'Partially Delivered/For Inspection',
+                'PO Partially Delivered/For Inspection',
             ];
 
         $receivableStatusIds = collect($statusNames)
@@ -54,8 +65,19 @@ class IAReportClass
                 'noa.procurement_quotation.procurement',
                 'noa.items.item.item.item_unit_type',
             ])
-            ->when(!empty($receivableStatusIds), function ($query) use ($receivableStatusIds) {
-                $query->whereIn('status_id', $receivableStatusIds);
+            ->when($isIarRoute, function ($query) {
+                $query->where(function ($innerQuery) {
+                    $innerQuery
+                        ->whereHas('deliveries')
+                        ->orWhereHas('iars');
+                });
+            })
+            ->when(!$isIarRoute && !empty($receivableStatusIds), function ($query) use ($receivableStatusIds) {
+                $query->where(function ($innerQuery) use ($receivableStatusIds) {
+                    $innerQuery
+                        ->whereIn('status_id', $receivableStatusIds)
+                        ->orWhereHas('deliveries');
+                });
             })
             ->when($request->keyword, function ($query, $keyword) {
                 $query->where(function ($innerQuery) use ($keyword) {

@@ -4,7 +4,7 @@
     <PageHeader title="Procurement Dashboard" pageTitle="Overview" />
 
     <!-- Hero -->
-    <section class="card border-0 overflow-hidden mb-3 procurement-hero">
+    <section class="card border-0 overflow-hidden mb-4 procurement-hero">
       <div class="card-body">
         <div class="row g-3 align-items-center">
           <div class="col-xl-7">
@@ -24,11 +24,11 @@
             </p>
 
             <div class="d-flex flex-wrap gap-2">
-              <BBadge class="hero-pill">Total {{ dashboard.total_procurements }}</BBadge>
-              <BBadge class="hero-pill text-success">Completed {{ dashboard.completed_procurements }}</BBadge>
-              <BBadge class="hero-pill text-warning">For Review {{ dashboard.for_reviews }}</BBadge>
-              <BBadge class="hero-pill text-warning">For Approval {{ dashboard.for_approvals }}</BBadge>
-              <BBadge class="hero-pill text-dark">Completion {{ completionRate }}%</BBadge>
+              <BBadge class="hero-pill"><i class="ri-stack-line"></i>Total {{ dashboard.total_procurements }}</BBadge>
+              <BBadge class="hero-pill is-success"><i class="ri-check-double-line"></i>Completed {{ dashboard.completed_procurements }}</BBadge>
+              <BBadge class="hero-pill is-warning"><i class="ri-search-eye-line"></i>For Review {{ dashboard.for_reviews }}</BBadge>
+              <BBadge class="hero-pill is-warning"><i class="ri-shield-check-line"></i>For Approval {{ dashboard.for_approvals }}</BBadge>
+              <BBadge class="hero-pill is-dark"><i class="ri-pie-chart-2-line"></i>Completion {{ completionRate }}%</BBadge>
             </div>
 
             <p v-if="lastUpdated" class="text-white-50 mb-0 mt-3 fs-12">
@@ -39,18 +39,21 @@
           <div class="col-xl-5">
             <div class="hero-stat-grid">
               <div class="hero-stat-card">
+                <i class="ri-folder-open-line hero-stat-watermark"></i>
                 <span>Open Requests</span>
                 <strong>{{ openRequests }}</strong>
                 <small>Still moving through the pipeline</small>
               </div>
 
               <div class="hero-stat-card">
+                <i class="ri-building-4-line hero-stat-watermark"></i>
                 <span>Active Units</span>
                 <strong>{{ activeUnitsCount }}</strong>
                 <small>Units with procurement activity</small>
               </div>
 
               <div class="hero-stat-card">
+                <i class="ri-money-dollar-circle-line hero-stat-watermark"></i>
                 <span>Distributed</span>
                 <strong>{{ formatCompactCurrency(divisionTotalAmount) }}</strong>
                 <small>Value in current view</small>
@@ -72,10 +75,14 @@
     </section>
 
     <!-- Filters -->
-    <section class="card border-0 shadow-sm rounded-4 mb-3">
+    <section class="card border-0 shadow-sm rounded-4 mb-4 dashboard-filter-card">
       <div class="card-body compact-card">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-    
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+          <div>
+            <span class="section-kicker">Dashboard Filters</span>
+            <h5 class="fw-bold mb-1 mt-1">Focus the procurement view</h5>
+            <p class="text-muted mb-0 fs-13">Adjust the period to refresh every summary, chart, and queue below.</p>
+          </div>
 
           <div class="d-flex flex-wrap gap-2">
             <BBadge class="bg-primary-subtle text-primary rounded-pill px-3 py-2">
@@ -85,44 +92,56 @@
           </div>
         </div>
 
-        <BRow class="g-2 align-items-end">
+        <BRow class="g-3 align-items-end">
           <BCol md="3">
+            <div class="filter-field">
             <label class="form-label small text-muted">Filter Period</label>
             <Multiselect v-model="dashboardFilter.period" :options="periodOptions" placeholder="Select period" @select="onPeriodChange" />
+            </div>
           </BCol>
 
           <BCol md="2" v-if="isQuarterSelected || ['monthly', 'quarterly', 'yearly'].includes(dashboardFilter.period)">
+            <div class="filter-field">
             <label class="form-label small text-muted">Year</label>
             <Multiselect v-model="dashboardFilter.year" :options="yearOptions" placeholder="Select year" @select="fetchDashboard" />
+            </div>
           </BCol>
 
           <BCol md="2" v-if="dashboardFilter.period === 'monthly'">
+            <div class="filter-field">
             <label class="form-label small text-muted">Month</label>
             <Multiselect v-model="dashboardFilter.month" :options="monthOptions" placeholder="Select month" @select="fetchDashboard" />
+            </div>
           </BCol>
 
           <BCol md="2" v-if="dashboardFilter.period === 'quarterly'">
+            <div class="filter-field">
             <label class="form-label small text-muted">Quarter</label>
             <Multiselect v-model="dashboardFilter.quarter" :options="quarterOptions" placeholder="Select quarter" @select="fetchDashboard" />
+            </div>
           </BCol>
 
           <BCol md="3" v-if="dashboardFilter.period === 'custom'">
+            <div class="filter-field">
             <label class="form-label small text-muted">Start Date</label>
             <input type="date" class="form-control" v-model="dashboardFilter.start_date" @change="fetchDashboard" />
+            </div>
           </BCol>
 
           <BCol md="3" v-if="dashboardFilter.period === 'custom'">
+            <div class="filter-field">
             <label class="form-label small text-muted">End Date</label>
             <input type="date" class="form-control" v-model="dashboardFilter.end_date" @change="fetchDashboard" />
+            </div>
           </BCol>
         </BRow>
       </div>
     </section>
 
     <!-- Metrics -->
-    <BRow class="g-3 mb-3">
+    <BRow class="g-4 mb-4">
       <BCol xl="3" md="6" v-for="(metric, i) in metrics" :key="i">
-        <BCard class="metric-card h-100">
+        <BCard class="metric-card h-100" :style="{ '--metric-accent': metric.accentColor || '#405189' }">
           <BCardBody>
             <div class="d-flex align-items-center gap-3">
               <div class="metric-icon" :class="[metric.bgClass, metric.textClass]">
@@ -143,11 +162,11 @@
     </BRow>
 
 
-    <BRow class="g-2 mb-1">
+    <BRow class="g-4 mb-4">
       <BCol v-for="module in workspaceModules" :key="module.key" xl="4" md="6">
-        <BCard class="module-card">
+        <BCard class="module-card h-100" :style="{ '--module-accent': module.accentColor || '#405189' }">
           <BCardBody>
-            <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
               <div class="module-icon" :class="[module.iconBgClass, module.iconTextClass]">
                 <i :class="module.icon"></i>
               </div>
@@ -157,18 +176,25 @@
               </BBadge>
             </div>
 
-            <p class="fw-bold text-dark">{{ module.title }}</p>
+            <p class="fw-bold text-dark mb-2">{{ module.title }}</p>
 
-            <h4 class="fw-bold text-primary " :class="module.isTextValue ? 'fs-5' : 'fs-2'">
+            <h4 class="fw-bold text-primary mb-3" :class="module.isTextValue ? 'fs-5' : 'fs-2'">
               {{ module.value }}
             </h4>
+
+            <p class="module-note text-muted mb-4">{{ module.note }}</p>
+
+            <BButton variant="soft-primary" class="module-action mt-auto" @click="openModule(module.route)">
+              <span>{{ module.action }}</span>
+              <i class="ri-arrow-right-line"></i>
+            </BButton>
           </BCardBody>
         </BCard>
       </BCol>
     </BRow>
 
     <!-- Charts -->
-    <BRow class="g-3 mb-3">
+    <BRow class="g-4 mb-4">
       <BCol xl="12">
         <BCard class="panel-card h-100">
           <BCardHeader>
@@ -176,7 +202,7 @@
             <p>Request volume for {{ filteredPeriodLabel }}</p>
           </BCardHeader>
 
-          <BCardBody>
+          <BCardBody class="chart-body">
             <apexchart type="bar" height="350" :options="monthlyChartOptions" :series="monthlyChartSeries" />
           </BCardBody>
         </BCard>
@@ -186,7 +212,7 @@
     </BRow>
 
     <!-- Unit Breakdown -->
-    <BCard class="panel-card mb-3">
+    <BCard class="panel-card mb-4">
       <BCardHeader class="d-flex justify-content-between align-items-center">
         <div>
           <h5><i class="ri-bar-chart-horizontal-line me-2"></i>Unit Breakdown</h5>
@@ -198,7 +224,7 @@
         </BBadge>
       </BCardHeader>
 
-      <BCardBody>
+      <BCardBody class="chart-body">
         <div v-if="sortedDivisionDistribution.length">
           <apexchart
             type="bar"
@@ -236,7 +262,7 @@
     </BCard>
 
     <!-- Recent + Insights -->
-    <BRow class="g-3 mb-3">
+    <BRow class="g-4 mb-4">
       <BCol xl="7">
         <BCard class="panel-card h-100">
           <BCardHeader class="d-flex justify-content-between align-items-center">
@@ -250,7 +276,7 @@
             </BButton>
           </BCardHeader>
 
-          <BCardBody class="pt-0">
+          <BCardBody class="recent-table-body">
             <div class="table-responsive">
               <table class="table align-middle table-hover mb-0">
                 <thead class="table-light">
@@ -819,6 +845,46 @@ export default {
 			const selectedPeriod = this.periodOptions.find((item) => item.value === period);
 			return selectedPeriod ? selectedPeriod.label : 'All Time';
 		},
+		metrics() {
+			return [
+				{
+					label: 'Total Requests',
+					value: this.dashboard.total_procurements,
+					note: `Captured in ${this.filteredPeriodLabel}`,
+					icon: 'ri-stack-line',
+					bgClass: 'bg-primary-subtle',
+					textClass: 'text-primary',
+					accentColor: '#405189',
+				},
+				{
+					label: 'For Review',
+					value: this.dashboard.for_reviews,
+					note: 'Waiting for reviewer action',
+					icon: 'ri-search-eye-line',
+					bgClass: 'bg-warning-subtle',
+					textClass: 'text-warning',
+					accentColor: '#f7b84b',
+				},
+				{
+					label: 'For Approval',
+					value: this.dashboard.for_approvals,
+					note: 'Ready for approval sign-off',
+					icon: 'ri-shield-check-line',
+					bgClass: 'bg-info-subtle',
+					textClass: 'text-info',
+					accentColor: '#299cdb',
+				},
+				{
+					label: 'Completed',
+					value: this.dashboard.completed_procurements,
+					note: `${this.completionRate}% completion rate`,
+					icon: 'ri-check-double-line',
+					bgClass: 'bg-success-subtle',
+					textClass: 'text-success',
+					accentColor: '#0ab39c',
+				},
+			];
+		},
 		workspaceModules() {
 			const modules = [
 				{
@@ -832,6 +898,7 @@ export default {
 					iconBgClass: 'bg-success-subtle',
 					iconTextClass: 'text-success',
 					tag: 'Budget',
+					accentColor: '#0ab39c',
 					roles: ['Budget Officer', 'Procurement Officer', 'Administrator'],
 				},
 				{
@@ -845,6 +912,7 @@ export default {
 					iconBgClass: 'bg-info-subtle',
 					iconTextClass: 'text-info',
 					tag: 'Structure',
+					accentColor: '#299cdb',
 					roles: ['Procurement Officer', 'Administrator'],
 				},
 				{
@@ -858,6 +926,7 @@ export default {
 					iconBgClass: 'bg-warning-subtle',
 					iconTextClass: 'text-warning',
 					tag: 'Reference',
+					accentColor: '#f7b84b',
 					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
 				},
 				{
@@ -871,6 +940,7 @@ export default {
 					iconBgClass: 'bg-secondary-subtle',
 					iconTextClass: 'text-secondary',
 					tag: 'Vendors',
+					accentColor: '#6c757d',
 					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
 				},
 				{
@@ -884,6 +954,7 @@ export default {
 					iconBgClass: 'bg-danger-subtle',
 					iconTextClass: 'text-danger',
 					tag: 'Records',
+					accentColor: '#f06548',
 					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
 				},
 				{
@@ -897,6 +968,7 @@ export default {
 					iconBgClass: 'bg-primary-subtle',
 					iconTextClass: 'text-primary',
 					tag: 'Awards',
+					accentColor: '#405189',
 					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
 				},
 				{
@@ -910,6 +982,7 @@ export default {
 					iconBgClass: 'bg-dark-subtle',
 					iconTextClass: 'text-dark',
 					tag: 'Orders',
+					accentColor: '#212529',
 					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
 				},
 				{
@@ -923,6 +996,7 @@ export default {
 					iconBgClass: 'bg-success-subtle',
 					iconTextClass: 'text-success',
 					tag: 'Reports',
+					accentColor: '#0ab39c',
 					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
 				},
 			];
@@ -1188,75 +1262,119 @@ export default {
 </script>
 
 <style scoped>
-.procurement-hero .card-body {
-  padding: 3.5rem 4rem;
-}
-
-.procurement-hero .row {
-  min-height: 280px;
-  --bs-gutter-x: 4rem;
-}
-
-.procurement-hero h3 {
-  font-size: 2rem;
-  line-height: 1.35;
-  margin-bottom: 1rem !important;
-}
-
-.procurement-hero p {
-  font-size: 1rem;
-  margin-bottom: 1.5rem !important;
-}
-
-.hero-stat-grid {
-  gap: 1.5rem;
-}
-
-.hero-stat-card {
-  min-height: 120px;
-  padding: 1.5rem;
-}
-
-.hero-pill {
-  padding: .65rem 1.1rem;
-  margin-right: .35rem;
-}
-
-.hero-stat-card strong {
-  font-size: 1.8rem;
-  margin: .3rem 0;
-}
-
-.hero-stat-card small {
-  font-size: .9rem;
-}
-
 .procurement-dashboard-page {
   --proc-brand: #405189;
   --proc-brand-dark: #344272;
+  --proc-accent: #0ab39c;
+  --proc-ink: #0f172a;
+  --proc-muted: #64748b;
+  --proc-border: #e8edf5;
   --proc-soft: rgba(64, 81, 137, 0.1);
-  padding-bottom: 1.5rem;
+  --proc-surface: rgba(255, 255, 255, .86);
+  padding-bottom: 2.75rem;
 }
 
 .procurement-hero {
-  border-radius: 18px;
+  position: relative;
+  border-radius: 22px;
   background:
-    radial-gradient(circle at top left, rgba(255,255,255,.18), transparent 34%),
-    linear-gradient(135deg, var(--proc-brand), var(--proc-brand-dark));
-  box-shadow: 0 18px 40px rgba(64, 81, 137, 0.22);
+    radial-gradient(circle at 8% 10%, rgba(255, 255, 255, .22), transparent 32%),
+    radial-gradient(circle at 88% 22%, rgba(10, 179, 156, .32), transparent 28%),
+    linear-gradient(135deg, #405189 0%, #344272 52%, #1f2a50 100%);
+  box-shadow: 0 24px 58px rgba(64, 81, 137, 0.24);
 }
 
-.procurement-hero .card-body,
+.procurement-hero::after {
+  position: absolute;
+  inset: auto 28px 24px auto;
+  width: 140px;
+  height: 140px;
+  content: "";
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 32px;
+  transform: rotate(14deg);
+  opacity: .5;
+}
+
+.procurement-hero .card-body {
+  position: relative;
+  z-index: 1;
+  padding: 3.75rem 4rem;
+}
+
+.procurement-hero .row {
+  min-height: 300px;
+  --bs-gutter-x: 4.5rem;
+  --bs-gutter-y: 2rem;
+}
+
+.procurement-hero h3 {
+  max-width: 760px;
+  font-size: 2.15rem;
+  line-height: 1.35;
+  margin-bottom: 1.1rem !important;
+}
+
+.procurement-hero p {
+  max-width: 620px;
+  font-size: 1rem;
+  line-height: 1.8;
+  margin-bottom: 1.75rem !important;
+}
+
 .compact-card {
-  padding: 1.25rem;
+  padding: 2rem;
+}
+
+.dashboard-filter-card {
+  border-radius: 18px !important;
+  background: var(--proc-surface);
+  border: 1px solid rgba(226, 232, 240, .84) !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .06) !important;
+  backdrop-filter: blur(12px);
+}
+
+.filter-field {
+  height: 100%;
+  padding: .95rem;
+  border: 1px solid var(--proc-border);
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.filter-field .form-label {
+  margin-bottom: .55rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.filter-field .form-control {
+  min-height: 42px;
+  border-color: transparent;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.filter-field :deep(.multiselect) {
+  min-height: 42px;
+  border-color: transparent;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.filter-field :deep(.multiselect.is-active) {
+  border-color: rgba(64, 81, 137, .4);
+  box-shadow: 0 0 0 .2rem rgba(64, 81, 137, .1);
 }
 
 .hero-kicker,
 .section-kicker {
-  color: #64748b;
+  color: var(--proc-muted);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: .16em;
+  letter-spacing: .14em;
   text-transform: uppercase;
 }
 
@@ -1265,26 +1383,61 @@ export default {
 }
 
 .hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
   background: #fff;
   color: var(--proc-brand);
   font-weight: 700;
-  padding: .5rem .75rem;
+  padding: .65rem 1rem;
   border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
+}
+
+.hero-pill i {
+  font-size: .95rem;
+}
+
+.hero-pill.is-success {
+  color: #087f69;
+}
+
+.hero-pill.is-warning {
+  color: #9a6700;
+}
+
+.hero-pill.is-dark {
+  color: #1f2937;
 }
 
 .hero-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .75rem;
+  gap: 1.25rem;
 }
 
 .hero-stat-card {
-  padding: 1rem;
-  border-radius: 16px;
+  position: relative;
+  isolation: isolate;
+  min-height: 130px;
+  padding: 1.4rem;
+  border-radius: 18px;
   color: #fff;
-  background: rgba(255,255,255,.13);
-  border: 1px solid rgba(255,255,255,.18);
-  backdrop-filter: blur(8px);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .08));
+  border: 1px solid rgba(255, 255, 255, .2);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.hero-stat-watermark {
+  position: absolute;
+  right: 1rem;
+  bottom: .75rem;
+  z-index: -1;
+  color: rgba(255, 255, 255, .14);
+  font-size: 3.4rem;
+  line-height: 1;
 }
 
 .hero-stat-card span,
@@ -1300,12 +1453,15 @@ export default {
 
 .hero-stat-card strong {
   display: block;
-  font-size: 1.35rem;
+  font-size: 1.8rem;
   line-height: 1.2;
+  margin: .45rem 0;
 }
 
 .hero-stat-card small {
-  color: rgba(255,255,255,.72);
+  color: rgba(255,255,255,.74);
+  font-size: .88rem;
+  line-height: 1.55;
 }
 
 .section-heading {
@@ -1319,7 +1475,7 @@ export default {
 .section-heading h4 {
   margin: 0;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--proc-ink);
 }
 
 .section-heading span {
@@ -1330,53 +1486,118 @@ export default {
 .metric-card,
 .module-card,
 .panel-card {
+  position: relative;
   border: 0;
-  border-radius: 18px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, .07);
+  border-radius: 20px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .07);
   overflow: hidden;
+}
+
+.metric-card::before,
+.module-card::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  content: "";
+  background: var(--metric-accent, var(--module-accent, var(--proc-brand)));
 }
 
 .metric-card .card-body,
 .module-card .card-body,
 .panel-card .card-body {
-  padding: 0;
+  padding: 1.75rem;
+}
+
+.metric-card {
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.metric-card:hover,
+.module-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, .1);
+}
+
+.metric-card h4 {
+  color: var(--proc-ink);
+  font-size: 1.6rem;
 }
 
 .metric-icon,
 .module-icon {
-  width: 46px;
-  height: 46px;
+  width: 52px;
+  height: 52px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
-  font-size: 1.35rem;
+  border-radius: 16px;
+  font-size: 1.45rem;
   flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5);
 }
 
 .module-card .card-body {
   display: flex;
   flex-direction: column;
   height: 100%;
-    margin: 0;
-  padding: 0;
+}
+
+.module-note {
+  min-height: 42px;
+  line-height: 1.55;
+}
+
+.module-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  border: 1px solid rgba(64, 81, 137, .12);
+  border-radius: 12px;
+  background: rgba(64, 81, 137, .08);
+  padding: .7rem .9rem;
+  color: var(--proc-brand);
+  font-weight: 700;
+}
+
+.module-action:hover {
+  border-color: transparent;
+  background: var(--module-accent);
+  color: #fff;
+}
+
+.module-action i {
+  font-size: 1rem;
 }
 
 .panel-card .card-header {
-  background: #fff;
-  border-bottom: 1px solid #eef2f7;
-  padding: .1rem;
+  background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+  border-bottom: 1px solid var(--proc-border);
+  padding: 1.5rem 1.75rem;
 }
 
 .panel-card .card-header h5 {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
   margin: 0;
   color: var(--proc-brand);
   font-weight: 800;
 }
 
+.panel-card .card-header h5 i {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--proc-soft);
+}
+
 .panel-card .card-header p {
   margin: .2rem 0 0;
-  color: #64748b;
+  color: var(--proc-muted);
   font-size: .8rem;
 }
 
@@ -1384,57 +1605,113 @@ export default {
 .insight-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: .75rem;
+  gap: 1rem;
 }
 
 .insight-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .unit-breakdown-stat,
 .insight-item,
 .insight-highlight {
-  padding: .9rem;
+  padding: 1.15rem;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #eef2f7;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid var(--proc-border);
 }
 
 .unit-breakdown-stat strong,
 .insight-item strong {
   display: block;
-  margin-top: .25rem;
-  color: #0f172a;
-  font-size: 1rem;
+  margin-top: .4rem;
+  color: var(--proc-ink);
+  font-size: 1.05rem;
+  line-height: 1.35;
 }
 
 .unit-breakdown-stat small,
 .insight-item small {
-  color: #64748b;
+  color: var(--proc-muted);
   font-size: .75rem;
+  line-height: 1.5;
 }
 
 .insight-highlight {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
 }
 
 .insight-icon {
-  width: 42px;
-  height: 42px;
+  width: 50px;
+  height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: var(--proc-soft);
   color: var(--proc-brand);
-  font-size: 1.25rem;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+
+.table > :not(caption) > * > * {
+  padding: 1rem .85rem;
+}
+
+.recent-table-body {
+  padding-top: 1.25rem !important;
+}
+
+.recent-table-body .table {
+  border-collapse: separate;
+  border-spacing: 0 .55rem;
+}
+
+.recent-table-body thead th {
+  border: 0;
+  background: transparent;
+  color: var(--proc-muted);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.recent-table-body tbody tr {
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .05);
+}
+
+.recent-table-body tbody td {
+  border-top: 1px solid var(--proc-border);
+  border-bottom: 1px solid var(--proc-border);
+  background: #fff;
+}
+
+.recent-table-body tbody td:first-child {
+  border-left: 1px solid var(--proc-border);
+  border-top-left-radius: 14px;
+  border-bottom-left-radius: 14px;
+}
+
+.recent-table-body tbody td:last-child {
+  border-right: 1px solid var(--proc-border);
+  border-top-right-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+
+.chart-body {
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, .72), #fff 28%),
+    #fff;
 }
 
 .empty-state {
   text-align: center;
-  color: #64748b;
+  color: var(--proc-muted);
 }
 
 .empty-state i {
@@ -1459,6 +1736,19 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .procurement-hero .card-body,
+  .compact-card,
+  .metric-card .card-body,
+  .module-card .card-body,
+  .panel-card .card-body,
+  .panel-card .card-header {
+    padding: 1.25rem;
+  }
+
+  .procurement-hero h3 {
+    font-size: 1.65rem;
+  }
+
   .hero-stat-grid,
   .unit-breakdown-footer,
   .insight-grid {
