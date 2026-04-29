@@ -73,10 +73,6 @@ class IAReportClass
                         });
                 });
             })
-            ->orderByRaw("
-                    LEFT(code, LOCATE('-', code) - 1) {$sort_direction},
-                    CAST(SUBSTRING_INDEX(code, '-', -1) AS UNSIGNED) {$sort_direction}
-            ")
             ->orderBy('created_at', $sort_direction)
             ->paginate($request->count ?? 10);
 

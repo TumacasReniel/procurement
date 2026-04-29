@@ -169,7 +169,7 @@
                   <span
                     v-for="item in deliveredPreviewItems(po)"
                     :key="`delivered-${item.id}`"
-                    class="badge rounded-pill text-bg-success"
+                    class="badge rounded-pill text-bg-info"
                   >
                     Item {{ item.item_no }}: {{ formatQuantity(item.delivered_quantity) }} delivered
                   </span>
@@ -185,7 +185,7 @@
                   <span v-if="is_receiving_mode" class="badge rounded-pill text-bg-warning">
                     Remaining: {{ po.remaining_items_count || 0 }}
                   </span>
-                  <span class="badge rounded-pill text-bg-success">
+                  <span class="badge rounded-pill text-bg-danger">
                     Delivered: {{ po.delivered_items_count || 0 }}
                   </span>
                   <span v-if="is_receiving_mode && po.partial_items_count" class="badge rounded-pill text-bg-info">
