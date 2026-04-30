@@ -269,6 +269,14 @@
             </div>
 
             <div class="unit-breakdown-stat">
+              <span>Total Excess Funds</span>
+              <strong :class="totalExcessFundsAmount < 0 ? 'text-danger' : 'text-success'">
+                {{ formatCompactCurrency(totalExcessFundsAmount) }}
+              </strong>
+              <small>{{ formatCurrency(totalExcessFundsAmount) }}</small>
+            </div>
+
+            <div class="unit-breakdown-stat">
               <span>Top Unit</span>
               <strong>{{ topDivision.name }}</strong>
               <small>{{ topDivision.count }} procurements</small>
@@ -454,6 +462,7 @@ export default {
         total_purchase_orders: 0,
         total_approved_budget_amount: 0,
         total_completed_awarded_amount: 0,
+        total_excess_funds: 0,
         recent_procurements: [],
         monthly_trends: [],
         division_distribution: [],
@@ -945,7 +954,7 @@ export default {
 					key: 'pap_codes',
 					title: 'PAP Codes',
 					value: this.dashboard.total_pap_codes,
-					note: `${this.formatCompactCurrency(this.dashboard.total_remaining_pap_budget)} remaining from ${this.formatCompactCurrency(this.dashboard.total_allocated_pap_budget)} allocated budget`,
+					note: `${this.formatCompactCurrency(this.dashboard.total_excess_funds)} excess funds; ${this.formatCompactCurrency(this.dashboard.total_remaining_pap_budget)} remaining from ${this.formatCompactCurrency(this.dashboard.total_allocated_pap_budget)} allocated`,
 					route: '/faims/procurement-codes',
 					action: 'Open PAP codes',
 					icon: 'ri-code-box-line',
@@ -1104,6 +1113,13 @@ export default {
 				return Number(this.dashboard.total_completed_awarded_amount) || 0;
 			}
 			return source.reduce((sum, item) => sum + (Number(item.completed_awarded_amount) || 0), 0);
+		},
+		totalExcessFundsAmount() {
+			if (this.dashboard.total_excess_funds !== undefined && this.dashboard.total_excess_funds !== null) {
+				return Number(this.dashboard.total_excess_funds) || 0;
+			}
+
+			return this.totalApprovedBudgetAmount - this.totalActualAwardedAmount;
 		},
 		monthlyTrendMaxProcurementCount() {
 			const source = this.dashboard.monthly_trends || [];
@@ -1311,14 +1327,7 @@ export default {
 		},
 
 		formatCompactCurrency(value) {
-			const amount = Number(value) || 0;
-			return new Intl.NumberFormat('en-PH', {
-				style: 'currency',
-				currency: 'PHP',
-				notation: 'compact',
-				minimumFractionDigits: 0,
-				maximumFractionDigits: 1,
-			}).format(amount);
+			return this.formatCurrency(value);
 		},
 
 		formatDateTime(date) {
@@ -1431,9 +1440,13 @@ export default {
   --proc-surface: rgba(255, 255, 255, .86);
   --proc-card: #ffffff;
   --proc-card-soft: #f8fafc;
+  --proc-card-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --proc-panel-header: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  --proc-chart-bg: linear-gradient(180deg, rgba(248, 250, 252, .72), #ffffff 28%), #ffffff;
   --proc-table-row: #ffffff;
   --proc-table-hover: rgba(64, 81, 137, 0.06);
   --proc-input: #ffffff;
+  --proc-shadow: rgba(15, 23, 42, .05);
   padding-bottom: 1.5rem;
 }
 
@@ -1448,9 +1461,23 @@ export default {
   --proc-surface: rgba(19, 29, 43, 0.92);
   --proc-card: #131d2b;
   --proc-card-soft: #182235;
+  --proc-card-gradient: linear-gradient(180deg, #172235 0%, #101827 100%);
+  --proc-panel-header: linear-gradient(180deg, #172235 0%, #131d2b 100%);
+  --proc-chart-bg: linear-gradient(180deg, rgba(24, 34, 53, .72), #101827 30%), #101827;
   --proc-table-row: #182235;
   --proc-table-hover: rgba(96, 165, 250, 0.12);
   --proc-input: #101827;
+  --proc-shadow: rgba(0, 0, 0, .28);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-dark),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-body) {
+  color: var(--proc-ink) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-muted),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-body-secondary) {
+  color: var(--proc-muted) !important;
 }
 
 .procurement-hero {
@@ -1508,8 +1535,8 @@ export default {
 .dashboard-filter-card {
   border-radius: 14px !important;
   background: var(--proc-surface);
-  border: 1px solid rgba(226, 232, 240, .84) !important;
-  box-shadow: 0 14px 34px rgba(15, 23, 42, .06) !important;
+  border: 1px solid var(--proc-border) !important;
+  box-shadow: 0 14px 34px var(--proc-shadow) !important;
   backdrop-filter: blur(12px);
 }
 
@@ -1570,6 +1597,18 @@ export default {
   box-shadow: none;
 }
 
+.filter-field :deep(.multiselect-dropdown),
+.filter-field :deep(.multiselect-options),
+.filter-field :deep(.multiselect-search),
+.filter-field :deep(.multiselect-single-label) {
+  background: var(--proc-input);
+  color: var(--proc-ink);
+}
+
+.filter-field :deep(.multiselect-option) {
+  color: var(--proc-ink);
+}
+
 .filter-field :deep(.multiselect.is-active) {
   border-color: rgba(64, 81, 137, .4);
   box-shadow: 0 0 0 .2rem rgba(64, 81, 137, .1);
@@ -1596,12 +1635,18 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: .45rem;
-  background: #fff;
+  background: rgba(255, 255, 255, .92);
   color: var(--proc-brand);
   font-weight: 700;
   padding: .5rem .85rem;
   border-radius: 999px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
+}
+
+:global([data-bs-theme="dark"]) .hero-pill {
+  background: rgba(15, 23, 42, .58);
+  border: 1px solid rgba(255, 255, 255, .16);
+  color: #dbeafe;
 }
 
 .hero-pill i {
@@ -1618,6 +1663,18 @@ export default {
 
 .hero-pill.is-dark {
   color: #1f2937;
+}
+
+:global([data-bs-theme="dark"]) .hero-pill.is-success {
+  color: #99f6e4;
+}
+
+:global([data-bs-theme="dark"]) .hero-pill.is-warning {
+  color: #fde68a;
+}
+
+:global([data-bs-theme="dark"]) .hero-pill.is-dark {
+  color: #e5edf7;
 }
 
 .hero-stat-grid {
@@ -1699,7 +1756,9 @@ export default {
   position: relative;
   border: 0;
   border-radius: 10px;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, .05);
+  background: var(--proc-card);
+  color: var(--proc-ink);
+  box-shadow: 0 6px 16px var(--proc-shadow);
   overflow: hidden;
 }
 
@@ -1729,7 +1788,7 @@ export default {
 .metric-card:hover,
 .module-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .08);
+  box-shadow: 0 10px 22px var(--proc-shadow);
 }
 
 .metric-card h4 {
@@ -1789,7 +1848,7 @@ export default {
 }
 
 .panel-card .card-header {
-  background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+  background: var(--proc-panel-header);
   border-bottom: 1px solid var(--proc-border);
   padding: .65rem .75rem;
 }
@@ -1847,7 +1906,7 @@ export default {
 .insight-highlight {
   padding: .6rem;
   border-radius: 9px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: var(--proc-card-gradient);
   border: 1px solid var(--proc-border);
 }
 
@@ -1911,13 +1970,14 @@ export default {
 }
 
 .recent-table-body tbody tr {
-  box-shadow: 0 4px 12px rgba(15, 23, 42, .04);
+  box-shadow: 0 4px 12px var(--proc-shadow);
 }
 
 .recent-table-body tbody td {
   border-top: 1px solid var(--proc-border);
   border-bottom: 1px solid var(--proc-border);
-  background: #fff;
+  background: var(--proc-table-row);
+  color: var(--proc-ink);
 }
 
 .recent-table-body tbody td:first-child {
@@ -1933,9 +1993,7 @@ export default {
 }
 
 .chart-body {
-  background:
-    linear-gradient(180deg, rgba(248, 250, 252, .72), #fff 28%),
-    #fff;
+  background: var(--proc-chart-bg);
 }
 
 .empty-state {

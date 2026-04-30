@@ -2,7 +2,7 @@
   <div>
     <b-modal
       v-model="showModal"
-      header-class="p-3 bg-light"
+      header-class="p-3 supplier-modal-header"
       :title="editable ? 'Update Supplier' : 'Add New Supplier'"
       size="xl"
       class="v-modal-custom"
@@ -389,7 +389,7 @@
     <b-modal
       v-model="showApprovalModal"
       style="--vz-modal-width: 600px"
-      header-class="p-3 bg-light"
+      header-class="p-3 supplier-modal-header"
       :title="approval_modal_title"
       class="v-modal-custom"
       modal-class="zoomIn"
@@ -972,8 +972,28 @@ export default {
 
 <style scoped>
 .supplier-form {
+  --supplier-modal-surface: #ffffff;
+  --supplier-modal-surface-soft: #f8fafc;
+  --supplier-modal-border: #e2e8f0;
+  --supplier-modal-text: #1e293b;
+  --supplier-modal-muted: #64748b;
   max-height: 70vh;
   overflow-y: auto;
+}
+
+.supplier-form .border,
+.supplier-form .bg-light-subtle {
+  background: var(--supplier-modal-surface-soft) !important;
+  border-color: var(--supplier-modal-border) !important;
+  color: var(--supplier-modal-text);
+}
+
+.supplier-form :deep(.form-control),
+.supplier-form :deep(.form-select),
+.supplier-form :deep(textarea) {
+  background: var(--supplier-modal-surface) !important;
+  border-color: var(--supplier-modal-border) !important;
+  color: var(--supplier-modal-text) !important;
 }
 
 .form-group {
@@ -989,20 +1009,20 @@ export default {
   padding: 0.9rem 1rem;
   border: 1px dashed #cbd5e1;
   border-radius: 1rem;
-  background: #fff;
+  background: var(--supplier-modal-surface);
   transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .supplier-required-upload.is-filled {
   border-style: solid;
   border-color: #a7f3d0;
-  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+  background: linear-gradient(180deg, var(--supplier-modal-surface) 0%, rgba(16, 185, 129, 0.12) 100%);
 }
 
 .supplier-required-upload.is-error {
   border-style: solid;
   border-color: #fda4af;
-  background: #fff1f2;
+  background: rgba(244, 63, 94, 0.12);
 }
 
 .supplier-required-upload__content {
@@ -1037,7 +1057,7 @@ export default {
 
 .supplier-required-upload__title {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--supplier-modal-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1047,7 +1067,7 @@ export default {
   margin-top: 0.2rem;
   font-size: 0.8rem;
   line-height: 1.4;
-  color: #64748b;
+  color: var(--supplier-modal-muted);
 }
 
 .supplier-required-upload__button,
@@ -1078,6 +1098,48 @@ export default {
   color: #991b1b;
   background: #fee2e2;
   border-color: #fecaca;
+}
+
+:global([data-bs-theme="dark"]) .supplier-form {
+  --supplier-modal-surface: #131d2b;
+  --supplier-modal-surface-soft: #182235;
+  --supplier-modal-border: rgba(148, 163, 184, 0.18);
+  --supplier-modal-text: #e5edf7;
+  --supplier-modal-muted: #9fb0c7;
+  color: var(--supplier-modal-text);
+}
+
+:global([data-bs-theme="dark"]) .supplier-modal-header,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-header {
+  background: #182235 !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: #e5edf7 !important;
+}
+
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-content,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-body,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-footer {
+  background: #131d2b !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: #e5edf7 !important;
+}
+
+:global([data-bs-theme="dark"]) .v-modal-custom .bg-light-subtle,
+:global([data-bs-theme="dark"]) .v-modal-custom .border {
+  background: #182235 !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+:global([data-bs-theme="dark"]) .v-modal-custom .text-muted {
+  color: #9fb0c7 !important;
+}
+
+:global([data-bs-theme="dark"]) .supplier-required-upload__icon {
+  background: rgba(96, 165, 250, 0.16);
+}
+
+:global([data-bs-theme="dark"]) .supplier-required-upload.is-filled .supplier-required-upload__icon {
+  background: rgba(16, 185, 129, 0.18);
 }
 
 @media (max-width: 991.98px) {

@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources\FAIMS\Procurement;
 
+use App\Models\ListStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ProcurementCodeBudgetLogResource extends JsonResource
@@ -20,6 +22,10 @@ class ProcurementCodeBudgetLogResource extends JsonResource
             'budget_increase' => 'Budget Increase',
             default => Str::headline($this->type),
         };
+        $actualAwardedAmount = $this->actualAwardedAmount();
+        $excessFundsAmount = $this->type === 'approval_deduction'
+            ? round((float) $this->amount - $actualAwardedAmount, 2)
+            : null;
 
         return [
             'id' => $this->id,
@@ -28,6 +34,8 @@ class ProcurementCodeBudgetLogResource extends JsonResource
             'status' => $this->status,
             'status_label' => Str::headline($this->status ?: 'approved'),
             'amount' => $this->amount,
+            'actual_awarded_amount' => $actualAwardedAmount,
+            'excess_funds_amount' => $excessFundsAmount,
             'balance_before' => $this->balance_before,
             'balance_after' => $this->balance_after,
             'description' => $this->description,
@@ -61,5 +69,37 @@ class ProcurementCodeBudgetLogResource extends JsonResource
                     ?? $this->reviewed_by->name,
             ] : null,
         ];
+    }
+
+    private function actualAwardedAmount(): float
+    {
+        if ($this->type !== 'approval_deduction' || !$this->procurement_id) {
+            return 0.0;
+        }
+
+        $completedItemStatusId = ListStatus::getID('Completed', 'Procurement');
+
+        if (!$completedItemStatusId) {
+            return 0.0;
+        }
+
+        $procurementTotal = DB::table('procurement_items')
+            ->where('procurement_id', $this->procurement_id)
+            ->selectRaw('COALESCE(SUM(total_cost), 0) as amount')
+            ->value('amount');
+
+        if ((float) $procurementTotal <= 0) {
+            return 0.0;
+        }
+
+        $awardedAmount = DB::table('procurement_items')
+            ->join('procurement_quotation_items', 'procurement_items.id', '=', 'procurement_quotation_items.procurement_item_id')
+            ->join('procurement_bac_noa_items', 'procurement_quotation_items.id', '=', 'procurement_bac_noa_items.item_id')
+            ->where('procurement_items.procurement_id', $this->procurement_id)
+            ->where('procurement_items.status_id', $completedItemStatusId)
+            ->selectRaw('COALESCE(SUM(procurement_quotation_items.bid_price * procurement_items.item_quantity), 0) as amount')
+            ->value('amount');
+
+        return round((float) $awardedAmount * ((float) $this->amount / (float) $procurementTotal), 2);
     }
 }

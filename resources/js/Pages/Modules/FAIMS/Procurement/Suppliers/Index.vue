@@ -271,7 +271,7 @@
     v-model="showApproveModal"
     style="--vz-modal-width: 600px"
     title="Approve Supplier"
-    header-class="p-3 bg-light"
+    header-class="p-3 supplier-modal-header"
     class="v-modal-custom"
     modal-class="zoomIn"
     centered
@@ -530,11 +530,26 @@ export default {
   --supplier-text: #1e293b;
   --supplier-muted: #64748b;
   --supplier-row-hover: rgba(37, 99, 235, 0.05);
+  --supplier-row-active: rgba(37, 99, 235, 0.08);
+  --supplier-shadow: rgba(15, 23, 42, 0.05);
+  color: var(--supplier-text);
+}
+
+.supplier-index-page .bg-white,
+.supplier-index-page .bg-light-subtle {
+  background: var(--supplier-surface) !important;
+}
+
+.supplier-index-page .text-body {
+  color: var(--supplier-text) !important;
 }
 
 .supplier-directory-card {
+  background: var(--supplier-surface) !important;
   border-color: var(--supplier-border) !important;
   border-radius: 16px;
+  color: var(--supplier-text);
+  box-shadow: 0 10px 28px var(--supplier-shadow) !important;
   overflow: hidden;
 }
 
@@ -614,6 +629,7 @@ export default {
 }
 
 .supplier-table-wrap {
+  background: var(--supplier-surface);
   border: 1px solid var(--supplier-border);
   border-radius: 14px;
   height: calc(100vh - 315px);
@@ -647,9 +663,10 @@ export default {
 }
 
 :deep(.supplier-index-page .table-active td) {
-  background: rgba(37, 99, 235, 0.08) !important;
+  background: var(--supplier-row-active) !important;
 }
 
+.supplier-index-page .text-muted,
 :deep(.supplier-index-page .text-muted) {
   color: var(--supplier-muted) !important;
 }
@@ -662,6 +679,43 @@ export default {
   --supplier-text: #e5edf7;
   --supplier-muted: #9fb0c7;
   --supplier-row-hover: rgba(96, 165, 250, 0.12);
+  --supplier-row-active: rgba(96, 165, 250, 0.18);
+  --supplier-shadow: rgba(0, 0, 0, 0.28);
+}
+
+:global([data-bs-theme="dark"]) .supplier-index-page .bg-white,
+:global([data-bs-theme="dark"]) .supplier-index-page .bg-light-subtle,
+:global([data-bs-theme="dark"]) .supplier-index-page :deep(.bg-white),
+:global([data-bs-theme="dark"]) .supplier-index-page :deep(.bg-light-subtle) {
+  background: var(--supplier-surface) !important;
+}
+
+:global([data-bs-theme="dark"]) .supplier-index-page .table,
+:global([data-bs-theme="dark"]) .supplier-index-page :deep(.table) {
+  --bs-table-bg: var(--supplier-surface);
+  --bs-table-color: var(--supplier-text);
+  --bs-table-border-color: var(--supplier-border);
+  --bs-table-hover-bg: var(--supplier-row-hover);
+  --bs-table-hover-color: var(--supplier-text);
+  color: var(--supplier-text);
+}
+
+:global([data-bs-theme="dark"]) .supplier-index-page :deep(.table-light) {
+  --bs-table-bg: var(--supplier-surface-soft);
+  --bs-table-color: var(--supplier-muted);
+  --bs-table-border-color: var(--supplier-border);
+}
+
+:global([data-bs-theme="dark"]) .supplier-index-page :deep(.card-footer) {
+  background: var(--supplier-surface-soft) !important;
+  border-color: var(--supplier-border) !important;
+}
+
+:global([data-bs-theme="dark"]) .supplier-index-page :deep(.form-control),
+:global([data-bs-theme="dark"]) .supplier-index-page :deep(.input-group-text) {
+  background: var(--supplier-surface) !important;
+  border-color: var(--supplier-border) !important;
+  color: var(--supplier-text) !important;
 }
 
 :global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-dropdown) {
@@ -676,6 +730,25 @@ export default {
 :global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-option.is-pointed),
 :global([data-bs-theme="dark"]) :deep(.supplier-toolbar__status .multiselect-option.is-selected) {
   background: var(--supplier-surface-soft) !important;
+}
+
+:global([data-bs-theme="dark"]) .supplier-modal-header,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-header {
+  background: #182235 !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: #e5edf7 !important;
+}
+
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-content,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-body,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-footer {
+  background: #131d2b !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: #e5edf7 !important;
+}
+
+:global([data-bs-theme="dark"]) .v-modal-custom .text-muted {
+  color: #9fb0c7 !important;
 }
 
 @media (max-width: 991px) {

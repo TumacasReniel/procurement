@@ -364,6 +364,7 @@ class ViewClass
 
         $total_completed_awarded_amount = $division_distribution->sum('completed_awarded_amount');
         $total_approved_budget_amount = $division_distribution->sum('distributed_amount');
+        $total_excess_funds = round((float) $total_approved_budget_amount - (float) $total_completed_awarded_amount, 2);
 
         // Trend buckets follow the selected dashboard filter.
         $trend_select = "MONTH(created_at) as trend_order, DATE_FORMAT(created_at, '%b') as trend_label";
@@ -473,6 +474,7 @@ class ViewClass
             'total_procurements' => $total_procurements,
             'total_approved_budget_amount' => $total_approved_budget_amount,
             'total_completed_awarded_amount' => $total_completed_awarded_amount,
+            'total_excess_funds' => $total_excess_funds,
             'division_distribution' => $division_distribution,
             'monthly_trends' => $monthly_trends,
             'recent_procurements' => $recent_procurements,
