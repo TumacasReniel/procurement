@@ -281,7 +281,7 @@
 </template>
 
 <script>
-import { useForm } from "@inertiajs/vue3";
+import { router, useForm } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
 import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
 import TextInput from "@/Shared/Components/Forms/TextInput.vue";
@@ -515,24 +515,19 @@ export default {
                 procurement_code_ids: this.form.procurement_code_ids,
             };
 
-            axios
-                .post("/faims/procurements", payload, {
-                    headers: {
-                        Accept: "application/json",
-                        "X-Requested-With": "XMLHttpRequest",
-                    },
-                })
-                .then(() => {
+            router.post("/faims/procurements", payload, {
+                preserveScroll: true,
+                onSuccess: () => {
                     this.$emit("success", true);
                     this.hide();
-                })
-                .catch((error) => {
-                    const validationErrors = error.response?.data?.errors || {};
-                    this.form.setError(validationErrors);
-                })
-                .finally(() => {
+                },
+                onError: (errors) => {
+                    this.form.setError(errors || {});
+                },
+                onFinish: () => {
                     this.submitting = false;
-                });
+                },
+            });
         },
         getUnits(divisionId) {
             axios

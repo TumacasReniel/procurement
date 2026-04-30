@@ -10,6 +10,7 @@ use App\Models\ProcurementBacNoa;
 use App\Models\ProcurementNoaPo;
 use App\Models\ProcurementPoNtp;
 use App\Models\ListDropdown;
+use App\Models\ListStatus;
 use App\Models\OrgChart;
 use App\Models\User;
 
@@ -211,7 +212,8 @@ class PrintClass
     }
 
      public function printAOB($id){
-        $quotations = ProcurementQuotation::with('supplier.address', 'supply_officer.profile', 'items' , 'procurement')
+        $awardedStatusId = ListStatus::getID('Awarded', 'Procurement');
+        $quotations = ProcurementQuotation::with('supplier.address', 'supply_officer.profile', 'items.item.item_unit_type', 'items.status' , 'procurement')
                                         ->whereNot('status_id', 71) // status is not  "Failed RFQs"
                                         ->where('procurement_id', $id)->get(); // 
 
@@ -229,6 +231,7 @@ class PrintClass
             'bac_vice_chairperson' => $bac_vice_chairperson,
             'bac_members' => $bac_members,
             'regional_director' => $regional_director,
+            'awardedStatusId' => $awardedStatusId,
         ];
 
         $pdf = \PDF::loadView('FAIMS.Procurement.prints.abstract-of-bids',$array)->setPaper('A4', 'landscape')

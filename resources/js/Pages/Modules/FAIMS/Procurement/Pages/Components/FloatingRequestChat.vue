@@ -471,7 +471,7 @@
 
 <script>
 import axios from "axios";
-import { useForm } from "@inertiajs/vue3";
+import { router, useForm } from "@inertiajs/vue3";
 
 export default {
   props: [
@@ -1090,33 +1090,28 @@ export default {
       this.commentSubmitting = true;
       this.form.clearErrors();
 
-      axios
-        .post(
-          `/faims/procurements/${this.selectedRequest.id}/comments`,
-          { content },
-          {
-            headers: {
-              Accept: "application/json",
-              "X-Requested-With": "XMLHttpRequest",
-            },
-          }
-        )
-        .then((response) => {
-          if (response.data?.data) {
-            this.$emit("comment-added", response.data.data);
-          }
+      router.post(
+        `/faims/procurements/${this.selectedRequest.id}/comments`,
+        { content },
+        {
+          preserveScroll: true,
+          onSuccess: (page) => {
+            if (page.props.flash?.data) {
+              this.$emit("comment-added", page.props.flash.data);
+            }
 
-          this.newComment = "";
-          this.resetMentionState();
-          this.form.reset();
-        })
-        .catch((error) => {
-          const validationErrors = error.response?.data?.errors || {};
-          this.form.setError(validationErrors);
-        })
-        .finally(() => {
-          this.commentSubmitting = false;
-        });
+            this.newComment = "";
+            this.resetMentionState();
+            this.form.reset();
+          },
+          onError: (errors) => {
+            this.form.setError(errors || {});
+          },
+          onFinish: () => {
+            this.commentSubmitting = false;
+          }
+        }
+      );
     },
     syncCommentChannel(requestId) {
       this.teardownCommentChannel();

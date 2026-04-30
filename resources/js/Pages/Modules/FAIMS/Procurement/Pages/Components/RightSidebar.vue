@@ -334,7 +334,7 @@
 </template>
 
 <script>
-import { useForm } from "@inertiajs/vue3";
+import { router, useForm } from "@inertiajs/vue3";
 import axios from "axios";
 
 export default {
@@ -991,33 +991,28 @@ export default {
       this.commentSubmitting = true;
       this.form.clearErrors();
 
-      axios
-        .post(
-          `/faims/procurements/${this.procurement.id}/comments`,
-          { content },
-          {
-            headers: {
-              Accept: "application/json",
-              "X-Requested-With": "XMLHttpRequest",
-            },
-          }
-        )
-        .then((response) => {
-          if (response.data?.data) {
-            this.addIncomingComment(response.data.data);
-          }
+      router.post(
+        `/faims/procurements/${this.procurement.id}/comments`,
+        { content },
+        {
+          preserveScroll: true,
+          onSuccess: (page) => {
+            if (page.props.flash?.data) {
+              this.addIncomingComment(page.props.flash.data);
+            }
 
-          this.newComment = "";
-          this.resetMentionState();
-          this.form.reset();
-        })
-        .catch((error) => {
-          const validationErrors = error.response?.data?.errors || {};
-          this.form.setError(validationErrors);
-        })
-        .finally(() => {
-          this.commentSubmitting = false;
-        });
+            this.newComment = "";
+            this.resetMentionState();
+            this.form.reset();
+          },
+          onError: (errors) => {
+            this.form.setError(errors || {});
+          },
+          onFinish: () => {
+            this.commentSubmitting = false;
+          }
+        }
+      );
     },
     addIncomingComment(comment) {
       if (comment.commentable_type === 'App\\Models\\ProcurementBac') {

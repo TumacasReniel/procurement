@@ -171,6 +171,7 @@
 
 <script>
 import axios from "axios";
+import { router } from "@inertiajs/vue3";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 
 export default {
@@ -545,31 +546,54 @@ export default {
                 return;
             }
             this.assignProcessing = true;
-            const removeRequests = this.pendingRemovalAssignmentIds.map((id) =>
-                axios.delete(`/faims/procurement-assignments/${id}`),
-            );
-            const addRequests = this.assignSelected.length
-                ? [
-                      axios.post("/faims/procurement-assignments", {
-                          status: this.assignForm.status,
-                          user_ids: this.assignForm.user_ids,
-                      }),
-                  ]
-                : [];
 
-            Promise.all([...removeRequests, ...addRequests])
-                .then(() => {
-                    this.showAssignModal = false;
-                    this.fetchAssignments();
-                })
-                .catch((error) => {
-                    if (error?.response?.status === 422) {
-                        this.assignErrors = error.response.data.errors || {};
-                    }
-                })
-                .finally(() => {
+            this.submitAssignmentRemovals([...this.pendingRemovalAssignmentIds], () => {
+                if (this.assignSelected.length) {
+                    router.post(
+                        "/faims/procurement-assignments",
+                        {
+                            status: this.assignForm.status,
+                            user_ids: this.assignForm.user_ids,
+                        },
+                        {
+                            preserveScroll: true,
+                            onSuccess: () => this.finishAssignmentSave(),
+                            onError: (errors) => {
+                                this.assignErrors = errors || {};
+                            },
+                            onFinish: () => {
+                                this.assignProcessing = false;
+                            },
+                        },
+                    );
+                    return;
+                }
+
+                this.finishAssignmentSave();
+                this.assignProcessing = false;
+            });
+        },
+        submitAssignmentRemovals(ids, onDone) {
+            if (!ids.length) {
+                onDone();
+                return;
+            }
+
+            const id = ids.shift();
+            router.delete(`/faims/procurement-assignments/${id}`, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.submitAssignmentRemovals(ids, onDone);
+                },
+                onError: (errors) => {
+                    this.assignErrors = errors || {};
                     this.assignProcessing = false;
-                });
+                },
+            });
+        },
+        finishAssignmentSave() {
+            this.showAssignModal = false;
+            this.fetchAssignments();
         },
     },
 };
