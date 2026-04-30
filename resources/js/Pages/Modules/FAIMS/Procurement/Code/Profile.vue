@@ -126,14 +126,14 @@
               <b-col
                 v-for="card in summaryCards"
                 :key="card.label"
+                class="pap-profile-summary-col"
                 cols="12"
                 sm="6"
-                xl="3"
-                xxl="3"
+                lg="4"
               >
                 <b-card
                   class="pap-profile-card pap-profile-summary-card border shadow-sm bg-body h-100"
-                  body-class="p-2"
+                  body-class="pap-profile-summary-body"
                 >
                   <div class="d-flex justify-content-between align-items-start gap-2">
                     <div>
@@ -703,23 +703,23 @@ export default {
         {
           label: "ABC",
           value: this.formatCurrency(this.papCode.allocated_budget),
-          caption: "Approved Budget for the Contract",
+          caption: "Approved contract budget",
           icon: "ri-wallet-3-line",
           badgeClass: "bg-primary-subtle text-primary",
           valueClass: "text-body",
         },
         {
-          label: "Total Approved Purchase Requests(PR)",
+          label: "Approved PR Amount",
           value: this.formatCurrency(this.papCode.approved_budget_amount || this.papCode.deducted_budget),
-          caption: "Total approved budget for procurement requests",
+          caption: "Approved purchase requests",
           icon: "ri-arrow-left-right-line",
           badgeClass: "bg-warning-subtle text-warning",
           valueClass: "text-warning",
         },
         {
-          label: "Total Amount Purchase Orders(PO)",
+          label: "Purchase Orders (PO)",
           value: this.formatCurrency(this.papCode.actual_awarded_amount),
-          caption: "Completed item awards charged to this PAP code",
+          caption: "Completed awarded amount",
           icon: "ri-award-line",
           badgeClass: "bg-info-subtle text-info",
           valueClass: "text-info",
@@ -727,7 +727,7 @@ export default {
         {
           label: "Remaining Balance",
           value: this.formatCurrency(this.excessFundsAmount),
-          caption: "Approved budget less actual awarded amount",
+          caption: "ABC less awarded amount",
           icon: "ri-refund-2-line",
           badgeClass: this.excessFundsAmount < 0 ? "bg-danger-subtle text-danger" : "bg-success-subtle text-success",
           valueClass: this.excessFundsAmount < 0 ? "text-danger" : "text-success",
@@ -735,7 +735,7 @@ export default {
         {
           label: "History Entries",
           value: Number(this.papCode.budget_logs_count || this.logs.length),
-          caption: "Budget movements and decisions on record",
+          caption: "Budget activity records",
           icon: "ri-history-line",
           badgeClass: "bg-secondary-subtle text-secondary",
           valueClass: "text-body",
@@ -1076,13 +1076,32 @@ export default {
   padding: 0.6rem 0.75rem;
 }
 
+.pap-profile-summary-grid {
+  --bs-gutter-x: 0.45rem;
+  --bs-gutter-y: 0.45rem;
+}
+
 .pap-profile-summary-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  min-height: 92px;
+  min-height: 82px;
+}
+
+:deep(.pap-profile-summary-body) {
+  padding: 0.5rem 0.6rem !important;
 }
 
 .pap-profile-summary-card .small {
-  line-height: 1.2;
+  line-height: 1.12;
+}
+
+.pap-profile-summary-card .h5 {
+  font-size: 1.05rem;
+  line-height: 1.08;
+}
+
+.pap-profile-summary-card .badge {
+  line-height: 1;
+  padding: 0.25rem 0.45rem !important;
 }
 
 .pap-profile-summary-card:hover {
@@ -1117,6 +1136,13 @@ export default {
 :deep(.pap-profile-page .bg-light-subtle),
 :deep(.pap-profile-page .bg-body-tertiary) {
   background: var(--pap-surface-alt) !important;
+}
+
+@media (min-width: 1200px) {
+  .pap-profile-summary-col {
+    flex: 0 0 20%;
+    max-width: 20%;
+  }
 }
 
 .pap-profile-history__search {

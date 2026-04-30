@@ -101,14 +101,14 @@ Route::prefix('faims')->group(function () {
     Route::resource('/finance-creditors', App\Http\Controllers\FAIMS\Finance\FinanceCreditorController::class);
 
     // Procurement
-    Route::get('/procurement-mention-notifications', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'mentionNotifications'])
+    Route::get('/procurement-mention-notifications', [App\Http\Controllers\FAIMS\Procurement\ProcurementNotificationController::class, 'index'])
         ->middleware(['auth', 'verified']);
-    Route::patch('/procurement-mention-notifications/{notification}/read', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'markMentionNotificationRead'])
+    Route::patch('/procurement-mention-notifications/{notification}/read', [App\Http\Controllers\FAIMS\Procurement\ProcurementNotificationController::class, 'update'])
         ->middleware(['auth', 'verified']);
     Route::resource('/procurements', App\Http\Controllers\FAIMS\Procurement\ProcurementController::class)->names([
         'index' => 'procurement.index',
     ]);
-    Route::get('/procurement-reports', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'reports'])
+    Route::get('/procurement-reports', [App\Http\Controllers\FAIMS\Procurement\ProcurementReportController::class, 'index'])
         ->name('procurement.reports');
     Route::resource('/procurement-assignments', App\Http\Controllers\FAIMS\Procurement\ProcurementAssignmentController::class);
     Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
@@ -116,9 +116,9 @@ Route::prefix('faims')->group(function () {
     Route::post('/procurement-codes/{id}/budget-increase-requests', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'requestBudgetIncrease']);
     Route::patch('/procurement-codes/{id}/budget-increase-requests/{budgetLog}/approve', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'approveBudgetIncrease']);
     Route::patch('/procurement-codes/{id}/budget-increase-requests/{budgetLog}/reject', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'rejectBudgetIncrease']);
-    Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'dashboard'])->name('procurement.dashboard');
-    Route::get('/procurements/create', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'create_index']);
-    Route::post('/procurements/{id}/comments', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'addComment']);
+    Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementDashboardController::class, 'index'])->name('procurement.dashboard');
+    Route::get('/procurements/create', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'create']);
+    Route::post('/procurements/{id}/comments', [App\Http\Controllers\FAIMS\Procurement\ProcurementCommentController::class, 'store']);
     Route::resource('/quotations', App\Http\Controllers\FAIMS\Procurement\QuotationController::class);
     Route::resource('/offers', App\Http\Controllers\FAIMS\Procurement\OfferController::class);
     Route::resource('/bac-resolutions', App\Http\Controllers\FAIMS\Procurement\BACResolutionController::class);

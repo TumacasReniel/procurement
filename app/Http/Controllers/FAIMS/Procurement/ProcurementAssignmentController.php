@@ -3,13 +3,21 @@
 namespace App\Http\Controllers\FAIMS\Procurement;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Procurement\ProcurementAssignmentRequest;
 use App\Models\ProcurementAssignment;
 use App\Services\DropdownClass;
+use App\Services\FAIMS\Procurement\ProcurementAssignmentClass;
+use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
 
 class ProcurementAssignmentController extends Controller
 {
-    public function __construct(public DropdownClass $dropdown)
+    use HandlesTransaction;
+
+    public function __construct(
+        public DropdownClass $dropdown,
+        public ProcurementAssignmentClass $assignment,
+    )
     {
     }
 
@@ -24,75 +32,48 @@ class ProcurementAssignmentController extends Controller
             ]);
         }
 
-        $query = ProcurementAssignment::with('user.profile');
+        return $this->assignment->lists();
+    }
 
-        $assignments = $query->get()->map(function ($assignment) {
-            return [
-                'id' => $assignment->id,
-                'status' => $assignment->status,
-                'user_id' => $assignment->user_id,
-                'name' => $assignment->user?->profile?->full_name ?? $assignment->user?->name ?? 'User #' . $assignment->user_id,
-            ];
+    public function store(ProcurementAssignmentRequest $request)
+    {
+        $result = $this->handleTransaction(function () use ($request) {
+            return $this->assignment->save($request);
         });
 
-        return response()->json([
-            'data' => $assignments,
+        return back()->with([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
         ]);
     }
 
-    public function store(Request $request)
+    public function update(ProcurementAssignmentRequest $request, ProcurementAssignment $procurement_assignment)
     {
-        $validated = $request->validate([
-            'status' => 'required|string|max:100',
-            'user_ids' => 'required|array|min:1',
-            'user_ids.*' => 'exists:users,id',
-        ]);
+        $result = $this->handleTransaction(function () use ($request, $procurement_assignment) {
+            return $this->assignment->update($request, $procurement_assignment);
+        });
 
-        $created = [];
-        foreach ($validated['user_ids'] as $userId) {
-            $created[] = ProcurementAssignment::firstOrCreate([
-                'status' => $validated['status'],
-                'user_id' => $userId,
-            ], [
-                'created_by_id' => auth()->id(),
-            ]);
-        }
-
-        $created = ProcurementAssignment::with('user.profile')
-            ->whereIn('id', collect($created)->pluck('id'))
-            ->get();
-
-        return response()->json([
-            'data' => $created,
-            'message' => 'Assigned successfully.',
-            'status' => true,
-        ]);
-    }
-
-    public function update(Request $request, ProcurementAssignment $procurement_assignment)
-    {
-        $validated = $request->validate([
-            'status' => 'required|string|max:100',
-            'user_id' => 'required|exists:users,id',
-        ]);
-
-        $procurement_assignment->update($validated);
-
-        return response()->json([
-            'data' => $procurement_assignment->load('user.profile'),
-            'message' => 'Assignment updated successfully.',
-            'status' => true,
+        return back()->with([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
         ]);
     }
 
     public function destroy(ProcurementAssignment $procurement_assignment)
     {
-        $procurement_assignment->delete();
+        $result = $this->handleTransaction(function () use ($procurement_assignment) {
+            return $this->assignment->destroy($procurement_assignment);
+        });
 
-        return response()->json([
-            'data' => $procurement_assignment->id,
-            'message' => 'Assignment removed successfully.',
-            'status' => true,
+        return back()->with([
+            'data' => $result['data'],
+            'message' => $result['message'],
+            'info' => $result['info'],
+            'status' => $result['status'],
         ]);
     }
 }

@@ -38,6 +38,29 @@
             font-weight: bold;
         }
 
+        .supplier-header {
+            text-align: center;
+            line-height: 1.15;
+        }
+
+        .supplier-award-check {
+            display: inline-block;
+            width: 13px;
+            height: 13px;
+            margin-right: 4px;
+            border: 1px solid #000;
+            text-align: center;
+            font-size: 11px;
+            line-height: 12px;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+
+        .supplier-award-label {
+            display: inline-block;
+            vertical-align: middle;
+        }
+
         .sig-table {
             width: 100%;
             border-collapse: collapse;
@@ -367,7 +390,19 @@
                     <th style="width:10%">Quantity/Unit</th>
                     <th style="width:42%">Description</th>
                     @foreach ($quotationChunk as $quotation)
-                        <th style="width:auto">{{ $quotation->supplier->name }}</th>
+                        @php
+                            $isSupplierAwarded = $quotation->items->contains(function ($quotationItem) use ($awardedStatusId) {
+                                return (int) $quotationItem->status_id === (int) $awardedStatusId;
+                            });
+                        @endphp
+                        <th style="width:auto">
+                            <div class="supplier-header">
+                                @if ($isSupplierAwarded)
+                                    <span class="supplier-award-check">&#10003;</span>
+                                @endif
+                                <span class="supplier-award-label">{{ $quotation->supplier->name }}</span>
+                            </div>
+                        </th>
                     @endforeach
                 </tr>
             </thead>
