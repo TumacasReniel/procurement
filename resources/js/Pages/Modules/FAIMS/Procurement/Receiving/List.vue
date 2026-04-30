@@ -100,7 +100,9 @@
               </td>
               <td>
                 <div class="fw-semibold">{{ record.po_code || "-" }}</div>
-                <div class="small text-muted">{{ record.po_status?.name || "-" }}</div>
+                <span class="badge rounded-pill receiving-list-status-badge" :class="poStatusBadgeClass(record.po_status)">
+                  {{ record.po_status?.name || "-" }}
+                </span>
               </td>
               <td>
                 <div class="fw-semibold">{{ record.procurement_title || "-" }}</div>
@@ -265,6 +267,35 @@ export default {
 
       return Number.isNaN(parsedDate.getTime()) ? 0 : parsedDate.getTime();
     },
+    poStatusBadgeClass(status) {
+      const statusName = String(status?.name || status || "").trim().toLowerCase();
+
+      if (!statusName) {
+        return "text-secondary border-secondary bg-secondary-subtle";
+      }
+
+      if (statusName.includes("completed")) {
+        return "text-success border-success bg-success-subtle";
+      }
+
+      if (statusName.includes("delivered") || statusName.includes("inspection")) {
+        return "text-info border-info bg-info-subtle";
+      }
+
+      if (statusName.includes("conformed") || statusName.includes("issued") || statusName.includes("served")) {
+        return "text-primary border-primary bg-primary-subtle";
+      }
+
+      if (statusName.includes("created") || statusName.includes("generated") || statusName.includes("pending")) {
+        return "text-warning border-warning bg-warning-subtle";
+      }
+
+      if (statusName.includes("not") || statusName.includes("cancel") || statusName.includes("failed")) {
+        return "text-danger border-danger bg-danger-subtle";
+      }
+
+      return "text-secondary border-secondary bg-secondary-subtle";
+    },
     openItems(record) {
       this.selected_record = record;
       this.show_items_modal = true;
@@ -404,6 +435,16 @@ export default {
 .receiving-list-card {
   border-radius: 8px;
   overflow: hidden;
+}
+
+.receiving-list-status-badge {
+  margin-top: 0.18rem;
+  border: 1px solid currentColor;
+  background: transparent !important;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.1;
+  padding: 0.28em 0.5em;
 }
 
 .receiving-list-action-btn {

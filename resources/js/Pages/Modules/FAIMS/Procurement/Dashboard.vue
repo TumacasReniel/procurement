@@ -4,11 +4,11 @@
     <PageHeader title="Procurement Dashboard" pageTitle="Overview" />
 
     <!-- Hero -->
-    <section class="card border-0 overflow-hidden mb-4 procurement-hero">
+    <section class="card border-0 overflow-hidden mb-2 procurement-hero">
       <div class="card-body">
-        <div class="row g-3 align-items-center">
+        <div class="row g-2 align-items-center">
           <div class="col-xl-7">
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
               <span class="hero-kicker">Procurement Overview</span>
               <BBadge class="bg-white bg-opacity-10 text-white border border-white border-opacity-25 rounded-pill">
                 <i class="ri-calendar-line me-1"></i>{{ filteredPeriodLabel }}
@@ -19,7 +19,7 @@
               Keep a close pulse on requests, approvals, and completions.
             </h3>
 
-            <p class="text-white-50 mb-3">
+            <p class="text-white-50 mb-2">
               Track request volume, queue pressure, and unit activity from one focused workspace.
             </p>
 
@@ -31,7 +31,7 @@
               <BBadge class="hero-pill is-dark"><i class="ri-pie-chart-2-line"></i>Completion {{ completionRate }}%</BBadge>
             </div>
 
-            <p v-if="lastUpdated" class="text-white-50 mb-0 mt-3 fs-12">
+            <p v-if="lastUpdated" class="text-white-50 mb-0 mt-2 fs-12">
               Last updated: {{ formatDateTime(lastUpdated) }}
             </p>
           </div>
@@ -54,9 +54,9 @@
 
               <div class="hero-stat-card">
                 <i class="ri-money-dollar-circle-line hero-stat-watermark"></i>
-                <span>Distributed</span>
-                <strong>{{ formatCompactCurrency(divisionTotalAmount) }}</strong>
-                <small>Value in current view</small>
+                <span>Approved Budget</span>
+                <strong>{{ formatCompactCurrency(totalApprovedBudgetAmount) }}</strong>
+                <small>Awarded {{ formatCompactCurrency(totalActualAwardedAmount) }}</small>
               </div>
 
               <div class="hero-stat-card d-flex flex-column justify-content-center gap-2">
@@ -75,75 +75,86 @@
     </section>
 
     <!-- Filters -->
-    <section class="card border-0 shadow-sm rounded-4 mb-4 dashboard-filter-card">
+    <section class="card border-0 shadow-sm rounded-4 mb-2 dashboard-filter-card">
       <div class="card-body compact-card">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-          <div>
+        <div class="dashboard-filter-row">
+          <div class="dashboard-filter-copy">
             <span class="section-kicker">Dashboard Filters</span>
-            <h5 class="fw-bold mb-1 mt-1">Focus the procurement view</h5>
-            <p class="text-muted mb-0 fs-13">Adjust the period to refresh every summary, chart, and queue below.</p>
-          </div>
-
-          <div class="d-flex flex-wrap gap-2">
-            <BBadge class="bg-primary-subtle text-primary rounded-pill px-3 py-2">
+            <h5 class="fw-bold mb-0 mt-1">Focus the procurement view</h5>
+            <BBadge class="bg-primary-subtle text-primary rounded-pill px-2 py-1">
               <i class="ri-focus-3-line me-1"></i>{{ filteredPeriodLabel }}
             </BBadge>
+          </div>
 
+          <div class="dashboard-filter-controls">
+            <div class="filter-field">
+              <label class="form-label small text-muted">Filter Period</label>
+              <Multiselect
+                v-model="dashboardFilter.period"
+                :options="periodOptions"
+                label="label"
+                valueProp="value"
+                trackBy="label"
+                :append-to-body="true"
+                :searchable="false"
+                placeholder="Select period"
+                @change="onPeriodChange"
+              />
+            </div>
+
+            <div v-if="isQuarterSelected || ['monthly', 'quarterly', 'yearly'].includes(dashboardFilter.period)" class="filter-field">
+              <label class="form-label small text-muted">Year</label>
+              <Multiselect
+                v-model="dashboardFilter.year"
+                :options="yearOptions"
+                :append-to-body="true"
+                placeholder="Select year"
+                @change="fetchDashboard"
+              />
+            </div>
+
+            <div v-if="dashboardFilter.period === 'monthly'" class="filter-field">
+              <label class="form-label small text-muted">Month</label>
+              <Multiselect
+                v-model="dashboardFilter.month"
+                :options="monthOptions"
+                :append-to-body="true"
+                placeholder="Select month"
+                @change="fetchDashboard"
+              />
+            </div>
+
+            <div v-if="dashboardFilter.period === 'quarterly'" class="filter-field">
+              <label class="form-label small text-muted">Quarter</label>
+              <Multiselect
+                v-model="dashboardFilter.quarter"
+                :options="quarterOptions"
+                :append-to-body="true"
+                placeholder="Select quarter"
+                @change="fetchDashboard"
+              />
+            </div>
+
+            <div v-if="dashboardFilter.period === 'custom'" class="filter-field">
+              <label class="form-label small text-muted">Start Date</label>
+              <input type="date" class="form-control" v-model="dashboardFilter.start_date" @change="fetchDashboard" />
+            </div>
+
+            <div v-if="dashboardFilter.period === 'custom'" class="filter-field">
+              <label class="form-label small text-muted">End Date</label>
+              <input type="date" class="form-control" v-model="dashboardFilter.end_date" @change="fetchDashboard" />
+            </div>
           </div>
         </div>
-
-        <BRow class="g-3 align-items-end">
-          <BCol md="3">
-            <div class="filter-field">
-            <label class="form-label small text-muted">Filter Period</label>
-            <Multiselect v-model="dashboardFilter.period" :options="periodOptions" placeholder="Select period" @select="onPeriodChange" />
-            </div>
-          </BCol>
-
-          <BCol md="2" v-if="isQuarterSelected || ['monthly', 'quarterly', 'yearly'].includes(dashboardFilter.period)">
-            <div class="filter-field">
-            <label class="form-label small text-muted">Year</label>
-            <Multiselect v-model="dashboardFilter.year" :options="yearOptions" placeholder="Select year" @select="fetchDashboard" />
-            </div>
-          </BCol>
-
-          <BCol md="2" v-if="dashboardFilter.period === 'monthly'">
-            <div class="filter-field">
-            <label class="form-label small text-muted">Month</label>
-            <Multiselect v-model="dashboardFilter.month" :options="monthOptions" placeholder="Select month" @select="fetchDashboard" />
-            </div>
-          </BCol>
-
-          <BCol md="2" v-if="dashboardFilter.period === 'quarterly'">
-            <div class="filter-field">
-            <label class="form-label small text-muted">Quarter</label>
-            <Multiselect v-model="dashboardFilter.quarter" :options="quarterOptions" placeholder="Select quarter" @select="fetchDashboard" />
-            </div>
-          </BCol>
-
-          <BCol md="3" v-if="dashboardFilter.period === 'custom'">
-            <div class="filter-field">
-            <label class="form-label small text-muted">Start Date</label>
-            <input type="date" class="form-control" v-model="dashboardFilter.start_date" @change="fetchDashboard" />
-            </div>
-          </BCol>
-
-          <BCol md="3" v-if="dashboardFilter.period === 'custom'">
-            <div class="filter-field">
-            <label class="form-label small text-muted">End Date</label>
-            <input type="date" class="form-control" v-model="dashboardFilter.end_date" @change="fetchDashboard" />
-            </div>
-          </BCol>
-        </BRow>
       </div>
     </section>
 
     <!-- Metrics -->
-    <BRow class="g-4 mb-4">
+    <BRow class="g-2 mb-3 mt-2">
       <BCol xl="3" md="6" v-for="(metric, i) in metrics" :key="i">
         <BCard class="metric-card h-100" :style="{ '--metric-accent': metric.accentColor || '#405189' }">
           <BCardBody>
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2">
               <div class="metric-icon" :class="[metric.bgClass, metric.textClass]">
                 <i :class="metric.icon"></i>
               </div>
@@ -162,11 +173,11 @@
     </BRow>
 
 
-    <BRow class="g-4 mb-4">
+    <BRow class="g-2">
       <BCol v-for="module in workspaceModules" :key="module.key" xl="4" md="6">
-        <BCard class="module-card h-100" :style="{ '--module-accent': module.accentColor || '#405189' }">
+        <BCard class="module-card" :style="{ '--module-accent': module.accentColor || '#405189' }">
           <BCardBody>
-            <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
               <div class="module-icon" :class="[module.iconBgClass, module.iconTextClass]">
                 <i :class="module.icon"></i>
               </div>
@@ -176,15 +187,15 @@
               </BBadge>
             </div>
 
-            <p class="fw-bold text-dark mb-2">{{ module.title }}</p>
+            <p class="fw-bold text-dark mb-1">{{ module.title }}</p>
 
-            <h4 class="fw-bold text-primary mb-3" :class="module.isTextValue ? 'fs-5' : 'fs-2'">
+            <h4 class="fw-bold text-primary mb-1 module-value" :class="module.isTextValue ? 'fs-5' : 'fs-2'">
               {{ module.value }}
             </h4>
 
-            <p class="module-note text-muted mb-4">{{ module.note }}</p>
+            <p class="module-note text-muted mb-1">{{ module.note }}</p>
 
-            <BButton variant="soft-primary" class="module-action mt-auto" @click="openModule(module.route)">
+            <BButton variant="soft-primary" class="module-action" @click="openModule(module.route)">
               <span>{{ module.action }}</span>
               <i class="ri-arrow-right-line"></i>
             </BButton>
@@ -194,16 +205,16 @@
     </BRow>
 
     <!-- Charts -->
-    <BRow class="g-4 mb-4">
+    <BRow class="g-2 mb-2">
       <BCol xl="12">
         <BCard class="panel-card h-100">
           <BCardHeader>
-            <h5><i class="ri-bar-chart-line me-2"></i>Monthly Procurement Trends</h5>
+            <h5><i class="ri-bar-chart-line me-2"></i>Procurement Trends</h5>
             <p>Request volume for {{ filteredPeriodLabel }}</p>
           </BCardHeader>
 
           <BCardBody class="chart-body">
-            <apexchart type="bar" height="350" :options="monthlyChartOptions" :series="monthlyChartSeries" />
+            <apexchart type="bar" height="300" :options="monthlyChartOptions" :series="monthlyChartSeries" />
           </BCardBody>
         </BCard>
       </BCol>
@@ -212,7 +223,7 @@
     </BRow>
 
     <!-- Unit Breakdown -->
-    <BCard class="panel-card mb-4">
+    <BCard class="panel-card mb-2">
       <BCardHeader class="d-flex justify-content-between align-items-center">
         <div>
           <h5><i class="ri-bar-chart-horizontal-line me-2"></i>Unit Breakdown</h5>
@@ -225,15 +236,20 @@
       </BCardHeader>
 
       <BCardBody class="chart-body">
+      
         <div v-if="sortedDivisionDistribution.length">
-          <apexchart
-            type="bar"
-            :height="unitBreakdownChartHeight"
-            :options="unitBreakdownChartOptions"
-            :series="unitBreakdownChartSeries"
-          />
+          <div class="unit-breakdown-chart-scroll">
+            <div class="unit-breakdown-chart-canvas" :style="{ minWidth: `${unitBreakdownChartWidth}px` }">
+              <apexchart
+                type="bar"
+                :height="unitBreakdownChartHeight"
+                :options="unitBreakdownChartOptions"
+                :series="unitBreakdownChartSeries"
+              />
+            </div>
+          </div>
 
-          <div class="unit-breakdown-footer mt-3">
+          <div class="unit-breakdown-footer mt-2">
             <div class="unit-breakdown-stat">
               <span>Total Procurements</span>
               <strong>{{ divisionTotal }}</strong>
@@ -241,9 +257,15 @@
             </div>
 
             <div class="unit-breakdown-stat">
-              <span>Distributed Amount</span>
-              <strong>{{ formatCompactCurrency(divisionTotalAmount) }}</strong>
-              <small>{{ formatCurrency(divisionTotalAmount) }}</small>
+              <span>Approved Budget</span>
+              <strong>{{ formatCompactCurrency(totalApprovedBudgetAmount) }}</strong>
+              <small>{{ formatCurrency(totalApprovedBudgetAmount) }}</small>
+            </div>
+
+            <div class="unit-breakdown-stat">
+              <span>Actual Awarded</span>
+              <strong>{{ formatCompactCurrency(totalActualAwardedAmount) }}</strong>
+              <small>Completed items only</small>
             </div>
 
             <div class="unit-breakdown-stat">
@@ -254,7 +276,7 @@
           </div>
         </div>
 
-        <div v-else class="empty-state py-5">
+        <div v-else class="empty-state py-3">
           <i class="ri-inbox-line"></i>
           <p>No unit data available</p>
         </div>
@@ -262,7 +284,7 @@
     </BCard>
 
     <!-- Recent + Insights -->
-    <BRow class="g-4 mb-4">
+    <BRow class="g-2 mb-2">
       <BCol xl="7">
         <BCard class="panel-card h-100">
           <BCardHeader class="d-flex justify-content-between align-items-center">
@@ -330,7 +352,7 @@
           </BCardHeader>
 
           <BCardBody>
-            <div class="insight-highlight mb-3">
+            <div class="insight-highlight mb-2">
               <div>
                 <p class="text-muted mb-1">Completion Snapshot</p>
                 <h3 class="fw-bold mb-1">{{ completionRate }}%</h3>
@@ -344,7 +366,7 @@
               </div>
             </div>
 
-            <div class="progress bg-primary-subtle mb-3" style="height: 8px;">
+            <div class="progress bg-primary-subtle mb-2" style="height: 8px;">
               <div
                 class="progress-bar bg-primary"
                 :style="{ width: completionRate + '%' }"
@@ -430,6 +452,8 @@ export default {
         total_bac_resolutions: 0,
         total_notice_of_awards: 0,
         total_purchase_orders: 0,
+        total_approved_budget_amount: 0,
+        total_completed_awarded_amount: 0,
         recent_procurements: [],
         monthly_trends: [],
         division_distribution: [],
@@ -455,7 +479,7 @@ export default {
       periodOptions: [
         { value: 'all', label: 'All Time' },
         { value: 'today', label: 'Today' },
-        { value: 'this_week', label: 'This Week' },
+        { value: 'weekly', label: 'Weekly' },
         { value: 'monthly', label: 'Monthly' },
         { value: 'quarterly', label: 'Quarterly' },
         { value: 'yearly', label: 'Yearly' },
@@ -489,8 +513,19 @@ export default {
           categories: [],
         },
         yaxis: {
+          min: 0,
+          max: 20,
+          stepSize: 20,
+          tickAmount: 1,
+          decimalsInFloat: 0,
           title: {
             text: 'Number of Procurements',
+          },
+          labels: {
+            formatter: function (value) {
+              const tick = Math.round(Number(value) || 0);
+              return tick === 0 ? '' : tick.toLocaleString();
+            },
           },
         },
         fill: {
@@ -500,7 +535,7 @@ export default {
         tooltip: {
           y: {
             formatter: function (val) {
-              return val + ' procurements';
+              return `${Number(val || 0).toLocaleString()} procurements`;
             },
           },
         },
@@ -576,12 +611,18 @@ export default {
             const point = w.config.series?.[seriesIndex]?.data?.[dataPointIndex] || {};
             const count = Number(point.y) || 0;
             const amount = Number(point.distributedAmount) || 0;
+            const awardedAmount = Number(point.actualAwardedAmount) || 0;
             const share = Number(point.share) || 0;
             const amountLabel = new Intl.NumberFormat('en-PH', {
               style: 'currency',
               currency: 'PHP',
               minimumFractionDigits: 2,
             }).format(amount);
+            const awardedAmountLabel = new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 2,
+            }).format(awardedAmount);
 
             return [
               '<div style="padding: 10px 12px; min-width: 220px;">',
@@ -589,7 +630,8 @@ export default {
               point.divisionLabel ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${point.divisionLabel}</div>` : '',
               `<div style="margin-top: 10px; font-size: 12px; color: #334155;"><strong>${count}</strong> procurements</div>`,
               `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${share}% request share</div>`,
-              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${amountLabel} distributed</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${amountLabel} approved budget</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${awardedAmountLabel} actual awarded</div>`,
               '</div>',
             ].join('');
           },
@@ -660,8 +702,8 @@ export default {
             },
           },
           padding: {
-            left: 12,
-            right: 24,
+            left: 20,
+            right: 18,
           },
         },
         dataLabels: {
@@ -695,6 +737,10 @@ export default {
         colors: ['#405189'],
         xaxis: {
           min: 0,
+          max: 20,
+          stepSize: 20,
+          tickAmount: 1,
+          decimalsInFloat: 0,
           title: {
             text: 'Number of Procurements',
             style: {
@@ -708,21 +754,22 @@ export default {
               fontSize: '11px',
               colors: ['#64748b'],
             },
+            formatter: function (value) {
+              const tick = Math.round(Number(value) || 0);
+              return tick === 0 ? '' : tick.toLocaleString();
+            },
           },
         },
         yaxis: {
           labels: {
-            maxWidth: 240,
+            maxWidth: 360,
             style: {
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 600,
               colors: ['#0f172a'],
             },
             formatter: function (value) {
-              if (!value) {
-                return 'Unassigned';
-              }
-              return value.length > 26 ? `${value.slice(0, 26)}...` : value;
+              return value || 'Unassigned';
             },
           },
         },
@@ -735,19 +782,26 @@ export default {
             const point = w.config.series?.[seriesIndex]?.data?.[dataPointIndex] || {};
             const count = Number(point.y) || 0;
             const amount = Number(point.distributedAmount) || 0;
+            const awardedAmount = Number(point.actualAwardedAmount) || 0;
             const share = Number(point.share) || 0;
             const amountLabel = new Intl.NumberFormat('en-PH', {
               style: 'currency',
               currency: 'PHP',
               minimumFractionDigits: 2,
             }).format(amount);
+            const awardedAmountLabel = new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 2,
+            }).format(awardedAmount);
 
             return [
               '<div style="padding: 10px 12px; min-width: 220px;">',
               `<div style="font-size: 13px; font-weight: 700; color: #0f172a;">${point.x || 'Unassigned'}</div>`,
               point.divisionLabel ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${point.divisionLabel}</div>` : '',
               `<div style="margin-top: 5px; font-size: 12px; color: #334155;"><strong>${count}</strong> procurements</div>`,
-              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${amountLabel} distributed</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${amountLabel} approved budget</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${awardedAmountLabel} actual awarded</div>`,
               `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${share}% of total requests</div>`,
               '</div>',
             ].join('');
@@ -765,7 +819,7 @@ export default {
               },
               yaxis: {
                 labels: {
-                  maxWidth: 180,
+                  maxWidth: 260,
                 },
               },
               dataLabels: {
@@ -848,7 +902,7 @@ export default {
 		metrics() {
 			return [
 				{
-					label: 'Total Requests',
+					label: 'Total Purchase Requests',
 					value: this.dashboard.total_procurements,
 					note: `Captured in ${this.filteredPeriodLabel}`,
 					icon: 'ri-stack-line',
@@ -857,7 +911,7 @@ export default {
 					accentColor: '#405189',
 				},
 				{
-					label: 'For Review',
+					label: 'For Reviews',
 					value: this.dashboard.for_reviews,
 					note: 'Waiting for reviewer action',
 					icon: 'ri-search-eye-line',
@@ -866,7 +920,7 @@ export default {
 					accentColor: '#f7b84b',
 				},
 				{
-					label: 'For Approval',
+					label: 'For Approvals',
 					value: this.dashboard.for_approvals,
 					note: 'Ready for approval sign-off',
 					icon: 'ri-shield-check-line',
@@ -1028,8 +1082,9 @@ export default {
 				.map((item) => {
 					const count = Number(item.count) || 0;
 					const distributedAmount = Number(item.distributed_amount) || 0;
+					const actualAwardedAmount = Number(item.completed_awarded_amount) || 0;
 					const share = Math.round((count / total) * 100);
-					return { ...item, count, distributed_amount: distributedAmount, share, unit_label: this.getUnitLabel(item) };
+					return { ...item, count, distributed_amount: distributedAmount, completed_awarded_amount: actualAwardedAmount, share, unit_label: this.getUnitLabel(item) };
 				});
 		},
 		divisionTotal() {
@@ -1040,13 +1095,70 @@ export default {
 			const source = this.dashboard.division_distribution || [];
 			return source.reduce((sum, item) => sum + (Number(item.distributed_amount) || 0), 0);
 		},
+		totalApprovedBudgetAmount() {
+			return Number(this.dashboard.total_approved_budget_amount ?? this.divisionTotalAmount) || 0;
+		},
+		totalActualAwardedAmount() {
+			const source = this.dashboard.division_distribution || [];
+			if (this.dashboard.total_completed_awarded_amount !== undefined && this.dashboard.total_completed_awarded_amount !== null) {
+				return Number(this.dashboard.total_completed_awarded_amount) || 0;
+			}
+			return source.reduce((sum, item) => sum + (Number(item.completed_awarded_amount) || 0), 0);
+		},
+		monthlyTrendMaxProcurementCount() {
+			const source = this.dashboard.monthly_trends || [];
+			return Math.max(...source.map((item) => Number(item.count) || 0), 0);
+		},
+		monthlyTrendAxisStep() {
+			return this.getProcurementAxisStep(this.monthlyTrendMaxProcurementCount);
+		},
+		monthlyTrendAxisMax() {
+			return this.getProcurementAxisMax(this.monthlyTrendMaxProcurementCount, this.monthlyTrendAxisStep);
+		},
 		unitBreakdownChartHeight() {
 			const itemCount = this.sortedDivisionDistribution.length;
-			return Math.min(Math.max((itemCount * 56) + 60, 320), 760);
+			return Math.min(Math.max((itemCount * 52) + 56, 280), 700);
+		},
+		unitBreakdownMaxProcurementCount() {
+			return Math.max(
+				...this.sortedDivisionDistribution.map((item) => Number(item.count) || 0),
+				0
+			);
+		},
+		unitBreakdownAxisStep() {
+			return this.getProcurementAxisStep(this.unitBreakdownMaxProcurementCount);
+		},
+		unitBreakdownAxisMax() {
+			return this.getProcurementAxisMax(this.unitBreakdownMaxProcurementCount, this.unitBreakdownAxisStep);
+		},
+		unitBreakdownChartWidth() {
+			const tickCount = this.unitBreakdownAxisMax / this.unitBreakdownAxisStep;
+			return Math.max(820, 360 + (tickCount * 56));
 		},
   },
 
   methods: {
+		getProcurementAxisStep(maxProcurementCount) {
+			if (maxProcurementCount <= 200) {
+				return 20;
+			}
+
+			const targetTickCount = 10;
+			const rawStep = Math.ceil(maxProcurementCount / targetTickCount);
+			const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+			const normalizedStep = rawStep / magnitude;
+
+			if (normalizedStep <= 2) {
+				return 2 * magnitude;
+			}
+			if (normalizedStep <= 5) {
+				return 5 * magnitude;
+			}
+			return 10 * magnitude;
+		},
+		getProcurementAxisMax(maxProcurementCount, axisStep) {
+			return Math.max(axisStep, Math.ceil(maxProcurementCount / axisStep) * axisStep);
+		},
     fetchDashboard() {
       const params = {
         period: this.dashboardFilter.period,
@@ -1076,14 +1188,45 @@ export default {
     updateCharts() {
       // Update monthly chart
       if (this.dashboard && this.dashboard.monthly_trends && Array.isArray(this.dashboard.monthly_trends)) {
-        this.monthlyChartOptions.xaxis.categories = this.dashboard.monthly_trends.map(item => item.month);
-        this.monthlyChartSeries[0].data = this.dashboard.monthly_trends.map(item => item.count);
+        const axisMax = this.monthlyTrendAxisMax;
+        const axisStep = this.monthlyTrendAxisStep;
+
+        this.monthlyChartOptions = {
+          ...this.monthlyChartOptions,
+          xaxis: {
+            ...this.monthlyChartOptions.xaxis,
+            categories: this.dashboard.monthly_trends.map(item => item.label || item.month),
+          },
+          yaxis: {
+            ...this.monthlyChartOptions.yaxis,
+            max: axisMax,
+            stepSize: axisStep,
+            tickAmount: axisMax / axisStep,
+          },
+        };
+        this.monthlyChartSeries = [{
+          ...this.monthlyChartSeries[0],
+          data: this.dashboard.monthly_trends.map(item => Number(item.count) || 0),
+        }];
       }
 
       // Update unit summary chart
       if (this.dashboard && this.dashboard.division_distribution && Array.isArray(this.dashboard.division_distribution)) {
         const items = this.sortedDivisionDistribution;
         if (items.length > 0) {
+          const axisMax = this.unitBreakdownAxisMax;
+          const axisStep = this.unitBreakdownAxisStep;
+
+          this.unitBreakdownChartOptions = {
+            ...this.unitBreakdownChartOptions,
+            xaxis: {
+              ...this.unitBreakdownChartOptions.xaxis,
+              max: axisMax,
+              stepSize: axisStep,
+              tickAmount: axisMax / axisStep,
+            },
+          };
+
           this.unitSummaryChartSeries = [{
             name: 'Unit Distribution',
             data: items.map((item) => ({
@@ -1091,6 +1234,7 @@ export default {
               y: item.count,
               share: item.share,
               distributedAmount: item.distributed_amount,
+              actualAwardedAmount: item.completed_awarded_amount,
               divisionLabel: this.getUnitDivisionLabel(item),
             })),
           }];
@@ -1100,11 +1244,22 @@ export default {
               x: this.getUnitLabel(item),
               y: item.count,
               distributedAmount: item.distributed_amount,
+              actualAwardedAmount: item.completed_awarded_amount,
               share: item.share,
               divisionLabel: this.getUnitDivisionLabel(item),
             })),
           }];
         } else {
+          this.unitBreakdownChartOptions = {
+            ...this.unitBreakdownChartOptions,
+            xaxis: {
+              ...this.unitBreakdownChartOptions.xaxis,
+              max: 20,
+              stepSize: 20,
+              tickAmount: 1,
+            },
+          };
+
           this.unitSummaryChartSeries = [{
             name: 'Unit Distribution',
             data: [],
@@ -1224,7 +1379,10 @@ export default {
 			router.get(route);
 		},
 
-    onPeriodChange() {
+    onPeriodChange(selectedPeriod) {
+      if (selectedPeriod) {
+        this.dashboardFilter.period = selectedPeriod.value || selectedPeriod;
+      }
       // Reset custom dates when changing period
       if (this.dashboardFilter.period !== 'custom') {
         this.dashboardFilter.start_date = null;
@@ -1271,7 +1429,28 @@ export default {
   --proc-border: #e8edf5;
   --proc-soft: rgba(64, 81, 137, 0.1);
   --proc-surface: rgba(255, 255, 255, .86);
-  padding-bottom: 2.75rem;
+  --proc-card: #ffffff;
+  --proc-card-soft: #f8fafc;
+  --proc-table-row: #ffffff;
+  --proc-table-hover: rgba(64, 81, 137, 0.06);
+  --proc-input: #ffffff;
+  padding-bottom: 1.5rem;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page {
+  --proc-brand: #93c5fd;
+  --proc-brand-dark: #60a5fa;
+  --proc-accent: #5eead4;
+  --proc-ink: #e5edf7;
+  --proc-muted: #9fb0c7;
+  --proc-border: rgba(148, 163, 184, 0.18);
+  --proc-soft: rgba(96, 165, 250, 0.14);
+  --proc-surface: rgba(19, 29, 43, 0.92);
+  --proc-card: #131d2b;
+  --proc-card-soft: #182235;
+  --proc-table-row: #182235;
+  --proc-table-hover: rgba(96, 165, 250, 0.12);
+  --proc-input: #101827;
 }
 
 .procurement-hero {
@@ -1299,74 +1478,105 @@ export default {
 .procurement-hero .card-body {
   position: relative;
   z-index: 1;
-  padding: 3.75rem 4rem;
+  padding: 1.35rem 1.5rem;
 }
 
 .procurement-hero .row {
-  min-height: 300px;
-  --bs-gutter-x: 4.5rem;
-  --bs-gutter-y: 2rem;
+  min-height: 180px;
+  --bs-gutter-x: 1.5rem;
+  --bs-gutter-y: .75rem;
 }
 
 .procurement-hero h3 {
   max-width: 760px;
-  font-size: 2.15rem;
-  line-height: 1.35;
-  margin-bottom: 1.1rem !important;
+  font-size: 1.95rem;
+  line-height: 1.22;
+  margin-bottom: .45rem !important;
 }
 
 .procurement-hero p {
   max-width: 620px;
-  font-size: 1rem;
-  line-height: 1.8;
-  margin-bottom: 1.75rem !important;
+  font-size: .95rem;
+  line-height: 1.55;
+  margin-bottom: .65rem !important;
 }
 
 .compact-card {
-  padding: 2rem;
+  padding: .8rem;
 }
 
 .dashboard-filter-card {
-  border-radius: 18px !important;
+  border-radius: 14px !important;
   background: var(--proc-surface);
   border: 1px solid rgba(226, 232, 240, .84) !important;
   box-shadow: 0 14px 34px rgba(15, 23, 42, .06) !important;
   backdrop-filter: blur(12px);
 }
 
+.dashboard-filter-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.dashboard-filter-copy {
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+
+.dashboard-filter-controls {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  align-items: end;
+  justify-content: flex-end;
+}
+
 .filter-field {
+  width: 200px;
+  max-width: 100%;
   height: 100%;
-  padding: .95rem;
+  padding: .45rem .55rem;
   border: 1px solid var(--proc-border);
-  border-radius: 16px;
-  background: #f8fafc;
+  border-radius: 9px;
+  background: var(--proc-card-soft);
 }
 
 .filter-field .form-label {
-  margin-bottom: .55rem;
+  margin-bottom: .2rem;
   font-weight: 800;
   letter-spacing: .02em;
   text-transform: uppercase;
 }
 
 .filter-field .form-control {
-  min-height: 42px;
+  min-height: 32px;
   border-color: transparent;
-  border-radius: 12px;
-  background: #fff;
+  border-radius: 8px;
+  background: var(--proc-input);
+  color: var(--proc-ink);
 }
 
 .filter-field :deep(.multiselect) {
-  min-height: 42px;
+  min-height: 32px;
   border-color: transparent;
-  border-radius: 12px;
-  background: #fff;
+  border-radius: 8px;
+  background: var(--proc-input);
+  color: var(--proc-ink);
   box-shadow: none;
 }
 
 .filter-field :deep(.multiselect.is-active) {
   border-color: rgba(64, 81, 137, .4);
   box-shadow: 0 0 0 .2rem rgba(64, 81, 137, .1);
+}
+
+:global(.multiselect-dropdown) {
+  z-index: 3000;
 }
 
 .hero-kicker,
@@ -1389,7 +1599,7 @@ export default {
   background: #fff;
   color: var(--proc-brand);
   font-weight: 700;
-  padding: .65rem 1rem;
+  padding: .5rem .85rem;
   border-radius: 999px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
 }
@@ -1413,15 +1623,15 @@ export default {
 .hero-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem;
+  gap: .6rem;
 }
 
 .hero-stat-card {
   position: relative;
   isolation: isolate;
-  min-height: 130px;
-  padding: 1.4rem;
-  border-radius: 18px;
+  min-height: 88px;
+  padding: .72rem;
+  border-radius: 10px;
   color: #fff;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .08));
@@ -1432,11 +1642,11 @@ export default {
 
 .hero-stat-watermark {
   position: absolute;
-  right: 1rem;
-  bottom: .75rem;
+  right: .75rem;
+  bottom: .5rem;
   z-index: -1;
   color: rgba(255, 255, 255, .14);
-  font-size: 3.4rem;
+  font-size: 2.45rem;
   line-height: 1;
 }
 
@@ -1453,23 +1663,23 @@ export default {
 
 .hero-stat-card strong {
   display: block;
-  font-size: 1.8rem;
+  font-size: 1.35rem;
   line-height: 1.2;
-  margin: .45rem 0;
+  margin: .3rem 0;
 }
 
 .hero-stat-card small {
   color: rgba(255,255,255,.74);
-  font-size: .88rem;
-  line-height: 1.55;
+  font-size: .82rem;
+  line-height: 1.4;
 }
 
 .section-heading {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 1rem;
-  margin: .75rem .25rem .5rem;
+  gap: .6rem;
+  margin: .45rem .15rem .3rem;
 }
 
 .section-heading h4 {
@@ -1488,8 +1698,8 @@ export default {
 .panel-card {
   position: relative;
   border: 0;
-  border-radius: 20px;
-  box-shadow: 0 14px 34px rgba(15, 23, 42, .07);
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, .05);
   overflow: hidden;
 }
 
@@ -1505,7 +1715,11 @@ export default {
 .metric-card .card-body,
 .module-card .card-body,
 .panel-card .card-body {
-  padding: 1.75rem;
+  padding: .75rem;
+}
+
+.module-card .card-body {
+  padding: .7rem;
 }
 
 .metric-card {
@@ -1514,24 +1728,24 @@ export default {
 
 .metric-card:hover,
 .module-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, .1);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .08);
 }
 
 .metric-card h4 {
   color: var(--proc-ink);
-  font-size: 1.6rem;
+  font-size: 1.2rem;
 }
 
 .metric-icon,
 .module-icon {
-  width: 52px;
-  height: 52px;
+  width: 34px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  font-size: 1.45rem;
+  border-radius: 9px;
+  font-size: .98rem;
   flex-shrink: 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5);
 }
@@ -1539,25 +1753,29 @@ export default {
 .module-card .card-body {
   display: flex;
   flex-direction: column;
-  height: 100%;
 }
 
 .module-note {
-  min-height: 42px;
-  line-height: 1.55;
+  min-height: 0;
+  line-height: 1.32;
+}
+
+.module-value.fs-2 {
+  font-size: 1.35rem !important;
 }
 
 .module-action {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: .75rem;
+  gap: .5rem;
   border: 1px solid rgba(64, 81, 137, .12);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(64, 81, 137, .08);
-  padding: .7rem .9rem;
+  padding: .34rem .5rem;
   color: var(--proc-brand);
   font-weight: 700;
+  font-size: .82rem;
 }
 
 .module-action:hover {
@@ -1573,30 +1791,30 @@ export default {
 .panel-card .card-header {
   background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
   border-bottom: 1px solid var(--proc-border);
-  padding: 1.5rem 1.75rem;
+  padding: .65rem .75rem;
 }
 
 .panel-card .card-header h5 {
   display: flex;
   align-items: center;
-  gap: .45rem;
+  gap: .3rem;
   margin: 0;
   color: var(--proc-brand);
   font-weight: 800;
 }
 
 .panel-card .card-header h5 i {
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 7px;
   background: var(--proc-soft);
 }
 
 .panel-card .card-header p {
-  margin: .2rem 0 0;
+  margin: .1rem 0 0;
   color: var(--proc-muted);
   font-size: .8rem;
 }
@@ -1605,19 +1823,30 @@ export default {
 .insight-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: .45rem;
+}
+
+.unit-breakdown-chart-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: .35rem;
+}
+
+.unit-breakdown-chart-canvas {
+  width: 100%;
 }
 
 .insight-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: .45rem;
 }
 
 .unit-breakdown-stat,
 .insight-item,
 .insight-highlight {
-  padding: 1.15rem;
-  border-radius: 16px;
+  padding: .6rem;
+  border-radius: 9px;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   border: 1px solid var(--proc-border);
 }
@@ -1625,50 +1854,50 @@ export default {
 .unit-breakdown-stat strong,
 .insight-item strong {
   display: block;
-  margin-top: .4rem;
+  margin-top: .25rem;
   color: var(--proc-ink);
-  font-size: 1.05rem;
-  line-height: 1.35;
+  font-size: .95rem;
+  line-height: 1.25;
 }
 
 .unit-breakdown-stat small,
 .insight-item small {
   color: var(--proc-muted);
   font-size: .75rem;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .insight-highlight {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: .5rem;
 }
 
 .insight-icon {
-  width: 50px;
-  height: 50px;
+  width: 34px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: var(--proc-soft);
   color: var(--proc-brand);
-  font-size: 1.35rem;
+  font-size: 1rem;
   flex-shrink: 0;
 }
 
 .table > :not(caption) > * > * {
-  padding: 1rem .85rem;
+  padding: .45rem .55rem;
 }
 
 .recent-table-body {
-  padding-top: 1.25rem !important;
+  padding-top: .55rem !important;
 }
 
 .recent-table-body .table {
   border-collapse: separate;
-  border-spacing: 0 .55rem;
+  border-spacing: 0 .25rem;
 }
 
 .recent-table-body thead th {
@@ -1682,7 +1911,7 @@ export default {
 }
 
 .recent-table-body tbody tr {
-  box-shadow: 0 8px 22px rgba(15, 23, 42, .05);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, .04);
 }
 
 .recent-table-body tbody td {
@@ -1693,14 +1922,14 @@ export default {
 
 .recent-table-body tbody td:first-child {
   border-left: 1px solid var(--proc-border);
-  border-top-left-radius: 14px;
-  border-bottom-left-radius: 14px;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
 }
 
 .recent-table-body tbody td:last-child {
   border-right: 1px solid var(--proc-border);
-  border-top-right-radius: 14px;
-  border-bottom-right-radius: 14px;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
 }
 
 .chart-body {
@@ -1742,7 +1971,7 @@ export default {
   .module-card .card-body,
   .panel-card .card-body,
   .panel-card .card-header {
-    padding: 1.25rem;
+    padding: .75rem;
   }
 
   .procurement-hero h3 {
@@ -1758,6 +1987,23 @@ export default {
   .section-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dashboard-filter-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-filter-copy {
+    min-width: 0;
+  }
+
+  .dashboard-filter-controls {
+    justify-content: stretch;
+  }
+
+  .filter-field {
+    width: 100%;
   }
 }
 </style>

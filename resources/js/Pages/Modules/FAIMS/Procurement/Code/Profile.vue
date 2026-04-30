@@ -177,7 +177,7 @@
                 {{ formatCurrency(papCode.remaining_budget) }}
               </div>
               <div class="small text-body-secondary">
-                {{ formatCurrency(papCode.deducted_budget) }} deducted from
+                {{ formatCurrency(papCode.approved_budget_amount || papCode.deducted_budget) }} approved from
                 {{ formatCurrency(papCode.allocated_budget) }}
               </div>
 
@@ -616,7 +616,7 @@ export default {
     },
     budgetUsagePercent() {
       const allocated = Number(this.papCode.allocated_budget || 0);
-      const deducted = Number(this.papCode.deducted_budget || 0);
+      const deducted = Number(this.papCode.approved_budget_amount ?? this.papCode.deducted_budget ?? 0);
 
       if (allocated <= 0) {
         return deducted > 0 ? 100 : 0;
@@ -679,9 +679,14 @@ export default {
           valueClass: "text-body",
         },
         {
-          label: "Deducted",
-          value: this.formatCurrency(this.papCode.deducted_budget),
+          label: "Approved",
+          value: this.formatCurrency(this.papCode.approved_budget_amount || this.papCode.deducted_budget),
           valueClass: "text-warning",
+        },
+        {
+          label: "Actual Awarded",
+          value: this.formatCurrency(this.papCode.actual_awarded_amount),
+          valueClass: "text-primary",
         },
         {
           label: "Budget Used",
@@ -706,18 +711,18 @@ export default {
           valueClass: "text-body",
         },
         {
-          label: "Deducted Budget",
-          value: this.formatCurrency(this.papCode.deducted_budget),
-          caption: "Committed through approved deductions",
+          label: "Approved Budget",
+          value: this.formatCurrency(this.papCode.approved_budget_amount || this.papCode.deducted_budget),
+          caption: "Total approved budget for procurement requests",
           icon: "ri-arrow-left-right-line",
           badgeClass: "bg-warning-subtle text-warning",
           valueClass: "text-warning",
         },
         {
-          label: "Pending Top-Ups",
-          value: this.pendingBudgetRequestsCount,
-          caption: "Requests waiting for review",
-          icon: "ri-time-line",
+          label: "Actual Awarded",
+          value: this.formatCurrency(this.papCode.actual_awarded_amount),
+          caption: "Completed item awards charged to this PAP code",
+          icon: "ri-award-line",
           badgeClass: "bg-info-subtle text-info",
           valueClass: "text-info",
         },

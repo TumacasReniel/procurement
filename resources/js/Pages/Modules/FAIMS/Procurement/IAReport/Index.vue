@@ -2,8 +2,8 @@
   <Head :title="page_title" />
   <PageHeader :title="page_title" pageTitle="Procurement" />
 
-  <div class="receiving-page px-3 pb-3">
-    <div v-if="is_receiving_mode" class="receiving-tabs mb-3">
+  <div class="receiving-page px-2 pb-2">
+    <div v-if="is_receiving_mode" class="receiving-tabs mb-2">
       <button
         type="button"
         class="receiving-tab-btn"
@@ -24,7 +24,7 @@
       </button>
     </div>
 
-    <div v-if="is_iar_mode" class="receiving-tabs mb-3">
+    <div v-if="is_iar_mode" class="receiving-tabs mb-2">
       <button
         type="button"
         class="receiving-tab-btn"
@@ -85,7 +85,7 @@
         </div>
       </div>
 
-      <div class="row g-2 mb-3">
+      <div class="row g-2 mb-2">
         <div class="col-md-6 col-xl-3">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-primary"><i class="ri-file-list-3-line"></i></span>
@@ -153,12 +153,14 @@
             <tr v-for="po in sortedLists" v-else :key="po.id">
               <td>
                 <div class="fw-bold">{{ po.code }}</div>
-                <div class="small text-muted">{{ po.status?.name || "-" }}</div>
+                <span class="badge rounded-pill receiving-status-badge" :class="poStatusBadgeClass(po.status)">
+                  {{ po.status?.name || "-" }}
+                </span>
               </td>
               <td>
                 <div class="fw-semibold">{{ po.procurement_title || "-" }}</div>
                 <div class="small text-muted">{{ po.procurement_code || "No PR code" }}</div>
-                <div class="receiving-items-preview mt-2">
+                <div class="receiving-items-preview mt-1">
                   <span
                     v-for="item in previewItems(po)"
                     :key="item.id"
@@ -181,7 +183,7 @@
                 <div class="small text-muted">{{ po.place_of_delivery || "No delivery place" }}</div>
               </td>
               <td>
-                <div class="d-flex flex-wrap gap-1 mb-2">
+                <div class="d-flex flex-wrap gap-1 mb-1">
                   <span v-if="is_receiving_mode" class="badge rounded-pill text-bg-warning">
                     Remaining: {{ po.remaining_items_count || 0 }}
                   </span>
@@ -291,7 +293,7 @@
         </div>
       </div>
 
-      <div class="row g-2 mb-3">
+      <div class="row g-2 mb-2">
         <div class="col-md-4">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-info"><i class="ri-file-paper-2-line"></i></span>
@@ -351,7 +353,9 @@
                 <td class="fw-semibold text-primary">{{ entry.report.code || "IAR" }}</td>
                 <td>
                   <div class="fw-semibold">{{ entry.po.code || "-" }}</div>
-                  <div class="small text-muted">{{ entry.po.status?.name || "-" }}</div>
+                  <span class="badge rounded-pill receiving-status-badge" :class="poStatusBadgeClass(entry.po.status)">
+                    {{ entry.po.status?.name || "-" }}
+                  </span>
                 </td>
                 <td>
                   <div class="fw-semibold">{{ entry.po.procurement_title || "-" }}</div>
@@ -448,7 +452,7 @@
     centered
     @hidden="handle_iar_reports_visibility(false)"
   >
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
       <div>
         <div class="text-muted fs-12">Purchase Order</div>
         <div class="fw-semibold">{{ selected_iar_po?.code || "-" }}</div>
@@ -463,7 +467,7 @@
       </div>
     </div>
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
       <div>
         <div class="text-muted fs-12">Generated Reports</div>
         <div class="fw-semibold">{{ iarCount(selected_iar_po) }} report(s)</div>
@@ -480,7 +484,7 @@
       </b-button>
     </div>
 
-    <div class="table-responsive border rounded">
+    <div class="table-responsive border rounded receiving-compact-frame">
       <table class="table align-middle mb-0">
         <thead class="table-light">
           <tr class="fs-11">
@@ -539,7 +543,7 @@
             </td>
           </tr>
           <tr v-if="!iarReports(selected_iar_po).length">
-            <td colspan="5" class="text-center text-muted py-4">
+                <td colspan="5" class="text-center text-muted py-3">
               No IAR has been generated for this Purchase Order yet.
             </td>
           </tr>
@@ -786,6 +790,35 @@ export default {
         po?.created_at || po?.updated_at || po?.date_of_delivery,
         Number(po?.id || 0)
       );
+    },
+    poStatusBadgeClass(status) {
+      const statusName = String(status?.name || status || "").trim().toLowerCase();
+
+      if (!statusName) {
+        return "text-secondary border-secondary bg-secondary-subtle";
+      }
+
+      if (statusName.includes("completed")) {
+        return "text-success border-success bg-success-subtle";
+      }
+
+      if (statusName.includes("delivered") || statusName.includes("inspection")) {
+        return "text-info border-info bg-info-subtle";
+      }
+
+      if (statusName.includes("conformed") || statusName.includes("issued") || statusName.includes("served")) {
+        return "text-primary border-primary bg-primary-subtle";
+      }
+
+      if (statusName.includes("created") || statusName.includes("generated") || statusName.includes("pending")) {
+        return "text-warning border-warning bg-warning-subtle";
+      }
+
+      if (statusName.includes("not") || statusName.includes("cancel") || statusName.includes("failed")) {
+        return "text-danger border-danger bg-danger-subtle";
+      }
+
+      return "text-secondary border-secondary bg-secondary-subtle";
     },
     openReceiving(po, edit_received_items = false, receiving_code = null) {
       const receivingCode = receiving_code
@@ -1232,8 +1265,8 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
 }
 
 .receiving-search {
@@ -1247,8 +1280,8 @@ export default {
 .receiving-tabs {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.25rem;
+  gap: 0.25rem;
+  padding: 0.15rem;
   border: 1px solid var(--receiving-border);
   border-radius: 8px;
   background: var(--receiving-surface);
@@ -1257,14 +1290,14 @@ export default {
 .receiving-tab-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  min-height: 34px;
-  padding: 0.35rem 0.75rem;
+  gap: 0.3rem;
+  min-height: 28px;
+  padding: 0.25rem 0.55rem;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: #64748b;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -1277,58 +1310,58 @@ export default {
 .receiving-stat {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
+  gap: 0.45rem;
+  padding: 0.42rem 0.55rem;
   border: 1px solid var(--receiving-border);
   border-radius: 8px;
   background: var(--receiving-surface);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045);
 }
 
 .receiving-stat-icon {
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: var(--receiving-soft);
   border: 1px solid var(--receiving-border);
-  font-size: 1rem;
+  font-size: 0.85rem;
 }
 
 .receiving-card {
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 .receiving-items-preview {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.2rem;
 }
 
 .receiving-progress {
-  height: 0.45rem;
+  height: 0.32rem;
   background: #e5e7eb;
 }
 
 .receiving-action-btn {
-  --vz-btn-padding-x: 0.45rem;
-  --vz-btn-padding-y: 0.18rem;
-  --vz-btn-font-size: 0.7rem;
+  --vz-btn-padding-x: 0.35rem;
+  --vz-btn-padding-y: 0.12rem;
+  --vz-btn-font-size: 0.66rem;
   border-color: transparent !important;
   box-shadow: none;
   line-height: 1.2;
 }
 
 .receiving-action-btn i {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .receiving-icon-btn {
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 1.55rem;
+  height: 1.55rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1336,8 +1369,38 @@ export default {
 }
 
 .receiving-icon-btn i {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   line-height: 1;
+}
+
+.receiving-card :deep(.table > :not(caption) > * > *) {
+  padding: 0.35rem 0.45rem;
+}
+
+.receiving-card :deep(.badge) {
+  padding: 0.28em 0.5em;
+  font-size: 0.68rem;
+}
+
+.receiving-status-badge {
+  margin-top: 0.18rem;
+  border: 1px solid currentColor;
+  background: transparent !important;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.receiving-card :deep(.card-footer) {
+  padding: 0.4rem 0.55rem;
+}
+
+.receiving-compact-frame :deep(.table > :not(caption) > * > *) {
+  padding: 0.35rem 0.45rem;
+}
+
+.receiving-compact-frame :deep(.badge) {
+  padding: 0.25em 0.45em;
+  font-size: 0.66rem;
 }
 
 @media (max-width: 991.98px) {
