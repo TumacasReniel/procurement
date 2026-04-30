@@ -172,12 +172,12 @@
               </div>
               <div class="small text-body-secondary">Remaining Balance</div>
               <div
-                class=" fw-bold mb-1 fs-10"
+                class=" fw-bold mb-1 fs-3"
               >
                 {{ formatCurrency(papCode.remaining_budget) }}
               </div>
               <div class="small text-body-secondary">
-                {{ formatCurrency(papCode.deducted_budget) }} deducted from
+                {{ formatCurrency(papCode.approved_budget_amount || papCode.deducted_budget) }} approved from
                 {{ formatCurrency(papCode.allocated_budget) }}
               </div>
 
@@ -444,6 +444,13 @@
                       <div class="mt-1" :class="balanceAfterClass(log.balance_after)">
                         After: {{ formatCurrency(log.balance_after) }}
                       </div>
+                      <div
+                        v-if="shouldShowLogExcessFunds(log)"
+                        class="mt-1"
+                        :class="logExcessFundsClass(log)"
+                      >
+                        Excess Funds: {{ formatCurrency(logExcessFundsAmount(log)) }}
+                      </div>
                     </td>
 
                     <td
@@ -616,7 +623,7 @@ export default {
     },
     budgetUsagePercent() {
       const allocated = Number(this.papCode.allocated_budget || 0);
-      const deducted = Number(this.papCode.deducted_budget || 0);
+      const deducted = Number(this.papCode.approved_budget_amount ?? this.papCode.deducted_budget ?? 0);
 
       if (allocated <= 0) {
         return deducted > 0 ? 100 : 0;
@@ -646,6 +653,16 @@ export default {
       const remaining = Number(this.papCode.remaining_budget || 0);
 
       return allocated > 0 && remaining >= 0 && remaining <= allocated * 0.15;
+    },
+    excessFundsAmount() {
+      if (this.papCode.award_variance_amount !== undefined && this.papCode.award_variance_amount !== null) {
+        return Number(this.papCode.award_variance_amount || 0);
+      }
+
+      const approved = Number(this.papCode.approved_budget_amount ?? this.papCode.deducted_budget ?? 0);
+      const awarded = Number(this.papCode.actual_awarded_amount || 0);
+
+      return approved - awarded;
     },
     overviewFacts() {
       return [
@@ -679,9 +696,19 @@ export default {
           valueClass: "text-body",
         },
         {
-          label: "Deducted",
-          value: this.formatCurrency(this.papCode.deducted_budget),
+          label: "Approved",
+          value: this.formatCurrency(this.papCode.approved_budget_amount || this.papCode.deducted_budget),
           valueClass: "text-warning",
+        },
+        {
+          label: "Actual Awarded",
+          value: this.formatCurrency(this.papCode.actual_awarded_amount),
+          valueClass: "text-primary",
+        },
+        {
+          label: "Excess Funds",
+          value: this.formatCurrency(this.excessFundsAmount),
+          valueClass: this.excessFundsAmount < 0 ? "text-danger" : "text-success",
         },
         {
           label: "Budget Used",
@@ -706,20 +733,28 @@ export default {
           valueClass: "text-body",
         },
         {
-          label: "Deducted Budget",
-          value: this.formatCurrency(this.papCode.deducted_budget),
-          caption: "Committed through approved deductions",
+          label: "Approved Budget",
+          value: this.formatCurrency(this.papCode.approved_budget_amount || this.papCode.deducted_budget),
+          caption: "Total approved budget for procurement requests",
           icon: "ri-arrow-left-right-line",
           badgeClass: "bg-warning-subtle text-warning",
           valueClass: "text-warning",
         },
         {
-          label: "Pending Top-Ups",
-          value: this.pendingBudgetRequestsCount,
-          caption: "Requests waiting for review",
-          icon: "ri-time-line",
+          label: "Actual Awarded",
+          value: this.formatCurrency(this.papCode.actual_awarded_amount),
+          caption: "Completed item awards charged to this PAP code",
+          icon: "ri-award-line",
           badgeClass: "bg-info-subtle text-info",
           valueClass: "text-info",
+        },
+        {
+          label: "Excess Funds",
+          value: this.formatCurrency(this.excessFundsAmount),
+          caption: "Approved budget less actual awarded amount",
+          icon: "ri-refund-2-line",
+          badgeClass: this.excessFundsAmount < 0 ? "bg-danger-subtle text-danger" : "bg-success-subtle text-success",
+          valueClass: this.excessFundsAmount < 0 ? "text-danger" : "text-success",
         },
         {
           label: "History Entries",
@@ -917,6 +952,19 @@ export default {
     },
     balanceAfterClass(value) {
       return Number(value) < 0 ? "text-danger" : "text-success";
+    },
+    shouldShowLogExcessFunds(log) {
+      return log?.type === "approval_deduction";
+    },
+    logExcessFundsAmount(log) {
+      if (log?.excess_funds_amount !== undefined && log?.excess_funds_amount !== null) {
+        return Number(log.excess_funds_amount) || 0;
+      }
+
+      return Number(log?.amount || 0) - Number(log?.actual_awarded_amount || 0);
+    },
+    logExcessFundsClass(log) {
+      return this.logExcessFundsAmount(log) < 0 ? "text-danger" : "text-success";
     },
     getRequestedBy(log) {
       return log?.requested_by?.name || log?.processed_by?.name || "System";

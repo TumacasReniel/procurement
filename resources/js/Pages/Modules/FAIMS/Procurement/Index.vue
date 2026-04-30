@@ -298,13 +298,7 @@
                                                 </b-button>
 
                                                 <b-button
-                                                    v-if="
-                                                        list.status.name ==
-                                                            'Pending' &&
-                                                        list.created_by_id ==
-                                                            $page.props.user
-                                                                .data.id
-                                                    "
+                                                    v-if="canCancelProcurement(list)"
                                                     @click="openCancel(list)"
                                                     size="sm"
                                                     variant="danger"
@@ -439,6 +433,12 @@ export default {
         this.fetchChatRequests();
     },
     methods: {
+        canCancelProcurement(list) {
+            const currentUserId = Number(this.$page.props.user?.data?.id || 0);
+            const createdById = Number(list?.created_by_id || 0);
+
+            return list?.status?.name === "Pending" && currentUserId > 0 && createdById === currentUserId;
+        },
         canApproveProcurement(list) {
             const roles = this.$page.props.roles || [];
             const procurementApprovalUserIds =
@@ -695,6 +695,10 @@ export default {
         },
 
         openCancel(data) {
+            if (!this.canCancelProcurement(data)) {
+                return;
+            }
+
             this.$refs.cancel.show(data);
         },
         toggleChat() {

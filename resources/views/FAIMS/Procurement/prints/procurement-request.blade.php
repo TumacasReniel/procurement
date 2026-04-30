@@ -132,7 +132,7 @@
                         <span>Rev. 1/07-01-23</span>
                 </div>
                 <center style="font-size: 11px;  font-weight: bold; padding: 2px; text-transform: uppercase;margin-top: 10px">
-                    Procurement Request
+                    Purchase Request
                 </center>
                 
             </div> 
@@ -175,6 +175,7 @@
                     <td class="text-center">{{ $item->item_no }}</td>
                     <td class="text-center">{{ $item->item_unit_type->name_short }}</td>
                     <td>
+                        <span><b>{{ $item->item_name }}</b></span>
                         <div>
                             {!! $item->item_description !!}
                         </div>

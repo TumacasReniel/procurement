@@ -64,9 +64,9 @@
                     data-bs-toggle="tab"
                     role="tab"
                     aria-selected="true"
-                    @click="viewStatus(52)"
+                    @click="viewStatus('Items Delivered')"
                   >
-                    <i class="ri-file-search-line me-1 align-bottom"></i> Inspection and Acceptance
+                    <i class="ri-file-search-line me-1 align-bottom"></i> To be Completed
                   </BLink>
                 </li>
             
@@ -159,7 +159,7 @@
                         title="Update Status"
                         style="border-radius: 8px;"
                       >
-                        <i class="ri-edit-line"></i>
+                        <i class="ri-edit-circle-fill"></i>
                       </b-button>
                       <b-button
                         v-if="list.status.name == 'Completed'"
@@ -186,18 +186,6 @@
                         <i class="ri-printer-line"></i>
                       </b-button>
 
-                      <b-button
-                        v-if="['Items Delivered', 'Delivered/For Inspection', 'Completed'].includes(list.status.name)"
-                        @click="openPrintIAR(list)"
-                        size="sm"
-                        variant="secondary"
-                        class="btn-icon"
-                        v-b-tooltip.hover
-                        title="Print IAR"
-                        style="border-radius: 8px;"
-                      >
-                        <i class="ri-file-list-line"></i>
-                      </b-button>
                     </div>
                   </td>
                 </tr>
@@ -336,7 +324,7 @@ export default {
       this.$refs.inspection.show(data, "PO", "revert");
     },
     viewStatus(status) {
-      if (!this.canAccessInspectionTab && status === 52) {
+      if (!this.canAccessInspectionTab && status === "Items Delivered") {
         return;
       }
       this.filter.status = status;

@@ -31,8 +31,8 @@
           </button>
         </div>
         <div class="card-body p-0 overflow-hidden d-flex flex-column floating-comment-body">
-          <div class="px-3 pt-3">
-            <div class="border rounded-4 p-3 floating-comment-summary">
+          <div class="px-0 pt-3">
+            <div class="border-0 border-bottom rounded-0 p-3 floating-comment-summary">
               <div class="d-flex align-items-start justify-content-between gap-3">
                 <div class="min-w-0">
                   <div class="fw-bold text-body text-truncate">
@@ -71,7 +71,7 @@
               <div
                 v-for="comment in sortedComments"
                 :key="comment.id"
-                class="d-flex align-items-end gap-2"
+                class="d-flex align-items-start gap-2"
                 :class="isOwnComment(comment) ? 'justify-content-end' : 'justify-content-start'"
               >
                 <template v-if="!isOwnComment(comment)">
@@ -79,11 +79,11 @@
                     v-if="resolveAvatar(comment.user)"
                     :src="resolveAvatar(comment.user)"
                     :alt="resolveName(comment.user)"
-                    class="rounded-circle border floating-comment-avatar flex-shrink-0 align-self-start"
+                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-beside flex-shrink-0"
                   />
                   <div
                     v-else
-                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-fallback flex-shrink-0 align-self-start"
+                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-beside floating-comment-avatar-fallback flex-shrink-0"
                   >
                     {{ resolveInitials(comment.user) }}
                   </div>
@@ -118,7 +118,7 @@
                     <div
                       v-for="reply in comment.replies"
                       :key="`${comment.id}-${reply.id}`"
-                      class="d-flex align-items-end gap-2"
+                      class="d-flex align-items-start gap-2"
                       :class="isOwnComment(reply) ? 'justify-content-end' : 'justify-content-start'"
                     >
                       <template v-if="!isOwnComment(reply)">
@@ -126,11 +126,11 @@
                           v-if="resolveAvatar(reply.user)"
                           :src="resolveAvatar(reply.user)"
                           :alt="resolveName(reply.user)"
-                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm flex-shrink-0 align-self-start"
+                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-beside flex-shrink-0"
                         />
                         <div
                           v-else
-                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-fallback flex-shrink-0 align-self-start"
+                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-beside floating-comment-avatar-fallback flex-shrink-0"
                         >
                           {{ resolveInitials(reply.user) }}
                         </div>
@@ -163,11 +163,11 @@
                           v-if="resolveAvatar(reply.user)"
                           :src="resolveAvatar(reply.user)"
                           :alt="resolveName(reply.user)"
-                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm flex-shrink-0 align-self-start"
+                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-beside flex-shrink-0"
                         />
                         <div
                           v-else
-                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-fallback flex-shrink-0 align-self-start"
+                          class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-beside floating-comment-avatar-fallback flex-shrink-0"
                         >
                           {{ resolveInitials(reply.user) }}
                         </div>
@@ -181,11 +181,11 @@
                     v-if="resolveAvatar(comment.user)"
                     :src="resolveAvatar(comment.user)"
                     :alt="resolveName(comment.user)"
-                    class="rounded-circle border floating-comment-avatar flex-shrink-0 align-self-start"
+                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-beside flex-shrink-0"
                   />
                   <div
                     v-else
-                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-fallback flex-shrink-0 align-self-start"
+                    class="rounded-circle border floating-comment-avatar floating-comment-avatar-beside floating-comment-avatar-fallback flex-shrink-0"
                   >
                     {{ resolveInitials(comment.user) }}
                   </div>
@@ -194,16 +194,16 @@
             </div>
           </div>
 
-          <div v-else class="px-3 py-3 flex-grow-1 d-flex">
-            <div class="border rounded-4 w-100 px-4 py-5 text-center text-muted floating-comment-empty-state">
+          <div v-else class="px-0 py-3 flex-grow-1 d-flex">
+            <div class="border-0 rounded-0 w-100 px-4 py-5 text-center text-muted floating-comment-empty-state">
               <i class="ri-chat-smile-2-line d-block fs-2 text-primary mb-3"></i>
               <div class="fw-semibold text-body">No comments yet</div>
               <div class="small">Start the conversation for this procurement overview.</div>
             </div>
           </div>
 
-          <div class="px-3 pb-0 flex-shrink-0">
-            <div class="card shadow-none border floating-comment-composer">
+          <div class="px-0 pb-0 flex-shrink-0">
+            <div class="card shadow-none border-0 border-top rounded-0 floating-comment-composer">
               <div class="card-body p-3">
                 <div class="d-flex align-items-start gap-3">
                   <img
@@ -220,13 +220,65 @@
                   </div>
 
                   <div class="flex-grow-1">
+                    <div class="position-relative">
                     <textarea
+                      ref="commentTextarea"
                       v-model="newComment"
                       class="form-control floating-comment-textarea"
                       rows="3"
                       placeholder="Comment here..."
                       :disabled="commentSubmitting"
+                      @input="handleCommentInput"
+                      @click="updateMentionContext"
+                      @keyup="updateMentionContext"
+                      @keydown="handleMentionKeydown"
                     ></textarea>
+                      <div
+                        v-if="showMentionMenu"
+                        class="mention-picker border rounded shadow-sm floating-comment-surface"
+                      >
+                        <div v-if="mentionSearchLoading" class="px-3 py-2 small text-muted">
+                          Searching employees...
+                        </div>
+                        <div v-else-if="!filteredMentionUsers.length" class="px-3 py-2 small text-muted">
+                          No employee found. Try a name or username.
+                        </div>
+                        <template v-else>
+                          <button
+                            v-for="(user, index) in filteredMentionUsers"
+                            :key="user.id"
+                            type="button"
+                            class="mention-picker-item"
+                            :class="{ active: index === activeMentionIndex }"
+                            @mousedown.prevent="selectMentionUser(user)"
+                          >
+                            <img
+                              v-if="resolveAvatar(user)"
+                              :src="resolveAvatar(user)"
+                              :alt="resolveName(user)"
+                              class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm flex-shrink-0"
+                            />
+                            <div
+                              v-else
+                              class="rounded-circle border floating-comment-avatar floating-comment-avatar-sm floating-comment-avatar-fallback flex-shrink-0"
+                            >
+                              {{ resolveInitials(user) }}
+                            </div>
+                            <span class="flex-grow-1 text-start overflow-hidden">
+                              <span class="d-block fw-semibold text-truncate">
+                                {{ resolveName(user) }}
+                              </span>
+                              <span class="d-block small text-muted text-truncate">
+                                @{{ user.username }}
+                              </span>
+                            </span>
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+                    <div class="small text-muted mt-2">
+                      Type <span class="fw-semibold">@</span> and search any employee by name or username.
+                    </div>
                     <small v-if="form.errors.content" class="text-danger d-block mt-2">
                       {{ form.errors.content }}
                     </small>
@@ -293,6 +345,13 @@ export default {
       activeRightTab: 1,
       newComment: '',
       commentSubmitting: false,
+      mentionStartIndex: null,
+      mentionQuery: "",
+      activeMentionIndex: 0,
+      mentionSearchResults: [],
+      mentionSearchLoading: false,
+      mentionSearchTimer: null,
+      mentionSearchRequestId: 0,
       form: useForm({
         content: '',
       }),
@@ -378,6 +437,60 @@ export default {
     },
     currentUserInitials() {
       return this.resolveInitials(this.currentUser);
+    },
+    mentionUsers() {
+      const users = new Map();
+      const appendUser = (user) => {
+        if (!user?.id || !user?.username) {
+          return;
+        }
+
+        if (!users.has(Number(user.id))) {
+          users.set(Number(user.id), user);
+        }
+      };
+
+      appendUser(this.procurement?.created_by);
+      appendUser(this.procurement?.requested_by);
+      appendUser(this.procurement?.approved_by);
+
+      this.sortedComments.forEach((comment) => {
+        appendUser(comment?.user);
+        (comment?.replies || []).forEach((reply) => appendUser(reply?.user));
+      });
+
+      this.mentionSearchResults.forEach((user) => appendUser(user));
+
+      return Array.from(users.values()).sort((left, right) =>
+        this.resolveName(left).localeCompare(this.resolveName(right)),
+      );
+    },
+    filteredMentionUsers() {
+      const keyword = this.mentionQuery.trim().toLowerCase();
+
+      return this.mentionUsers.filter((user) => {
+        if (!keyword) {
+          return true;
+        }
+
+        const searchableText = [
+          user.username,
+          this.resolveName(user),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return searchableText.includes(keyword);
+      });
+    },
+    showMentionMenu() {
+      return (
+        this.mentionStartIndex !== null &&
+        (this.filteredMentionUsers.length > 0 ||
+          this.mentionSearchLoading ||
+          this.mentionQuery.trim().length > 0)
+      );
     },
     procAssigneeMap() {
       const fromAssignments = {};
@@ -533,6 +646,12 @@ export default {
         this.scrollThreadToBottom(oldCount ? "smooth" : "auto");
       });
     },
+    mentionQuery(newValue) {
+      this.queueMentionSearch(newValue);
+    },
+  },
+  beforeUnmount() {
+    this.clearMentionSearchTimer();
   },
   methods: {
     toggleRightSidebar() {
@@ -706,6 +825,165 @@ export default {
         behavior,
       });
     },
+    getCommentTextarea() {
+      return this.$refs.commentTextarea || null;
+    },
+    resetMentionState() {
+      this.clearMentionSearchTimer();
+      this.mentionSearchRequestId += 1;
+      this.mentionStartIndex = null;
+      this.mentionQuery = "";
+      this.activeMentionIndex = 0;
+      this.mentionSearchResults = [];
+      this.mentionSearchLoading = false;
+    },
+    clearMentionSearchTimer() {
+      if (!this.mentionSearchTimer) {
+        return;
+      }
+
+      window.clearTimeout(this.mentionSearchTimer);
+      this.mentionSearchTimer = null;
+    },
+    queueMentionSearch(value) {
+      const keyword = String(value || "").trim();
+
+      this.clearMentionSearchTimer();
+
+      if (!keyword || this.mentionStartIndex === null) {
+        this.mentionSearchRequestId += 1;
+        this.mentionSearchResults = [];
+        this.mentionSearchLoading = false;
+        return;
+      }
+
+      const requestId = this.mentionSearchRequestId + 1;
+      this.mentionSearchRequestId = requestId;
+      this.mentionSearchLoading = true;
+
+      this.mentionSearchTimer = window.setTimeout(() => {
+        this.fetchMentionUsers(keyword, requestId);
+      }, 250);
+    },
+    fetchMentionUsers(keyword, requestId = null) {
+      if (!requestId) {
+        requestId = this.mentionSearchRequestId + 1;
+        this.mentionSearchRequestId = requestId;
+      }
+
+      this.mentionSearchLoading = true;
+
+      axios
+        .get("/search", {
+          params: {
+            option: "users",
+            keyword,
+            limit: 10,
+          },
+        })
+        .then((response) => {
+          if (requestId !== this.mentionSearchRequestId) {
+            return;
+          }
+
+          this.mentionSearchResults = Array.isArray(response.data)
+            ? response.data
+            : [];
+        })
+        .catch(() => {
+          if (requestId === this.mentionSearchRequestId) {
+            this.mentionSearchResults = [];
+          }
+        })
+        .finally(() => {
+          if (requestId === this.mentionSearchRequestId) {
+            this.mentionSearchLoading = false;
+          }
+        });
+    },
+    updateMentionContext(event) {
+      const textarea = event?.target || this.getCommentTextarea();
+
+      if (!textarea) {
+        this.resetMentionState();
+        return;
+      }
+
+      const cursorIndex = textarea.selectionStart ?? this.newComment.length;
+      const valueBeforeCursor = this.newComment.slice(0, cursorIndex);
+      const mentionMatch = valueBeforeCursor.match(/(^|\s)@([A-Za-z0-9._-]*)$/);
+
+      if (!mentionMatch) {
+        this.resetMentionState();
+        return;
+      }
+
+      this.mentionStartIndex = cursorIndex - mentionMatch[2].length - 1;
+      this.mentionQuery = mentionMatch[2] || "";
+      this.activeMentionIndex = 0;
+    },
+    handleCommentInput(event) {
+      this.updateMentionContext(event);
+    },
+    handleMentionKeydown(event) {
+      if (!this.showMentionMenu || !this.filteredMentionUsers.length) {
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        this.activeMentionIndex =
+          (this.activeMentionIndex + 1) % this.filteredMentionUsers.length;
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        this.activeMentionIndex =
+          (this.activeMentionIndex - 1 + this.filteredMentionUsers.length) %
+          this.filteredMentionUsers.length;
+        return;
+      }
+
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        this.selectMentionUser(this.filteredMentionUsers[this.activeMentionIndex]);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        this.resetMentionState();
+      }
+    },
+    selectMentionUser(user) {
+      if (!user?.username || this.mentionStartIndex === null) {
+        return;
+      }
+
+      const textarea = this.getCommentTextarea();
+      const cursorIndex = textarea?.selectionStart ?? this.newComment.length;
+      const mentionText = `@${user.username} `;
+
+      this.newComment = [
+        this.newComment.slice(0, this.mentionStartIndex),
+        mentionText,
+        this.newComment.slice(cursorIndex),
+      ].join("");
+
+      const nextCursorIndex = this.mentionStartIndex + mentionText.length;
+
+      this.$nextTick(() => {
+        const input = this.getCommentTextarea();
+
+        if (input) {
+          input.focus();
+          input.setSelectionRange(nextCursorIndex, nextCursorIndex);
+        }
+      });
+
+      this.resetMentionState();
+    },
     submitComment() {
       const content = this.newComment.trim();
       if (!content || this.commentSubmitting) return;
@@ -730,6 +1008,7 @@ export default {
           }
 
           this.newComment = "";
+          this.resetMentionState();
           this.form.reset();
         })
         .catch((error) => {
@@ -798,6 +1077,8 @@ export default {
   right: 24px;
   bottom: 24px;
   z-index: 1050;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 48px);
 }
 
 .floating-comment-panel,
@@ -843,8 +1124,11 @@ export default {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 480px;
-  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  width: clamp(360px, 32vw, 560px);
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 48px);
   background:
     radial-gradient(circle at top left, rgba(63, 79, 138, 0.08), transparent 34%),
     linear-gradient(135deg, #f8f9fa 0%, #eef2f7 100%);
@@ -861,8 +1145,9 @@ export default {
   position: relative;
   display: flex;
   flex-direction: column;
-  max-height: min(76vh, 840px);
-  min-height: min(66vh, 720px);
+  height: calc(100dvh - 126px);
+  min-height: 360px;
+  max-height: calc(100dvh - 126px);
   overflow: hidden;
   border-radius: 0 0 20px 20px;
 }
@@ -871,6 +1156,11 @@ export default {
   background: rgba(255, 255, 255, 0.92);
   border-color: rgba(63, 79, 138, 0.08) !important;
   backdrop-filter: blur(12px);
+}
+
+.floating-comment-surface {
+  background-color: #fff;
+  color: var(--vz-body-color);
 }
 
 .floating-comment-online-pill {
@@ -933,6 +1223,11 @@ export default {
   height: 2.5rem;
   object-fit: cover;
   background: #f8faff;
+}
+
+.floating-comment-avatar-beside {
+  align-self: flex-start;
+  margin-top: 0.1rem;
 }
 
 .floating-comment-avatar-sm {
@@ -1018,6 +1313,31 @@ export default {
   box-shadow: 0 0 0 0.2rem rgba(63, 79, 138, 0.08);
 }
 
+.mention-picker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 0.5rem);
+  z-index: 10;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.mention-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 0;
+  background: transparent;
+}
+
+.mention-picker-item:hover,
+.mention-picker-item.active {
+  background: #f7f9ff;
+}
+
 .comment-panel-enter-active,
 .comment-panel-leave-active {
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -1033,12 +1353,22 @@ export default {
   .floating-comments-wrapper {
     right: 16px;
     bottom: 16px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100dvh - 32px);
   }
 
   .floating-comment-panel {
-    width: min(440px, calc(100vw - 24px));
+    width: min(440px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    max-height: calc(100dvh - 112px);
     right: -4px;
     bottom: 74px;
+  }
+
+  .floating-comment-body {
+    height: calc(100dvh - 190px);
+    min-height: 320px;
+    max-height: calc(100dvh - 190px);
   }
 }
 
@@ -1050,6 +1380,48 @@ export default {
   color: var(--overview-comment-mention-color);
   font-weight: 700;
   box-shadow: inset 0 0 0 1px rgba(95, 71, 0, 0.08);
+}
+
+[data-bs-theme="dark"] .floating-comment-panel {
+  background: #1b2230;
+}
+
+[data-bs-theme="dark"] .floating-comment-body {
+  background: #151b27;
+}
+
+[data-bs-theme="dark"] .floating-comment-summary,
+[data-bs-theme="dark"] .floating-comment-composer,
+[data-bs-theme="dark"] .floating-comment-composer :deep(.card-body),
+[data-bs-theme="dark"] .floating-comment-empty-state,
+[data-bs-theme="dark"] .floating-comment-surface {
+  background: #202938;
+  color: #d7dee9;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  backdrop-filter: none;
+}
+
+[data-bs-theme="dark"] .floating-comment-textarea,
+[data-bs-theme="dark"] .mention-picker {
+  background: #151b27;
+  color: #d7dee9;
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+[data-bs-theme="dark"] .floating-comment-bubble-other {
+  background: #202938;
+  color: #d7dee9;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .floating-comment-bubble,
+[data-bs-theme="dark"] .floating-comment-composer {
+  box-shadow: none;
+}
+
+[data-bs-theme="dark"] .mention-picker-item:hover,
+[data-bs-theme="dark"] .mention-picker-item.active {
+  background: #263244;
 }
 
 /* Log Item Styling */

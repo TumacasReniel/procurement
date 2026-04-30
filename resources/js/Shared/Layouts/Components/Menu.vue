@@ -194,7 +194,48 @@
                 </Link>
             </li>
 
+
             <li
+                class="nav-item"
+                v-if="
+                $page.props.roles.includes('Supply Staff') ||
+                $page.props.roles.includes('Supply Officer') ||
+                $page.props.roles.includes('Administrator')
+                "
+            >
+                <Link
+                href="/faims/receiving-deliveries"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.url.startsWith('/faims/receiving-deliveries'),
+                }"
+                >
+                <i class="ri-file-paper-2-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Receiving Deliveries </span>
+                </Link>
+            </li>
+
+            <li
+                class="nav-item"
+                v-if="
+                $page.props.roles.includes('Procurement Staff') ||
+                $page.props.roles.includes('Procurement Officer') ||
+                $page.props.roles.includes('Administrator')
+                "
+            >
+                <Link
+                href="/faims/ia-reports"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/HumanResource/Employees'),
+                }"
+                >
+                <i class="ri-file-paper-2-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">Inspection and Acceptance Reports </span>
+                </Link>
+            </li>
+
+             <li
                 class="nav-item"
                 v-if="
                 $page.props.roles.includes('Procurement Staff') ||

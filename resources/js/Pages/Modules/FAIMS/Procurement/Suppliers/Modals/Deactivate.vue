@@ -3,7 +3,7 @@
     v-model="showStatusModal"
     style="--vz-modal-width: 600px"
     :title="supplier && supplier.is_active == 1 ? 'Deactivate Supplier' : 'Activate Supplier'"
-    header-class="p-3 bg-light"
+    header-class="p-3 supplier-modal-header"
     class="v-modal-custom"
     modal-class="zoomIn"
     centered
@@ -52,7 +52,7 @@
     v-model="showResultModal"
     style="--vz-modal-width: 600px"
     :title="statusResult.title"
-    header-class="p-3 bg-light"
+    header-class="p-3 supplier-modal-header"
     class="v-modal-custom"
     modal-class="zoomIn"
     centered
@@ -164,3 +164,24 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+:global([data-bs-theme="dark"]) .supplier-modal-header,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-header {
+  background: #182235 !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: #e5edf7 !important;
+}
+
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-content,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-body,
+:global([data-bs-theme="dark"]) .v-modal-custom .modal-footer {
+  background: #131d2b !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: #e5edf7 !important;
+}
+
+:global([data-bs-theme="dark"]) .v-modal-custom .text-muted {
+  color: #9fb0c7 !important;
+}
+</style>

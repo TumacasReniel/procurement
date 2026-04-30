@@ -89,7 +89,7 @@
           </div>
           <div class="pap-profile-hero__progress-meta">
             <span>Allocated {{ formatCurrency(selected.allocated_budget) }}</span>
-            <span>Deducted {{ formatCurrency(selected.deducted_budget) }}</span>
+            <span>Approved {{ formatCurrency(selected.approved_budget_amount || selected.deducted_budget) }}</span>
           </div>
         </div>
 
@@ -239,6 +239,12 @@
                 <span :class="balanceClass(log.balance_after)">
                   After {{ formatCurrency(log.balance_after) }}
                 </span>
+                <span
+                  v-if="shouldShowLogExcessFunds(log)"
+                  :class="logExcessFundsClass(log)"
+                >
+                  Excess Funds {{ formatCurrency(logExcessFundsAmount(log)) }}
+                </span>
               </div>
 
               <div
@@ -348,6 +354,13 @@
                     <div class="pap-history-table__meta" :class="balanceClass(log.balance_after)">
                       After {{ formatCurrency(log.balance_after) }}
                     </div>
+                    <div
+                      v-if="shouldShowLogExcessFunds(log)"
+                      class="pap-history-table__meta"
+                      :class="logExcessFundsClass(log)"
+                    >
+                      Excess Funds {{ formatCurrency(logExcessFundsAmount(log)) }}
+                    </div>
                   </td>
                   <td v-if="showPendingRequestActions" class="text-center">
                     <div
@@ -442,7 +455,7 @@ export default {
     },
     budgetUsagePercent() {
       const allocatedBudget = Number(this.selected?.allocated_budget || 0);
-      const deductedBudget = Number(this.selected?.deducted_budget || 0);
+      const deductedBudget = Number(this.selected?.approved_budget_amount ?? this.selected?.deducted_budget ?? 0);
 
       if (allocatedBudget <= 0) {
         return deductedBudget > 0 ? 100 : 0;
@@ -485,6 +498,20 @@ export default {
           return "Healthy balance";
       }
     },
+    excessFundsAmount() {
+      if (!this.selected) {
+        return 0;
+      }
+
+      if (this.selected.award_variance_amount !== undefined && this.selected.award_variance_amount !== null) {
+        return Number(this.selected.award_variance_amount || 0);
+      }
+
+      const approvedBudget = Number(this.selected.approved_budget_amount ?? this.selected.deducted_budget ?? 0);
+      const awardedBudget = Number(this.selected.actual_awarded_amount || 0);
+
+      return approvedBudget - awardedBudget;
+    },
     summaryCards() {
       if (!this.selected) {
         return [];
@@ -499,18 +526,28 @@ export default {
           valueClass: "pap-summary-card__value--neutral",
         },
         {
-          label: "Deducted Budget",
-          value: this.formatCurrency(this.selected.deducted_budget),
-          caption: "Total committed through approved deductions",
+          label: "Approved Budget",
+          value: this.formatCurrency(this.selected.approved_budget_amount || this.selected.deducted_budget),
+          caption: "Total approved budget for procurement requests",
           icon: "ri-arrow-left-right-line",
           valueClass: "pap-summary-card__value--warning",
         },
         {
-          label: "Pending Top-Ups",
-          value: Number(this.selected.pending_budget_increase_requests_count || 0),
-          caption: "Requests still waiting for review",
-          icon: "ri-time-line",
+          label: "Actual Awarded",
+          value: this.formatCurrency(this.selected.actual_awarded_amount),
+          caption: "Completed item awards charged to this PAP code",
+          icon: "ri-award-line",
           valueClass: "pap-summary-card__value--primary",
+        },
+        {
+          label: "Excess Funds",
+          value: this.formatCurrency(this.excessFundsAmount),
+          caption: "Approved budget less actual awarded amount",
+          icon: "ri-refund-2-line",
+          valueClass:
+            this.excessFundsAmount < 0
+              ? "pap-summary-card__value--danger"
+              : "pap-summary-card__value--success",
         },
         {
           label: "Remaining Balance",
@@ -634,6 +671,19 @@ export default {
     },
     balanceClass(value) {
       return Number(value) < 0 ? "text-danger" : "text-success";
+    },
+    shouldShowLogExcessFunds(log) {
+      return log?.type === "approval_deduction";
+    },
+    logExcessFundsAmount(log) {
+      if (log?.excess_funds_amount !== undefined && log?.excess_funds_amount !== null) {
+        return Number(log.excess_funds_amount) || 0;
+      }
+
+      return Number(log?.amount || 0) - Number(log?.actual_awarded_amount || 0);
+    },
+    logExcessFundsClass(log) {
+      return this.logExcessFundsAmount(log) < 0 ? "text-danger" : "text-success";
     },
     getRequestedBy(log) {
       return log?.requested_by?.name || log?.processed_by?.name || "System";

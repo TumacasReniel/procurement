@@ -58,9 +58,13 @@ class OfferClass
         }
 
         foreach ($request->itemsNotAvailableForAward as $item) {
-            $item = ProcurementQuotationItem::findOrFail($item['id']);
+            $item = ProcurementQuotationItem::with('item')->findOrFail($item['id']);
             if($item){
-                if ($item->is_free || (float) $item->bid_price > 0) {
+                $bidPrice = (float) $item->bid_price;
+                $unitCost = (float) optional($item->item)->item_unit_cost;
+                $isWithinUnitCost = $unitCost <= 0 || $bidPrice <= $unitCost;
+
+                if ($item->is_free || ($bidPrice > 0 && $isWithinUnitCost)) {
                     // update item status to "Available for Re-award" 
                     $item->status_id = ListStatus::getID('Available for Re-award', 'Procurement');
                     $item->update();

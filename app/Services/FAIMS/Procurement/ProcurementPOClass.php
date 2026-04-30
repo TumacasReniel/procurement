@@ -10,6 +10,7 @@ use App\Models\ProcurementBacNoaItem;
 use App\Models\ProcurementQuotation;
 use App\Models\ProcurementQuotationItem;
 use App\Models\ProcurementNoaPo;
+use App\Models\ProcurementPoDelivery;
 use App\Models\ProcurementPoNtp;
 use App\Models\ProcurementPoIar;
 use App\Models\Inventory;
@@ -27,6 +28,7 @@ class ProcurementPOClass
 {
     public function lists($request)
     {
+        $sort_direction = $request->sort === 'oldest' ? 'ASC' : 'DESC';
         $data = ProcurementNoaPoResource::collection(
             ProcurementNoaPo::with('noa')
                 ->when($request->procurement_id, function ($query, $procurement_id) {
@@ -43,10 +45,35 @@ class ProcurementPOClass
                     });
                 })
                 ->when($request->status, function ($query) use ($request) {
-                    $query->where('status_id', ListStatus::getID($request->status, 'Procurement'));
-              
+                    $status = is_array($request->status)
+                        ? ($request->status['name'] ?? $request->status['value'] ?? null)
+                        : $request->status;
+
+                    $statusNames = $status === 'Items Delivered'
+                        ? [
+                            'Items Delivered',
+                            'Delivered/For Inspection',
+                            'PO Items Delivered',
+                            'PO Delivered/For Inspection',
+                            'Items Partially Delivered',
+                            'Partially Delivered / For Inspection',
+                            'Partially Delivered/For Inspection',
+                            'PO Items Partially Delivered',
+                            'PO Partially Delivered/For Inspection',
+                        ]
+                        : [$status];
+
+                    $statusIds = ListStatus::where('classification', 'Procurement')
+                        ->whereIn('name', array_filter($statusNames))
+                        ->pluck('id');
+
+                    $query->whereIn('status_id', $statusIds);
                 })
-                ->orderBy('created_at','DESC')
+                ->orderByRaw("
+                        LEFT(code, LOCATE('-', code) - 1) {$sort_direction},
+                        CAST(SUBSTRING_INDEX(code, '-', -1) AS UNSIGNED) {$sort_direction}
+                ")
+                ->orderBy('created_at','DESC')    
                 ->paginate($request->count)
         );
 
@@ -61,6 +88,7 @@ class ProcurementPOClass
             'iar.inspected_by.profile',
             'iars.status',
             'iars.inspected_by.profile',
+            'deliveries.received_by.profile',
             'ntp',
             'place_of_delivery',
             'noa.procurement_quotation.supplier.address',
@@ -69,15 +97,22 @@ class ProcurementPOClass
         )->where('noa_id', $request->noa_id)->first();
 
         if ($data) {
-            $this->appendIarSummaries($data);
-            $deliveryMonitoring = $this->buildDeliveryMonitoringData($data);
-            $data->setAttribute('delivery_monitoring_items', $deliveryMonitoring['items']);
-            $data->setAttribute('delivery_monitoring_summary', $deliveryMonitoring['summary']);
-            $data->setAttribute('resolved_actual_delivery_date', $deliveryMonitoring['actual_delivery_date']);
-            $data->setAttribute('resolved_actual_delivery_date_display', $deliveryMonitoring['actual_delivery_date_display']);
+            $this->appendPurchaseOrderDeliveryAttributes($data);
         }
 
         return $data;
+    }
+
+    public function appendPurchaseOrderDeliveryAttributes(ProcurementNoaPo $po): ProcurementNoaPo
+    {
+        $this->appendIarSummaries($po);
+        $deliveryMonitoring = $this->buildDeliveryMonitoringData($po);
+        $po->setAttribute('delivery_monitoring_items', $deliveryMonitoring['items']);
+        $po->setAttribute('delivery_monitoring_summary', $deliveryMonitoring['summary']);
+        $po->setAttribute('resolved_actual_delivery_date', $deliveryMonitoring['actual_delivery_date']);
+        $po->setAttribute('resolved_actual_delivery_date_display', $deliveryMonitoring['actual_delivery_date_display']);
+
+        return $po;
     }
 
     public function iarSelection($request)
@@ -94,13 +129,14 @@ class ProcurementPOClass
             ? $editingIar->normalizedDeliveredItems($po->noa->items)->keyBy('item_id')
             : collect();
 
-        $savedDeliveries = $this->aggregateDeliveredItems($po, $editingIar?->id);
-        $savedDeliveryMap = $savedDeliveries->keyBy('item_id');
-        $hasSavedDeliveries = $savedDeliveries->isNotEmpty();
+        $receivedDeliveries = $this->aggregateReceivedItems($po);
+        $receivedDeliveryMap = $receivedDeliveries->keyBy('item_id');
+        $savedIarDeliveries = $this->aggregateDeliveredItems($po, $editingIar?->id);
+        $savedIarDeliveryMap = $savedIarDeliveries->keyBy('item_id');
 
         $items = $po->noa->items->map(function ($noaItem) use (
-            $savedDeliveryMap,
-            $hasSavedDeliveries,
+            $receivedDeliveryMap,
+            $savedIarDeliveryMap,
             $editingIar,
             $currentIarDeliveries
         ) {
@@ -108,13 +144,18 @@ class ProcurementPOClass
             $procurementItem = $quotationItem?->item;
             $quantity = (float) ($procurementItem?->item_quantity ?? 0);
             $unitCost = (float) ($quotationItem?->bid_price ?? 0);
-            $savedDelivery = $savedDeliveryMap->get((int) $noaItem->id);
+            $receivedDelivery = $receivedDeliveryMap->get((int) $noaItem->id);
+            $savedIarDelivery = $savedIarDeliveryMap->get((int) $noaItem->id);
             $currentIarDelivery = $currentIarDeliveries->get((int) $noaItem->id);
-            $alreadyDeliveredQuantity = min(
-                (float) data_get($savedDelivery, 'delivered_quantity', 0),
+            $receivedQuantity = min(
+                (float) data_get($receivedDelivery, 'delivered_quantity', 0),
                 $quantity
             );
-            $availableQuantity = max($quantity - $alreadyDeliveredQuantity, 0);
+            $alreadyReportedQuantity = min(
+                (float) data_get($savedIarDelivery, 'delivered_quantity', 0),
+                $receivedQuantity
+            );
+            $availableQuantity = max($receivedQuantity - $alreadyReportedQuantity, 0);
 
             if ($availableQuantity <= 0 && !$currentIarDelivery) {
                 return null;
@@ -122,7 +163,7 @@ class ProcurementPOClass
 
             $isSelected = $editingIar
                 ? $currentIarDelivery !== null
-                : !$hasSavedDeliveries;
+                : $availableQuantity > 0;
             $deliveredQuantity = $currentIarDelivery
                 ? (float) data_get($currentIarDelivery, 'delivered_quantity', 0)
                 : ($isSelected ? $availableQuantity : 0);
@@ -133,7 +174,8 @@ class ProcurementPOClass
                 'description' => $procurementItem?->item_description,
                 'quantity' => $this->normalizeQuantity($quantity),
                 'ordered_quantity' => $this->normalizeQuantity($quantity),
-                'already_delivered_quantity' => $this->normalizeQuantity($alreadyDeliveredQuantity),
+                'received_quantity' => $this->normalizeQuantity($receivedQuantity),
+                'already_delivered_quantity' => $this->normalizeQuantity($alreadyReportedQuantity),
                 'available_quantity' => $this->normalizeQuantity($availableQuantity),
                 'delivered_quantity' => $this->normalizeQuantity($deliveredQuantity),
                 'is_selected' => $isSelected,
@@ -162,7 +204,7 @@ class ProcurementPOClass
             'iar_code' => $editingIar?->code,
             'invoice_no' => $editingIar?->invoice_no,
             'invoice_date' => $editingIar?->invoice_date?->toDateString(),
-            'saved_item_ids' => $savedDeliveries->pluck('item_id')->all(),
+            'saved_item_ids' => $savedIarDeliveries->pluck('item_id')->all(),
             'selected_item_ids' => $currentDeliveries->pluck('item_id')->all(),
             'delivered_items' => $currentDeliveries->all(),
             'items' => $items,
@@ -489,7 +531,8 @@ class ProcurementPOClass
         }
 
         $availableItems = $po->noa->items->keyBy(fn ($item) => (int) $item->id);
-        $existingDeliveries = $this->aggregateDeliveredItems($po, $editingIar?->id)->keyBy('item_id');
+        $receivedDeliveries = $this->aggregateReceivedItems($po)->keyBy('item_id');
+        $existingIarDeliveries = $this->aggregateDeliveredItems($po, $editingIar?->id)->keyBy('item_id');
         $requestedDeliveries = collect($request->input('delivered_items', []))->values();
 
         if ($requestedDeliveries->isEmpty()) {
@@ -530,15 +573,21 @@ class ProcurementPOClass
             }
 
             $orderedQuantity = (float) data_get($availableItem, 'item.item.item_quantity', 0);
-            $alreadyDeliveredQuantity = min(
-                (float) data_get($existingDeliveries->get($itemId), 'delivered_quantity', 0),
+            $receivedQuantity = min(
+                (float) data_get($receivedDeliveries->get($itemId), 'delivered_quantity', 0),
                 $orderedQuantity
             );
-            $availableQuantity = max($orderedQuantity - $alreadyDeliveredQuantity, 0);
+            $alreadyReportedQuantity = min(
+                (float) data_get($existingIarDeliveries->get($itemId), 'delivered_quantity', 0),
+                $receivedQuantity
+            );
+            $availableQuantity = max($receivedQuantity - $alreadyReportedQuantity, 0);
 
             if ($availableQuantity <= 0) {
                 $validationErrors["delivered_items.{$index}.delivered_quantity"] =
-                    'This item is already fully delivered.';
+                    $receivedQuantity <= 0
+                        ? 'This item has not been received yet.'
+                        : 'This received item is already fully included in an IAR.';
                 continue;
             }
 
@@ -994,10 +1043,11 @@ class ProcurementPOClass
             'status',
             'iar.status',
             'iars.status',
+            'deliveries',
             'noa.items.item.item.item_unit_type'
         );
 
-        $savedDeliveries = $this->aggregateDeliveredItems($po);
+        $savedDeliveries = $this->aggregateReceivedItems($po);
         $savedDeliveryMap = $savedDeliveries->keyBy('item_id');
         $expectedDeliveryDate = $po->date_of_delivery?->copy()->startOfDay();
         $actualDeliveryDate = $this->resolveActualDeliveryDate($po);
@@ -1143,6 +1193,47 @@ class ProcurementPOClass
                     'delivered_quantity' => (float) $deliveries->sum('delivered_quantity'),
                     'latest_delivery_date' => data_get($latestDelivery, 'latest_delivery_date'),
                     'iar_ids' => $deliveries->pluck('iar_id')->unique()->values()->all(),
+                ];
+            })
+            ->values();
+    }
+
+    public function aggregateReceivedItems(ProcurementNoaPo $po, ?int $excludedDeliveryId = null)
+    {
+        if (!Schema::hasTable('procurement_po_deliveries')) {
+            return collect();
+        }
+
+        $po->loadMissing('deliveries', 'noa.items.item.item.item_unit_type');
+
+        $receivedDeliveries = $po->deliveries
+            ->when($excludedDeliveryId, fn ($deliveries) => $deliveries->where('id', '!=', $excludedDeliveryId))
+            ->flatMap(function ($delivery) use ($po) {
+                $deliveryDate = $delivery->created_at?->copy()->startOfDay();
+
+                return $delivery->normalizedDeliveredItems($po->noa->items)->map(function ($entry) use ($delivery, $deliveryDate) {
+                    return [
+                        'delivery_id' => $delivery->id,
+                        'item_id' => (int) data_get($entry, 'item_id'),
+                        'delivered_quantity' => (float) data_get($entry, 'delivered_quantity', 0),
+                        'latest_delivery_date' => $deliveryDate,
+                    ];
+                });
+            });
+
+        return $receivedDeliveries
+            ->groupBy('item_id')
+            ->map(function ($deliveries, $itemId) {
+                $latestDelivery = $deliveries
+                    ->filter(fn ($delivery) => data_get($delivery, 'latest_delivery_date'))
+                    ->sortByDesc(fn ($delivery) => data_get($delivery, 'latest_delivery_date')?->timestamp ?? 0)
+                    ->first();
+
+                return [
+                    'item_id' => (int) $itemId,
+                    'delivered_quantity' => (float) $deliveries->sum('delivered_quantity'),
+                    'latest_delivery_date' => data_get($latestDelivery, 'latest_delivery_date'),
+                    'delivery_ids' => $deliveries->pluck('delivery_id')->unique()->values()->all(),
                 ];
             })
             ->values();

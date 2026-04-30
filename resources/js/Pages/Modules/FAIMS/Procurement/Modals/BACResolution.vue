@@ -513,6 +513,37 @@ export default {
       return values.reduce((sum, value) => sum + (Number(value) || 0), 0);
     },
 
+    getBidItemNo(item) {
+      const rawItemNo =
+        item?.item?.item_no ??
+        item?.item?.item?.item_no ??
+        item?.item_no ??
+        item?.procurement_item?.item_no ??
+        "";
+      const matchedNumber = String(rawItemNo).match(/\d+/)?.[0];
+
+      return Number(matchedNumber ?? rawItemNo) || Number.MAX_SAFE_INTEGER;
+    },
+
+    sortBidItemsByItemNo(items = []) {
+      return [...items].sort((left, right) => {
+        const itemNoDifference = this.getBidItemNo(left) - this.getBidItemNo(right);
+
+        if (itemNoDifference !== 0) {
+          return itemNoDifference;
+        }
+
+        return (Number(left?.id) || 0) - (Number(right?.id) || 0);
+      });
+    },
+
+    formatBidItemNos(items = []) {
+      return this.sortBidItemsByItemNo(items)
+        .map((item) => item?.item?.item_no ?? item?.item?.item?.item_no ?? item?.item_no)
+        .filter((itemNo) => itemNo !== null && itemNo !== undefined && itemNo !== "")
+        .join(", ");
+    },
+
     normalizeSupplierLocation(location = "") {
       const trimmedLocation = String(location || "").trim();
       if (!trimmedLocation) return null;
@@ -812,7 +843,16 @@ export default {
         quotation.items.some(
           (item) => item.status.name === 'Awarded' && item.bid_price != null && item.is_rebid == 0
         )
-      );
+      ).sort((left, right) => {
+        const leftFirstItemNo = this.getBidItemNo(this.sortBidItemsByItemNo(left.items).find(
+          (item) => item.status.name === 'Awarded' && item.bid_price != null && item.is_rebid == 0
+        ));
+        const rightFirstItemNo = this.getBidItemNo(this.sortBidItemsByItemNo(right.items).find(
+          (item) => item.status.name === 'Awarded' && item.bid_price != null && item.is_rebid == 0
+        ));
+
+        return leftFirstItemNo - rightFirstItemNo;
+      });
 
       const awarded_supplier_names = awarded_quotations
         .map((quotation) => quotation.supplier?.name)
@@ -827,11 +867,11 @@ export default {
       let counter = 2;
       const awarded_quotations_list = awarded_quotations
         .map((quotation) => {
-          const filtered_items = quotation.items.filter(
+          const filtered_items = this.sortBidItemsByItemNo(quotation.items.filter(
             (item) => item.status.name === 'Awarded' && item.is_rebid == 0
-          );
+          ));
           if (filtered_items.length === 0) return "";
-          const item_numbers = filtered_items.map((item) => item.item.item_no).join(", ");
+          const item_numbers = this.formatBidItemNos(filtered_items);
           const total_price = filtered_items.reduce((sum, item) => {
             const bp = parseFloat(item.bid_price) || 0;
             const bq = parseFloat(item.item.item_quantity) || 0;
@@ -871,11 +911,11 @@ export default {
 
       const awarded_table_rows = awarded_quotations
         .map((quotation) => {
-          const filtered_items = quotation.items.filter(
+          const filtered_items = this.sortBidItemsByItemNo(quotation.items.filter(
             (item) => item.status.name === 'Awarded' && item.is_rebid == 1
-          );
+          ));
           if (filtered_items.length === 0) return null;
-          const item_ids = filtered_items.map((bid_item) => bid_item.item_no).join(", ");
+          const item_ids = this.formatBidItemNos(filtered_items);
           return `
             <tr>
               <td>${quotation.supplier?.name}</td>
@@ -1050,7 +1090,8 @@ export default {
             return (Number(left.quotation?.id) || 0) - (Number(right.quotation?.id) || 0);
           })[0];
         })
-        .filter(Boolean);
+        .filter(Boolean)
+        .sort((left, right) => this.getBidItemNo(left.item) - this.getBidItemNo(right.item));
       const reawardedQuotationsMap = new Map();
 
       selectedReawardedItems.forEach(({ quotation, item }) => {
@@ -1066,7 +1107,17 @@ export default {
         reawardedQuotationsMap.get(key).awarded_items.push(item);
       });
 
-      const reawarded_quotations = Array.from(reawardedQuotationsMap.values());
+      const reawarded_quotations = Array.from(reawardedQuotationsMap.values())
+        .map((entry) => ({
+          ...entry,
+          awarded_items: this.sortBidItemsByItemNo(entry.awarded_items),
+        }))
+        .sort((left, right) => {
+          const leftFirstItemNo = this.getBidItemNo(left.awarded_items[0]);
+          const rightFirstItemNo = this.getBidItemNo(right.awarded_items[0]);
+
+          return leftFirstItemNo - rightFirstItemNo;
+        });
 
       const bidder_count = new Set(bidders).size;
 
@@ -1093,7 +1144,7 @@ export default {
       const reawarded_quotations_list = reawarded_quotations
         .map(({ quotation, awarded_items }) => {
           if (awarded_items.length === 0) return "";
-          const item_numbers = awarded_items.map((item) => item.item.item_no).join(", ");
+          const item_numbers = this.formatBidItemNos(awarded_items);
           const total_price = awarded_items.reduce((sum, item) => {
             const bp = parseFloat(item.bid_price) || 0;
             const bq = parseFloat(item.item.item_quantity) || 0;
@@ -1135,7 +1186,7 @@ export default {
       const reawarded_table_rows = reawarded_quotations
         .map(({ quotation, awarded_items }) => {
           if (awarded_items.length === 0) return null;
-          const item_ids = awarded_items.map((item) => item.item.item_no).join(", ");
+          const item_ids = this.formatBidItemNos(awarded_items);
           return `
             <tr>
               <td>${quotation.supplier?.name}</td>
@@ -1255,7 +1306,16 @@ export default {
         quotation.items.some(
           (item) => (item.status.name === 'Awarded' && item.bid_price != null) || item.is_rebid == 0
         )
-      );
+      ).sort((left, right) => {
+        const leftFirstItemNo = this.getBidItemNo(this.sortBidItemsByItemNo(left.items).find(
+          (item) => (item.status.name === 'Awarded' && item.bid_price != null) || item.is_rebid == 0
+        ));
+        const rightFirstItemNo = this.getBidItemNo(this.sortBidItemsByItemNo(right.items).find(
+          (item) => (item.status.name === 'Awarded' && item.bid_price != null) || item.is_rebid == 0
+        ));
+
+        return leftFirstItemNo - rightFirstItemNo;
+      });
 
       const awarded_supplier_names = awarded_quotations
         .map((quotation) => quotation.supplier?.name)
@@ -1269,11 +1329,11 @@ export default {
       let counter = 2;
       const awarded_quotations_list = awarded_quotations
         .map((quotation) => {
-          const filtered_items = quotation.items.filter(
+          const filtered_items = this.sortBidItemsByItemNo(quotation.items.filter(
             (item) => item.status.name === 'Awarded' || item.is_rebid == 0
-          );
+          ));
           if (filtered_items.length === 0) return "";
-          const item_numbers = filtered_items.map((item) => item.item.item_no).join(", ");
+          const item_numbers = this.formatBidItemNos(filtered_items);
           const total_price = filtered_items.reduce((sum, item) => {
             const bp = parseFloat(item.bid_price) || 0;
             const bq = parseFloat(item.item.item_quantity) || 0;
@@ -1298,9 +1358,9 @@ export default {
 
       // === CORRECT total accumulation across awarded bids ===
       const award_bid_total_price = awarded_quotations.reduce((total, quotation) => {
-        const filtered_items = quotation.items.filter(
+        const filtered_items = this.sortBidItemsByItemNo(quotation.items.filter(
           (item) => item.status.name === 'Awarded' || item.is_rebid == 0
-        );
+        ));
         const total_price = filtered_items.reduce((sum, item) => {
           const bp = parseFloat(item.bid_price) || 0;
           const bq = parseFloat(item.item.item_quantity) || 0;

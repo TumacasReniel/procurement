@@ -64,8 +64,7 @@
                       aria-selected="true"
                       @click="viewStatus('Items Delivered')"
                     >
-                      <i class="ri-file-search-line me-1 align-bottom"></i> Inspection and
-                      Acceptance
+                      <i class="ri-file-search-line me-1 align-bottom"></i> To be Completed
                     </BLink>
                   </li>
                 </ul>

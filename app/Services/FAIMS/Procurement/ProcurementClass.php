@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\User;
 use App\Models\ListStatus;
 use App\Models\ListData;
+use Illuminate\Validation\ValidationException;
 
 class ProcurementClass
 {
@@ -212,16 +213,43 @@ class ProcurementClass
 
     public function cancel($id, $request)
     {
-        $data = Procurement::findOrFail($id);
+        $data = Procurement::with('request')->findOrFail($id);
+        $user = Auth::user();
 
-        //  update status to approved
-        $data->status_id  = ListStatus::getID('Cancelled','Procurement');
-        $data->update();
+        if ((int) $data->created_by_id !== (int) $user->id) {
+            throw ValidationException::withMessages([
+                'code' => 'Only the creator of this purchase request can cancel it.',
+            ]);
+        }
+
+        if ($data->status?->name !== null && $data->status?->name !== 'Pending') {
+            throw ValidationException::withMessages([
+                'code' => 'Only pending purchase requests can be cancelled.',
+            ]);
+        }
+
+        $cancelledStatusId = ListStatus::getID('Cancelled', 'Procurement');
+
+        if (!$cancelledStatusId) {
+            throw ValidationException::withMessages([
+                'code' => 'The cancelled procurement status is not configured.',
+            ]);
+        }
+
+        $data->status_id = $cancelledStatusId;
+        $data->save();
+
+        if ($data->request) {
+            $data->request->is_completed = 1;
+            $data->request->save();
+        }
+
+        $data->refresh();
 
         return [
             'data' => new ProcurementResource($data),
-            'message' => 'Procurement reviewed successfuly!', 
-            'info' => "You've successfully updated the Procurement.",
+            'message' => 'Procurement cancelled successfully!',
+            'info' => "You've successfully cancelled the purchase request.",
         ];
     }
     

@@ -404,6 +404,7 @@
               v-if="canManageProcurementWorkflow && activeTab === 5 && !showCreatePOFlag"
               @changeTab="show"
               @showCreatePO="handleShowCreatePO"
+              @status-updated="refreshProcurementContext"
             />
             <CreatePO
               :dropdowns="dropdowns"
@@ -426,9 +427,15 @@
       class="floating-progress-trigger"
       type="button"
       @click="showProgressModal = true"
-      title="Open procurement progress"
+      :title="`Open procurement progress: ${currentStatusLabel}`"
     >
-      <i class="ri-flow-chart"></i>
+      <span class="floating-progress-icon">
+        <i class="ri-flow-chart"></i>
+      </span>
+      <span class="floating-progress-label">
+        <span class="floating-progress-label-kicker">Current Status</span>
+        <span class="floating-progress-label-text">{{ currentStatusLabel }}</span>
+      </span>
     </button>
   </div>
   <RightSidebar :procurement="procurement" :logs="logs" :isRightCollapsed="isRightCollapsed" @toggleRightSidebar="toggleRightSidebar" />
@@ -601,6 +608,9 @@ export default {
     },
     canShowPurchaseOrderTab() {
       return this.canAccessTab(6);
+    },
+    currentStatusLabel() {
+      return this.procurement?.status?.name || "No status";
     },
     procAssigneeMap() {
       const fromAssignments = {};
@@ -1045,6 +1055,13 @@ export default {
         `/faims/procurements/${this.procurement.id}?option=view&tab=6&noa_id=${data.id}&create_po=1`,
         { replace: true, preserveState: true }
       );
+    },
+    refreshProcurementContext() {
+      router.reload({
+        only: ["procurement", "logs"],
+        preserveState: true,
+        preserveScroll: true,
+      });
     },
     openStatusTip(statusName) {
       const assigned = this.getAssignedForStep(statusName);
@@ -2387,18 +2404,63 @@ export default {
 
 .floating-progress-trigger {
   position: relative;
-  width: 64px;
+  max-width: min(320px, calc(100vw - 48px));
+  min-height: 64px;
+  width: auto;
   height: 64px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 999px;
   background: linear-gradient(135deg, #4a5fa7 0%, #31488f 100%);
   color: #fff;
   box-shadow: 0 18px 36px rgba(49, 72, 143, 0.28);
-  font-size: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.85rem 0.55rem 0.55rem;
+  text-align: left;
 }
 
 .floating-progress-trigger:hover {
   transform: translateY(-2px);
+}
+
+.floating-progress-icon {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 1.35rem;
+}
+
+.floating-progress-label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  line-height: 1.15;
+}
+
+.floating-progress-label-kicker {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.floating-progress-label-text {
+  max-width: 220px;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :deep(.progress-floating-modal .modal-dialog) {
@@ -2584,6 +2646,24 @@ export default {
   .floating-progress-wrapper {
     right: 16px;
     bottom: 96px;
+  }
+
+  .floating-progress-trigger {
+    max-width: calc(100vw - 32px);
+    min-height: 58px;
+    height: 58px;
+    padding-right: 0.7rem;
+  }
+
+  .floating-progress-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 1.2rem;
+  }
+
+  .floating-progress-label-text {
+    max-width: 170px;
+    font-size: 0.78rem;
   }
 }
 </style>

@@ -127,6 +127,10 @@ Route::prefix('faims')->group(function () {
     Route::patch('/suppliers/{supplier}/approve', [App\Http\Controllers\FAIMS\Procurement\SupplierController::class, 'approve']);
     Route::resource('/responsibility-centers', App\Http\Controllers\FAIMS\Procurement\ResponsibilityCenterController::class);
     Route::resource('/modes-of-procurement', App\Http\Controllers\FAIMS\Procurement\ModeOfProcurementController::class);
+    Route::get('/receiving-list', [App\Http\Controllers\FAIMS\Procurement\ReceivingDeliveryController::class, 'receivingList']);
+    Route::get('/receiving-deliveries', [App\Http\Controllers\FAIMS\Procurement\ReceivingDeliveryController::class, 'index']);
+    Route::put('/receiving-deliveries/{id}', [App\Http\Controllers\FAIMS\Procurement\ReceivingDeliveryController::class, 'update']);
+    Route::resource('/ia-reports', App\Http\Controllers\FAIMS\Procurement\IAReportController::class);
     Route::patch('/suppliers/{supplier}/status', [App\Http\Controllers\FAIMS\Procurement\SupplierController::class, 'status']);
 
 });

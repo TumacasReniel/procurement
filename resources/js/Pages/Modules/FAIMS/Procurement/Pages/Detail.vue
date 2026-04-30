@@ -150,7 +150,7 @@
             ]"
           >
             <div class="employee-personnel-item__avatar">
-              {{ getInitials(person.name) }}
+              {{ getInitials(person.person, person.name) }}
             </div>
 
             <div class="employee-personnel-item__copy">
@@ -289,6 +289,13 @@
                         {{ po.code }}
                       </span>
 
+                      <span
+                        class="employee-po-excess"
+                        :class="{ 'employee-po-excess--empty': po.excessFundsAmount <= 0 }"
+                      >
+                        Excess: {{ formatCurrency(po.excessFundsAmount) }}
+                      </span>
+
                       <b-button
                         v-if="canPrintPurchaseOrder(po)"
                         type="button"
@@ -404,6 +411,7 @@ export default {
             code: po.code || "-",
             status: po.status?.name || null,
             deliveredOn: this.resolvePurchaseOrderDeliveredOn(po),
+            excessFundsAmount: this.resolvePurchaseOrderItemExcess(po, itemId),
           });
         });
       });
@@ -464,6 +472,7 @@ export default {
       return [
         {
           role: "Created By",
+          person: this.procurement?.created_by,
           name: this.getPersonnelName(this.procurement?.created_by),
           accent: "blue",
           icon: "ri-draft-line",
@@ -471,6 +480,7 @@ export default {
         },
         {
           role: "Requested By",
+          person: this.procurement?.requested_by,
           name: this.getPersonnelName(this.procurement?.requested_by),
           accent: "amber",
           icon: "ri-user-received-line",
@@ -478,6 +488,7 @@ export default {
         },
         {
           role: "Approved By",
+          person: this.procurement?.approved_by,
           name: this.getPersonnelName(this.procurement?.approved_by),
           accent: "emerald",
           icon: "ri-shield-check-line",
@@ -509,15 +520,37 @@ export default {
         "Not yet assigned"
       );
     },
-    getInitials(name) {
-      if (!name) {
+    getInitials(person, fallbackName = null) {
+      const profile = person?.profile || null;
+      const profileInitials = [
+        profile?.firstname || profile?.first_name,
+        profile?.middlename || profile?.middle_name,
+        profile?.lastname || profile?.last_name,
+      ]
+        .filter((part) => typeof part === "string" && part.trim())
+        .map((part) => part.trim().charAt(0).toUpperCase())
+        .join("");
+
+      if (profileInitials) {
+        return profileInitials;
+      }
+
+      const name =
+        (typeof person === "string" ? person : null) ||
+        fallbackName ||
+        profile?.fullname ||
+        profile?.full_name ||
+        person?.name ||
+        null;
+
+      if (!name || name === "Not yet assigned") {
         return "NA";
       }
 
       return name
         .split(/\s+/)
         .filter(Boolean)
-        .slice(0, 2)
+        .slice(0, 3)
         .map((part) => part.charAt(0).toUpperCase())
         .join("");
     },
@@ -544,6 +577,13 @@ export default {
 
       window.open(`/faims/purchase-orders/${po.id}?option=print&type=purchase_order`, "_blank");
     },
+    formatCurrency(value) {
+      return new Intl.NumberFormat("en-PH", {
+        style: "currency",
+        currency: "PHP",
+        minimumFractionDigits: 2,
+      }).format(Number(value) || 0);
+    },
     extractProcurementItemIds(po) {
       const noaItems = Array.isArray(po?.noa?.items) ? po.noa.items : [];
 
@@ -560,6 +600,35 @@ export default {
             .filter((itemId) => itemId > 0)
         ),
       ];
+    },
+    resolvePurchaseOrderItemExcess(po, itemId) {
+      const noaItems = Array.isArray(po?.noa?.items) ? po.noa.items : [];
+      const matchingItems = noaItems.filter((noaItem) => {
+        return Number(this.resolveNoaProcurementItemId(noaItem)) === Number(itemId);
+      });
+
+      return matchingItems.reduce((sum, noaItem) => {
+        const quotationItem = noaItem?.item || {};
+        const procurementItem = quotationItem?.item || this.findProcurementItem(itemId) || {};
+        const requestedTotal = Number(
+          procurementItem.total_cost ||
+          (Number(procurementItem.item_quantity || 0) * Number(procurementItem.item_unit_cost || 0)) ||
+          0
+        );
+        const quantity = Number(procurementItem.item_quantity || quotationItem.item_quantity || 0);
+        const awardedTotal = Number(quotationItem.bid_price || 0) * quantity;
+        const excess = requestedTotal - awardedTotal;
+
+        return sum + Math.max(excess, 0);
+      }, 0);
+    },
+    findProcurementItem(itemId) {
+      const items = Array.isArray(this.procurement?.items) ? this.procurement.items : [];
+      return items.find((item) => Number(item?.id) === Number(itemId)) || null;
+    },
+    resolveNoaProcurementItemId(noaItem) {
+      const quotationItem = noaItem?.item;
+      return quotationItem?.procurement_item_id || quotationItem?.item?.id || 0;
     },
     resolvePurchaseOrderDeliveredOn(po) {
       const latestIarDate =
@@ -1138,9 +1207,9 @@ export default {
   justify-content: center;
   flex-shrink: 0;
   color: #ffffff;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   box-shadow: 0 8px 18px rgba(var(--employee-primary-rgb), 0.16);
 }
 
@@ -1432,7 +1501,9 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 0.3rem;
+  max-width: 180px;
 }
 
 .employee-po-chip {
@@ -1448,6 +1519,21 @@ export default {
   white-space: nowrap;
 }
 
+.employee-po-excess {
+  flex-basis: 100%;
+  order: 3;
+  color: #047857;
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.employee-po-excess--empty {
+  color: var(--employee-muted);
+  font-weight: 700;
+}
+
 .employee-po-print-btn {
   width: 1.85rem;
   height: 1.85rem;
@@ -1459,6 +1545,7 @@ export default {
   color: var(--employee-primary-strong);
   border-color: rgba(var(--employee-primary-rgb), 0.28);
   background: rgba(var(--employee-primary-rgb), 0.06);
+  order: 2;
 }
 
 .employee-po-print-btn:hover {
@@ -1550,6 +1637,14 @@ export default {
 [data-bs-theme="dark"] .employee-detail-view .employee-item-richtext,
 [data-bs-theme="dark"] .employee-detail-view .employee-po-date {
   color: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-po-excess {
+  color: #86efac;
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-po-excess--empty {
+  color: #94a3b8;
 }
 
 [data-bs-theme="dark"] .employee-detail-view .employee-po-print-btn {
@@ -1768,6 +1863,14 @@ export default {
 [data-bs-theme="dark"] .employee-detail-view .employee-item-richtext,
 [data-bs-theme="dark"] .employee-detail-view .employee-po-date {
   color: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-po-excess {
+  color: #86efac;
+}
+
+[data-bs-theme="dark"] .employee-detail-view .employee-po-excess--empty {
+  color: #94a3b8;
 }
 
 [data-bs-theme="dark"] .employee-detail-view .employee-po-print-btn {

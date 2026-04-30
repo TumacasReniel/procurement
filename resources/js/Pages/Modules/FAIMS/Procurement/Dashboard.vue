@@ -1,561 +1,419 @@
 <template>
-	<div class="procurement-dashboard-page">
-	<Head title="Procurement Dashboard" />
-	<PageHeader title="Procurement Dashboard" pageTitle="Overview" />
+  <div class="procurement-dashboard-page">
+    <Head title="Procurement Dashboard" />
+    <PageHeader title="Procurement Dashboard" pageTitle="Overview" />
 
-	<!-- Hero Summary -->
-	<BRow class="mb-4">
-		<BCol xl="12">
-			<BCard class="procurement-hero border-0">
-				<BCardBody>
-					<div class="d-flex flex-column flex-xl-row gap-3 align-items-xl-center justify-content-between">
-						<div>
-							<p class="text-uppercase fw-semibold text-white-50 mb-1">Procurement Overview</p>
-							<h3 class="text-white mb-2">Keep a close pulse on requests, approvals, and completions.</h3>
-							<div class="d-flex flex-wrap gap-2">
-								<span class="badge bg-white text-primary fw-semibold px-3 py-2">
-									Total {{ dashboard.total_procurements }}
-								</span>
-								<span class="badge bg-white text-success fw-semibold px-3 py-2">
-									Completed {{ dashboard.completed_procurements }}
-								</span>
-								<span class="badge bg-white text-warning fw-semibold px-3 py-2">
-									For Review {{ dashboard.for_reviews }}
-								</span>
-								<span class="badge bg-white text-warning fw-semibold px-3 py-2">
-									For Approval {{ dashboard.for_approvals }}
-								</span>
-								<span class="badge bg-white text-dark fw-semibold px-3 py-2">
-									Completion {{ completionRate }}%
-								</span>
-							</div>
-						</div>
-						<div class="d-flex flex-wrap gap-2">
-							<BButton variant="light" class="btn-soft" @click="goCreatePage">
-								<i class="ri-add-circle-line me-1"></i> New Request
-							</BButton>
-							<BButton variant="outline-light" @click="goViewAll">
-								<i class="ri-file-list-3-line me-1"></i> View Requests
-							</BButton>
-						</div>
-					</div>
-					<p v-if="lastUpdated" class="text-white-50 mb-0 mt-3 fs-12">
-						Last updated: {{ formatDateTime(lastUpdated) }}
-					</p>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+    <!-- Hero -->
+    <section class="card border-0 overflow-hidden mb-2 procurement-hero">
+      <div class="card-body">
+        <div class="row g-2 align-items-center">
+          <div class="col-xl-7">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+              <span class="hero-kicker">Procurement Overview</span>
+              <BBadge class="bg-white bg-opacity-10 text-white border border-white border-opacity-25 rounded-pill">
+                <i class="ri-calendar-line me-1"></i>{{ filteredPeriodLabel }}
+              </BBadge>
+            </div>
+
+            <h3 class="text-white fw-bold mb-2">
+              Keep a close pulse on requests, approvals, and completions.
+            </h3>
+
+            <p class="text-white-50 mb-2">
+              Track request volume, queue pressure, and unit activity from one focused workspace.
+            </p>
+
+            <div class="d-flex flex-wrap gap-2">
+              <BBadge class="hero-pill"><i class="ri-stack-line"></i>Total {{ dashboard.total_procurements }}</BBadge>
+              <BBadge class="hero-pill is-success"><i class="ri-check-double-line"></i>Completed {{ dashboard.completed_procurements }}</BBadge>
+              <BBadge class="hero-pill is-warning"><i class="ri-search-eye-line"></i>For Review {{ dashboard.for_reviews }}</BBadge>
+              <BBadge class="hero-pill is-warning"><i class="ri-shield-check-line"></i>For Approval {{ dashboard.for_approvals }}</BBadge>
+              <BBadge class="hero-pill is-dark"><i class="ri-pie-chart-2-line"></i>Completion {{ completionRate }}%</BBadge>
+            </div>
+
+            <p v-if="lastUpdated" class="text-white-50 mb-0 mt-2 fs-12">
+              Last updated: {{ formatDateTime(lastUpdated) }}
+            </p>
+          </div>
+
+          <div class="col-xl-5">
+            <div class="hero-stat-grid">
+              <div class="hero-stat-card">
+                <i class="ri-folder-open-line hero-stat-watermark"></i>
+                <span>Open Requests</span>
+                <strong>{{ openRequests }}</strong>
+                <small>Still moving through the pipeline</small>
+              </div>
+
+              <div class="hero-stat-card">
+                <i class="ri-building-4-line hero-stat-watermark"></i>
+                <span>Active Units</span>
+                <strong>{{ activeUnitsCount }}</strong>
+                <small>Units with procurement activity</small>
+              </div>
+
+              <div class="hero-stat-card">
+                <i class="ri-money-dollar-circle-line hero-stat-watermark"></i>
+                <span>Approved Budget</span>
+                <strong>{{ formatCompactCurrency(totalApprovedBudgetAmount) }}</strong>
+                <small>Awarded {{ formatCompactCurrency(totalActualAwardedAmount) }}</small>
+              </div>
+
+              <div class="hero-stat-card d-flex flex-column justify-content-center gap-2">
+                <BButton variant="light" class="fw-semibold rounded-3" @click="goCreatePage">
+                  <i class="ri-add-circle-line me-1"></i> New Request
+                </BButton>
+
+                <BButton variant="outline-light" class="fw-semibold rounded-3" @click="goViewAll">
+                  <i class="ri-file-list-3-line me-1"></i> View Requests
+                </BButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="card border-0 shadow-sm rounded-4 mb-2 dashboard-filter-card">
+      <div class="card-body compact-card">
+        <div class="dashboard-filter-row">
+          <div class="dashboard-filter-copy">
+            <span class="section-kicker">Dashboard Filters</span>
+            <h5 class="fw-bold mb-0 mt-1">Focus the procurement view</h5>
+            <BBadge class="bg-primary-subtle text-primary rounded-pill px-2 py-1">
+              <i class="ri-focus-3-line me-1"></i>{{ filteredPeriodLabel }}
+            </BBadge>
+          </div>
+
+          <div class="dashboard-filter-controls">
+            <div class="filter-field">
+              <label class="form-label small text-muted">Filter Period</label>
+              <Multiselect
+                v-model="dashboardFilter.period"
+                :options="periodOptions"
+                label="label"
+                valueProp="value"
+                trackBy="label"
+                :append-to-body="true"
+                :searchable="false"
+                placeholder="Select period"
+                @change="onPeriodChange"
+              />
+            </div>
+
+            <div v-if="isQuarterSelected || ['monthly', 'quarterly', 'yearly'].includes(dashboardFilter.period)" class="filter-field">
+              <label class="form-label small text-muted">Year</label>
+              <Multiselect
+                v-model="dashboardFilter.year"
+                :options="yearOptions"
+                :append-to-body="true"
+                placeholder="Select year"
+                @change="fetchDashboard"
+              />
+            </div>
+
+            <div v-if="dashboardFilter.period === 'monthly'" class="filter-field">
+              <label class="form-label small text-muted">Month</label>
+              <Multiselect
+                v-model="dashboardFilter.month"
+                :options="monthOptions"
+                :append-to-body="true"
+                placeholder="Select month"
+                @change="fetchDashboard"
+              />
+            </div>
+
+            <div v-if="dashboardFilter.period === 'quarterly'" class="filter-field">
+              <label class="form-label small text-muted">Quarter</label>
+              <Multiselect
+                v-model="dashboardFilter.quarter"
+                :options="quarterOptions"
+                :append-to-body="true"
+                placeholder="Select quarter"
+                @change="fetchDashboard"
+              />
+            </div>
+
+            <div v-if="dashboardFilter.period === 'custom'" class="filter-field">
+              <label class="form-label small text-muted">Start Date</label>
+              <input type="date" class="form-control" v-model="dashboardFilter.start_date" @change="fetchDashboard" />
+            </div>
+
+            <div v-if="dashboardFilter.period === 'custom'" class="filter-field">
+              <label class="form-label small text-muted">End Date</label>
+              <input type="date" class="form-control" v-model="dashboardFilter.end_date" @change="fetchDashboard" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Metrics -->
+    <BRow class="g-2 mb-3 mt-2">
+      <BCol xl="3" md="6" v-for="(metric, i) in metrics" :key="i">
+        <BCard class="metric-card h-100" :style="{ '--metric-accent': metric.accentColor || '#405189' }">
+          <BCardBody>
+            <div class="d-flex align-items-center gap-2">
+              <div class="metric-icon" :class="[metric.bgClass, metric.textClass]">
+                <i :class="metric.icon"></i>
+              </div>
+
+              <div class="min-w-0">
+                <p class="text-uppercase text-muted fw-semibold fs-12 mb-1 text-truncate">
+                  {{ metric.label }}
+                </p>
+                <h4 class="fw-bold mb-1">{{ metric.value }}</h4>
+                <p class="text-muted fs-12 mb-0">{{ metric.note }}</p>
+              </div>
+            </div>
+          </BCardBody>
+        </BCard>
+      </BCol>
+    </BRow>
 
 
-	<!-- Dashboard Filters -->
-	<BRow class="mb-4">
-		<BCol xl="12">
-			<BCard class="filter-card">
-				<BCardBody class="py-3">
-					<BRow class="align-items-end g-3">
-						<BCol md="3">
-							<label class="form-label">Filter Period</label>
-							<Multiselect
-								v-model="dashboardFilter.period"
-								:options="periodOptions"
-								placeholder="Select period"
-								@select="onPeriodChange"
-							/>
-						</BCol>
-						<BCol md="2" v-if="isQuarterSelected || dashboardFilter.period === 'monthly' || dashboardFilter.period === 'quarterly' || dashboardFilter.period === 'yearly'">
-							<label class="form-label">Year</label>
-							<Multiselect
-								v-model="dashboardFilter.year"
-								:options="yearOptions"
-								placeholder="Select year"
-								@select="fetchDashboard"
-							/>
-						</BCol>
-						<BCol md="2" v-if="dashboardFilter.period === 'monthly'">
-							<label class="form-label">Month</label>
-							<Multiselect
-								v-model="dashboardFilter.month"
-								:options="monthOptions"
-								placeholder="Select month"
-								@select="fetchDashboard"
-							/>
-						</BCol>
-						<BCol md="2" v-if="dashboardFilter.period === 'quarterly'">
-							<label class="form-label">Quarter</label>
-							<Multiselect
-								v-model="dashboardFilter.quarter"
-								:options="quarterOptions"
-								placeholder="Select quarter"
-								@select="fetchDashboard"
-							/>
-						</BCol>
-						<BCol md="3" v-if="dashboardFilter.period === 'custom'">
-							<label class="form-label">Start Date</label>
-							<input
-								type="date"
-								class="form-control"
-								v-model="dashboardFilter.start_date"
-								@change="fetchDashboard"
-							/>
-						</BCol>
-						<BCol md="3" v-if="dashboardFilter.period === 'custom'">
-							<label class="form-label">End Date</label>
-							<input
-								type="date"
-								class="form-control"
-								v-model="dashboardFilter.end_date"
-								@change="fetchDashboard"
-							/>
-						</BCol>
-						<!-- <BCol md="3">
-							<b-button variant="primary" @click="fetchDashboard">
-								<i class="ri-refresh-line me-1"></i> Apply Filters
-							</b-button>
-						</BCol> -->
-					</BRow>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+    <BRow class="g-2">
+      <BCol v-for="module in workspaceModules" :key="module.key" xl="4" md="6">
+        <BCard class="module-card" :style="{ '--module-accent': module.accentColor || '#405189' }">
+          <BCardBody>
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+              <div class="module-icon" :class="[module.iconBgClass, module.iconTextClass]">
+                <i :class="module.icon"></i>
+              </div>
 
-	<!-- Dashboard Metrics Cards -->
-	<BRow class="mb-3 dashboard-section">
-		<BCol xl="12">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">At a Glance</p>
-					<h4 class="section-title">Core Procurement Metrics</h4>
-				</div>
-				<span class="section-meta">Updated {{ lastUpdated ? formatDateTime(lastUpdated) : 'just now' }}</span>
-			</div>
-		</BCol>
-	</BRow>
-	<BRow class="mb-4">
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-primary-subtle text-primary rounded-2 fs-2">
-								<i class="ri-file-list-3-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Total Procurements</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_procurements">{{ dashboard.total_procurements }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+              <BBadge class="bg-primary-subtle text-primary rounded-pill">
+                {{ module.tag }}
+              </BBadge>
+            </div>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-warning-subtle text-warning rounded-2 fs-2">
-								<i class="ri-time-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">For Reviews</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.for_reviews">{{ dashboard.for_reviews }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+            <p class="fw-bold text-dark mb-1">{{ module.title }}</p>
 
-    	<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-warning-subtle text-warning rounded-2 fs-2">
-								<i class="ri-time-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">For Approval</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.for_approvals">{{ dashboard.for_approvals }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+            <h4 class="fw-bold text-primary mb-1 module-value" :class="module.isTextValue ? 'fs-5' : 'fs-2'">
+              {{ module.value }}
+            </h4>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-success-subtle text-success rounded-2 fs-2">
-								<i class="ri-check-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Completed</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.completed_procurements">{{ dashboard.completed_procurements }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+            <p class="module-note text-muted mb-1">{{ module.note }}</p>
 
-		
-	</BRow>
+            <BButton variant="soft-primary" class="module-action" @click="openModule(module.route)">
+              <span>{{ module.action }}</span>
+              <i class="ri-arrow-right-line"></i>
+            </BButton>
+          </BCardBody>
+        </BCard>
+      </BCol>
+    </BRow>
 
-	<!-- Additional Metrics Cards -->
-	<BRow class="mb-3 dashboard-section">
-		<BCol xl="12">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">Pipeline</p>
-					<h4 class="section-title">Documents & Outputs</h4>
-				</div>
-				<span class="section-meta">Totals across selected period</span>
-			</div>
-		</BCol>
-	</BRow>
-	<BRow class="mb-4">
-    <BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-info-subtle text-info rounded-2 fs-2">
-								<i class="ri-file-text-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Total Quotations</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_quotations">{{ dashboard.total_quotations }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+    <!-- Charts -->
+    <BRow class="g-2 mb-2">
+      <BCol xl="12">
+        <BCard class="panel-card h-100">
+          <BCardHeader>
+            <h5><i class="ri-bar-chart-line me-2"></i>Procurement Trends</h5>
+            <p>Request volume for {{ filteredPeriodLabel }}</p>
+          </BCardHeader>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-danger-subtle text-danger rounded-2 fs-2">
-								<i class="ri-file-paper-2-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">BAC Resolutions</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_bac_resolutions">{{ dashboard.total_bac_resolutions }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
+          <BCardBody class="chart-body">
+            <apexchart type="bar" height="300" :options="monthlyChartOptions" :series="monthlyChartSeries" />
+          </BCardBody>
+        </BCard>
+      </BCol>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-secondary-subtle text-secondary rounded-2 fs-2">
-								<i class="ri-notification-2-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Notice of Awards</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_notice_of_awards">{{ dashboard.total_notice_of_awards }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
 
-		<BCol xl="3" md="6">
-			<BCard class="metric-card card-animate">
-				<BCardBody>
-					<div class="d-flex align-items-center">
-						<div class="avatar-sm flex-shrink-0">
-							<div class="avatar-title bg-dark-subtle text-dark rounded-2 fs-2">
-								<i class="ri-shopping-cart-line"></i>
-							</div>
-						</div>
-						<div class="flex-grow-1 overflow-hidden ms-3">
-							<p class="text-uppercase fw-medium text-muted text-truncate mb-0">Purchase Orders</p>
-							<h4 class="fs-22 fw-semibold mb-0">
-								<span class="counter-value" :data-target="dashboard.total_purchase_orders">{{ dashboard.total_purchase_orders }}</span>
-							</h4>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+    </BRow>
 
-	<!-- Charts Row -->
-	<BRow class="mb-3 dashboard-section">
-		<BCol xl="12">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">Trends</p>
-					<h4 class="section-title">Monthly Movement & Unit Share</h4>
-				</div>
-				<span class="section-meta">Visual breakdown of activity</span>
-			</div>
-		</BCol>
-	</BRow>
-	<BRow class="mb-4">
-		<BCol xl="8">
-			<BCard class="panel-card">
-				<BCardHeader class="py-3">
-					<h4 class="card-title mb-0"><i class="ri-bar-chart-line me-2"></i>Monthly Procurement Trends</h4>
-				</BCardHeader>
-				<BCardBody>
-					<apexchart
-						type="bar"
-						height="350"
-						:options="monthlyChartOptions"
-						:series="monthlyChartSeries"
-					></apexchart>
-				</BCardBody>
-			</BCard>
-		</BCol>
+    <!-- Unit Breakdown -->
+    <BCard class="panel-card mb-2">
+      <BCardHeader class="d-flex justify-content-between align-items-center">
+        <div>
+          <h5><i class="ri-bar-chart-horizontal-line me-2"></i>Unit Breakdown</h5>
+          <p>Procurement activity by unit</p>
+        </div>
 
-		<BCol xl="4">
-			<BCard class="panel-card unit-summary-card">
-				<BCardHeader class="py-3">
-					<h4 class="card-title mb-0"><i class="ri-donut-chart-line me-2"></i>Unit Distribution</h4>
-				</BCardHeader>
-				<BCardBody class="chart-body">
-					<div v-if="sortedDivisionDistribution.length" class="chart-container">
-						<apexchart
-							type="donut"
-							height="300"
-							:options="unitSummaryChartOptions"
-							:series="unitSummaryChartSeries"
-						></apexchart>
-					</div>
-					<div v-else class="empty-state text-center py-5">
-						<i class="ri-pie-chart-line fs-1 text-secondary"></i>
-						<p class="text-muted mt-2 mb-0">No unit data available</p>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+        <BBadge class="bg-primary-subtle text-primary px-3 py-2">
+          {{ sortedDivisionDistribution.length }} Units
+        </BBadge>
+      </BCardHeader>
 
-	<!-- Division Table -->
-	<BRow class="mb-4 dashboard-section">
-		<BCol xl="12">
-			<BCard class="panel-card unit-table-card">
-				<BCardHeader class="d-flex align-items-center justify-content-between py-3">
-					<h4 class="card-title mb-0"><i class="ri-layout-grid-line me-2"></i>Unit Breakdown</h4>
-					<span class="badge bg-primary-subtle text-primary px-3 py-2">
-						<i class="ri-information-line me-1"></i>{{ sortedDivisionDistribution.length }} Units
-					</span>
-				</BCardHeader>
-				<BCardBody class="pt-0">
-					<div class="table-responsive table-card">
-						<table class="table align-middle table-hover mb-0">
-							<thead class="table-light">
-								<tr class="fs-12 fw-semibold text-uppercase">
-									<th style="width: 5%" class="text-center"><i class="ri-hashtag"></i></th>
-									<th style="width: 34%"><i class="ri-building-line me-1"></i>Unit</th>
-									<th style="width: 16%" class="text-end"><i class="ri-file-list-3-line me-1"></i>Procurements</th>
-									<th style="width: 22%" class="text-end"><i class="ri-money-dollar-circle-line me-1"></i>Amount Distributed</th>
-									<th style="width: 23%"><i class="ri-pie-chart-line me-1"></i>Distribution</th>
-								</tr>
-							</thead>
-							<tbody class="table-group-divider">
-								<tr v-for="(item, index) in sortedDivisionDistribution" :key="index" class="unit-row">
-									<td class="text-center">
-										<span class="unit-number">{{ index + 1 }}</span>
-									</td>
-									<td class="fw-semibold">
-										<div class="d-flex align-items-center">
-											<div class="unit-icon me-2">
-												<i class="ri-community-line"></i>
-											</div>
-											<div>
-												<div>{{ getUnitLabel(item) }}</div>
-												<div class="text-muted fs-12">{{ getUnitDivisionLabel(item) }}</div>
-											</div>
-										</div>
-									</td>
-									<td class="text-end fw-semibold">
-										<span class="procurement-count">{{ item.count }}</span>
-									</td>
-									<td class="text-end fw-semibold">
-										<span class="distributed-amount">{{ formatCurrency(item.distributed_amount) }}</span>
-									</td>
-									<td>
-										<div class="d-flex align-items-center gap-2">
-											<div class="progress flex-grow-1 unit-progress" style="height: 10px;">
-												<div class="progress-bar bg-gradient" role="progressbar" :style="{ width: item.share + '%' }" :aria-valuenow="item.share" aria-valuemin="0" aria-valuemax="100"></div>
-											</div>
-											<span class="share-badge">{{ item.share }}%</span>
-										</div>
-									</td>
-								</tr>
-								<tr v-if="sortedDivisionDistribution.length > 0" class="table-light total-row">
-									<td class="text-center"><i class="ri-calculator-line"></i></td>
-									<td class="fw-semibold"><div class="d-flex align-items-center"><i class="ri-stack-line me-2"></i>All Units</div></td>
-									<td class="text-end fw-semibold">{{ divisionTotal }}</td>
-									<td class="text-end fw-semibold">{{ formatCurrency(divisionTotalAmount) }}</td>
-									<td>
-										<div class="d-flex align-items-center gap-2">
-											<div class="progress flex-grow-1" style="height: 10px;">
-												<div class="progress-bar bg-primary" role="progressbar" style="width: 100%"></div>
-											</div>
-											<span class="share-badge bg-primary text-white">100%</span>
-										</div>
-									</td>
-								</tr>
-								<tr v-if="sortedDivisionDistribution.length === 0">
-									<td colspan="5" class="text-center text-muted py-5">
-										<i class="ri-inbox-line fs-1 d-block mb-2 opacity-50"></i>
-										No unit data available
-									</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+      <BCardBody class="chart-body">
+      
+        <div v-if="sortedDivisionDistribution.length">
+          <div class="unit-breakdown-chart-scroll">
+            <div class="unit-breakdown-chart-canvas" :style="{ minWidth: `${unitBreakdownChartWidth}px` }">
+              <apexchart
+                type="bar"
+                :height="unitBreakdownChartHeight"
+                :options="unitBreakdownChartOptions"
+                :series="unitBreakdownChartSeries"
+              />
+            </div>
+          </div>
 
-	<!-- Recent Activity -->
-	<BRow class="mb-4 dashboard-section">
-		<BCol xl="7">
-			<BCard class="panel-card">
-				<BCardHeader class="d-flex align-items-center justify-content-between py-3">
-					<h4 class="card-title mb-0"><i class="ri-time-line me-2"></i>Recent Procurements</h4>
-					<BButton size="sm" variant="outline-primary" @click="goViewAll">
-						View All
-					</BButton>
-				</BCardHeader>
-				<BCardBody class="pt-0">
-					<div class="table-responsive table-card">
-						<table class="table align-middle table-hover mb-0">
-							<thead class="table-light">
-								<tr class="fs-12 fw-semibold">
-									<th style="width: 20%">Code</th>
-									<th style="width: 30%">Purpose</th>
-									<th style="width: 16%">Division</th>
-									<th style="width: 14%">Status</th>
-									<th style="width: 20%">Date</th>
-								</tr>
-							</thead>
-							<tbody class="table-group-divider">
-								<tr v-for="(list, index) in lists" :key="index" class="cursor-pointer" @click="goViewPage(list)">
-									<td>
-										<div class="fw-semibold text-primary">{{ list.code }}</div>
-									</td>
-									<td>
-										<div class="text-truncate" style="max-width: 240px" v-b-tooltip.hover :title="list.purpose">
-											{{ list.purpose }}
-										</div>
-									</td>
-									<td>{{ list.division?.name }}</td>
-									<td>
-										<b-badge :class="list.status?.bg" class="fs-11">{{ list.status?.name }}</b-badge>
-									</td>
-									<td class="text-muted">{{ formatDate(list.date) }}</td>
-								</tr>
-								<tr v-if="lists.length === 0">
-									<td colspan="5" class="text-center text-muted py-4">No recent procurements found.</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-		<BCol xl="5">
-			<BCard class="insights-card panel-card">
-				<BCardHeader class="py-3">
-					<h4 class="card-title mb-0"><i class="ri-lightbulb-line me-2"></i>Insights</h4>
-				</BCardHeader>
-				<BCardBody>
-					<div class="d-flex align-items-center justify-content-between mb-3">
-						<div>
-							<p class="text-muted mb-1">Open Requests</p>
-							<h4 class="mb-0">
-								{{ dashboard.total_procurements - dashboard.completed_procurements }}
-							</h4>
-							<p class="text-muted mb-0 fs-12">
-								{{ completionRate }}% completion rate
-							</p>
-						</div>
-						<div class="avatar-sm">
-							<div class="avatar-title bg-soft-primary text-primary rounded-circle">
-								<i class="ri-folder-open-line fs-18"></i>
-							</div>
-						</div>
-					</div>
-					<div class="progress bg-soft-primary mb-4" style="height: 8px;">
-						<div class="progress-bar bg-primary" role="progressbar" :style="{ width: completionRate + '%' }" :aria-valuenow="completionRate" aria-valuemin="0" aria-valuemax="100"></div>
-					</div>
-					<div class="d-flex align-items-center justify-content-between mb-3">
-						<div>
-							<p class="text-muted mb-1">Top Unit</p>
-							<h4 class="mb-0">{{ topDivision.name }}</h4>
-							<p class="text-muted mb-0 fs-12">{{ topDivision.count }} procurements</p>
-						</div>
-						<div class="avatar-sm">
-							<div class="avatar-title bg-soft-info text-info rounded-circle">
-								<i class="ri-building-2-line fs-18"></i>
-							</div>
-						</div>
-					</div>
-					<div class="d-flex align-items-center justify-content-between mb-3">
-						<div>
-							<p class="text-muted mb-1">Review Queue</p>
-							<h4 class="mb-0">{{ dashboard.for_reviews }}</h4>
-							<p class="text-muted mb-0 fs-12">Pending review items</p>
-						</div>
-						<div class="avatar-sm">
-							<div class="avatar-title bg-soft-warning text-warning rounded-circle">
-								<i class="ri-time-line fs-18"></i>
-							</div>
-						</div>
-					</div>
-					<div class="d-flex align-items-center justify-content-between">
-						<div>
-							<p class="text-muted mb-1">Approval Queue</p>
-							<h4 class="mb-0">{{ dashboard.for_approvals }}</h4>
-							<p class="text-muted mb-0 fs-12">Awaiting approval</p>
-						</div>
-						<div class="avatar-sm">
-							<div class="avatar-title bg-soft-warning text-warning rounded-circle">
-								<i class="ri-task-line fs-18"></i>
-							</div>
-						</div>
-					</div>
-				</BCardBody>
-			</BCard>
-		</BCol>
-	</BRow>
+          <div class="unit-breakdown-footer mt-2">
+            <div class="unit-breakdown-stat">
+              <span>Total Procurements</span>
+              <strong>{{ divisionTotal }}</strong>
+              <small>Recorded requests across visible units</small>
+            </div>
 
-	</div>
+            <div class="unit-breakdown-stat">
+              <span>Approved Budget</span>
+              <strong>{{ formatCompactCurrency(totalApprovedBudgetAmount) }}</strong>
+              <small>{{ formatCurrency(totalApprovedBudgetAmount) }}</small>
+            </div>
+
+            <div class="unit-breakdown-stat">
+              <span>Actual Awarded</span>
+              <strong>{{ formatCompactCurrency(totalActualAwardedAmount) }}</strong>
+              <small>Completed items only</small>
+            </div>
+
+            <div class="unit-breakdown-stat">
+              <span>Total Excess Funds</span>
+              <strong :class="totalExcessFundsAmount < 0 ? 'text-danger' : 'text-success'">
+                {{ formatCompactCurrency(totalExcessFundsAmount) }}
+              </strong>
+              <small>{{ formatCurrency(totalExcessFundsAmount) }}</small>
+            </div>
+
+            <div class="unit-breakdown-stat">
+              <span>Top Unit</span>
+              <strong>{{ topDivision.name }}</strong>
+              <small>{{ topDivision.count }} procurements</small>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="empty-state py-3">
+          <i class="ri-inbox-line"></i>
+          <p>No unit data available</p>
+        </div>
+      </BCardBody>
+    </BCard>
+
+    <!-- Recent + Insights -->
+    <BRow class="g-2 mb-2">
+      <BCol xl="7">
+        <BCard class="panel-card h-100">
+          <BCardHeader class="d-flex justify-content-between align-items-center">
+            <div>
+              <h5><i class="ri-time-line me-2"></i>Recent Procurements</h5>
+              <p>Latest requests captured in the procurement workspace</p>
+            </div>
+
+            <BButton size="sm" variant="outline-primary" @click="goViewAll">
+              View All
+            </BButton>
+          </BCardHeader>
+
+          <BCardBody class="recent-table-body">
+            <div class="table-responsive">
+              <table class="table align-middle table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Code</th>
+                    <th>Purpose</th>
+                    <th>Division</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr v-for="(list, index) in lists" :key="index" class="cursor-pointer" @click="goViewPage(list)">
+                    <td class="fw-semibold text-primary">{{ list.code }}</td>
+
+                    <td>
+                      <div class="text-truncate" style="max-width: 240px" v-b-tooltip.hover :title="list.purpose">
+                        {{ list.purpose }}
+                      </div>
+                    </td>
+
+                    <td>{{ list.division?.name || 'N/A' }}</td>
+
+                    <td>
+                      <b-badge :class="list.status?.bg" class="fs-11">
+                        {{ list.status?.name }}
+                      </b-badge>
+                    </td>
+
+                    <td class="text-muted">{{ formatDate(list.date) }}</td>
+                  </tr>
+
+                  <tr v-if="lists.length === 0">
+                    <td colspan="5" class="text-center text-muted py-4">
+                      No recent procurements found.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </BCardBody>
+        </BCard>
+      </BCol>
+
+      <BCol xl="5">
+        <BCard class="panel-card insights-card h-100">
+          <BCardHeader>
+            <h5><i class="ri-lightbulb-line me-2"></i>Insights</h5>
+            <p>Operational snapshot of the current workload</p>
+          </BCardHeader>
+
+          <BCardBody>
+            <div class="insight-highlight mb-2">
+              <div>
+                <p class="text-muted mb-1">Completion Snapshot</p>
+                <h3 class="fw-bold mb-1">{{ completionRate }}%</h3>
+                <p class="text-muted fs-12 mb-0">
+                  {{ dashboard.completed_procurements }} of {{ dashboard.total_procurements }} requests completed
+                </p>
+              </div>
+
+              <div class="insight-icon">
+                <i class="ri-pulse-line"></i>
+              </div>
+            </div>
+
+            <div class="progress bg-primary-subtle mb-2" style="height: 8px;">
+              <div
+                class="progress-bar bg-primary"
+                :style="{ width: completionRate + '%' }"
+                :aria-valuenow="completionRate"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              ></div>
+            </div>
+
+            <div class="insight-grid">
+              <div class="insight-item">
+                <span>Open Requests</span>
+                <strong>{{ openRequests }}</strong>
+                <small>Still moving through the process</small>
+              </div>
+
+              <div class="insight-item">
+                <span>Top Unit</span>
+                <strong>{{ topDivision.name }}</strong>
+                <small>{{ topDivision.count }} procurements</small>
+              </div>
+
+              <div class="insight-item">
+                <span>Review Queue</span>
+                <strong>{{ dashboard.for_reviews }}</strong>
+                <small>Pending review items</small>
+              </div>
+
+              <div class="insight-item">
+                <span>Approval Queue</span>
+                <strong>{{ dashboard.for_approvals }}</strong>
+                <small>Awaiting approval sign-off</small>
+              </div>
+            </div>
+          </BCardBody>
+        </BCard>
+      </BCol>
+    </BRow>
+  </div>
 </template>
 
 <script>
@@ -588,10 +446,23 @@ export default {
         for_reviews: 0,
         for_approvals: 0,
         completed_procurements: 0,
+        total_assignments: 0,
+        total_pap_codes: 0,
+        total_remaining_pap_budget: 0,
+        total_allocated_pap_budget: 0,
+        total_responsibility_centers: 0,
+        total_modes_of_procurement: 0,
+        active_modes_of_procurement: 0,
+        total_suppliers: 0,
+        active_suppliers: 0,
+        pending_supplier_approvals: 0,
         total_quotations: 0,
         total_bac_resolutions: 0,
         total_notice_of_awards: 0,
         total_purchase_orders: 0,
+        total_approved_budget_amount: 0,
+        total_completed_awarded_amount: 0,
+        total_excess_funds: 0,
         recent_procurements: [],
         monthly_trends: [],
         division_distribution: [],
@@ -617,7 +488,7 @@ export default {
       periodOptions: [
         { value: 'all', label: 'All Time' },
         { value: 'today', label: 'Today' },
-        { value: 'this_week', label: 'This Week' },
+        { value: 'weekly', label: 'Weekly' },
         { value: 'monthly', label: 'Monthly' },
         { value: 'quarterly', label: 'Quarterly' },
         { value: 'yearly', label: 'Yearly' },
@@ -651,8 +522,19 @@ export default {
           categories: [],
         },
         yaxis: {
+          min: 0,
+          max: 20,
+          stepSize: 20,
+          tickAmount: 1,
+          decimalsInFloat: 0,
           title: {
             text: 'Number of Procurements',
+          },
+          labels: {
+            formatter: function (value) {
+              const tick = Math.round(Number(value) || 0);
+              return tick === 0 ? '' : tick.toLocaleString();
+            },
           },
         },
         fill: {
@@ -662,7 +544,7 @@ export default {
         tooltip: {
           y: {
             formatter: function (val) {
-              return val + ' procurements';
+              return `${Number(val || 0).toLocaleString()} procurements`;
             },
           },
         },
@@ -673,97 +555,52 @@ export default {
       }],
       unitSummaryChartOptions: {
         chart: {
-          type: 'donut',
-          height: 300,
+          type: 'treemap',
+          height: 320,
           fontFamily: 'inherit',
+          toolbar: {
+            show: false,
+          },
         },
-        labels: [],
         colors: ['#405189', '#5c6bc0', '#7986cb', '#9fa8da', '#c5cae9', '#0ab39c', '#20c997', '#ffc107', '#6b7299'],
+        legend: {
+          show: false,
+        },
+        grid: {
+          show: false,
+        },
+        plotOptions: {
+          treemap: {
+            distributed: true,
+            enableShades: false,
+            borderRadius: 8,
+          },
+        },
         dataLabels: {
           enabled: true,
-          formatter: function (_val, opts) {
-            return opts.w.globals.labels[opts.seriesIndex] || '';
+          formatter: function (text, opts) {
+            const label = text && text.length > 18 ? `${text.slice(0, 18)}...` : (text || 'Unassigned');
+            return [label, `${opts.value} req`];
           },
           dropShadow: {
             enabled: false,
           },
           style: {
-            fontSize: '12px',
+            fontSize: '11px',
             fontWeight: '600',
-            colors: ['#1e293b'],
-          },
-        },
-        legend: {
-          position: 'bottom',
-          horizontalAlign: 'center',
-          floating: false,
-          fontSize: '12px',
-          fontWeight: '500',
-          color: '#475569',
-          itemMargin: {
-            horizontal: 8,
-            vertical: 4,
-          },
-          formatter: function (seriesName, opts) {
-            const count = opts.w.globals.series[opts.seriesIndex] || 0;
-            const total = opts.w.globals.seriesTotals.reduce((a, b) => a + b, 0) || 1;
-            const pct = Math.round((count / total) * 100);
-            return `<span class="legend-text">${seriesName}</span> <span class="legend-count">(${count})</span>`;
-          },
-        },
-        plotOptions: {
-          pie: {
-            donut: {
-              size: '65%',
-              labels: {
-                show: true,
-                name: {
-                  show: true,
-                  offsetY: -10,
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#405189',
-                  formatter: function () {
-                    return 'Total';
-                  },
-                },
-                value: {
-                  show: true,
-                  offsetY: 6,
-                  fontSize: '24px',
-                  fontWeight: '700',
-                  color: '#1e293b',
-                  formatter: function (val) {
-                    return val;
-                  },
-                },
-                total: {
-                  show: true,
-                  showAlways: true,
-                  label: 'Total',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#64748b',
-                  formatter: function (w) {
-                    const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
-                    return total;
-                  },
-                },
-              },
-            },
-            expandOnClick: true,
+            colors: ['#ffffff'],
           },
         },
         stroke: {
           show: true,
-          width: 3,
+          width: 4,
           colors: ['#fff'],
         },
         states: {
           hover: {
             filter: {
               type: 'lighten',
-              value: 0.1,
+              value: 0.08,
             },
           },
           active: {
@@ -779,38 +616,232 @@ export default {
           style: {
             fontSize: '12px',
           },
-          y: {
-            formatter: function (val, opts) {
-              const total = opts.w.globals.seriesTotals.reduce((a, b) => a + b, 0) || 1;
-              const pct = Math.round((val / total) * 100);
-              return `<strong>${val}</strong> procurements (${pct}%)`;
-            },
+          custom: function({ seriesIndex, dataPointIndex, w }) {
+            const point = w.config.series?.[seriesIndex]?.data?.[dataPointIndex] || {};
+            const count = Number(point.y) || 0;
+            const amount = Number(point.distributedAmount) || 0;
+            const awardedAmount = Number(point.actualAwardedAmount) || 0;
+            const share = Number(point.share) || 0;
+            const amountLabel = new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 2,
+            }).format(amount);
+            const awardedAmountLabel = new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 2,
+            }).format(awardedAmount);
+
+            return [
+              '<div style="padding: 10px 12px; min-width: 220px;">',
+              `<div style="font-size: 13px; font-weight: 700; color: #0f172a;">${point.x || 'Unassigned'}</div>`,
+              point.divisionLabel ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${point.divisionLabel}</div>` : '',
+              `<div style="margin-top: 10px; font-size: 12px; color: #334155;"><strong>${count}</strong> procurements</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${share}% request share</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${amountLabel} approved budget</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${awardedAmountLabel} actual awarded</div>`,
+              '</div>',
+            ].join('');
           },
         },
         responsive: [
           {
             breakpoint: 1200,
             options: {
-              chart: { height: 280 },
-              legend: { 
-                position: 'bottom',
-                fontSize: '11px',
+              chart: { height: 300 },
+              dataLabels: {
+                style: {
+                  fontSize: '10px',
+                },
               },
             },
           },
           {
             breakpoint: 768,
             options: {
-              chart: { height: 250 },
-              legend: { 
-                position: 'bottom',
-                fontSize: '10px',
+              chart: { height: 280 },
+              dataLabels: {
+                formatter: function (text) {
+                  if (!text) {
+                    return ['Unassigned'];
+                  }
+                  return [text.length > 12 ? `${text.slice(0, 12)}...` : text];
+                },
               },
             },
           },
         ],
       },
-      unitSummaryChartSeries: [],
+      unitSummaryChartSeries: [{
+        name: 'Unit Distribution',
+        data: [],
+      }],
+      unitBreakdownChartOptions: {
+        chart: {
+          type: 'bar',
+          height: 360,
+          toolbar: {
+            show: false,
+          },
+          fontFamily: 'inherit',
+          foreColor: '#475569',
+        },
+        plotOptions: {
+          bar: {
+            horizontal: true,
+            borderRadius: 8,
+            barHeight: '58%',
+            dataLabels: {
+              position: 'top',
+            },
+          },
+        },
+        grid: {
+          borderColor: '#e2e8f0',
+          strokeDashArray: 4,
+          xaxis: {
+            lines: {
+              show: true,
+            },
+          },
+          yaxis: {
+            lines: {
+              show: false,
+            },
+          },
+          padding: {
+            left: 20,
+            right: 18,
+          },
+        },
+        dataLabels: {
+          enabled: true,
+          textAnchor: 'start',
+          offsetX: 10,
+          style: {
+            fontSize: '12px',
+            fontWeight: '700',
+            colors: ['#405189'],
+          },
+          formatter: function (val) {
+            return `${val}`;
+          },
+        },
+        stroke: {
+          show: false,
+        },
+        fill: {
+          type: 'gradient',
+          gradient: {
+            shade: 'light',
+            type: 'horizontal',
+            shadeIntensity: 0.2,
+            inverseColors: false,
+            opacityFrom: 1,
+            opacityTo: 0.82,
+            stops: [0, 100],
+          },
+        },
+        colors: ['#405189'],
+        xaxis: {
+          min: 0,
+          max: 20,
+          stepSize: 20,
+          tickAmount: 1,
+          decimalsInFloat: 0,
+          title: {
+            text: 'Number of Procurements',
+            style: {
+              color: '#64748b',
+              fontSize: '12px',
+              fontWeight: 600,
+            },
+          },
+          labels: {
+            style: {
+              fontSize: '11px',
+              colors: ['#64748b'],
+            },
+            formatter: function (value) {
+              const tick = Math.round(Number(value) || 0);
+              return tick === 0 ? '' : tick.toLocaleString();
+            },
+          },
+        },
+        yaxis: {
+          labels: {
+            maxWidth: 360,
+            style: {
+              fontSize: '11px',
+              fontWeight: 600,
+              colors: ['#0f172a'],
+            },
+            formatter: function (value) {
+              return value || 'Unassigned';
+            },
+          },
+        },
+        legend: {
+          show: false,
+        },
+        tooltip: {
+          theme: 'light',
+          custom: function({ seriesIndex, dataPointIndex, w }) {
+            const point = w.config.series?.[seriesIndex]?.data?.[dataPointIndex] || {};
+            const count = Number(point.y) || 0;
+            const amount = Number(point.distributedAmount) || 0;
+            const awardedAmount = Number(point.actualAwardedAmount) || 0;
+            const share = Number(point.share) || 0;
+            const amountLabel = new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 2,
+            }).format(amount);
+            const awardedAmountLabel = new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: 'PHP',
+              minimumFractionDigits: 2,
+            }).format(awardedAmount);
+
+            return [
+              '<div style="padding: 10px 12px; min-width: 220px;">',
+              `<div style="font-size: 13px; font-weight: 700; color: #0f172a;">${point.x || 'Unassigned'}</div>`,
+              point.divisionLabel ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${point.divisionLabel}</div>` : '',
+              `<div style="margin-top: 5px; font-size: 12px; color: #334155;"><strong>${count}</strong> procurements</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${amountLabel} approved budget</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${awardedAmountLabel} actual awarded</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${share}% of total requests</div>`,
+              '</div>',
+            ].join('');
+          },
+        },
+        responsive: [
+          {
+            breakpoint: 768,
+            options: {
+              grid: {
+                padding: {
+                  left: 0,
+                  right: 8,
+                },
+              },
+              yaxis: {
+                labels: {
+                  maxWidth: 260,
+                },
+              },
+              dataLabels: {
+                offsetX: 6,
+              },
+            },
+          },
+        ],
+      },
+      unitBreakdownChartSeries: [{
+        name: 'Procurements',
+        data: [],
+      }],
       yearOptions: [],
       monthOptions: [
         { value: 1, label: 'January' },
@@ -845,6 +876,196 @@ export default {
     isQuarterSelected() {
       return ['q1', 'q2', 'q3', 'q4'].includes(this.dashboardFilter.period);
     },
+		userRoles() {
+			return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+		},
+		openRequests() {
+			const total = Number(this.dashboard.total_procurements) || 0;
+			const completed = Number(this.dashboard.completed_procurements) || 0;
+			return Math.max(total - completed, 0);
+		},
+		activeUnitsCount() {
+			return this.sortedDivisionDistribution.length;
+		},
+		filteredPeriodLabel() {
+			const period = this.dashboardFilter.period;
+			if (period === 'monthly') {
+				const selectedMonth = this.monthOptions.find((item) => item.value === this.dashboardFilter.month);
+				return `${selectedMonth ? selectedMonth.label : 'Month'} ${this.dashboardFilter.year}`;
+			}
+			if (period === 'quarterly') {
+				return `Q${this.dashboardFilter.quarter} ${this.dashboardFilter.year}`;
+			}
+			if (period === 'yearly') {
+				return `${this.dashboardFilter.year}`;
+			}
+			if (period === 'custom') {
+				if (this.dashboardFilter.start_date && this.dashboardFilter.end_date) {
+					return `${this.formatDate(this.dashboardFilter.start_date)} - ${this.formatDate(this.dashboardFilter.end_date)}`;
+				}
+				return 'Custom Date Range';
+			}
+			const selectedPeriod = this.periodOptions.find((item) => item.value === period);
+			return selectedPeriod ? selectedPeriod.label : 'All Time';
+		},
+		metrics() {
+			return [
+				{
+					label: 'Total Purchase Requests',
+					value: this.dashboard.total_procurements,
+					note: `Captured in ${this.filteredPeriodLabel}`,
+					icon: 'ri-stack-line',
+					bgClass: 'bg-primary-subtle',
+					textClass: 'text-primary',
+					accentColor: '#405189',
+				},
+				{
+					label: 'For Reviews',
+					value: this.dashboard.for_reviews,
+					note: 'Waiting for reviewer action',
+					icon: 'ri-search-eye-line',
+					bgClass: 'bg-warning-subtle',
+					textClass: 'text-warning',
+					accentColor: '#f7b84b',
+				},
+				{
+					label: 'For Approvals',
+					value: this.dashboard.for_approvals,
+					note: 'Ready for approval sign-off',
+					icon: 'ri-shield-check-line',
+					bgClass: 'bg-info-subtle',
+					textClass: 'text-info',
+					accentColor: '#299cdb',
+				},
+				{
+					label: 'Completed',
+					value: this.dashboard.completed_procurements,
+					note: `${this.completionRate}% completion rate`,
+					icon: 'ri-check-double-line',
+					bgClass: 'bg-success-subtle',
+					textClass: 'text-success',
+					accentColor: '#0ab39c',
+				},
+			];
+		},
+		workspaceModules() {
+			const modules = [
+				{
+					key: 'pap_codes',
+					title: 'PAP Codes',
+					value: this.dashboard.total_pap_codes,
+					note: `${this.formatCompactCurrency(this.dashboard.total_excess_funds)} excess funds; ${this.formatCompactCurrency(this.dashboard.total_remaining_pap_budget)} remaining from ${this.formatCompactCurrency(this.dashboard.total_allocated_pap_budget)} allocated`,
+					route: '/faims/procurement-codes',
+					action: 'Open PAP codes',
+					icon: 'ri-code-box-line',
+					iconBgClass: 'bg-success-subtle',
+					iconTextClass: 'text-success',
+					tag: 'Budget',
+					accentColor: '#0ab39c',
+					roles: ['Budget Officer', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'responsibility_centers',
+					title: 'Responsibility Centers',
+					value: this.dashboard.total_responsibility_centers,
+					note: `${this.dashboard.total_responsibility_centers} unit-to-center mappings available for coding`,
+					route: '/faims/responsibility-centers',
+					action: 'Open centers',
+					icon: 'ri-building-line',
+					iconBgClass: 'bg-info-subtle',
+					iconTextClass: 'text-info',
+					tag: 'Structure',
+					accentColor: '#299cdb',
+					roles: ['Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'modes',
+					title: 'Modes of Procurement',
+					value: this.dashboard.total_modes_of_procurement,
+					note: `${this.dashboard.active_modes_of_procurement} active modes currently available for PAP code setup`,
+					route: '/faims/modes-of-procurement',
+					action: 'Open modes',
+					icon: 'ri-git-branch-line',
+					iconBgClass: 'bg-warning-subtle',
+					iconTextClass: 'text-warning',
+					tag: 'Reference',
+					accentColor: '#f7b84b',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'suppliers',
+					title: 'Suppliers',
+					value: this.dashboard.total_suppliers,
+					note: `${this.dashboard.active_suppliers} active suppliers, ${this.dashboard.pending_supplier_approvals} waiting for approval`,
+					route: '/faims/suppliers',
+					action: 'Open suppliers',
+					icon: 'ri-truck-line',
+					iconBgClass: 'bg-secondary-subtle',
+					iconTextClass: 'text-secondary',
+					tag: 'Vendors',
+					accentColor: '#6c757d',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'bac_resolutions',
+					title: 'BAC Resolutions',
+					value: this.dashboard.total_bac_resolutions,
+					note: `${this.dashboard.total_bac_resolutions} BAC resolutions recorded in ${this.filteredPeriodLabel}`,
+					route: '/faims/bac-resolutions',
+					action: 'Open BAC resolutions',
+					icon: 'ri-government-line',
+					iconBgClass: 'bg-danger-subtle',
+					iconTextClass: 'text-danger',
+					tag: 'Records',
+					accentColor: '#f06548',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'notice_of_awards',
+					title: 'Notice of Awards',
+					value: this.dashboard.total_notice_of_awards,
+					note: `${this.dashboard.total_notice_of_awards} award notices prepared in ${this.filteredPeriodLabel}`,
+					route: '/faims/notice-of-awards',
+					action: 'Open notice of awards',
+					icon: 'ri-file-text-line',
+					iconBgClass: 'bg-primary-subtle',
+					iconTextClass: 'text-primary',
+					tag: 'Awards',
+					accentColor: '#405189',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'purchase_orders',
+					title: 'Purchase Orders',
+					value: this.dashboard.total_purchase_orders,
+					note: `${this.dashboard.total_purchase_orders} purchase orders released in ${this.filteredPeriodLabel}`,
+					route: '/faims/purchase-orders',
+					action: 'Open purchase orders',
+					icon: 'ri-file-paper-2-line',
+					iconBgClass: 'bg-dark-subtle',
+					iconTextClass: 'text-dark',
+					tag: 'Orders',
+					accentColor: '#212529',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'reports',
+					title: 'Procurement Reports',
+					value: this.dashboard.total_procurements,
+					note: `${this.dashboard.total_procurements} request records ready for reporting in ${this.filteredPeriodLabel}`,
+					route: '/faims/procurement-reports',
+					action: 'Open reports',
+					icon: 'ri-bar-chart-box-line',
+					iconBgClass: 'bg-success-subtle',
+					iconTextClass: 'text-success',
+					tag: 'Reports',
+					accentColor: '#0ab39c',
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+			];
+
+			return modules.filter((module) => this.hasAnyRole(module.roles));
+		},
 		completionRate() {
 			if (!this.dashboard.total_procurements) {
 				return 0;
@@ -870,8 +1091,9 @@ export default {
 				.map((item) => {
 					const count = Number(item.count) || 0;
 					const distributedAmount = Number(item.distributed_amount) || 0;
+					const actualAwardedAmount = Number(item.completed_awarded_amount) || 0;
 					const share = Math.round((count / total) * 100);
-					return { ...item, count, distributed_amount: distributedAmount, share, unit_label: this.getUnitLabel(item) };
+					return { ...item, count, distributed_amount: distributedAmount, completed_awarded_amount: actualAwardedAmount, share, unit_label: this.getUnitLabel(item) };
 				});
 		},
 		divisionTotal() {
@@ -882,9 +1104,77 @@ export default {
 			const source = this.dashboard.division_distribution || [];
 			return source.reduce((sum, item) => sum + (Number(item.distributed_amount) || 0), 0);
 		},
+		totalApprovedBudgetAmount() {
+			return Number(this.dashboard.total_approved_budget_amount ?? this.divisionTotalAmount) || 0;
+		},
+		totalActualAwardedAmount() {
+			const source = this.dashboard.division_distribution || [];
+			if (this.dashboard.total_completed_awarded_amount !== undefined && this.dashboard.total_completed_awarded_amount !== null) {
+				return Number(this.dashboard.total_completed_awarded_amount) || 0;
+			}
+			return source.reduce((sum, item) => sum + (Number(item.completed_awarded_amount) || 0), 0);
+		},
+		totalExcessFundsAmount() {
+			if (this.dashboard.total_excess_funds !== undefined && this.dashboard.total_excess_funds !== null) {
+				return Number(this.dashboard.total_excess_funds) || 0;
+			}
+
+			return this.totalApprovedBudgetAmount - this.totalActualAwardedAmount;
+		},
+		monthlyTrendMaxProcurementCount() {
+			const source = this.dashboard.monthly_trends || [];
+			return Math.max(...source.map((item) => Number(item.count) || 0), 0);
+		},
+		monthlyTrendAxisStep() {
+			return this.getProcurementAxisStep(this.monthlyTrendMaxProcurementCount);
+		},
+		monthlyTrendAxisMax() {
+			return this.getProcurementAxisMax(this.monthlyTrendMaxProcurementCount, this.monthlyTrendAxisStep);
+		},
+		unitBreakdownChartHeight() {
+			const itemCount = this.sortedDivisionDistribution.length;
+			return Math.min(Math.max((itemCount * 52) + 56, 280), 700);
+		},
+		unitBreakdownMaxProcurementCount() {
+			return Math.max(
+				...this.sortedDivisionDistribution.map((item) => Number(item.count) || 0),
+				0
+			);
+		},
+		unitBreakdownAxisStep() {
+			return this.getProcurementAxisStep(this.unitBreakdownMaxProcurementCount);
+		},
+		unitBreakdownAxisMax() {
+			return this.getProcurementAxisMax(this.unitBreakdownMaxProcurementCount, this.unitBreakdownAxisStep);
+		},
+		unitBreakdownChartWidth() {
+			const tickCount = this.unitBreakdownAxisMax / this.unitBreakdownAxisStep;
+			return Math.max(820, 360 + (tickCount * 56));
+		},
   },
 
   methods: {
+		getProcurementAxisStep(maxProcurementCount) {
+			if (maxProcurementCount <= 200) {
+				return 20;
+			}
+
+			const targetTickCount = 10;
+			const rawStep = Math.ceil(maxProcurementCount / targetTickCount);
+			const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+			const normalizedStep = rawStep / magnitude;
+
+			if (normalizedStep <= 2) {
+				return 2 * magnitude;
+			}
+			if (normalizedStep <= 5) {
+				return 5 * magnitude;
+			}
+			return 10 * magnitude;
+		},
+		getProcurementAxisMax(maxProcurementCount, axisStep) {
+			return Math.max(axisStep, Math.ceil(maxProcurementCount / axisStep) * axisStep);
+		},
     fetchDashboard() {
       const params = {
         period: this.dashboardFilter.period,
@@ -914,19 +1204,86 @@ export default {
     updateCharts() {
       // Update monthly chart
       if (this.dashboard && this.dashboard.monthly_trends && Array.isArray(this.dashboard.monthly_trends)) {
-        this.monthlyChartOptions.xaxis.categories = this.dashboard.monthly_trends.map(item => item.month);
-        this.monthlyChartSeries[0].data = this.dashboard.monthly_trends.map(item => item.count);
+        const axisMax = this.monthlyTrendAxisMax;
+        const axisStep = this.monthlyTrendAxisStep;
+
+        this.monthlyChartOptions = {
+          ...this.monthlyChartOptions,
+          xaxis: {
+            ...this.monthlyChartOptions.xaxis,
+            categories: this.dashboard.monthly_trends.map(item => item.label || item.month),
+          },
+          yaxis: {
+            ...this.monthlyChartOptions.yaxis,
+            max: axisMax,
+            stepSize: axisStep,
+            tickAmount: axisMax / axisStep,
+          },
+        };
+        this.monthlyChartSeries = [{
+          ...this.monthlyChartSeries[0],
+          data: this.dashboard.monthly_trends.map(item => Number(item.count) || 0),
+        }];
       }
 
       // Update unit summary chart
       if (this.dashboard && this.dashboard.division_distribution && Array.isArray(this.dashboard.division_distribution)) {
         const items = this.sortedDivisionDistribution;
         if (items.length > 0) {
-          this.unitSummaryChartOptions.labels = items.map(item => this.getUnitLabel(item));
-          this.unitSummaryChartSeries = items.map(item => item.count);
+          const axisMax = this.unitBreakdownAxisMax;
+          const axisStep = this.unitBreakdownAxisStep;
+
+          this.unitBreakdownChartOptions = {
+            ...this.unitBreakdownChartOptions,
+            xaxis: {
+              ...this.unitBreakdownChartOptions.xaxis,
+              max: axisMax,
+              stepSize: axisStep,
+              tickAmount: axisMax / axisStep,
+            },
+          };
+
+          this.unitSummaryChartSeries = [{
+            name: 'Unit Distribution',
+            data: items.map((item) => ({
+              x: this.getUnitLabel(item),
+              y: item.count,
+              share: item.share,
+              distributedAmount: item.distributed_amount,
+              actualAwardedAmount: item.completed_awarded_amount,
+              divisionLabel: this.getUnitDivisionLabel(item),
+            })),
+          }];
+          this.unitBreakdownChartSeries = [{
+            name: 'Procurements',
+            data: items.map((item) => ({
+              x: this.getUnitLabel(item),
+              y: item.count,
+              distributedAmount: item.distributed_amount,
+              actualAwardedAmount: item.completed_awarded_amount,
+              share: item.share,
+              divisionLabel: this.getUnitDivisionLabel(item),
+            })),
+          }];
         } else {
-          this.unitSummaryChartOptions.labels = [];
-          this.unitSummaryChartSeries = [];
+          this.unitBreakdownChartOptions = {
+            ...this.unitBreakdownChartOptions,
+            xaxis: {
+              ...this.unitBreakdownChartOptions.xaxis,
+              max: 20,
+              stepSize: 20,
+              tickAmount: 1,
+            },
+          };
+
+          this.unitSummaryChartSeries = [{
+            name: 'Unit Distribution',
+            data: [],
+          }];
+          this.unitBreakdownChartSeries = [{
+            name: 'Procurements',
+            data: [],
+          }];
         }
       }
     },
@@ -969,6 +1326,10 @@ export default {
 			}).format(amount);
 		},
 
+		formatCompactCurrency(value) {
+			return this.formatCurrency(value);
+		},
+
 		formatDateTime(date) {
 			return new Date(date).toLocaleString('en-US', {
 				year: 'numeric',
@@ -1002,7 +1363,35 @@ export default {
       this.fetch();
     },
 
-    onPeriodChange() {
+		hasAnyRole(roles = []) {
+			if (!roles.length) {
+				return true;
+			}
+
+			return roles.some((role) => this.userRoles.includes(role));
+		},
+
+		resetDashboardFilters() {
+			const currentDate = new Date();
+			this.dashboardFilter = {
+				period: 'all',
+				year: currentDate.getFullYear(),
+				month: currentDate.getMonth() + 1,
+				quarter: Math.floor(currentDate.getMonth() / 3) + 1,
+				start_date: null,
+				end_date: null,
+			};
+			this.fetchDashboard();
+		},
+
+		openModule(route) {
+			router.get(route);
+		},
+
+    onPeriodChange(selectedPeriod) {
+      if (selectedPeriod) {
+        this.dashboardFilter.period = selectedPeriod.value || selectedPeriod;
+      }
       // Reset custom dates when changing period
       if (this.dashboardFilter.period !== 'custom') {
         this.dashboardFilter.start_date = null;
@@ -1040,423 +1429,639 @@ export default {
 </script>
 
 <style scoped>
-/* Hero Section */
+.procurement-dashboard-page {
+  --proc-brand: #405189;
+  --proc-brand-dark: #344272;
+  --proc-accent: #0ab39c;
+  --proc-ink: #0f172a;
+  --proc-muted: #64748b;
+  --proc-border: #e8edf5;
+  --proc-soft: rgba(64, 81, 137, 0.1);
+  --proc-surface: rgba(255, 255, 255, .86);
+  --proc-card: #ffffff;
+  --proc-card-soft: #f8fafc;
+  --proc-card-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --proc-panel-header: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  --proc-chart-bg: linear-gradient(180deg, rgba(248, 250, 252, .72), #ffffff 28%), #ffffff;
+  --proc-table-row: #ffffff;
+  --proc-table-hover: rgba(64, 81, 137, 0.06);
+  --proc-input: #ffffff;
+  --proc-shadow: rgba(15, 23, 42, .05);
+  padding-bottom: 1.5rem;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page {
+  --proc-brand: #93c5fd;
+  --proc-brand-dark: #60a5fa;
+  --proc-accent: #5eead4;
+  --proc-ink: #e5edf7;
+  --proc-muted: #9fb0c7;
+  --proc-border: rgba(148, 163, 184, 0.18);
+  --proc-soft: rgba(96, 165, 250, 0.14);
+  --proc-surface: rgba(19, 29, 43, 0.92);
+  --proc-card: #131d2b;
+  --proc-card-soft: #182235;
+  --proc-card-gradient: linear-gradient(180deg, #172235 0%, #101827 100%);
+  --proc-panel-header: linear-gradient(180deg, #172235 0%, #131d2b 100%);
+  --proc-chart-bg: linear-gradient(180deg, rgba(24, 34, 53, .72), #101827 30%), #101827;
+  --proc-table-row: #182235;
+  --proc-table-hover: rgba(96, 165, 250, 0.12);
+  --proc-input: #101827;
+  --proc-shadow: rgba(0, 0, 0, .28);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-dark),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-body) {
+  color: var(--proc-ink) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-muted),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-body-secondary) {
+  color: var(--proc-muted) !important;
+}
+
 .procurement-hero {
-  background: radial-gradient(circle at top left, rgba(64, 81, 137, 0.95), rgba(64, 81, 137, 0.85)), linear-gradient(120deg, #405189, #6b7299);
-  color: #fff;
-  border-radius: 0.75rem;
-  box-shadow: 0 8px 32px rgba(64, 81, 137, 0.25);
-}
-
-.procurement-hero .btn-soft {
-  background: rgba(255, 255, 255, 0.92);
-  border: none;
-  color: #405189;
-  font-weight: 600;
-  padding: 0.5rem 1.25rem;
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
-}
-
-.procurement-hero .btn-soft:hover {
-  background: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.procurement-hero .btn-outline-light {
-  border-color: rgba(255, 255, 255, 0.6);
-  color: #fff;
-  font-weight: 500;
-  padding: 0.5rem 1.25rem;
-  border-radius: 0.5rem;
-}
-
-.procurement-hero .btn-outline-light:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: #fff;
-  color: #fff;
-}
-
-/* Section Headers */
-.dashboard-section {
   position: relative;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(255, 255, 255, .22), transparent 32%),
+    radial-gradient(circle at 88% 22%, rgba(10, 179, 156, .32), transparent 28%),
+    linear-gradient(135deg, #405189 0%, #344272 52%, #1f2a50 100%);
+  box-shadow: 0 24px 58px rgba(64, 81, 137, 0.24);
 }
 
-.section-header {
+.procurement-hero::after {
+  position: absolute;
+  inset: auto 28px 24px auto;
+  width: 140px;
+  height: 140px;
+  content: "";
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 32px;
+  transform: rotate(14deg);
+  opacity: .5;
+}
+
+.procurement-hero .card-body {
+  position: relative;
+  z-index: 1;
+  padding: 1.35rem 1.5rem;
+}
+
+.procurement-hero .row {
+  min-height: 180px;
+  --bs-gutter-x: 1.5rem;
+  --bs-gutter-y: .75rem;
+}
+
+.procurement-hero h3 {
+  max-width: 760px;
+  font-size: 1.95rem;
+  line-height: 1.22;
+  margin-bottom: .45rem !important;
+}
+
+.procurement-hero p {
+  max-width: 620px;
+  font-size: .95rem;
+  line-height: 1.55;
+  margin-bottom: .65rem !important;
+}
+
+.compact-card {
+  padding: .8rem;
+}
+
+.dashboard-filter-card {
+  border-radius: 14px !important;
+  background: var(--proc-surface);
+  border: 1px solid var(--proc-border) !important;
+  box-shadow: 0 14px 34px var(--proc-shadow) !important;
+  backdrop-filter: blur(12px);
+}
+
+.dashboard-filter-row {
   display: flex;
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
-  margin-bottom: 14px;
-  padding: 6px 4px 0;
+  gap: .5rem;
 }
 
-.section-kicker {
+.dashboard-filter-copy {
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+
+.dashboard-filter-controls {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  align-items: end;
+  justify-content: flex-end;
+}
+
+.filter-field {
+  width: 200px;
+  max-width: 100%;
+  height: 100%;
+  padding: .45rem .55rem;
+  border: 1px solid var(--proc-border);
+  border-radius: 9px;
+  background: var(--proc-card-soft);
+}
+
+.filter-field .form-label {
+  margin-bottom: .2rem;
+  font-weight: 800;
+  letter-spacing: .02em;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+}
+
+.filter-field .form-control {
+  min-height: 32px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: var(--proc-input);
+  color: var(--proc-ink);
+}
+
+.filter-field :deep(.multiselect) {
+  min-height: 32px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: var(--proc-input);
+  color: var(--proc-ink);
+  box-shadow: none;
+}
+
+.filter-field :deep(.multiselect-dropdown),
+.filter-field :deep(.multiselect-options),
+.filter-field :deep(.multiselect-search),
+.filter-field :deep(.multiselect-single-label) {
+  background: var(--proc-input);
+  color: var(--proc-ink);
+}
+
+.filter-field :deep(.multiselect-option) {
+  color: var(--proc-ink);
+}
+
+.filter-field :deep(.multiselect.is-active) {
+  border-color: rgba(64, 81, 137, .4);
+  box-shadow: 0 0 0 .2rem rgba(64, 81, 137, .1);
+}
+
+:global(.multiselect-dropdown) {
+  z-index: 3000;
+}
+
+.hero-kicker,
+.section-kicker {
+  color: var(--proc-muted);
   font-size: 10px;
-  font-weight: 600;
-  color: #64748b;
-  margin-bottom: 6px;
-}
-
-.section-title {
-  font-family: "Montserrat", "Segoe UI", sans-serif;
   font-weight: 700;
-  margin: 0;
-  color: #0f172a;
+  letter-spacing: .14em;
+  text-transform: uppercase;
 }
 
-.section-meta {
+.hero-kicker {
+  color: rgba(255,255,255,.75);
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  background: rgba(255, 255, 255, .92);
+  color: var(--proc-brand);
+  font-weight: 700;
+  padding: .5rem .85rem;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
+}
+
+:global([data-bs-theme="dark"]) .hero-pill {
+  background: rgba(15, 23, 42, .58);
+  border: 1px solid rgba(255, 255, 255, .16);
+  color: #dbeafe;
+}
+
+.hero-pill i {
+  font-size: .95rem;
+}
+
+.hero-pill.is-success {
+  color: #087f69;
+}
+
+.hero-pill.is-warning {
+  color: #9a6700;
+}
+
+.hero-pill.is-dark {
+  color: #1f2937;
+}
+
+:global([data-bs-theme="dark"]) .hero-pill.is-success {
+  color: #99f6e4;
+}
+
+:global([data-bs-theme="dark"]) .hero-pill.is-warning {
+  color: #fde68a;
+}
+
+:global([data-bs-theme="dark"]) .hero-pill.is-dark {
+  color: #e5edf7;
+}
+
+.hero-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .6rem;
+}
+
+.hero-stat-card {
+  position: relative;
+  isolation: isolate;
+  min-height: 88px;
+  padding: .72rem;
+  border-radius: 10px;
+  color: #fff;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .08));
+  border: 1px solid rgba(255, 255, 255, .2);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.hero-stat-watermark {
+  position: absolute;
+  right: .75rem;
+  bottom: .5rem;
+  z-index: -1;
+  color: rgba(255, 255, 255, .14);
+  font-size: 2.45rem;
+  line-height: 1;
+}
+
+.hero-stat-card span,
+.unit-breakdown-stat span,
+.insight-item span {
+  display: block;
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  opacity: .75;
+}
+
+.hero-stat-card strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  margin: .3rem 0;
+}
+
+.hero-stat-card small {
+  color: rgba(255,255,255,.74);
+  font-size: .82rem;
+  line-height: 1.4;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: .6rem;
+  margin: .45rem .15rem .3rem;
+}
+
+.section-heading h4 {
+  margin: 0;
+  font-weight: 800;
+  color: var(--proc-ink);
+}
+
+.section-heading span {
   font-size: 12px;
   color: #94a3b8;
 }
 
-/* Metric Cards */
-.metric-card {
-  border: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  border-radius: 0.75rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+.metric-card,
+.module-card,
+.panel-card {
   position: relative;
+  border: 0;
+  border-radius: 10px;
+  background: var(--proc-card);
+  color: var(--proc-ink);
+  box-shadow: 0 6px 16px var(--proc-shadow);
+  overflow: hidden;
 }
 
-.metric-card::before {
-  content: '';
+.metric-card::before,
+.module-card::before {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, #405189, #5c6bc0);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s ease;
+  inset: 0 0 auto;
+  height: 4px;
+  content: "";
+  background: var(--metric-accent, var(--module-accent, var(--proc-brand)));
 }
 
-.metric-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(64, 81, 137, 0.15);
+.metric-card .card-body,
+.module-card .card-body,
+.panel-card .card-body {
+  padding: .75rem;
 }
 
-.metric-card:hover::before {
-  transform: scaleX(1);
+.module-card .card-body {
+  padding: .7rem;
 }
 
-.metric-card .avatar-sm {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
+.metric-card {
+  transition: transform .18s ease, box-shadow .18s ease;
 }
 
-.metric-card .avatar-title {
-  width: 100%;
-  height: 100%;
-  display: flex;
+.metric-card:hover,
+.module-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px var(--proc-shadow);
+}
+
+.metric-card h4 {
+  color: var(--proc-ink);
+  font-size: 1.2rem;
+}
+
+.metric-icon,
+.module-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.35rem;
+  border-radius: 9px;
+  font-size: .98rem;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5);
 }
 
-.metric-card .fs-22 {
-  color: #1e293b;
+.module-card .card-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.module-note {
+  min-height: 0;
+  line-height: 1.32;
+}
+
+.module-value.fs-2 {
+  font-size: 1.35rem !important;
+}
+
+.module-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  border: 1px solid rgba(64, 81, 137, .12);
+  border-radius: 8px;
+  background: rgba(64, 81, 137, .08);
+  padding: .34rem .5rem;
+  color: var(--proc-brand);
   font-weight: 700;
+  font-size: .82rem;
 }
 
-/* Panel Cards */
-.panel-card {
-  border: 0;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-  border-radius: 0.75rem;
-  overflow: hidden;
+.module-action:hover {
+  border-color: transparent;
+  background: var(--module-accent);
+  color: #fff;
+}
+
+.module-action i {
+  font-size: 1rem;
 }
 
 .panel-card .card-header {
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 1rem 1.25rem;
+  background: var(--proc-panel-header);
+  border-bottom: 1px solid var(--proc-border);
+  padding: .65rem .75rem;
 }
 
-.panel-card .card-title {
-  color: #405189;
-  font-weight: 600;
-  font-size: 1rem;
+.panel-card .card-header h5 {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
   margin: 0;
+  color: var(--proc-brand);
+  font-weight: 800;
 }
 
-/* Unit Summary Card */
-.unit-summary-card .chart-body {
-  padding: 1rem;
-}
-
-.unit-summary-card .chart-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 280px;
-}
-
-.unit-summary-card .empty-state {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 200px;
-}
-
-.unit-summary-card .empty-state i {
-  opacity: 0.4;
-  font-size: 3rem;
-}
-
-/* Unit Table Card */
-.unit-table-card .unit-row {
-  transition: all 0.2s ease;
-}
-
-.unit-table-card .unit-row:hover {
-  background: linear-gradient(90deg, rgba(64, 81, 137, 0.04) 0%, transparent 100%);
-}
-
-.unit-table-card .unit-number {
+.panel-card .card-header h5 i {
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: linear-gradient(135deg, #405189 0%, #5c6bc0 100%);
-  color: #fff;
+  border-radius: 7px;
+  background: var(--proc-soft);
+}
+
+.panel-card .card-header p {
+  margin: .1rem 0 0;
+  color: var(--proc-muted);
+  font-size: .8rem;
+}
+
+.unit-breakdown-footer,
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .45rem;
+}
+
+.unit-breakdown-chart-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: .35rem;
+}
+
+.unit-breakdown-chart-canvas {
+  width: 100%;
+}
+
+.insight-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .45rem;
+}
+
+.unit-breakdown-stat,
+.insight-item,
+.insight-highlight {
+  padding: .6rem;
+  border-radius: 9px;
+  background: var(--proc-card-gradient);
+  border: 1px solid var(--proc-border);
+}
+
+.unit-breakdown-stat strong,
+.insight-item strong {
+  display: block;
+  margin-top: .25rem;
+  color: var(--proc-ink);
+  font-size: .95rem;
+  line-height: 1.25;
+}
+
+.unit-breakdown-stat small,
+.insight-item small {
+  color: var(--proc-muted);
+  font-size: .75rem;
+  line-height: 1.35;
+}
+
+.insight-highlight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.insight-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
-  font-weight: 600;
-  font-size: 0.75rem;
-}
-
-.unit-table-card .unit-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(64, 81, 137, 0.1);
-  color: #405189;
-  border-radius: 8px;
-}
-
-.unit-table-card .procurement-count {
+  background: var(--proc-soft);
+  color: var(--proc-brand);
   font-size: 1rem;
-  font-weight: 700;
-  color: #405189;
+  flex-shrink: 0;
 }
 
-.unit-table-card .distributed-amount {
-  color: #0ab39c;
-  font-weight: 700;
-  white-space: nowrap;
+.table > :not(caption) > * > * {
+  padding: .45rem .55rem;
 }
 
-.unit-table-card .unit-progress {
-  border-radius: 5px;
-  background: #e2e8f0;
+.recent-table-body {
+  padding-top: .55rem !important;
 }
 
-.unit-table-card .unit-progress .progress-bar {
-  background: linear-gradient(90deg, #405189 0%, #5c6bc0 100%);
-  border-radius: 5px;
+.recent-table-body .table {
+  border-collapse: separate;
+  border-spacing: 0 .25rem;
 }
 
-.unit-table-card .share-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 45px;
-  padding: 0.25rem 0.5rem;
-  background: rgba(64, 81, 137, 0.1);
-  color: #405189;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.75rem;
-}
-
-.unit-table-card .total-row {
-  background: linear-gradient(90deg, rgba(64, 81, 137, 0.06) 0%, transparent 100%);
-  border-top: 2px solid #e2e8f0;
-}
-
-.unit-table-card .total-row .unit-number {
-  background: #405189;
-}
-
-.unit-table-card .total-row .procurement-count {
-  color: #1e293b;
-}
-
-.unit-table-card .total-row .distributed-amount {
-  color: #0f766e;
-}
-
-.unit-table-card .badge {
-  font-weight: 600;
-}
-
-/* Donut Chart Legend Styling */
-:deep(.legend-text) {
-  color: #475569;
-  font-weight: 500;
-}
-
-:deep(.legend-count) {
-  color: #405189;
-  font-weight: 600;
-}
-
-:deep(.apexcharts-datalabel-value) {
-  font-weight: 700 !important;
-  color: #1e293b !important;
-}
-
-/* Insights Card */
-.insights-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 0.75rem;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-}
-
-.insights-card .card-header {
-  background: transparent;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 1rem 1.25rem;
-}
-
-.insights-card .card-title {
-  color: #405189;
-  font-weight: 600;
-  font-size: 1rem;
-}
-
-.insight-item {
-  padding: 0.875rem;
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
-}
-
-.insight-item:hover {
-  background: rgba(64, 81, 137, 0.04);
-}
-
-.insight-item .avatar-sm {
-  width: 40px;
-  height: 40px;
-}
-
-/* Progress Bars */
-.panel-card .progress {
-  height: 8px;
-  border-radius: 4px;
-  background: #e2e8f0;
-  overflow: hidden;
-}
-
-.panel-card .progress-bar {
-  border-radius: 4px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Table Styling */
-.panel-card .table thead th {
-  background: #f8fafc;
-  color: #475569;
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.panel-card .table tbody td {
-  padding: 0.875rem 1rem;
-  vertical-align: middle;
-  color: #334155;
-}
-
-.panel-card .table tbody tr {
-  transition: background 0.2s ease;
-}
-
-.panel-card .table tbody tr:hover {
-  background: #f8fafc;
-}
-
-.panel-card .table .fw-semibold {
-  color: #1e293b;
-}
-
-/* Badges */
-.panel-card .badge {
-  padding: 0.4em 0.75em;
-  font-weight: 500;
-  font-size: 0.7rem;
-}
-
-/* Filter Card */
-.filter-card {
+.recent-table-body thead th {
   border: 0;
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  background: transparent;
+  color: var(--proc-muted);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
 }
 
-.filter-card .form-label {
-  font-weight: 500;
-  color: #475569;
-  font-size: 0.85rem;
-  margin-bottom: 0.375rem;
+.recent-table-body tbody tr {
+  box-shadow: 0 4px 12px var(--proc-shadow);
 }
 
-/* Animations */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.recent-table-body tbody td {
+  border-top: 1px solid var(--proc-border);
+  border-bottom: 1px solid var(--proc-border);
+  background: var(--proc-table-row);
+  color: var(--proc-ink);
 }
 
-.metric-card {
-  animation: fadeInUp 0.5s ease forwards;
-  opacity: 0;
+.recent-table-body tbody td:first-child {
+  border-left: 1px solid var(--proc-border);
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
 }
 
-.metric-card:nth-child(1) { animation-delay: 0.05s; }
-.metric-card:nth-child(2) { animation-delay: 0.1s; }
-.metric-card:nth-child(3) { animation-delay: 0.15s; }
-.metric-card:nth-child(4) { animation-delay: 0.2s; }
+.recent-table-body tbody td:last-child {
+  border-right: 1px solid var(--proc-border);
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
 
-/* Responsive */
-@media (max-width: 1200px) {
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  
-  .metric-card .flex-grow-1 {
-    margin-top: 0.5rem;
-  }
+.chart-body {
+  background: var(--proc-chart-bg);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--proc-muted);
+}
+
+.empty-state i {
+  font-size: 2.5rem;
+  opacity: .4;
+}
+
+.fs-12 {
+  font-size: 12px;
+}
+
+.fs-13 {
+  font-size: 13px;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.min-w-0 {
+  min-width: 0;
 }
 
 @media (max-width: 768px) {
-  .metric-card .d-flex {
-    flex-direction: column;
-    align-items: flex-start !important;
+  .procurement-hero .card-body,
+  .compact-card,
+  .metric-card .card-body,
+  .module-card .card-body,
+  .panel-card .card-body,
+  .panel-card .card-header {
+    padding: .75rem;
   }
-  
-  .metric-card .avatar-sm {
-    margin-bottom: 0.75rem;
+
+  .procurement-hero h3 {
+    font-size: 1.65rem;
+  }
+
+  .hero-stat-grid,
+  .unit-breakdown-footer,
+  .insight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-filter-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-filter-copy {
+    min-width: 0;
+  }
+
+  .dashboard-filter-controls {
+    justify-content: stretch;
+  }
+
+  .filter-field {
+    width: 100%;
   }
 }
 </style>

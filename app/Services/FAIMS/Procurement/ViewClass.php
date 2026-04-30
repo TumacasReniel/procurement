@@ -11,10 +11,16 @@ use App\Models\ProcurementBacNoa;
 use App\Models\ProcurementNoaPo;
 use App\Models\ProcurementPoNtp;
 use App\Models\ProcurementAssignment;
+use App\Models\ProcurementCode;
+use App\Models\ListStatus;
+use App\Models\ResponsibilityCenter;
+use App\Models\Supplier;
+use App\Models\ListDropdown;
 use Spatie\Activitylog\Models\Activity;
 
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
 use App\Http\Resources\FAIMS\Procurement\ProcurementQuotationResource;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use NumberFormatter;
@@ -252,6 +258,7 @@ class ViewClass
             case 'today':
                 $query->whereDate('created_at', today());
                 break;
+            case 'weekly':
             case 'this_week':
                 $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
                 break;
@@ -310,12 +317,29 @@ class ViewClass
             ->selectRaw('COALESCE(SUM(procurement_items.total_cost), 0) as distributed_amount')
             ->groupBy('procurements.unit_id');
 
+        $completed_item_status_id = ListStatus::getID('Completed', 'Procurement');
+        $completed_awarded_amounts = (clone $query)
+            ->join('procurement_items', 'procurements.id', '=', 'procurement_items.procurement_id')
+            ->join('procurement_quotation_items', 'procurement_items.id', '=', 'procurement_quotation_items.procurement_item_id')
+            ->join('procurement_bac_noa_items', 'procurement_quotation_items.id', '=', 'procurement_bac_noa_items.item_id')
+            ->when($completed_item_status_id, function ($query) use ($completed_item_status_id) {
+                $query->where('procurement_items.status_id', $completed_item_status_id);
+            }, function ($query) {
+                $query->whereRaw('1 = 0');
+            })
+            ->select('procurements.unit_id')
+            ->selectRaw('COALESCE(SUM(procurement_quotation_items.bid_price * procurement_items.item_quantity), 0) as completed_awarded_amount')
+            ->groupBy('procurements.unit_id');
+
         $division_distribution = \App\Models\ListUnit::query()
             ->leftJoinSub($unit_counts, 'unit_counts', function ($join) {
                 $join->on('list_units.id', '=', 'unit_counts.unit_id');
             })
             ->leftJoinSub($unit_amounts, 'unit_amounts', function ($join) {
                 $join->on('list_units.id', '=', 'unit_amounts.unit_id');
+            })
+            ->leftJoinSub($completed_awarded_amounts, 'completed_awarded_amounts', function ($join) {
+                $join->on('list_units.id', '=', 'completed_awarded_amounts.unit_id');
             })
             ->leftJoin('list_dropdowns as divisions', function ($join) {
                 $join->on('list_units.division_id', '=', 'divisions.id')
@@ -325,6 +349,7 @@ class ViewClass
             ->selectRaw("COALESCE(divisions.name, 'Unassigned') as division_name")
             ->selectRaw('COALESCE(unit_counts.count, 0) as count')
             ->selectRaw('COALESCE(unit_amounts.distributed_amount, 0) as distributed_amount')
+            ->selectRaw('COALESCE(completed_awarded_amounts.completed_awarded_amount, 0) as completed_awarded_amount')
             ->orderByDesc('count')
             ->get()
             ->map(function ($item) {
@@ -333,36 +358,70 @@ class ViewClass
                     'division_name' => $item->division_name,
                     'count' => (int) $item->count,
                     'distributed_amount' => (float) $item->distributed_amount,
+                    'completed_awarded_amount' => (float) $item->completed_awarded_amount,
                 ];
             });
 
-        // Monthly trends
-        $monthly_trends_query = Procurement::selectRaw('MONTH(created_at) as month, COUNT(*) as count')
-            ->groupBy('month')
-            ->orderBy('month');
+        $total_completed_awarded_amount = $division_distribution->sum('completed_awarded_amount');
+        $total_approved_budget_amount = $division_distribution->sum('distributed_amount');
+        $total_excess_funds = round((float) $total_approved_budget_amount - (float) $total_completed_awarded_amount, 2);
 
-        // For quarters, limit to the quarter months
-        if ($request->period === 'quarterly') {
-            $year = $request->year ?? now()->year;
-            $monthly_trends_query->whereYear('created_at', $year);
-        } elseif ($request->period === 'monthly') {
-            $year = $request->year ?? now()->year;
-            $monthly_trends_query->whereYear('created_at', $year);
-        } elseif ($request->period === 'yearly') {
-            $year = $request->year ?? now()->year;
-            $monthly_trends_query->whereYear('created_at', $year);
-        } elseif ($request->period === 'custom' && $request->start_date && $request->end_date) {
-            $monthly_trends_query->whereBetween('created_at', [$request->start_date, $request->end_date]);
-        } else {
-            // For other periods, show current year trends
-            $monthly_trends_query->whereYear('created_at', now()->year);
+        // Trend buckets follow the selected dashboard filter.
+        $trend_select = "MONTH(created_at) as trend_order, DATE_FORMAT(created_at, '%b') as trend_label";
+        $trend_group = "MONTH(created_at), DATE_FORMAT(created_at, '%b')";
+        $trend_order = 'trend_order';
+
+        switch ($request->period) {
+            case 'today':
+                $trend_select = "HOUR(created_at) as trend_order, DATE_FORMAT(created_at, '%l %p') as trend_label";
+                $trend_group = "HOUR(created_at), DATE_FORMAT(created_at, '%l %p')";
+                break;
+            case 'weekly':
+            case 'this_week':
+                $trend_select = "DATE(created_at) as trend_order, DATE_FORMAT(created_at, '%a %b %e') as trend_label";
+                $trend_group = "DATE(created_at), DATE_FORMAT(created_at, '%a %b %e')";
+                break;
+            case 'monthly':
+            case 'this_month':
+                $trend_select = "DAY(created_at) as trend_order, DATE_FORMAT(created_at, '%b %e') as trend_label";
+                $trend_group = "DAY(created_at), DATE_FORMAT(created_at, '%b %e')";
+                break;
+            case 'quarterly':
+            case 'yearly':
+                $trend_select = "MONTH(created_at) as trend_order, DATE_FORMAT(created_at, '%b') as trend_label";
+                $trend_group = "MONTH(created_at), DATE_FORMAT(created_at, '%b')";
+                break;
+            case 'custom':
+                if ($request->start_date && $request->end_date) {
+                    $start_date = Carbon::parse($request->start_date);
+                    $end_date = Carbon::parse($request->end_date);
+
+                    if ($start_date->diffInDays($end_date) <= 31) {
+                        $trend_select = "DATE(created_at) as trend_order, DATE_FORMAT(created_at, '%b %e') as trend_label";
+                        $trend_group = "DATE(created_at), DATE_FORMAT(created_at, '%b %e')";
+                    } else {
+                        $trend_select = "YEAR(created_at) * 100 + MONTH(created_at) as trend_order, DATE_FORMAT(created_at, '%b %Y') as trend_label";
+                        $trend_group = "YEAR(created_at), MONTH(created_at), DATE_FORMAT(created_at, '%b %Y')";
+                    }
+                }
+                break;
+            case 'all':
+                $trend_select = 'YEAR(created_at) as trend_order, YEAR(created_at) as trend_label';
+                $trend_group = 'YEAR(created_at)';
+                break;
         }
 
-        $monthly_trends = $monthly_trends_query->get()
+        $monthly_trends = (clone $query)
+            ->selectRaw($trend_select)
+            ->selectRaw('COUNT(*) as count')
+            ->groupByRaw($trend_group)
+            ->orderByRaw($trend_order)
+            ->get()
             ->map(function ($item) {
                 return [
-                    'month' => date('M', mktime(0, 0, 0, $item->month, 1)),
-                    'count' => $item->count
+                    'month' => $item->trend_label,
+                    'label' => $item->trend_label,
+                    'count' => (int) $item->count
                 ];
             });
 
@@ -390,8 +449,32 @@ class ViewClass
         $total_notice_of_awards = ProcurementBacNoa::whereIn('procurement_id', $query->pluck('id'))->count();
         $total_purchase_orders = ProcurementNoaPo::whereIn('procurement_id', $query->pluck('id'))->count();
 
+        $total_assignments = ProcurementAssignment::count();
+        $total_pap_codes = ProcurementCode::count();
+        $total_remaining_pap_budget = (float) ProcurementCode::sum('remaining_budget');
+        $total_allocated_pap_budget = (float) ProcurementCode::sum('allocated_budget');
+        $total_responsibility_centers = ResponsibilityCenter::count();
+        $total_modes_of_procurement = ListDropdown::query()
+            ->whereIn('classification', ['mode_of_procurement', 'modes_of_procurement', 'Mode of Procurement'])
+            ->count();
+        $active_modes_of_procurement = ListDropdown::query()
+            ->whereIn('classification', ['mode_of_procurement', 'modes_of_procurement', 'Mode of Procurement'])
+            ->where('is_active', 1)
+            ->count();
+        $total_suppliers = Supplier::count();
+        $active_suppliers = Supplier::query()
+            ->where('approval_status', 'Approved')
+            ->where('is_active', 1)
+            ->count();
+        $pending_supplier_approvals = Supplier::query()
+            ->where('approval_status', 'Pending Approval')
+            ->count();
+
         return response()->json([
             'total_procurements' => $total_procurements,
+            'total_approved_budget_amount' => $total_approved_budget_amount,
+            'total_completed_awarded_amount' => $total_completed_awarded_amount,
+            'total_excess_funds' => $total_excess_funds,
             'division_distribution' => $division_distribution,
             'monthly_trends' => $monthly_trends,
             'recent_procurements' => $recent_procurements,
@@ -402,6 +485,16 @@ class ViewClass
             'total_bac_resolutions' => $total_bac_resolutions,
             'total_notice_of_awards' => $total_notice_of_awards,
             'total_purchase_orders' => $total_purchase_orders,
+            'total_assignments' => $total_assignments,
+            'total_pap_codes' => $total_pap_codes,
+            'total_remaining_pap_budget' => $total_remaining_pap_budget,
+            'total_allocated_pap_budget' => $total_allocated_pap_budget,
+            'total_responsibility_centers' => $total_responsibility_centers,
+            'total_modes_of_procurement' => $total_modes_of_procurement,
+            'active_modes_of_procurement' => $active_modes_of_procurement,
+            'total_suppliers' => $total_suppliers,
+            'active_suppliers' => $active_suppliers,
+            'pending_supplier_approvals' => $pending_supplier_approvals,
         ]);
     }
 

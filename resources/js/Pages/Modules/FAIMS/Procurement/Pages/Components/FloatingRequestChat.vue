@@ -3,7 +3,7 @@
     <BCard
       v-if="open"
       no-body
-      class="shadow-lg border-0 overflow-hidden mb-3 ms-auto floating-chat-panel"
+      class="shadow-lg border-0 overflow-hidden ms-auto floating-chat-panel"
       :style="panelStyle"
     >
       <BCardHeader class="border-0 text-white p-3 floating-chat-header">
@@ -33,10 +33,10 @@
 
       <BCardBody class="p-0 overflow-hidden d-flex flex-column floating-chat-body" :style="bodyStyle">
         <div
-          class="p-3 border-bottom floating-chat-sidebar"
+          class="py-3 px-0 border-bottom floating-chat-sidebar"
           :class="{ 'pb-2': isRequestPickerCollapsed && selectedRequest }"
         >
-          <div class="d-flex align-items-center justify-content-between gap-2 mb-3 floating-chat-sidebar-header">
+          <div class="d-flex align-items-center justify-content-between gap-2 mb-3 px-3 floating-chat-sidebar-header">
             <label class="form-label mb-0 fw-semibold floating-chat-sidebar-title">Select Request</label>
             <div class="d-flex align-items-center gap-2 flex-shrink-0">
               <BButton
@@ -63,7 +63,8 @@
             v-show="!isRequestPickerCollapsed || !selectedRequest"
             class="border rounded-4 floating-chat-surface overflow-hidden floating-chat-request-shell"
           >
-            <div class="p-3 border-bottom floating-chat-searchbar">
+            <div class="py-3 px-0 border-bottom floating-chat-searchbar">
+              <div class="px-3">
               <div class="d-flex align-items-center gap-2">
                 <BInputGroup size="sm" class="flex-grow-1 floating-chat-input-group">
                   <BInputGroupText class="floating-chat-search-icon">
@@ -111,6 +112,7 @@
                     Most Comments
                   </button>
                 </div>
+              </div>
               </div>
             </div>
 
@@ -230,7 +232,7 @@
 
         <div
           v-else-if="selectedRequest"
-          class="pt-3 px-3 pb-0 d-flex flex-column flex-grow-1 overflow-hidden floating-chat-conversation"
+          class="pt-3 px-0 pb-0 d-flex flex-column flex-grow-1 overflow-hidden floating-chat-conversation"
         >
           <BCard no-body class="shadow-none border mb-3 floating-chat-conversation-header">
             <BCardBody :class="isConversationHeaderCollapsed ? 'p-2' : 'p-3'">
@@ -288,7 +290,7 @@
           <div
             v-if="sortedComments.length"
             ref="thread_container"
-            class="d-grid gap-3 flex-grow-1 overflow-auto floating-chat-thread pe-1"
+            class="d-grid gap-3 flex-grow-1 overflow-auto floating-chat-thread px-3"
           >
               <div
                 class="floating-chat-thread-inner d-grid gap-3"
@@ -296,14 +298,14 @@
                 <div
                   v-for="comment in sortedComments"
                   :key="comment.id"
-                  class="d-flex align-items-end gap-2"
+                  class="d-flex align-items-start gap-2"
                   :class="is_own_comment(comment) ? 'justify-content-end' : 'justify-content-start'"
                 >
                   <img
                     v-if="!is_own_comment(comment)"
                     :src="resolveAvatar(comment.user)"
                     :alt="resolveName(comment.user)"
-                    class="rounded-circle border floating-chat-avatar flex-shrink-0 align-self-start"
+                    class="rounded-circle border floating-chat-avatar floating-chat-avatar-beside flex-shrink-0"
                     :style="avatarStyle"
                   />
                   <div
@@ -332,7 +334,7 @@
                     v-if="is_own_comment(comment)"
                     :src="resolveAvatar(comment.user)"
                     :alt="resolveName(comment.user)"
-                    class="rounded-circle border floating-chat-avatar flex-shrink-0 align-self-start"
+                    class="rounded-circle border floating-chat-avatar floating-chat-avatar-beside flex-shrink-0"
                     :style="avatarStyle"
                   />
                 </div>
@@ -342,7 +344,7 @@
           <BCard
             v-else
             no-body
-            class="shadow-none border flex-grow-1 floating-chat-empty-state"
+            class="shadow-none border-0 flex-grow-1 floating-chat-empty-state"
           >
             <BCardBody class="px-4 py-5 text-center text-muted">
               <i class="ri-chat-smile-2-line d-block fs-2 text-primary mb-3"></i>
@@ -353,7 +355,7 @@
 
           <BCard
             no-body
-            class="shadow-none border mt-3 mb-0 flex-shrink-0 floating-chat-composer"
+            class="shadow-none border-0 border-top mt-3 mb-0 flex-shrink-0 floating-chat-composer"
           >
             <BCardBody class="p-3">
               <div class="d-flex align-items-start gap-3">
@@ -437,7 +439,7 @@
           </BCard>
         </div>
 
-        <div v-else class="px-4 py-5 text-center text-muted floating-chat-empty-state m-3">
+        <div v-else class="px-4 py-5 text-center text-muted floating-chat-empty-state m-0">
           <i class="ri-message-3-line d-block fs-2 text-primary mb-3"></i>
           <div class="fw-semibold text-body">Pick a request first</div>
           <div class="small">
@@ -448,10 +450,11 @@
     </BCard>
 
     <BButton
+      v-if="!open"
       variant="primary"
       class="rounded-circle shadow-lg position-relative d-inline-flex align-items-center justify-content-center border-0 p-0"
       :style="triggerStyle"
-      :title="open ? 'Close request comment' : 'Open request comment'"
+      title="Open request comment"
       @click="$emit('toggle')"
     >
       <i class="ri-chat-1-line fs-4"></i>
@@ -641,19 +644,23 @@ export default {
     },
     panelStyle() {
       return {
-        width: "720px",
-        maxWidth: "calc(100vw - 1rem)",
+        width: "clamp(420px, 58vw, 860px)",
+        maxWidth: "calc(100vw - 48px)",
+        maxHeight: "calc(100dvh - 48px)",
       };
     },
     bodyStyle() {
       return {
-        height: "min(88vh, 980px)",
-        maxHeight: "min(88vh, 980px)",
+        height: "calc(100dvh - 126px)",
+        minHeight: "min(420px, calc(100dvh - 126px))",
+        maxHeight: "calc(100dvh - 126px)",
       };
     },
     requestListStyle() {
       return {
-        maxHeight: this.selectedRequest ? "220px" : "320px",
+        maxHeight: this.selectedRequest
+          ? "clamp(160px, 24dvh, 260px)"
+          : "clamp(220px, 42dvh, 420px)",
       };
     },
     triggerStyle() {
@@ -1273,6 +1280,11 @@ export default {
   background-color: var(--vz-secondary-bg);
 }
 
+.floating-chat-avatar-beside {
+  align-self: flex-start;
+  margin-top: 0.1rem;
+}
+
 .floating-chat-request-avatar {
   width: 2.75rem;
   height: 2.75rem;
@@ -1505,6 +1517,53 @@ export default {
 [data-bs-theme="dark"] .floating-chat-request-shell,
 [data-bs-theme="dark"] .floating-chat-empty-state {
   backdrop-filter: none;
+}
+
+[data-bs-theme="dark"] .floating-chat-panel {
+  background: #1b2230;
+}
+
+[data-bs-theme="dark"] .floating-chat-body {
+  background: #151b27;
+}
+
+[data-bs-theme="dark"] .floating-chat-sidebar,
+[data-bs-theme="dark"] .floating-chat-searchbar,
+[data-bs-theme="dark"] .floating-chat-request-heading {
+  background: #1b2230;
+}
+
+[data-bs-theme="dark"] .floating-chat-sidebar-header,
+[data-bs-theme="dark"] .floating-chat-surface,
+[data-bs-theme="dark"] .floating-chat-request-shell,
+[data-bs-theme="dark"] .floating-chat-conversation-header,
+[data-bs-theme="dark"] .floating-chat-composer,
+[data-bs-theme="dark"] .floating-chat-composer :deep(.card-body),
+[data-bs-theme="dark"] .floating-chat-empty-state {
+  background: #202938;
+  color: #d7dee9;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+[data-bs-theme="dark"] .floating-chat-input-group :deep(.input-group-text),
+[data-bs-theme="dark"] .floating-chat-input-group :deep(.form-control),
+[data-bs-theme="dark"] .floating-chat-textarea :deep(textarea),
+[data-bs-theme="dark"] .mention-picker {
+  background: #151b27;
+  color: #d7dee9;
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+[data-bs-theme="dark"] .floating-chat-bubble-other {
+  background: #202938;
+  color: #d7dee9;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .floating-chat-request-item:hover,
+[data-bs-theme="dark"] .mention-picker-item:hover,
+[data-bs-theme="dark"] .mention-picker-item.active {
+  background: #263244;
 }
 
 [data-bs-theme="dark"] .floating-chat-bubble {

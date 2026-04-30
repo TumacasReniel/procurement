@@ -36,7 +36,7 @@
 
             <tbody v-if="checked_items">
               <tr v-for="(bidItem, indexData) in bidsForAward" :key="indexData">
-                <td>{{ bidItem.rank }}</td>
+                <td class="text-center">{{ bidItem.rank }}</td>
                 <td class="text-center">{{ bidItem?.item_no }}</td>
                 <td>
                   {{ bidItem?.item_quantity }}
@@ -46,25 +46,43 @@
                       : bidItem.item_unit_type?.name_short
                   }}
                 </td>
-                <td>{{ formatCurrency(bidItem.total_cost) }}</td>
-                <td>
+                <td class="text-center">{{ formatCurrency(bidItem.total_cost) }}</td>
+                <td class="text-center">
                   {{ bidItem.is_free ? "free" : formatCurrency(bidItem.bid_price * bidItem.item_quantity) }}
                 </td>
-                <td><span v-html="bidItem.item_description"></span></td>
-                <td><span v-html="bidItem.technical_proposal"></span></td>
-                <td>{{ bidItem.supplier?.name || "-" }}</td>
+                <td class="text-center">
+                  <b-button
+                    type="button"
+                    size="sm"
+                    variant="outline-secondary"
+                    @click="openDetailModal('Bid Description', bidItem.item_description)"
+                  >
+                    View
+                  </b-button>
+                </td>
+                <td class="text-center">
+                  <b-button
+                    type="button"
+                    size="sm"
+                    variant="outline-secondary"
+                    @click="openDetailModal('Technical Proposal / Offer', bidItem.technical_proposal)"
+                  >
+                    View
+                  </b-button>
+                </td>
+                <td class="text-center">{{ bidItem.supplier?.name || "-" }}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <b-row class="award-checklist">
-          <b-col lg="8" class="mt-3">
+          <b-col lg="8" >
             <b-form-checkbox v-model="checkedBidsDescriptions">
-              <span class="fw-semibold">Each bid offer is correct.</span>
+              <span class="fw-semibold fs-6 text-info">Each bid offer is correct.</span>
             </b-form-checkbox>
             <b-form-checkbox v-model="checkedBidsPrice">
-              <span class="fw-semibold">Each bid price is correct.</span>
+              <span class="fw-semibold fs-6 text-info">Each bid price is correct.</span>
             </b-form-checkbox>
           </b-col>
         </b-row>
@@ -104,10 +122,10 @@
               item-key="id"
               @change="updateRanks(groupIndex)"
             >
-              <template #item="{ element }">
-                <tr v-if="element.is_free || Number(element.bid_price) > 0">
+              <template #item="{ element }" >
+                <tr >
                   <td class="text-center">{{ element.rank }}</td>
-                  <td>
+                  <td class="text-center">
                     <span class="m-2">{{ element.item_quantity }}</span>
                     <span>
                       {{
@@ -117,13 +135,31 @@
                       }}
                     </span>
                   </td>
-                  <td>{{ formatCurrency(element.total_cost) }}</td>
-                  <td>
+                  <td class="text-center">{{ formatCurrency(element.total_cost) }}</td>
+                  <td class="text-center">
                     {{ element.is_free ? "free" : formatCurrency(element.bid_price * element.item_quantity) }}
                   </td>
-                  <td><span v-html="element.item_description"></span></td>
-                  <td><span v-html="element.technical_proposal"></span></td>
-                  <td>{{ element.supplier.name }}</td>
+                  <td class="text-center">
+                    <b-button
+                      type="button"
+                      size="sm"
+                      variant="outline-secondary"
+                      @click="openDetailModal('Bid Description', element.item_description)"
+                    >
+                      View
+                    </b-button>
+                  </td>
+                  <td class="text-center">
+                    <b-button
+                      type="button"
+                      size="sm"
+                      variant="outline-secondary"
+                      @click="openDetailModal('Technical Proposal / Offer', element.technical_proposal)"
+                    >
+                      View
+                    </b-button>
+                  </td>
+                  <td class="text-center">{{ element.supplier.name }}</td>
                 </tr>
               </template>
             </draggable>
@@ -132,7 +168,7 @@
 
         <div>
           <b-form-checkbox v-if="unawardedWithBidPriceCount > 0" v-model="checkedBidsRank">
-            <span class="fw-semibold">The bid items are correctly ranked from first to last.</span>
+            <span class="fw-semibold fs-6 text-info">The bid items are correctly ranked from first to last.</span>
           </b-form-checkbox>
         </div>
       </div>
@@ -144,6 +180,17 @@
         Save Bids For Award
       </b-button>
     </template>
+  </b-modal>
+
+  <b-modal
+    v-model="showDetailModal"
+    :title="detailModalTitle"
+    header-class="p-3 bg-light"
+    body-class="award-detail-modal-body"
+    centered
+    hide-footer
+  >
+    <div class="award-detail-content" v-html="detailModalContent"></div>
   </b-modal>
 </template>
 
@@ -167,6 +214,9 @@ export default {
       bidsForAward: [],
       bidsNotForAward: [],
       groupedUnawardedBids: [],
+      showDetailModal: false,
+      detailModalTitle: "",
+      detailModalContent: "",
     };
   },
 
@@ -204,6 +254,12 @@ export default {
       this.showModal = false;
     },
 
+    openDetailModal(title, content) {
+      this.detailModalTitle = title;
+      this.detailModalContent = content || "<p>No details available.</p>";
+      this.showDetailModal = true;
+    },
+
     sortData() {
       this.bidsForAward = [];
       this.bidsNotForAward = [];
@@ -224,6 +280,7 @@ export default {
             total_cost: item.item.item_quantity * item.item.item_unit_cost,
             bid_price: item.bid_price,
             is_free: item.is_free,
+            item_unit_cost: item.item.item_unit_cost,
             total_bid_price: item.bid_price * item.item.item_quantity,
             technical_proposal: item.technical_proposal,
             delivery_term: quotation.delivery_term,
@@ -245,40 +302,63 @@ export default {
 
       this.groupedUnawardedBids = Object.entries(grouped)
         .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
-        .map(([item_no, quotations]) => ({
-          item_no,
-          quotations: quotations
-            .sort(
-              (a, b) =>
-                (a.is_free ? 0 : parseFloat(a.bid_price)) * a.item_quantity
-                - (b.is_free ? 0 : parseFloat(b.bid_price)) * b.item_quantity
-            )
+        .map(([item_no, quotations]) => {
+          const rankableQuotations = quotations
+            .filter((quotation) => this.isRankableBid(quotation))
+            .sort((a, b) => this.getRankAmount(a) - this.getRankAmount(b))
             .map((quotation, index) => ({
               ...quotation,
               rank: index + 2,
-            })),
-        }));
+            }));
+
+          return {
+            item_no,
+            quotations: rankableQuotations,
+          };
+        })
+        .filter((group) => group.quotations.length > 0);
 
       this.bidsNotForAward = Object.entries(grouped)
         .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
-        .flatMap(([item_no, quotations]) =>
-          quotations
-            .sort(
-              (a, b) =>
-                (a.is_free ? 0 : parseFloat(a.bid_price)) * a.item_quantity
-                - (b.is_free ? 0 : parseFloat(b.bid_price)) * b.item_quantity
-            )
-            .map((quotation, index) => ({
+        .flatMap(([item_no, quotations]) => {
+          let rank = 1;
+
+          return quotations
+            .sort((a, b) => this.getRankAmount(a) - this.getRankAmount(b))
+            .map((quotation) => ({
               ...quotation,
-              rank: index + 1,
-            }))
-        );
+              rank: this.isRankableBid(quotation) ? rank++ : null,
+            }));
+        });
     },
 
     updateRanks(groupIndex) {
       this.groupedUnawardedBids[groupIndex].quotations.forEach((quotation, index) => {
-        quotation.rank = index + 1;
+        quotation.rank = index + 2;
       });
+    },
+
+    isBidPriceOverUnitCost(item) {
+      if (item?.is_free || item?.is_no_offer || item?.is_not_applicable) {
+        return false;
+      }
+
+      const bidPrice = Number(item?.bid_price) || 0;
+      const unitCost = Number(item?.item_unit_cost) || 0;
+
+      return bidPrice > 0 && unitCost > 0 && bidPrice > unitCost;
+    },
+
+    isRankableBid(item) {
+      return (Boolean(item?.is_free) || Number(item?.bid_price) > 0) && !this.isBidPriceOverUnitCost(item);
+    },
+
+    getRankAmount(item) {
+      if (item?.is_free) {
+        return 0;
+      }
+
+      return (Number(item?.bid_price) || Number.MAX_SAFE_INTEGER) * (Number(item?.item_quantity) || 1);
     },
 
     submit() {
@@ -334,5 +414,14 @@ export default {
 .award-modal-body {
   max-height: calc(100vh - 11rem);
   overflow-y: auto;
+}
+
+.award-detail-modal-body {
+  max-height: calc(100vh - 12rem);
+  overflow-y: auto;
+}
+
+.award-detail-content {
+  overflow-wrap: anywhere;
 }
 </style>

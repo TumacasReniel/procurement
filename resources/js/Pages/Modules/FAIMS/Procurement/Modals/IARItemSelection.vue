@@ -13,19 +13,19 @@
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
       </div>
-      <div class="mt-3 text-muted">Loading delivered items for IAR...</div>
+      <div class="mt-3 text-muted">{{ dialogOptions.loadingMessage }}</div>
     </div>
 
     <div v-else>
       <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
         <div>
           <div class="text-muted fs-12">Purchase Order</div>
-          <div class="fw-semibold">{{ selection.po_code || "-" }}</div>
+          <div class="fw-semibold">{{ displayPoCode }}</div>
         </div>
 
         <div>
-          <div class="text-muted fs-12">IAR No.</div>
-          <div class="fw-semibold text-primary">{{ selection.iar_code || "To be generated" }}</div>
+          <div class="text-muted fs-12">{{ dialogOptions.referenceLabel }}</div>
+          <div class="fw-semibold text-primary">{{ referenceDisplay }}</div>
         </div>
 
         <div class="text-md-end">
@@ -40,28 +40,6 @@
         {{ dialogOptions.infoMessage }}
       </div>
 
-      <div class="row g-3 mb-3">
-        <div class="col-md-6">
-          <label class="form-label fw-semibold fs-12 mb-1">Invoice No.</label>
-          <input
-            v-model="form.invoice_no"
-            type="text"
-            class="form-control"
-            placeholder="Enter invoice number"
-          />
-          <InputError :message="form.errors.invoice_no" class="mt-1" />
-        </div>
-        <div class="col-md-6">
-          <label class="form-label fw-semibold fs-12 mb-1">Invoice Date</label>
-          <input
-            v-model="form.invoice_date"
-            type="date"
-            class="form-control"
-          />
-          <InputError :message="form.errors.invoice_date" class="mt-1" />
-        </div>
-      </div>
-
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div class="form-check mb-0">
           <input
@@ -72,7 +50,7 @@
             @change="toggleAll($event.target.checked)"
           />
           <label class="form-check-label" for="iar-select-all-items">
-            Select all available items
+            {{ dialogOptions.selectAllLabel }}
           </label>
         </div>
 
@@ -81,7 +59,7 @@
         </div>
       </div>
 
-      <InputError :message="form.errors.delivered_items || form.errors.selected_item_ids" class="mb-2" />
+      <InputError :message="form.errors.delivered_items" class="mb-2" />
 
       <div class="table-responsive border rounded">
         <table class="table align-middle mb-0 iar-selection-table">
@@ -112,8 +90,11 @@
               <td>{{ item.item_no || "-" }}</td>
               <td>
                 <div v-html="item.description || '-'" />
-                <small v-if="item.already_delivered_quantity > 0" class="text-muted d-block mt-1">
-                  Previously delivered: {{ formatQuantity(item.already_delivered_quantity) }}
+                <small v-if="item.received_quantity > 0" class="text-muted d-block mt-1">
+                  Received: {{ formatQuantity(item.received_quantity) }}
+                </small>
+                <small v-if="item.already_delivered_quantity > 0" class="text-muted d-block">
+                  Already in IAR: {{ formatQuantity(item.already_delivered_quantity) }}
                 </small>
               </td>
               <td class="text-center">{{ formatQuantity(item.available_quantity) }}</td>
@@ -146,7 +127,7 @@
 
             <tr v-if="form.delivered_items.length === 0">
               <td colspan="8" class="text-center py-4 text-muted">
-                All items for this Purchase Order are already fully delivered.
+                {{ emptyItemsMessage }}
               </td>
             </tr>
           </tbody>
@@ -166,10 +147,10 @@
       <b-button
         @click="submit()"
         variant="primary"
-        :disabled="loading || form.processing || !selectedCount || hasInvalidSelectedQuantities"
+        :disabled="loading || isSubmitting || !selectedCount || hasInvalidSelectedQuantities"
         block
       >
-        {{ form.processing ? processingLabel : dialogOptions.submitLabel }}
+        {{ isSubmitting ? processingLabel : dialogOptions.submitLabel }}
       </b-button>
     </template>
   </b-modal>
@@ -184,20 +165,8 @@ const emptySelection = () => ({
   po_code: null,
   iar_id: null,
   iar_code: null,
-  invoice_no: null,
-  invoice_date: null,
-  saved_item_ids: [],
-  selected_item_ids: [],
-  delivered_items: [],
   items: [],
 });
-
-const defaultInvoiceDate = () => {
-  const now = new Date();
-  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-
-  return localDate.toISOString().slice(0, 10);
-};
 
 const defaultDialogOptions = () => ({
   title: "Select Delivered Items",
@@ -206,6 +175,21 @@ const defaultDialogOptions = () => ({
   printAfterSave: true,
   iarId: null,
   onSuccess: null,
+  referenceLabel: "IAR No.",
+  referenceValue: null,
+  referenceFallback: "To be generated",
+  selectionUrl: "/faims/purchase-orders",
+  saveUrl: null,
+  selectionOption: "iar_selection",
+  saveOption: "update_iar_selection",
+  selectionParams: {},
+  savePayload: {},
+  submitUsingAxios: false,
+  keepOpenAfterSave: false,
+  errorContext: "IAR",
+  loadingMessage: "Loading delivered items for IAR...",
+  emptyItemsMessage: "All items for this Purchase Order are already fully delivered.",
+  selectAllLabel: "Select all available items",
 });
 
 export default {
@@ -214,12 +198,11 @@ export default {
     return {
       showModal: false,
       loading: false,
+      submitting: false,
       selection: emptySelection(),
       dialogOptions: defaultDialogOptions(),
       form: useForm({
         id: null,
-        invoice_no: "",
-        invoice_date: defaultInvoiceDate(),
         delivered_items: [],
         option: "update_iar_selection",
       }),
@@ -268,45 +251,68 @@ export default {
     processingLabel() {
       return this.dialogOptions.printAfterSave ? "Generating..." : "Saving...";
     },
+    isSubmitting() {
+      return this.form.processing || this.submitting;
+    },
+    emptyItemsMessage() {
+      return this.form.errors.delivered_items || this.dialogOptions.emptyItemsMessage;
+    },
+    displayPoCode() {
+      return this.selection.po_code || this.dialogOptions.poCodeFallback || "-";
+    },
+    referenceDisplay() {
+      return this.dialogOptions.referenceValue
+        || this.selection.iar_code
+        || this.selection.receiving_code
+        || this.dialogOptions.referenceFallback;
+    },
   },
   methods: {
     show(data, options = {}) {
       this.form.reset();
       this.form.clearErrors();
-      this.form.invoice_no = "";
-      this.form.invoice_date = defaultInvoiceDate();
-      this.selection = emptySelection();
+      this.selection = {
+        ...emptySelection(),
+        po_id: data.id || null,
+        po_code: data.code || null,
+        items: this.fallbackSelectionItems(data),
+      };
       this.dialogOptions = {
         ...defaultDialogOptions(),
         ...options,
+        poCodeFallback: data.code || data.po_code || null,
       };
       this.form.id = data.id;
       this.showModal = true;
       this.loading = true;
 
       axios
-        .get("/faims/purchase-orders", {
+        .get(this.dialogOptions.selectionUrl, {
           params: {
-            option: "iar_selection",
+            option: this.dialogOptions.selectionOption,
             po_id: data.id,
             iar_id: this.dialogOptions.iarId || null,
+            ...this.dialogOptions.selectionParams,
           },
         })
         .then((response) => {
           const payload = response?.data || emptySelection();
+          const payloadItems = this.normalizeSelectionItems(payload.items);
+          const fallbackItems = this.normalizeSelectionItems(this.selection.items);
+          const resolvedItems = payloadItems.length ? payloadItems : fallbackItems;
 
           this.selection = {
             ...emptySelection(),
             ...payload,
-            items: Array.isArray(payload.items) ? payload.items : [],
+            po_id: payload.po_id || data.id || null,
+            po_code: payload.po_code || data.code || data.po_code || null,
+            items: resolvedItems,
           };
-          this.form.invoice_no = this.selection.invoice_no || "";
-          this.form.invoice_date = this.selection.invoice_date || defaultInvoiceDate();
           this.form.delivered_items = this.selection.items.map((item) => ({
             item_id: Number(item.id),
             item_no: item.item_no,
             description: item.description,
-            ordered_quantity: Number(item.ordered_quantity ?? item.quantity ?? 0),
+            received_quantity: Number(item.received_quantity ?? 0),
             already_delivered_quantity: Number(item.already_delivered_quantity ?? 0),
             available_quantity: Number(item.available_quantity ?? item.ordered_quantity ?? item.quantity ?? 0),
             delivered_quantity: Number(item.delivered_quantity ?? 0),
@@ -317,11 +323,48 @@ export default {
         })
         .catch((error) => {
           console.error(error);
-          this.form.setError("delivered_items", "Unable to load delivered items for this IAR.");
+          this.form.setError(
+            "delivered_items",
+            `Unable to load delivered items for this ${this.dialogOptions.errorContext}.`
+          );
         })
         .finally(() => {
           this.loading = false;
         });
+    },
+    fallbackSelectionItems(data) {
+      const monitoringItems = Array.isArray(data?.delivery_monitoring_items)
+        ? data.delivery_monitoring_items
+        : [];
+
+      return monitoringItems
+        .filter((item) => Number(item?.remaining_quantity ?? item?.available_quantity ?? 0) > 0)
+        .map((item) => {
+          const availableQuantity = Number(item.remaining_quantity ?? item.available_quantity ?? 0);
+
+          return {
+            id: item.id,
+            item_no: item.item_no,
+            description: item.description || item.item_name,
+            already_delivered_quantity: Number(item.delivered_quantity ?? item.already_delivered_quantity ?? 0),
+            available_quantity: availableQuantity,
+            delivered_quantity: availableQuantity,
+            is_selected: true,
+            unit: item.unit,
+            unit_cost: Number(item.unit_cost ?? 0),
+          };
+        });
+    },
+    normalizeSelectionItems(items) {
+      if (Array.isArray(items)) {
+        return items;
+      }
+
+      if (items && typeof items === "object") {
+        return Object.values(items);
+      }
+
+      return [];
     },
     hide() {
       this.showModal = false;
@@ -329,8 +372,6 @@ export default {
       this.selection = emptySelection();
       this.dialogOptions = defaultDialogOptions();
       this.form.reset();
-      this.form.invoice_no = "";
-      this.form.invoice_date = defaultInvoiceDate();
       this.form.clearErrors();
     },
     toggleItem(itemId, checked) {
@@ -405,12 +446,12 @@ export default {
       return Boolean(this.quantityErrorMessage(item, index));
     },
     submit() {
-      const deliveredItems = this.normalizedDeliveredItems.map((item) => ({
+      const delivered_items = this.normalizedDeliveredItems.map((item) => ({
         item_id: item.item_id,
         delivered_quantity: item.delivered_quantity,
       }));
 
-      if (!deliveredItems.length) {
+      if (!delivered_items.length) {
         this.form.setError("delivered_items", "Please select at least one delivered item.");
         return;
       }
@@ -423,98 +464,147 @@ export default {
         return;
       }
 
-      const printWindow = this.dialogOptions.printAfterSave ? window.open("", "_blank") : null;
-
       this.form.clearErrors();
-      this.form.processing = true;
 
-      axios
-        .put(
-          `/faims/purchase-orders/${this.form.id}`,
-          {
-            iar_id: this.selection.iar_id || this.dialogOptions.iarId || null,
-            invoice_no: this.form.invoice_no || null,
-            invoice_date: this.form.invoice_date || null,
-            delivered_items: deliveredItems,
-            option: "update_iar_selection",
-          },
-          {
+      let print_window = null;
+
+      if (this.dialogOptions.printAfterSave) {
+        print_window = window.open("", "_blank");
+      }
+
+      const payload = {
+        ...this.form.data(),
+        iar_id: this.selection.iar_id || this.dialogOptions.iarId || null,
+        delivered_items,
+        option: this.dialogOptions.saveOption,
+        ...this.dialogOptions.savePayload,
+      };
+
+      if (this.dialogOptions.submitUsingAxios) {
+        this.submitting = true;
+
+        axios
+          .put(this.dialogOptions.saveUrl || `/faims/purchase-orders/${this.form.id}`, payload, {
             headers: {
               Accept: "application/json",
-              "X-Requested-With": "XMLHttpRequest",
             },
-          }
-        )
-        .then((response) => {
-          const status = response?.data?.status;
-          const onSuccess = this.dialogOptions.onSuccess;
+          })
+          .then((response) => {
+            const result = response?.data || {};
+            const status = result.status;
 
-          if (status !== true && status !== "success") {
-            if (printWindow && !printWindow.closed) {
-              printWindow.close();
+            if (status !== true && status !== "success") {
+              this.form.setError(
+                "delivered_items",
+                result.info || result.message || "Unable to save the delivered item selection."
+              );
+
+              if (result.errors && typeof result.errors === "object") {
+                Object.entries(result.errors).forEach(([field, message]) => {
+                  this.form.setError(field, Array.isArray(message) ? message[0] : message);
+                });
+              }
+
+              return;
             }
 
-            if (response?.data?.errors) {
-              this.form.setError(response.data.errors);
+            const response_data = result.data || null;
+            const on_success = this.dialogOptions.onSuccess;
+
+            this.$emit("updated", response_data);
+
+            if (!this.dialogOptions.keepOpenAfterSave) {
+              this.hide();
             }
 
-            this.form.setError(
-              "delivered_items",
-              response?.data?.info || "Unable to save the delivered item selection."
-            );
-            return;
-          }
+            if (typeof on_success === "function") {
+              on_success(response_data);
+            }
+          })
+          .catch((error) => {
+            const errors = error?.response?.data?.errors || {};
 
-          const responseData = response?.data?.data || null;
-          const iarId = responseData?.iar_id || null;
-          const printParams = new URLSearchParams({
-            option: "print",
-            type: "iar",
+            if (Object.keys(errors).length) {
+              Object.entries(errors).forEach(([field, message]) => {
+                this.form.setError(field, Array.isArray(message) ? message[0] : message);
+              });
+            } else {
+              this.form.setError(
+                "delivered_items",
+                `Unable to save the ${this.dialogOptions.errorContext} record.`
+              );
+            }
+          })
+          .finally(() => {
+            this.submitting = false;
           });
 
-          if (iarId) {
-            printParams.set("iar_id", iarId);
-          }
+        return;
+      }
 
-          const printUrl = `/faims/purchase-orders/${this.form.id}?${printParams.toString()}`;
+      this.form
+        .transform(() => payload)
+        .put(this.dialogOptions.saveUrl || `/faims/purchase-orders/${this.form.id}`, {
+          preserveScroll: true,
+          onSuccess: (page) => {
+            const flash = page?.props?.flash || {};
+            const status = flash.status;
+            const on_success = this.dialogOptions.onSuccess;
 
-          if (printWindow && !printWindow.closed) {
-            printWindow.location.href = printUrl;
-          } else if (this.dialogOptions.printAfterSave) {
-            window.open(printUrl, "_blank");
-          }
+            if (status !== true && status !== "success") {
+              if (print_window && !print_window.closed) {
+                print_window.close();
+              }
 
-          this.$emit("updated", responseData);
-          this.hide();
+              this.form.setError(
+                "delivered_items",
+                flash.info || flash.message || "Unable to save the delivered item selection."
+              );
+              return;
+            }
 
-          if (typeof onSuccess === "function") {
-            setTimeout(() => {
-              onSuccess(responseData);
-            }, 150);
-          }
-        })
-        .catch((error) => {
-          if (printWindow && !printWindow.closed) {
-            printWindow.close();
-          }
-
-          if (error.response?.status === 422 && error.response?.data?.errors) {
-            Object.entries(error.response.data.errors).forEach(([field, messages]) => {
-              this.form.setError(field, Array.isArray(messages) ? messages[0] : messages);
+            const response_data = flash.data || null;
+            const iar_id = response_data?.iar_id || null;
+            const print_params = new URLSearchParams({
+              option: "print",
+              type: "iar",
             });
-            return;
-          }
 
-          console.error(error);
-          this.form.setError(
-            "delivered_items",
-            this.dialogOptions.iarId
-              ? "Unable to update the IAR report."
-              : "Unable to generate the IAR report."
-          );
-        })
-        .finally(() => {
-          this.form.processing = false;
+            if (iar_id) {
+              print_params.set("iar_id", iar_id);
+            }
+
+            const print_url = `/faims/purchase-orders/${this.form.id}?${print_params.toString()}`;
+
+            if (print_window && !print_window.closed) {
+              print_window.location.href = print_url;
+            } else if (this.dialogOptions.printAfterSave) {
+              window.open(print_url, "_blank");
+            }
+
+            this.$emit("updated", response_data);
+            this.hide();
+
+            if (typeof on_success === "function") {
+              setTimeout(() => {
+                on_success(response_data);
+              }, 150);
+            }
+          },
+          onError: (errors) => {
+            if (print_window && !print_window.closed) {
+              print_window.close();
+            }
+
+            if (!errors?.delivered_items) {
+              this.form.setError(
+                "delivered_items",
+                this.dialogOptions.iarId
+                  ? `Unable to update the ${this.dialogOptions.errorContext} record.`
+                  : `Unable to save the ${this.dialogOptions.errorContext} record.`
+              );
+            }
+          },
         });
     },
     formatQuantity(value) {

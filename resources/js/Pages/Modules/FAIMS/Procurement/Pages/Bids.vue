@@ -256,7 +256,7 @@
                         <input
                           v-model="item.is_checked"
                           type="checkbox"
-                          class="form-check-input aob-award-checkbox"
+                          class="form-check-input aob-award-checkbox bg-primary"
                           :disabled="
                             isOtherSupplierChecked(itemIndex, bid) ||
                             !hasAwardableOffer(item) ||

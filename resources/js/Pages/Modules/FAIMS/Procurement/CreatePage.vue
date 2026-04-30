@@ -66,6 +66,7 @@
                                   label="name"
                                   placeholder="Select Division"
                                   class="modern-select"
+                                  :append-to-body="true"
                                 />
                               </div>
                             </div>
@@ -91,6 +92,7 @@
                                   label="name"
                                   placeholder="Select Unit"
                                   class="modern-select"
+                                  :append-to-body="true"
                                 />
                               </div>
                             </div>
@@ -105,13 +107,14 @@
                                   label="name"
                                   placeholder="Select Fund Cluster"
                                   class="modern-select"
+                                  :append-to-body="true"
                                 />
                               </div>
                             </div>
 
                             <div class="col-12">
                               <div class="form-group compact-form-group">
-                                <InputLabel for="Mode Procurement " value="Mode of Procurement" :message="form.errors.procurement_code_ids" />
+                                <InputLabel for="Mode Procurement " value="Procurement Codes" :message="form.errors.procurement_code_ids" />
                                 <Multiselect
                                   :options="availableProcurementCodes"
                                   v-model="form.procurement_code_ids"
@@ -120,7 +123,14 @@
                                   placeholder="Select PAP Codes"
                                   mode="tags"
                                   class="modern-select"
+                                  :append-to-body="true"
                                 />
+                                <small
+                                  v-if="form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage"
+                                  class="text-danger d-block mt-2 fs-5 fw-bold"
+                                >
+                                  {{ form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage }}
+                                </small>
                               </div>
                             </div>
 
@@ -141,6 +151,7 @@
                                   label="name"
                                   placeholder="Select Classification"
                                   class="modern-select"
+                                  :append-to-body="true"
                                 />
                               </div>
                             </div>
@@ -162,6 +173,7 @@
                                   label="name"
                                   placeholder="Select Reference APP"
                                   class="modern-select"
+                                   :append-to-body="true"
                                 />
                               </div>
                             </div>
@@ -307,14 +319,14 @@
               </div>
 
               <!-- Assignees Section -->
-              <div class="row g-3 mb-3">
-                <div class="col-12">
+              <div class="row g-3 mb-5">
+                <div class="col-12 mb-4">
                   <div class="content-card">
                     <div class="card-header-custom">
                       <i class="ri-user-line card-header-icon"></i>
                       <h5 class="card-header-title">Assignees</h5>
                     </div>
-                    <div class="card-body-custom">
+                    <div class="card-body-custom ">
                       <div class="row g-3 align-items-end">
                         <div class="col-xl-4 col-lg-6">
                           <div class="form-group compact-form-group">
@@ -326,6 +338,7 @@
                               label="name"
                               placeholder="Select Requester"
                               class="modern-select"
+                              :append-to-body="true"
                             />
                           </div>
                         </div>
@@ -339,67 +352,68 @@
                               label="name"
                               placeholder="Select Approver"
                               class="modern-select"
+                              :append-to-body="true"
                             />
                           </div>
                         </div>
 
                          <div class="col-xl-4">
                            <div class="action-buttons-group justify-content-xl-end">
-                      <b-button
-                        v-if="option == 'create'"
-                        :disabled="!canCreateRequest"
-                        @click="submit()"
-                        variant="primary"
-                        size="sm"
-                        class="action-btn primary-btn"
-                      >
-                        <i class="ri-save-line me-2"></i>
-                        Save Request
-                      </b-button>
+                              <b-button
+                                v-if="option == 'create'"
+                                :disabled="!canCreateRequest"
+                                @click="submit()"
+                                variant="primary"
+                                size="sm"
+                                class="action-btn primary-btn"
+                              >
+                                <i class="ri-save-line me-2"></i>
+                                Save Request
+                              </b-button>
 
-                      <b-button
-                        v-if="option == 'edit'"
-                        @click="update(form)"
-                        variant="primary"
-                        size="sm"
-                        class="action-btn primary-btn"
-                      >
-                        <i class="ri-edit-line me-2"></i>
-                        Update Request
-                      </b-button>
+                              <b-button
+                                v-if="option == 'edit'"
+                                @click="update(form)"
+                                variant="primary"
+                                size="sm"
+                                class="action-btn primary-btn"
+                              >
+                                <i class="ri-edit-line me-2"></i>
+                                Update Request
+                              </b-button>
 
-                      <b-button
-                        v-if="option == 'review'"
-                        :disabled="!canReviewRequest"
-                        @click="review(form)"
-                        variant="success"
-                        size="sm"
-                        class="action-btn success-btn"
-                      >
-                        <i class="ri-check-line me-2"></i>
-                        Confirm Review
-                      </b-button>
+                              <b-button
+                                v-if="option == 'review'"
+                                :disabled="!canReviewRequest"
+                                @click="review(form)"
+                                variant="success"
+                                size="sm"
+                                class="action-btn success-btn"
+                              >
+                                <i class="ri-check-line me-2"></i>
+                                Confirm Review
+                              </b-button>
 
-                      <b-button
-                        v-if="option == 'approve'"
-                        @click="approve(form)"
-                        variant="success"
-                        size="sm"
-                        class="action-btn success-btn"
-                      >
-                        <i class="ri-check-double-line me-2"></i>
-                        Approve Request
-                      </b-button>
+                              <b-button
+                                v-if="option == 'approve'"
+                                @click="approve(form)"
+                                variant="success"
+                                size="sm"
+                                class="action-btn success-btn"
+                              >
+                                <i class="ri-check-double-line me-2"></i>
+                                Approve Request
+                              </b-button>
 
-                      <b-button
-                        @click="goBackPage()"
-                        variant="outline-secondary"
-                        size="sm"
-                        class="action-btn back-btn"
-                      >
-                        <i class="ri-arrow-left-line me-2"></i>
-                        Back to List
-                      </b-button>
+                              <b-button
+                                @click="goBackPage()"
+                                variant="outline-secondary"
+                                size="sm"
+                                class="action-btn back-btn"
+                              >
+                                <i class="ri-arrow-left-line me-2"></i>
+                                Back to List
+                              </b-button>
                            </div>
                         </div>
                       </div>
@@ -656,6 +670,21 @@ export default {
     procurementCodeBalanceHelperClass() {
       return this.hasEnoughSelectedProcurementCodeBalance ? "text-muted" : "text-danger";
     },
+    procurementCodeBudgetErrorMessage() {
+      if (this.option !== "create") {
+        return null;
+      }
+
+      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+        return null;
+      }
+
+      if (this.totalCostSum <= 0 || this.hasEnoughSelectedProcurementCodeBalance) {
+        return null;
+      }
+
+      return `The selected PAP codes only have ${this.formatCurrency(this.selectedProcurementCodeBalance)} remaining, which is not enough for the request total of ${this.formatCurrency(this.totalCostSum)}. You cannot create this procurement request until the selected balance is enough.`;
+    },
     canReviewRequest() {
       return Boolean(this.form.classification_id  && this.form.reference_app_id );
     },
@@ -682,6 +711,7 @@ export default {
     this.action = this.option;
     if (this.option === 'create' && this.dropdowns.regional_director) {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
+ 
     }
     try {
       this.isRightCollapsed = JSON.parse(localStorage.getItem("isRightCollapsed")) ?? true;
@@ -756,6 +786,10 @@ export default {
     },
 
     submit() {
+      if (!this.canCreateRequest) {
+        return;
+      }
+
       this.form.post("/faims/procurements", {
         onSuccess: () => {
           localStorage.removeItem("itemsAdded");
@@ -927,7 +961,7 @@ export default {
 }
 
 .hero-gradient {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #4c5f98;
   padding: 0.45rem 0;
   position: relative;
 }
@@ -1290,7 +1324,7 @@ export default {
 }
 
 .items-table thead {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: #4c5f98;
   color: white;
 }
 
