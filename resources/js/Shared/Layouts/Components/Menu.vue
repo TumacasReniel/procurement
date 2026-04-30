@@ -100,11 +100,25 @@
                 href="/faims/procurement-codes"
                 class="nav-link menu-link"
                 :class="{
-                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Code'),
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/Code') &&
+                        !$page.component.startsWith('Modules/FAIMS/Procurement/Code/BudgetRequests'),
                 }"
                 >
                 <i class="ri-code-box-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">PAP Codes</span>
+                </Link>
+
+                <Link
+                    v-if=" $page.props.roles.includes('Budget Officer') ||
+                            $page.props.roles.includes('Administrator')"
+                    href="/faims/procurement-code-budget-requests"
+                    class="nav-link menu-link"
+                    :class="{
+                        active: $page.component.startsWith('Modules/FAIMS/Procurement/Code/BudgetRequests'),
+                    }"
+                    >
+                    <i class="ri-funds-line"></i>
+                    <span class="fw-semibold fs-14" data-key="t-dashboards">Budget Request</span>
                 </Link>
                 
 

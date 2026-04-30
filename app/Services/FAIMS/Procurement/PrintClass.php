@@ -171,8 +171,6 @@ class PrintClass
         $items = $procurement->items;
         $regional_director = $this->dropdown->regional_director();
 
-
-
         $array = [
             'procurement' => $procurement,
             'items' => $items,

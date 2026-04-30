@@ -112,6 +112,7 @@ Route::prefix('faims')->group(function () {
         ->name('procurement.reports');
     Route::resource('/procurement-assignments', App\Http\Controllers\FAIMS\Procurement\ProcurementAssignmentController::class);
     Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
+    Route::get('/procurement-code-budget-requests', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'budgetRequests']);
     Route::post('/procurement-codes/{id}/budget-increase-requests', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'requestBudgetIncrease']);
     Route::patch('/procurement-codes/{id}/budget-increase-requests/{budgetLog}/approve', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'approveBudgetIncrease']);
     Route::patch('/procurement-codes/{id}/budget-increase-requests/{budgetLog}/reject', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'rejectBudgetIncrease']);

@@ -22,6 +22,7 @@ class ProcurementCodeBudgetLogResource extends JsonResource
             'budget_increase' => 'Budget Increase',
             default => Str::headline($this->type),
         };
+        $requestType = $this->request_type ?: 'additional_budget';
         $actualAwardedAmount = $this->actualAwardedAmount();
         $excessFundsAmount = $this->type === 'approval_deduction'
             ? round((float) $this->amount - $actualAwardedAmount, 2)
@@ -31,6 +32,10 @@ class ProcurementCodeBudgetLogResource extends JsonResource
             'id' => $this->id,
             'type' => $this->type,
             'type_label' => $typeLabel,
+            'request_type' => $requestType,
+            'request_type_label' => $requestType === 'realignment'
+                ? 'Realignment'
+                : 'Additional Budget',
             'status' => $this->status,
             'status_label' => Str::headline($this->status ?: 'approved'),
             'amount' => $this->amount,
@@ -49,6 +54,25 @@ class ProcurementCodeBudgetLogResource extends JsonResource
                 'code' => $this->procurement->code,
                 'title' => $this->procurement->title,
                 'status' => $this->procurement->status?->name,
+            ] : null,
+            'procurement_code' => $this->procurement_code ? [
+                'id' => $this->procurement_code->id,
+                'code' => $this->procurement_code->code,
+                'title' => $this->procurement_code->title,
+                'allocated_budget' => (float) $this->procurement_code->allocated_budget,
+                'remaining_budget' => (float) ($this->procurement_code->remaining_budget ?? $this->procurement_code->allocated_budget),
+                'year' => $this->procurement_code->year,
+                'mode_of_procurement' => $this->procurement_code->mode_of_procurement,
+                'app_type' => $this->procurement_code->app_type,
+                'end_users' => $this->procurement_code->end_users,
+            ] : null,
+            'source_procurement_code' => $this->source_procurement_code ? [
+                'id' => $this->source_procurement_code->id,
+                'code' => $this->source_procurement_code->code,
+                'title' => $this->source_procurement_code->title,
+                'allocated_budget' => (float) $this->source_procurement_code->allocated_budget,
+                'remaining_budget' => (float) ($this->source_procurement_code->remaining_budget ?? $this->source_procurement_code->allocated_budget),
+                'year' => $this->source_procurement_code->year,
             ] : null,
             'processed_by' => $this->processed_by ? [
                 'id' => $this->processed_by->id,

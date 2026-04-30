@@ -8,12 +8,14 @@ class ProcurementCodeBudgetLog extends Model
 {
     protected $fillable = [
         'procurement_code_id',
+        'source_procurement_code_id',
         'procurement_id',
         'processed_by_id',
         'requested_by_id',
         'reviewed_by_id',
         'type',
         'status',
+        'request_type',
         'amount',
         'balance_before',
         'balance_after',
@@ -33,6 +35,11 @@ class ProcurementCodeBudgetLog extends Model
     public function procurement_code()
     {
         return $this->belongsTo(ProcurementCode::class, 'procurement_code_id');
+    }
+
+    public function source_procurement_code()
+    {
+        return $this->belongsTo(ProcurementCode::class, 'source_procurement_code_id');
     }
 
     public function procurement()

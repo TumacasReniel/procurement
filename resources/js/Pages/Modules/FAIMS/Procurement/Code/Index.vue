@@ -246,7 +246,7 @@ export default {
     },
     canRequestBudgetIncrease() {
       return this.currentRoles.some((role) => {
-        return ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role);
+        return role === "Procurement Officer";
       });
     },
   },

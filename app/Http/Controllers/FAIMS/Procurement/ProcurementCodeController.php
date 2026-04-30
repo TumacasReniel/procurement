@@ -10,6 +10,7 @@ use App\Services\FAIMS\Procurement\ViewClass;
 use App\Services\FAIMS\Procurement\ProcurementCodeClass;
 use  App\Http\Requests\Procurement\ProcurementCodeRequest;
 use App\Http\Requests\Procurement\ProcurementCodeBudgetIncreaseRequest;
+use App\Http\Requests\Procurement\ProcurementCodeBudgetRequestListRequest;
 
 class ProcurementCodeController extends Controller
 {
@@ -36,6 +37,10 @@ class ProcurementCodeController extends Controller
                 return $this->dropdown->mode_of_procurements($request);
             break; 
 
+            case 'source_budget_codes':
+                return $this->pap_codes->sourceBudgetCodes($request);
+            break;
+
             default:
                 return inertia('Modules/FAIMS/Procurement/Code/Index', [
                 'dropdowns' => [
@@ -46,6 +51,17 @@ class ProcurementCodeController extends Controller
             ]); 
                   
         }   
+    }
+
+    public function budgetRequests(ProcurementCodeBudgetRequestListRequest $request)
+    {
+        $this->ensureCanReviewBudgetIncrease();
+
+        if ($request->option === 'lists') {
+            return $this->pap_codes->budgetIncreaseRequests($request);
+        }
+
+        return inertia('Modules/FAIMS/Procurement/Code/BudgetRequests');
     }
 
     public function store(ProcurementCodeRequest $request) {
@@ -164,7 +180,7 @@ class ProcurementCodeController extends Controller
         abort_unless(
             $this->pap_codes->canReviewBudgetIncrease(auth()->user()),
             403,
-            'Only Budget Officer or Administrator can review PAP code budget increase requests.'
+            'Only Budget Officer can review PAP code budget increase requests.'
         );
     }
 
@@ -173,7 +189,7 @@ class ProcurementCodeController extends Controller
         abort_unless(
             $this->pap_codes->canRequestBudgetIncrease(auth()->user()),
             403,
-            'Only Procurement Staff, Procurement Officer, or Administrator can request PAP code budget increases.'
+            'Only Procurement Officer can request PAP code budget increases.'
         );
     }
 }

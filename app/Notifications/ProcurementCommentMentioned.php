@@ -39,6 +39,9 @@ class ProcurementCommentMentioned extends Notification
         return [
             'type' => 'procurement_comment_notification',
             'reason' => $this->reason === 'owner' ? 'owner' : 'mention',
+            'target_user' => [
+                'id' => $notifiable->id ?? null,
+            ],
             'procurement' => [
                 'id' => $this->procurement->id,
                 'code' => $this->procurement->code,

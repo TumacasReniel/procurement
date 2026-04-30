@@ -47,16 +47,16 @@
 
               <div class="hero-stat-card">
                 <i class="ri-building-4-line hero-stat-watermark"></i>
-                <span>Active Units</span>
+                <span>Active Requesting Units</span>
                 <strong>{{ activeUnitsCount }}</strong>
                 <small>Units with procurement activity</small>
               </div>
 
               <div class="hero-stat-card">
                 <i class="ri-money-dollar-circle-line hero-stat-watermark"></i>
-                <span>Approved Budget</span>
-                <strong>{{ formatCompactCurrency(totalApprovedBudgetAmount) }}</strong>
-                <small>Awarded {{ formatCompactCurrency(totalActualAwardedAmount) }}</small>
+                <span>Approved Budget for Contract</span>
+                <strong>{{ formatCompactCurrency(totalActualAwardedAmount) }}</strong>
+                <small>PR amount {{ formatCompactCurrency(totalApprovedBudgetAmount) }}</small>
               </div>
 
               <div class="hero-stat-card d-flex flex-column justify-content-center gap-2">
@@ -150,31 +150,73 @@
     </section>
 
     <!-- Metrics -->
-    <BRow class="g-2 mb-3 mt-2">
-      <BCol xl="3" md="6" v-for="(metric, i) in metrics" :key="i">
-        <BCard class="metric-card h-100" :style="{ '--metric-accent': metric.accentColor || '#405189' }">
-          <BCardBody>
-            <div class="d-flex align-items-center gap-2">
-              <div class="metric-icon" :class="[metric.bgClass, metric.textClass]">
-                <i :class="metric.icon"></i>
-              </div>
+    <section class="dashboard-metric-section mt-2">
+      <div class="dashboard-metric-section__header">
+        <div>
+          <span class="section-kicker">Workflow Status</span>
+          <h5 class="mb-0">Request movement</h5>
+        </div>
+        <BBadge class="bg-primary-subtle text-primary rounded-pill">{{ filteredPeriodLabel }}</BBadge>
+      </div>
 
-              <div class="min-w-0">
-                <p class="text-uppercase text-muted fw-semibold fs-12 mb-1 text-truncate">
-                  {{ metric.label }}
-                </p>
-                <h4 class="fw-bold mb-1">{{ metric.value }}</h4>
-                <p class="text-muted fs-12 mb-0">{{ metric.note }}</p>
+      <BRow class="g-2 mb-3">
+        <BCol xl="3" md="6" v-for="(metric, i) in workflowMetrics" :key="`workflow-${i}`">
+          <BCard class="metric-card h-100" :style="{ '--metric-accent': metric.accentColor || '#405189' }">
+            <BCardBody>
+              <div class="d-flex align-items-center gap-2">
+                <div class="metric-icon" :class="[metric.bgClass, metric.textClass]">
+                  <i :class="metric.icon"></i>
+                </div>
+
+                <div class="min-w-0">
+                  <p class="text-uppercase text-muted fw-semibold fs-12 mb-1 text-truncate">
+                    {{ metric.label }}
+                  </p>
+                  <h4 class="fw-bold mb-1">{{ metric.value }}</h4>
+                  <p class="text-muted fs-12 mb-0">{{ metric.note }}</p>
+                </div>
               </div>
-            </div>
-          </BCardBody>
-        </BCard>
-      </BCol>
-    </BRow>
+            </BCardBody>
+          </BCard>
+        </BCol>
+      </BRow>
+    </section>
+
+    <section class="dashboard-metric-section">
+      <div class="dashboard-metric-section__header">
+        <div>
+          <span class="section-kicker">Budget Snapshot</span>
+          <h5 class="mb-0">Amounts and balances</h5>
+        </div>
+        <BBadge class="bg-success-subtle text-success rounded-pill">Financial</BBadge>
+      </div>
+
+      <BRow class="g-2 mb-3">
+        <BCol xl="3" md="6" v-for="(metric, i) in financialMetrics" :key="`financial-${i}`">
+          <BCard class="metric-card h-100" :style="{ '--metric-accent': metric.accentColor || '#405189' }">
+            <BCardBody>
+              <div class="d-flex align-items-center gap-2">
+                <div class="metric-icon" :class="[metric.bgClass, metric.textClass]">
+                  <i :class="metric.icon"></i>
+                </div>
+
+                <div class="min-w-0">
+                  <p class="text-uppercase text-muted fw-semibold fs-12 mb-1 text-truncate">
+                    {{ metric.label }}
+                  </p>
+                  <h4 class="fw-bold mb-1">{{ metric.value }}</h4>
+                  <p class="text-muted fs-12 mb-0">{{ metric.note }}</p>
+                </div>
+              </div>
+            </BCardBody>
+          </BCard>
+        </BCol>
+      </BRow>
+    </section>
 
 
     <BRow class="g-2">
-      <BCol v-for="module in workspaceModules" :key="module.key" xl="4" md="6">
+      <BCol  v-for="module in workspaceModules" :key="module.key" xl="4" md="6">
         <BCard class="module-card" :style="{ '--module-accent': module.accentColor || '#405189' }">
           <BCardBody>
             <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
@@ -189,7 +231,7 @@
 
             <p class="fw-bold text-dark mb-1">{{ module.title }}</p>
 
-            <h4 class="fw-bold text-primary mb-1 module-value" :class="module.isTextValue ? 'fs-5' : 'fs-2'">
+            <h4 class="fw-bold text-primary mb-1 module-value fs-10" :class="module.isTextValue ? 'fs-5' : 'fs-10'">
               {{ module.value }}
             </h4>
 
@@ -257,13 +299,13 @@
             </div>
 
             <div class="unit-breakdown-stat">
-              <span>Approved Budget</span>
+              <span>Total Amount Purchase Req</span>
               <strong>{{ formatCompactCurrency(totalApprovedBudgetAmount) }}</strong>
               <small>{{ formatCurrency(totalApprovedBudgetAmount) }}</small>
             </div>
 
             <div class="unit-breakdown-stat">
-              <span>Actual Awarded</span>
+              <span>Approved Budget for Contract</span>
               <strong>{{ formatCompactCurrency(totalActualAwardedAmount) }}</strong>
               <small>Completed items only</small>
             </div>
@@ -460,6 +502,7 @@ export default {
         total_bac_resolutions: 0,
         total_notice_of_awards: 0,
         total_purchase_orders: 0,
+        total_purchase_order_amount: 0,
         total_approved_budget_amount: 0,
         total_completed_awarded_amount: 0,
         total_excess_funds: 0,
@@ -639,8 +682,8 @@ export default {
               point.divisionLabel ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${point.divisionLabel}</div>` : '',
               `<div style="margin-top: 10px; font-size: 12px; color: #334155;"><strong>${count}</strong> procurements</div>`,
               `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${share}% request share</div>`,
-              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${amountLabel} approved budget</div>`,
-              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${awardedAmountLabel} actual awarded</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${amountLabel} total PR amount</div>`,
+              `<div style="margin-top: 4px; font-size: 12px; color: #334155;">${awardedAmountLabel} approved budget for contract</div>`,
               '</div>',
             ].join('');
           },
@@ -809,8 +852,8 @@ export default {
               `<div style="font-size: 13px; font-weight: 700; color: #0f172a;">${point.x || 'Unassigned'}</div>`,
               point.divisionLabel ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${point.divisionLabel}</div>` : '',
               `<div style="margin-top: 5px; font-size: 12px; color: #334155;"><strong>${count}</strong> procurements</div>`,
-              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${amountLabel} approved budget</div>`,
-              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${awardedAmountLabel} actual awarded</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${amountLabel} total PR amount</div>`,
+              `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${awardedAmountLabel} approved budget for contract</div>`,
               `<div style="margin-top: 2px; font-size: 12px; color: #334155;">${share}% of total requests</div>`,
               '</div>',
             ].join('');
@@ -946,7 +989,49 @@ export default {
 					textClass: 'text-success',
 					accentColor: '#0ab39c',
 				},
+				{
+					label: 'Total Amount Purchase Request(PR)',
+					value: this.formatCompactCurrency(this.totalApprovedBudgetAmount),
+					note: `${this.dashboard.total_procurements} purchase requests in ${this.filteredPeriodLabel}`,
+					icon: 'ri-money-dollar-circle-line',
+					bgClass: 'bg-primary-subtle',
+					textClass: 'text-primary',
+					accentColor: '#405189',
+				},
+				{
+					label: 'Approved Budget for Contract(ABC)',
+					value: this.formatCompactCurrency(this.totalActualAwardedAmount),
+					note: 'Completed awarded contract amount',
+					icon: 'ri-shield-star-line',
+					bgClass: 'bg-warning-subtle',
+					textClass: 'text-warning',
+					accentColor: '#f7b84b',
+				},
+				{
+					label: 'Total Amount Purchase Order(PO)',
+					value: this.formatCompactCurrency(this.dashboard.total_purchase_order_amount),
+					note: `${this.dashboard.total_purchase_orders} purchase orders in ${this.filteredPeriodLabel}`,
+					icon: 'ri-file-paper-2-line',
+					bgClass: 'bg-info-subtle',
+					textClass: 'text-info',
+					accentColor: '#299cdb',
+				},
+				{
+					label: 'Remaining Balance',
+					value: this.formatCompactCurrency(this.dashboard.total_remaining_pap_budget),
+					note: `From ${this.formatCompactCurrency(this.dashboard.total_allocated_pap_budget)} allocated PAP budget`,
+					icon: 'ri-wallet-3-line',
+					bgClass: 'bg-success-subtle',
+					textClass: 'text-success',
+					accentColor: '#0ab39c',
+				},
 			];
+		},
+		workflowMetrics() {
+			return this.metrics.slice(0, 4);
+		},
+		financialMetrics() {
+			return this.metrics.slice(4);
 		},
 		workspaceModules() {
 			const modules = [
@@ -954,7 +1039,7 @@ export default {
 					key: 'pap_codes',
 					title: 'PAP Codes',
 					value: this.dashboard.total_pap_codes,
-					note: `${this.formatCompactCurrency(this.dashboard.total_excess_funds)} excess funds; ${this.formatCompactCurrency(this.dashboard.total_remaining_pap_budget)} remaining from ${this.formatCompactCurrency(this.dashboard.total_allocated_pap_budget)} allocated`,
+					note: `${this.formatCompactCurrency(this.dashboard.total_remaining_pap_budget)} remaining budget`,
 					route: '/faims/procurement-codes',
 					action: 'Open PAP codes',
 					icon: 'ri-code-box-line',
@@ -1036,8 +1121,8 @@ export default {
 				},
 				{
 					key: 'purchase_orders',
-					title: 'Purchase Orders',
-					value: this.dashboard.total_purchase_orders,
+					title: 'Total Amount PO',
+					value: this.formatCompactCurrency(this.dashboard.total_purchase_order_amount),
 					note: `${this.dashboard.total_purchase_orders} purchase orders released in ${this.filteredPeriodLabel}`,
 					route: '/faims/purchase-orders',
 					action: 'Open purchase orders',
@@ -1750,6 +1835,36 @@ export default {
   color: #94a3b8;
 }
 
+.dashboard-metric-section {
+  margin-bottom: .85rem;
+}
+
+.dashboard-metric-section__header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: .75rem;
+  margin: .2rem .15rem .45rem;
+}
+
+.dashboard-metric-section__header h5 {
+  margin: 0;
+  color: var(--proc-ink);
+  font-size: .95rem;
+  font-weight: 800;
+}
+
+.dashboard-metric-section__header p {
+  margin: .15rem 0 0;
+  color: #64748b;
+  font-size: .78rem;
+}
+
+.dashboard-metric-section__header .badge {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
 .metric-card,
 .module-card,
 .panel-card {
@@ -2045,6 +2160,12 @@ export default {
   .section-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dashboard-metric-section__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .35rem;
   }
 
   .dashboard-filter-row {

@@ -36,6 +36,7 @@ class PendingSupplierApprovalNotification extends Notification
         return [
             'type' => 'pending_supplier_approval',
             'reason' => 'approval_required',
+            'target_roles' => ['Procurement Officer', 'Administrator'],
             'message' => sprintf(
                 'Supplier "%s" is waiting for Procurement Officer approval.',
                 $this->supplier->name
