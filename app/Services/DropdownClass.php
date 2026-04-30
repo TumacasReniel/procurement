@@ -21,7 +21,7 @@ use App\Models\LocationDistrict;
 use App\Models\LocationBarangay;
 use App\Models\ProcurementCode;
 use App\Models\UnitType;
-use App\Models\supplier;
+use App\Models\Supplier;
 use App\Models\OrgChart;
 use App\Models\FinanceDocument;
 use App\Models\FinanceRequestType;
