@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Notifications\PendingProcurementCodeBudgetRequestNotification;
 use App\Notifications\PendingSupplierApprovalNotification;
 use App\Notifications\ProcurementCommentMentioned;
 use App\Models\OrgSignatory;
@@ -120,15 +121,20 @@ class HandleInertiaRequests extends Middleware
         $query = $user->unreadNotifications()
             ->whereIn('type', [
                 ProcurementCommentMentioned::class,
+                PendingProcurementCodeBudgetRequestNotification::class,
                 PendingSupplierApprovalNotification::class,
             ])
             ->latest();
 
-        $unreadCount = (clone $query)->count();
-
-        $notifications = (clone $query)
-            ->limit($limit)
+        $visibleNotifications = (clone $query)
             ->get()
+            ->filter(fn ($notification) => $this->procurementNotificationVisibleToUser($notification, $user))
+            ->values();
+
+        $unreadCount = $visibleNotifications->count();
+
+        $notifications = $visibleNotifications
+            ->take($limit)
             ->map(function ($notification) {
                 return $this->transformProcurementNotification($notification);
             })
@@ -143,6 +149,23 @@ class HandleInertiaRequests extends Middleware
                 'has_more' => $unreadCount > count($notifications),
             ],
         ];
+    }
+
+    private function procurementNotificationVisibleToUser($notification, User $user): bool
+    {
+        if ($notification->type === PendingSupplierApprovalNotification::class) {
+            return $user->hasRole('Procurement Officer') || $user->hasRole('Administrator');
+        }
+
+        if ($notification->type === PendingProcurementCodeBudgetRequestNotification::class) {
+            return $user->hasRole('Budget Officer');
+        }
+
+        if ($notification->type === ProcurementCommentMentioned::class) {
+            return in_array(data_get($notification->data, 'reason', 'mention'), ['mention', 'owner'], true);
+        }
+
+        return false;
     }
 
     private function transformProcurementNotification($notification): ?array
@@ -174,6 +197,35 @@ class HandleInertiaRequests extends Middleware
                     'query' => array_filter([
                         'status' => 'pending_approval',
                         'supplier_id' => $supplierId,
+                    ]),
+                ],
+            ];
+        }
+
+        if ($notification->type === PendingProcurementCodeBudgetRequestNotification::class) {
+            $budgetRequestId = data_get($notification->data, 'budget_request.id');
+
+            return [
+                'id' => $notification->id,
+                'notification_type' => 'procurement_code_budget_request',
+                'reason' => data_get($notification->data, 'reason', 'budget_review_required'),
+                'supplier_id' => null,
+                'procurement_id' => data_get($notification->data, 'procurement_code.id'),
+                'procurement_code' => data_get($notification->data, 'procurement_code.code'),
+                'procurement_purpose' => data_get($notification->data, 'procurement_code.title'),
+                'comment_id' => null,
+                'comment_content' => data_get($notification->data, 'message'),
+                'actor' => $actor,
+                'mentioned_by' => $actor,
+                'created_at' => $notification->created_at,
+                'created_ago' => $notification->created_at?->diffForHumans(),
+                'context_label' => 'Budget Review',
+                'action_label' => 'Review request',
+                'target' => [
+                    'route' => '/faims/procurement-code-budget-requests',
+                    'query' => array_filter([
+                        'status' => 'pending',
+                        'budget_request_id' => $budgetRequestId,
                     ]),
                 ],
             ];

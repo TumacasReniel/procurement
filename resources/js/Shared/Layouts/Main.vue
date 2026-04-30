@@ -213,6 +213,10 @@ export default {
                 return `${actor} submitted a supplier for approval`;
             }
 
+            if (notification?.notification_type === "procurement_code_budget_request") {
+                return `${actor} submitted a PAP budget request`;
+            }
+
             if (notification?.reason === "owner") {
                 return `${actor} commented on your PR`;
             }

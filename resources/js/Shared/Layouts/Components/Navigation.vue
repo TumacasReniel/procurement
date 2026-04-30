@@ -143,7 +143,7 @@
                                 <div class="d-flex align-items-start justify-content-between gap-3">
                                     <div>
                                         <h6 class="mb-1 fw-semibold fs-15">Notifications</h6>
-                                        <p class="mb-0 text-muted fs-12">Procurement mentions and approval alerts show up here.</p>
+                                        <p class="mb-0 text-muted fs-12">Mentions and role-based procurement alerts show up here.</p>
                                     </div>
                                     <span class="badge bg-danger text-white fs-11">
                                         {{ mentionNotificationState.unreadCount }}
@@ -209,7 +209,7 @@
                                     </div>
                                 </div>
                                 <h6 class="mb-1 fw-semibold">No new alerts</h6>
-                                <p class="mb-0 text-muted fs-12">Procurement mentions and supplier approval alerts will appear here.</p>
+                                <p class="mb-0 text-muted fs-12">Mentions and role-based procurement alerts will appear here.</p>
                             </div>
 
                             <div class="mention-notification-footer">
@@ -475,6 +475,10 @@ export default {
 
             if (notification?.reason === "owner") {
                 return `${actor} commented on your PR`;
+            }
+
+            if (notification?.notification_type === "procurement_code_budget_request") {
+                return `${actor} submitted a PAP budget request`;
             }
 
             return `${actor} mentioned you in a PR comment`;

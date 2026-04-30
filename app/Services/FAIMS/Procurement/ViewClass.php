@@ -22,6 +22,7 @@ use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
 use App\Http\Resources\FAIMS\Procurement\ProcurementQuotationResource;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use NumberFormatter;
 
@@ -444,10 +445,18 @@ class ViewClass
             $query->where('name', 'Completed');
         })->count();
 
-        $total_quotations = ProcurementQuotation::whereIn('procurement_id', $query->pluck('id'))->count();
-        $total_bac_resolutions = ProcurementBac::whereIn('procurement_id', $query->pluck('id'))->count();
-        $total_notice_of_awards = ProcurementBacNoa::whereIn('procurement_id', $query->pluck('id'))->count();
-        $total_purchase_orders = ProcurementNoaPo::whereIn('procurement_id', $query->pluck('id'))->count();
+        $procurement_ids = (clone $query)->pluck('id');
+        $total_quotations = ProcurementQuotation::whereIn('procurement_id', $procurement_ids)->count();
+        $total_bac_resolutions = ProcurementBac::whereIn('procurement_id', $procurement_ids)->count();
+        $total_notice_of_awards = ProcurementBacNoa::whereIn('procurement_id', $procurement_ids)->count();
+        $total_purchase_orders = ProcurementNoaPo::whereIn('procurement_id', $procurement_ids)->count();
+        $total_purchase_order_amount = (float) ProcurementNoaPo::query()
+            ->join('procurement_bac_noas', 'procurement_noa_pos.noa_id', '=', 'procurement_bac_noas.id')
+            ->join('procurement_bac_noa_items', 'procurement_bac_noas.id', '=', 'procurement_bac_noa_items.procurement_bac_noa_id')
+            ->join('procurement_quotation_items', 'procurement_bac_noa_items.item_id', '=', 'procurement_quotation_items.id')
+            ->join('procurement_items', 'procurement_quotation_items.procurement_item_id', '=', 'procurement_items.id')
+            ->whereIn('procurement_noa_pos.procurement_id', $procurement_ids)
+            ->sum(DB::raw('COALESCE(procurement_quotation_items.bid_price, 0) * COALESCE(procurement_items.item_quantity, 0)'));
 
         $total_assignments = ProcurementAssignment::count();
         $total_pap_codes = ProcurementCode::count();
@@ -485,6 +494,7 @@ class ViewClass
             'total_bac_resolutions' => $total_bac_resolutions,
             'total_notice_of_awards' => $total_notice_of_awards,
             'total_purchase_orders' => $total_purchase_orders,
+            'total_purchase_order_amount' => $total_purchase_order_amount,
             'total_assignments' => $total_assignments,
             'total_pap_codes' => $total_pap_codes,
             'total_remaining_pap_budget' => $total_remaining_pap_budget,

@@ -198,7 +198,7 @@
                 </div>
                 <div class="pap-log-card__badges">
                   <span class="badge" :class="logTypeClass(log)">
-                    {{ log.type_label }}
+                    {{ log.request_type_label || log.type_label }}
                   </span>
                   <span class="badge" :class="statusClass(log.status)">
                     {{ log.status_label }}
@@ -208,6 +208,10 @@
 
               <div class="pap-log-card__description">
                 {{ log.description || log.type_label }}
+                <span v-if="log.source_procurement_code" class="d-block text-info mt-1">
+                  Realigned from: {{ log.source_procurement_code.code }} -
+                  {{ log.source_procurement_code.title }}
+                </span>
               </div>
 
               <div class="pap-log-card__reference">
@@ -306,7 +310,7 @@
                     </div>
                     <div class="d-flex gap-1 flex-wrap mt-2">
                       <span class="badge" :class="logTypeClass(log)">
-                        {{ log.type_label }}
+                        {{ log.request_type_label || log.type_label }}
                       </span>
                       <span class="badge" :class="statusClass(log.status)">
                         {{ log.status_label }}
@@ -316,6 +320,9 @@
                   <td>
                     <div class="pap-history-table__description">
                       {{ log.description || log.type_label }}
+                      <span v-if="log.source_procurement_code" class="d-block text-info mt-1">
+                        Realigned from: {{ log.source_procurement_code.code }}
+                      </span>
                     </div>
                     <div v-if="log.procurement?.title" class="pap-history-table__meta">
                       {{ log.procurement.title }}
@@ -439,12 +446,12 @@ export default {
     },
     canRequestBudgetIncrease() {
       return this.currentRoles.some((role) => {
-        return ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role);
+        return role === "Procurement Officer";
       });
     },
     canReviewPendingRequests() {
       return this.currentRoles.some((role) => {
-        return ["Budget Officer", "Administrator"].includes(role);
+        return role === "Budget Officer";
       });
     },
     showBudgetIncreaseAction() {

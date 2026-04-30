@@ -1,13 +1,13 @@
 <template>
   <Head :title="pageTitle" />
 
-  <div class="pap-profile-page container-fluid py-2 px-1 px-lg-2">
+  <div class="pap-profile-page container-fluid py-1 px-1">
     <div class="pap-profile-shell">
       <b-alert
         v-if="flashFeedback.message"
         show
         :variant="flashFeedback.variant"
-        class="mb-3 pap-profile-flash"
+        class="mb-2 pap-profile-flash"
       >
         <div class="fw-semibold">{{ flashFeedback.message }}</div>
         <div v-if="flashFeedback.info" class="small mt-1">
@@ -15,14 +15,14 @@
         </div>
       </b-alert>
 
-      <b-row class="g-3 mb-3 align-items-start">
-        <b-col cols="12" xxl="9" xl="8">
-          <div class="pap-profile-main-stack d-flex flex-column gap-3">
+      <b-row class="g-2 mb-2 align-items-start">
+        <b-col cols="12" xxl="9" xl="9">
+          <div class="pap-profile-main-stack d-flex flex-column gap-2">
             <b-card
               class="pap-profile-card pap-profile-hero-card border shadow-sm bg-body"
-              body-class="p-3"
+              body-class="p-2"
             >
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
               <div class="d-flex flex-wrap align-items-center gap-2">
                 <b-button
                   variant="outline-secondary"
@@ -33,12 +33,12 @@
                   Back
                 </b-button>
 
-                <b-badge class="bg-success-subtle text-success px-3 py-2">
+                <b-badge class="bg-success-subtle text-success px-2 py-1">
                   {{ papCode.code }}
                 </b-badge>
 
                 <b-badge
-                  class="px-3 py-2"
+                  class="px-2 py-1"
                   :class="budgetHealthBadgeClass"
                 >
                   {{ budgetHealthLabel }}
@@ -46,7 +46,7 @@
 
                 <b-badge
                   v-if="pendingBudgetRequestsCount"
-                  class="bg-info-subtle text-info px-3 py-2"
+                  class="bg-info-subtle text-info px-2 py-1"
                 >
                   {{ pendingBudgetRequestsCount }}
                   {{ pendingBudgetRequestsCount === 1 ? "pending request" : "pending requests" }}
@@ -55,9 +55,9 @@
 
             </div>
 
-            <div class="row g-3">
+            <div class="row g-2">
               <div class="col-12">
-                <h1 class="h2 mb-2 text-body">
+                <h1 class="h4 mb-1 text-body">
                   {{ papCode.title || "Untitled Procurement code" }}
                 </h1>
 
@@ -68,13 +68,13 @@
               </div>
 
               <div class="col-12">
-                <div class="row g-2 g-xl-3">
+                <div class="row g-2">
                   <div
                     v-for="fact in overviewFacts"
                     :key="fact.label"
                     class="col-sm-6 col-xxl-3"
                   >
-                    <div class="card border  p-xl-3">
+                    <div class="card border pap-profile-fact-card">
                       <div class="text-uppercase small text-body-secondary mb-1">
                         {{ fact.label }}
                       </div>
@@ -90,25 +90,25 @@
               </div>
 
               <div class="col-12">
-                <div class="pap-profile-inline-card border rounded-4 p-3">
+                <div class="pap-profile-inline-card border p-2">
                   <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                     <div>
-                      <h5 class="mb-1 text-body">End Users</h5>
+                      <h6 class="mb-1 text-body">End Users</h6>
                       <div class="small text-body-secondary">
                         Units currently associated with this PAP code.
                       </div>
                     </div>
 
-                    <b-badge class="bg-primary-subtle text-primary px-3 py-2">
+                    <b-badge class="bg-primary-subtle text-primary px-2 py-1">
                       {{ endUsers.length }} linked {{ endUsers.length === 1 ? "unit" : "units" }}
                     </b-badge>
                   </div>
 
-                  <div v-if="endUsers.length" class="d-flex flex-wrap gap-2 mt-3">
+                  <div v-if="endUsers.length" class="d-flex flex-wrap gap-1 mt-2">
                     <b-badge
                       v-for="(endUser, index) in endUsers"
                       :key="index"
-                      class="bg-primary-subtle text-primary px-3 py-2"
+                      class="bg-primary-subtle text-primary px-2 py-1"
                     >
                       {{ endUser.end_user?.name || "Unknown end user" }}
                     </b-badge>
@@ -122,24 +122,25 @@
             </div>
             </b-card>
 
-            <b-row class="g-3 pap-profile-summary-grid">
+            <b-row class="g-2 pap-profile-summary-grid">
               <b-col
                 v-for="card in summaryCards"
                 :key="card.label"
                 cols="12"
                 sm="6"
+                xl="3"
                 xxl="3"
               >
                 <b-card
-                  class="pap-profile-card pap-profile-summary-card border shadow-sm bg-body h-75"
-                  body
+                  class="pap-profile-card pap-profile-summary-card border shadow-sm bg-body h-100"
+                  body-class="p-2"
                 >
-                  <div class="d-flex justify-content-between align-items-start gap-3">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
                     <div>
                       <div class="text-uppercase small text-body-secondary ">
                         {{ card.label }}
                       </div>
-                      <div class="h4 mb-1" :class="card.valueClass">
+                      <div class="h5 mb-1" :class="card.valueClass">
                         {{ card.value }}
                       </div>
                       <div class="small text-body-secondary">
@@ -149,7 +150,7 @@
 
                     <b-badge
                       pill
-                      class="px-3 py-2"
+                      class="px-2 py-1"
                       :class="card.badgeClass"
                     >
                       <i :class="card.icon"></i>
@@ -161,33 +162,22 @@
           </div>
         </b-col>
 
-        <b-col cols="12" xxl="3" xl="4">
-          <div class="pap-profile-side-stack d-flex flex-column gap-3">
+        <b-col cols="12" xxl="3" xl="3">
+          <div class="pap-profile-side-stack d-flex flex-column gap-2">
             <b-card
               class="pap-profile-card pap-profile-balance-card border shadow-sm bg-body"
-              body-class="p-3"
+              body-class="p-2"
             >
               <div class="small text-uppercase text-body-secondary mb-2">
-                Budget Standing
+                Budget Utilization
               </div>
-              <div class="small text-body-secondary">Remaining Balance</div>
-              <div
-                class=" fw-bold mb-1 fs-3"
-              >
-                {{ formatCurrency(papCode.remaining_budget) }}
-              </div>
-              <div class="small text-body-secondary">
-                {{ formatCurrency(papCode.approved_budget_amount || papCode.deducted_budget) }} approved from
-                {{ formatCurrency(papCode.allocated_budget) }}
-              </div>
-
-              <div class="row g-2 mt-3">
+              <div class="row g-2 mt-2">
                 <div
                   v-for="item in budgetHighlights"
                   :key="item.label"
                   class="col-sm-6"
                 >
-                  <div class="pap-profile-balance-stat border rounded-4 h-100 p-3">
+                  <div class="pap-profile-balance-stat border h-100 p-2">
                     <div class="small text-uppercase text-body-secondary mb-1">
                       {{ item.label }}
                     </div>
@@ -198,7 +188,7 @@
                 </div>
               </div>
 
-              <div class="mt-4">
+              <div class="mt-2">
                 <div class="d-flex justify-content-between small text-body-secondary mb-1">
                   <span>Budget used</span>
                   <span>{{ budgetUsagePercent }}%</span>
@@ -224,9 +214,9 @@
 
             <b-card
               class="pap-profile-card pap-profile-guidance-card border shadow-sm bg-body"
-              body-class="p-3"
+              body-class="p-2"
             >
-              <div class="d-flex align-items-start gap-3">
+              <div class="d-flex align-items-start gap-2">
                 <span class="pap-profile-guidance-icon rounded-circle d-inline-flex align-items-center justify-content-center">
                   <i :class="guidanceCard.icon"></i>
                 </span>
@@ -250,7 +240,7 @@
         :key="alert.title"
         show
         :variant="alert.variant"
-        class="mb-3 pap-profile-alert"
+        class="mb-2 pap-profile-alert"
       >
         <div class="fw-semibold mb-1">
           <i :class="`${alert.icon} me-2`"></i>
@@ -261,8 +251,8 @@
 
       <div class="pap-profile-history card bg-light-subtle shadow-none border">
         <div class="pap-profile-history__header card-header bg-light-subtle">
-          <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-            <div class="d-flex align-items-start gap-3 flex-grow-1">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+            <div class="d-flex align-items-start gap-2 flex-grow-1">
               <div class="flex-shrink-0">
                 <div class="pap-profile-history__icon-wrap">
                   <span class="avatar-title bg-primary-subtle rounded p-2">
@@ -376,16 +366,16 @@
                     </td>
 
                     <td>
-                      <div class="d-flex flex-column gap-2">
+                      <div class="d-flex flex-column gap-1">
                         <b-badge
-                          class="px-3 py-2 align-self-start"
+                          class="px-2 py-1 align-self-start"
                           :class="logTypeBadgeClass(log)"
                         >
-                          {{ log.type_label }}
+                          {{ log.request_type_label || log.type_label }}
                         </b-badge>
 
                         <b-badge
-                          class="px-3 py-2 align-self-start"
+                          class="px-2 py-1 align-self-start"
                           :class="statusBadgeClass(log.status)"
                         >
                           {{ log.status_label }}
@@ -396,6 +386,13 @@
                     <td class="small">
                       <div class="fw-semibold text-body">
                         {{ log.procurement?.code || "Direct budget request" }}
+                      </div>
+                      <div
+                        v-if="log.source_procurement_code"
+                        class="text-info mt-1"
+                      >
+                        Realigned from: {{ log.source_procurement_code.code }} -
+                        {{ log.source_procurement_code.title }}
                       </div>
                       <div class="text-body-secondary mt-1">
                         {{ log.description || log.type_label }}
@@ -449,7 +446,6 @@
                         class="mt-1"
                         :class="logExcessFundsClass(log)"
                       >
-                        Excess Funds: {{ formatCurrency(logExcessFundsAmount(log)) }}
                       </div>
                     </td>
 
@@ -575,7 +571,7 @@ export default {
     },
     canRequestBudgetIncrease() {
       return this.currentRoles.some((role) => {
-        return ["Procurement Staff", "Procurement Officer", "Administrator"].includes(role);
+        return role === "Procurement Officer";
       });
     },
 
@@ -586,7 +582,7 @@ export default {
     },
     canReviewPendingRequests() {
       return this.currentRoles.some((role) => {
-        return ["Budget Officer", "Administrator"].includes(role);
+        return role === "Budget Officer";
       });
     },
     pendingBudgetRequestsCount() {
@@ -691,26 +687,6 @@ export default {
     budgetHighlights() {
       return [
         {
-          label: "Allocated",
-          value: this.formatCurrency(this.papCode.allocated_budget),
-          valueClass: "text-body",
-        },
-        {
-          label: "Approved",
-          value: this.formatCurrency(this.papCode.approved_budget_amount || this.papCode.deducted_budget),
-          valueClass: "text-warning",
-        },
-        {
-          label: "Actual Awarded",
-          value: this.formatCurrency(this.papCode.actual_awarded_amount),
-          valueClass: "text-primary",
-        },
-        {
-          label: "Excess Funds",
-          value: this.formatCurrency(this.excessFundsAmount),
-          valueClass: this.excessFundsAmount < 0 ? "text-danger" : "text-success",
-        },
-        {
           label: "Budget Used",
           value: `${this.budgetUsagePercent}%`,
           valueClass: this.budgetUsagePercent >= 85 ? "text-warning" : "text-primary",
@@ -725,15 +701,15 @@ export default {
     summaryCards() {
       return [
         {
-          label: "Allocated Budget",
+          label: "ABC",
           value: this.formatCurrency(this.papCode.allocated_budget),
-          caption: "Current approved allocation",
+          caption: "Approved Budget for the Contract",
           icon: "ri-wallet-3-line",
           badgeClass: "bg-primary-subtle text-primary",
           valueClass: "text-body",
         },
         {
-          label: "Approved Budget",
+          label: "Total Approved Purchase Requests(PR)",
           value: this.formatCurrency(this.papCode.approved_budget_amount || this.papCode.deducted_budget),
           caption: "Total approved budget for procurement requests",
           icon: "ri-arrow-left-right-line",
@@ -741,7 +717,7 @@ export default {
           valueClass: "text-warning",
         },
         {
-          label: "Actual Awarded",
+          label: "Total Amount Purchase Orders(PO)",
           value: this.formatCurrency(this.papCode.actual_awarded_amount),
           caption: "Completed item awards charged to this PAP code",
           icon: "ri-award-line",
@@ -749,7 +725,7 @@ export default {
           valueClass: "text-info",
         },
         {
-          label: "Excess Funds",
+          label: "Remaining Balance",
           value: this.formatCurrency(this.excessFundsAmount),
           caption: "Approved budget less actual awarded amount",
           icon: "ri-refund-2-line",
@@ -1010,8 +986,8 @@ export default {
   --pap-primary: #2563eb;
   --pap-progress-track: #e2e8f0;
   --pap-row-hover: rgba(37, 99, 235, 0.05);
-  --pap-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-  --pap-shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.06);
+  --pap-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+  --pap-shadow-soft: 0 6px 16px rgba(15, 23, 42, 0.05);
   background: var(--pap-page-bg);
   min-height: 100vh;
 }
@@ -1025,7 +1001,7 @@ export default {
 .pap-profile-card,
 .pap-profile-history {
   border-color: var(--pap-border) !important;
-  border-radius: 20px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--pap-shadow-soft) !important;
 }
@@ -1041,7 +1017,7 @@ export default {
   top: 0;
   left: 0;
   right: 0;
-  height: 5px;
+  height: 3px;
   background: linear-gradient(90deg, #2563eb, #0ea5e9, #10b981);
 }
 
@@ -1051,16 +1027,22 @@ export default {
 .pap-profile-guidance-card {
   background: var(--pap-surface-alt) !important;
   border-color: var(--pap-border) !important;
-  border-radius: 16px;
+  border-radius: 10px;
 }
 
 .pap-profile-lead {
   max-width: 62rem;
-  line-height: 1.75;
+  line-height: 1.35;
+  font-size: 0.82rem;
 }
 
 .pap-profile-mini-card--tall {
-  min-height: 140px;
+  min-height: 96px;
+}
+
+.pap-profile-fact-card {
+  padding: 0.55rem 0.65rem;
+  min-height: 64px;
 }
 
 .pap-profile-inline-card,
@@ -1070,8 +1052,8 @@ export default {
 }
 
 .pap-profile-guidance-icon {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2rem;
+  height: 2rem;
   background: rgba(37, 99, 235, 0.12);
   color: var(--pap-primary);
   font-size: 1.05rem;
@@ -1079,22 +1061,28 @@ export default {
 }
 
 .pap-profile-history__icon-wrap {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2rem;
+  height: 2rem;
 }
 
 .pap-profile-progress {
-  height: 0.75rem;
+  height: 0.45rem;
 }
 
 .pap-profile-flash,
 .pap-profile-alert {
-  border-radius: 16px;
+  border-radius: 10px;
   box-shadow: var(--pap-shadow-soft);
+  padding: 0.6rem 0.75rem;
 }
 
 .pap-profile-summary-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 92px;
+}
+
+.pap-profile-summary-card .small {
+  line-height: 1.2;
 }
 
 .pap-profile-summary-card:hover {
@@ -1119,7 +1107,7 @@ export default {
 
 :deep(.pap-profile-history__body) {
   background: var(--pap-surface) !important;
-  padding: 1rem !important;
+  padding: 0.55rem !important;
 }
 
 :deep(.pap-profile-page .bg-white) {
@@ -1134,18 +1122,18 @@ export default {
 .pap-profile-history__search {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.35rem;
   align-items: stretch;
 }
 
 .pap-profile-history__toolbar {
-  padding: 1rem !important;
+  padding: 0.55rem !important;
 }
 
 :deep(.pap-profile-history__search .input-group-text),
 :deep(.pap-profile-history__search .form-control),
 :deep(.pap-profile-history__search .form-select) {
-  border-radius: 12px !important;
+  border-radius: 8px !important;
 }
 
 :deep(.pap-profile-history__search .input-group-text) {
@@ -1191,10 +1179,19 @@ export default {
 
 :deep(.pap-profile-history__table-wrap) {
   border: 1px solid var(--pap-border);
-  border-radius: 18px;
+  border-radius: 10px;
   background: var(--pap-surface);
-  max-height: 560px;
+  max-height: 640px;
   overflow: auto;
+}
+
+:deep(.pap-profile-history__header) {
+  padding: 0.6rem 0.75rem !important;
+}
+
+:deep(.pap-profile-history__table thead th),
+:deep(.pap-profile-history__table tbody td) {
+  padding: 0.45rem 0.55rem;
 }
 
 :deep(.pap-profile-history__table thead th) {
@@ -1238,7 +1235,7 @@ export default {
 
 :deep(.pap-profile-page .btn-primary) {
   border: none;
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.16);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.12);
 }
 
 :deep(.pap-profile-page .alert-secondary) {
@@ -1249,6 +1246,7 @@ export default {
 
 :deep(.pap-profile-page .card-footer) {
   border-top: 1px solid var(--pap-border) !important;
+  padding: 0.5rem 0.75rem;
 }
 
 [data-bs-theme="dark"] .pap-profile-page {

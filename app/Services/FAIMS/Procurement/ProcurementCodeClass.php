@@ -6,10 +6,12 @@ use App\Models\User;
 use App\Models\ProcurementCode;
 use App\Models\ProcurementCodeBudgetLog;
 use App\Models\ProcurementCodeUnit;
+use App\Notifications\PendingProcurementCodeBudgetRequestNotification;
 use App\Http\Resources\FAIMS\Procurement\ProcurementCodeResource;
 use App\Http\Resources\FAIMS\Procurement\ProcurementCodeBudgetLogResource;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class ProcurementCodeClass
 {
@@ -28,6 +30,79 @@ class ProcurementCodeClass
             ->paginate($request->count ?: 10)
         );
         return $data;
+    }
+
+    public function budgetIncreaseRequests($request)
+    {
+        return ProcurementCodeBudgetLogResource::collection(
+            ProcurementCodeBudgetLog::query()
+                ->with([
+                    'procurement_code.end_users.end_user',
+                    'procurement_code.app_type',
+                    'procurement_code.mode_of_procurement',
+                    'source_procurement_code',
+                    'requested_by.profile',
+                    'reviewed_by.profile',
+                    'processed_by.profile',
+                ])
+                ->where('type', 'budget_increase')
+                ->when($request->status && $request->status !== 'all', function ($query) use ($request) {
+                    $query->where('status', $request->status);
+                })
+                ->when($request->keyword, function ($query, $keyword) {
+                    $query->where(function ($searchQuery) use ($keyword) {
+                        $searchQuery->where('description', 'LIKE', "%{$keyword}%")
+                            ->orWhereHas('procurement_code', function ($papQuery) use ($keyword) {
+                                $papQuery->where('title', 'LIKE', "%{$keyword}%")
+                                    ->orWhere('code', 'LIKE', "%{$keyword}%")
+                                    ->orWhere('year', 'LIKE', "%{$keyword}%");
+                            })
+                            ->orWhereHas('source_procurement_code', function ($sourceQuery) use ($keyword) {
+                                $sourceQuery->where('title', 'LIKE', "%{$keyword}%")
+                                    ->orWhere('code', 'LIKE', "%{$keyword}%")
+                                    ->orWhere('year', 'LIKE', "%{$keyword}%");
+                            })
+                            ->orWhereHas('requested_by.profile', function ($profileQuery) use ($keyword) {
+                                $profileQuery->where('firstname', 'LIKE', "%{$keyword}%")
+                                    ->orWhere('lastname', 'LIKE', "%{$keyword}%")
+                                    ->orWhere('middlename', 'LIKE', "%{$keyword}%");
+                            });
+                    });
+                })
+                ->latest()
+                ->paginate($request->count ?: 10)
+        );
+    }
+
+    public function sourceBudgetCodes($request)
+    {
+        return ProcurementCode::query()
+            ->when($request->except_id, function ($query, $exceptId) {
+                $query->where('id', '!=', $exceptId);
+            })
+            ->when($request->keyword, function ($query, $keyword) {
+                $query->where(function ($searchQuery) use ($keyword) {
+                    $searchQuery->where('title', 'LIKE', "%{$keyword}%")
+                        ->orWhere('code', 'LIKE', "%{$keyword}%")
+                        ->orWhere('year', 'LIKE', "%{$keyword}%");
+                });
+            })
+            ->orderBy('code')
+            ->limit(50)
+            ->get()
+            ->map(function ($item) {
+                $remainingBudget = (float) ($item->remaining_budget ?? $item->allocated_budget ?? 0);
+
+                return [
+                    'value' => $item->id,
+                    'code' => $item->code,
+                    'title' => $item->title,
+                    'allocated_budget' => (float) $item->allocated_budget,
+                    'remaining_budget' => $remainingBudget,
+                    'year' => $item->year,
+                    'label' => trim($item->code . ' - ' . $item->title),
+                ];
+            });
     }
 
     public function save($request)
@@ -129,17 +204,36 @@ class ProcurementCodeClass
             $procurementCode->remaining_budget ?? $procurementCode->allocated_budget
         );
         $requestedAmountCents = $this->amountToCents($request->amount);
+        $requestType = $request->request_type ?: 'additional_budget';
+        $sourceProcurementCode = null;
+
+        if ($requestType === 'realignment') {
+            $sourceProcurementCode = ProcurementCode::query()
+                ->where('id', '!=', $procurementCode->id)
+                ->findOrFail($request->source_procurement_code_id);
+
+            $sourceBalanceCents = $this->amountToCents(
+                $sourceProcurementCode->remaining_budget ?? $sourceProcurementCode->allocated_budget
+            );
+
+            if ($sourceBalanceCents < $requestedAmountCents) {
+                throw new \Exception('The selected source PAP code does not have enough remaining budget for this realignment request.');
+            }
+        }
+
         /** @var UploadedFile|null $attachment */
         $attachment = $request->file('attachment');
 
-        ProcurementCodeBudgetLog::create([
+        $budgetLog = ProcurementCodeBudgetLog::create([
             'procurement_code_id' => $procurementCode->id,
+            'source_procurement_code_id' => $sourceProcurementCode?->id,
             'procurement_id' => null,
             'processed_by_id' => null,
             'requested_by_id' => Auth::id(),
             'reviewed_by_id' => null,
             'type' => 'budget_increase',
             'status' => 'pending',
+            'request_type' => $requestType,
             'amount' => $this->centsToAmount($requestedAmountCents),
             'balance_before' => $this->centsToAmount($currentBalanceCents),
             'balance_after' => $this->centsToAmount($currentBalanceCents),
@@ -148,6 +242,8 @@ class ProcurementCodeClass
             'attachment_path' => $attachment?->store('procurement_code_budget_bases', 'public'),
             'reviewed_at' => null,
         ]);
+
+        $this->notifyPendingBudgetReviewRecipients($budgetLog, Auth::user());
 
         return [
             'data' => $this->profilePayload($this->loadProcurementCode($procurementCode->id)),
@@ -179,6 +275,26 @@ class ProcurementCodeClass
         $requestedAmountCents = $this->amountToCents($log->amount);
         $balanceAfterCents = $balanceBeforeCents + $requestedAmountCents;
         $allocatedBudgetAfterCents = $this->amountToCents($procurementCode->allocated_budget) + $requestedAmountCents;
+
+        $sourceProcurementCode = null;
+        if (($log->request_type ?: 'additional_budget') === 'realignment') {
+            $sourceProcurementCode = ProcurementCode::query()
+                ->lockForUpdate()
+                ->findOrFail($log->source_procurement_code_id);
+
+            $sourceBalanceBeforeCents = $this->amountToCents(
+                $sourceProcurementCode->remaining_budget ?? $sourceProcurementCode->allocated_budget
+            );
+            $sourceAllocatedBeforeCents = $this->amountToCents($sourceProcurementCode->allocated_budget);
+
+            if ($sourceBalanceBeforeCents < $requestedAmountCents) {
+                throw new \Exception('The source PAP code no longer has enough remaining budget for this realignment request.');
+            }
+
+            $sourceProcurementCode->allocated_budget = $this->centsToAmount($sourceAllocatedBeforeCents - $requestedAmountCents);
+            $sourceProcurementCode->remaining_budget = $this->centsToAmount($sourceBalanceBeforeCents - $requestedAmountCents);
+            $sourceProcurementCode->save();
+        }
 
         $procurementCode->allocated_budget = $this->centsToAmount($allocatedBudgetAfterCents);
         $procurementCode->remaining_budget = $this->centsToAmount($balanceAfterCents);
@@ -247,6 +363,7 @@ class ProcurementCodeClass
                 'budget_logs' => function ($query) {
                     $query->with([
                         'procurement.status',
+                        'source_procurement_code',
                         'processed_by.profile',
                         'requested_by.profile',
                         'reviewed_by.profile',
@@ -311,9 +428,7 @@ class ProcurementCodeClass
             return false;
         }
 
-        return $user->hasRole('Procurement Staff')
-            || $user->hasRole('Procurement Officer')
-            || $user->hasRole('Administrator');
+        return $user->hasRole('Procurement Officer');
     }
 
     public function canReviewBudgetIncrease(?User $user): bool
@@ -322,7 +437,31 @@ class ProcurementCodeClass
             return false;
         }
 
-        return $user->hasRole('Budget Officer') || $user->hasRole('Administrator');
+        return $user->hasRole('Budget Officer');
+    }
+
+    protected function notifyPendingBudgetReviewRecipients(ProcurementCodeBudgetLog $budgetLog, ?User $actor): void
+    {
+        if (!$actor || !Schema::hasTable('notifications')) {
+            return;
+        }
+
+        $budgetLog->loadMissing('procurement_code', 'source_procurement_code');
+
+        $recipients = User::query()
+            ->with('profile')
+            ->where('is_active', 1)
+            ->where('id', '!=', $actor->id)
+            ->whereHas('roles', function ($query) {
+                $query->where('list_roles.name', 'Budget Officer')
+                    ->where('user_roles.is_active', 1);
+            })
+            ->get()
+            ->unique('id');
+
+        foreach ($recipients as $recipient) {
+            $recipient->notify(new PendingProcurementCodeBudgetRequestNotification($budgetLog, $actor));
+        }
     }
 
     protected function amountToCents($amount): int

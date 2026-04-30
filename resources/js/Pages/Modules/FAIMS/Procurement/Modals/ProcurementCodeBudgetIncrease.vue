@@ -1,7 +1,7 @@
 <template>
   <b-modal
     v-model="showModal"
-    title="Request Additional Budget"
+    :title="modalTitle"
     size="lg"
     centered
     no-close-on-backdrop
@@ -12,7 +12,7 @@
           <div class="badge bg-success-subtle text-success mb-2">{{ selected.code }}</div>
           <h5 class="mb-1">{{ selected.title }}</h5>
           <p class="text-muted fs-12 mb-0">
-            Submit an additional budget request for this PAP code. It will remain
+            Submit a budget request for this PAP code. It will remain
             pending until a Budget Officer reviews it.
           </p>
         </div>
@@ -38,13 +38,84 @@
     <form class="customform" @submit.prevent="submit">
       <b-row>
         <b-col lg="12" class="mt-2">
-          <InputLabel value="Additional Amount" />
+          <InputLabel value="Request Type" :message="form.errors.request_type" />
+          <div class="d-flex flex-column flex-md-row gap-2">
+            <button
+              type="button"
+              class="btn budget-request-type flex-fill text-start"
+              :class="form.request_type === 'additional_budget' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="setRequestType('additional_budget')"
+            >
+              <span class="d-flex align-items-center gap-2">
+                <i class="ri-add-circle-line"></i>
+                <span>
+                  <span class="d-block fw-semibold">Additional Budget</span>
+                  <span class="d-block fs-12 opacity-75">Add new funds to this PAP code.</span>
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="btn budget-request-type flex-fill text-start"
+              :class="form.request_type === 'realignment' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="setRequestType('realignment')"
+            >
+              <span class="d-flex align-items-center gap-2">
+                <i class="ri-arrow-left-right-line"></i>
+                <span>
+                  <span class="d-block fw-semibold">Realignment</span>
+                  <span class="d-block fs-12 opacity-75">Move budget from another PAP code.</span>
+                </span>
+              </span>
+            </button>
+          </div>
+          <InputError :message="form.errors.request_type" />
+        </b-col>
+
+        <b-col v-if="form.request_type === 'realignment'" lg="12" class="mt-3">
+          <InputLabel value="Source PAP Code" :message="form.errors.source_procurement_code_id" />
+        
+          <select
+            v-model="form.source_procurement_code_id"
+            class="form-select"
+            :class="{ 'is-invalid': form.errors.source_procurement_code_id }"
+          >
+            <option :value="null">Select source PAP code</option>
+            <option
+              v-for="sourceCode in sourceCodes"
+              :key="sourceCode.value"
+              :value="sourceCode.value"
+            >
+              {{ sourceCode.code }} - {{ sourceCode.title }} | Remaining:
+              {{ formatCurrency(sourceCode.remaining_budget) }}
+            </option>
+          </select>
+          <div v-if="selectedSourceCode" class="rounded border bg-light-subtle p-2 mt-2">
+            <div class="d-flex justify-content-between gap-3 fs-12">
+              <span class="text-muted">Source remaining</span>
+              <span class="fw-semibold">{{ formatCurrency(selectedSourceCode.remaining_budget) }}</span>
+            </div>
+            <div class="d-flex justify-content-between gap-3 fs-12 mt-1">
+              <span class="text-muted">After realignment</span>
+              <span
+                class="fw-semibold"
+                :class="sourceBalanceAfter < 0 ? 'text-danger' : 'text-success'"
+              >
+                {{ formatCurrency(sourceBalanceAfter) }}
+              </span>
+            </div>
+          </div>
+          <InputError :message="form.errors.source_procurement_code_id" />
+        </b-col>
+
+        <b-col lg="12" class="mt-2">
+          <InputLabel :value="amountLabel" />
           <Amount
             ref="amountComponent"
             @amount="setAmount"
-            :class="{ 'is-invalid': form.errors.amount }"
+            :class="{ 'is-invalid': form.errors.amount || realignmentAmountError }"
           />
-          <InputError :message="form.errors.amount" />
+          <InputError :message="form.errors.amount || realignmentAmountError" />
         </b-col>
 
         <b-col lg="12" class="mt-3">
@@ -54,7 +125,7 @@
             rows="5"
             class="form-control"
             :class="{ 'is-invalid': form.errors.description }"
-            placeholder="Why is the additional budget needed?"
+            :placeholder="descriptionPlaceholder"
           ></textarea>
           <InputError :message="form.errors.description" />
         </b-col>
@@ -82,7 +153,7 @@
 
     <template #footer>
       <b-button variant="light" @click="hide" :disabled="submitting">Close</b-button>
-      <b-button variant="primary" @click="submit" :disabled="submitting || !selected">
+      <b-button variant="primary" @click="submit" :disabled="submitting || !selected || Boolean(realignmentAmountError)">
         <span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>
         Submit Request
       </b-button>
@@ -109,18 +180,77 @@ export default {
       selected: null,
       errorMessage: null,
       fileInputKey: 0,
+      sourceCodes: [],
+      sourceKeyword: "",
       form: useForm({
+        request_type: "additional_budget",
+        source_procurement_code_id: null,
         amount: null,
         description: "",
         attachment: null,
       }),
     };
   },
+  computed: {
+    modalTitle() {
+      return this.form.request_type === "realignment"
+        ? "Request Budget Realignment"
+        : "Request Additional Budget";
+    },
+    amountLabel() {
+      return this.form.request_type === "realignment"
+        ? "Realignment Amount"
+        : "Additional Amount";
+    },
+    descriptionPlaceholder() {
+      return this.form.request_type === "realignment"
+        ? "Why should budget be realigned from the selected PAP code?"
+        : "Why is the additional budget needed?";
+    },
+    selectedSourceCode() {
+      return this.sourceCodes.find((code) => {
+        return Number(code.value) === Number(this.form.source_procurement_code_id);
+      }) || null;
+    },
+    sourceBalanceAfter() {
+      if (!this.selectedSourceCode) {
+        return 0;
+      }
+
+      return Number(this.selectedSourceCode.remaining_budget || 0) - Number(this.form.amount || 0);
+    },
+    realignmentAmountError() {
+      if (
+        this.form.request_type !== "realignment" ||
+        !this.selectedSourceCode ||
+        !Number(this.form.amount || 0)
+      ) {
+        return null;
+      }
+
+      if (Number(this.form.amount || 0) > Number(this.selectedSourceCode.remaining_budget || 0)) {
+        return "The realignment amount must not be greater than the source PAP code remaining balance.";
+      }
+
+      return null;
+    },
+  },
+  watch: {
+    "form.request_type"(value) {
+      if (value !== "realignment") {
+        this.form.source_procurement_code_id = null;
+        return;
+      }
+
+      this.fetchSourceCodes();
+    },
+  },
   methods: {
     show(data) {
       this.selected = data;
       this.showModal = true;
       this.resetFormState();
+      this.fetchSourceCodes();
     },
     hide() {
       this.showModal = false;
@@ -132,7 +262,11 @@ export default {
       this.errorMessage = null;
       this.form.reset();
       this.form.clearErrors();
+      this.form.request_type = "additional_budget";
+      this.form.source_procurement_code_id = null;
       this.form.attachment = null;
+      this.sourceCodes = [];
+      this.sourceKeyword = "";
       this.fileInputKey += 1;
 
       this.$nextTick(() => {
@@ -141,6 +275,27 @@ export default {
     },
     setAmount(value) {
       this.form.amount = this.cleanCurrency(value);
+    },
+    setRequestType(value) {
+      this.form.request_type = value;
+    },
+    fetchSourceCodes() {
+      if (!this.selected) {
+        return;
+      }
+
+      axios
+        .get("/faims/procurement-codes", {
+          params: {
+            option: "source_budget_codes",
+            except_id: this.selected.id,
+            keyword: this.sourceKeyword,
+          },
+        })
+        .then((response) => {
+          this.sourceCodes = Array.isArray(response.data) ? response.data : [];
+        })
+        .catch((err) => console.log(err));
     },
     cleanCurrency(value) {
       if (!value) {
@@ -156,6 +311,11 @@ export default {
     },
     submit() {
       if (!this.selected || this.submitting) {
+        return;
+      }
+
+      if (this.realignmentAmountError) {
+        this.form.setError("amount", this.realignmentAmountError);
         return;
       }
 
@@ -200,3 +360,10 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.budget-request-type {
+  min-height: 72px;
+  border-radius: 8px;
+}
+</style>
