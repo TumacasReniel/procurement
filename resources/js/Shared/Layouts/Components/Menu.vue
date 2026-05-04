@@ -56,6 +56,26 @@
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Dashboard</span>
                 </Link>
             </li>
+               <li
+                class="nav-item"
+                v-if="
+                $page.props.roles.includes('Procurement Staff') ||
+                $page.props.roles.includes('Procurement Officer') ||
+                $page.props.roles.includes('Budget Officer') ||
+                $page.props.roles.includes('Administrator')
+                "
+            >
+                <Link
+                href="/faims/procurement-ppmp"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/PPMP'),
+                }"
+                >
+                <i class="ri-apps-fill"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">PPMP</span>
+                </Link>
+            </li>
             <li class="nav-item">
                 <Link
                 href="/faims/procurements"
@@ -111,7 +131,7 @@
                 <Link
                     v-if=" $page.props.roles.includes('Budget Officer') ||
                             $page.props.roles.includes('Administrator')"
-                    href="/faims/procurement-code-budget-requests"
+                    href="/faims/procurement-codes?option=budget_requests"
                     class="nav-link menu-link"
                     :class="{
                         active: $page.component.startsWith('Modules/FAIMS/Procurement/Code/BudgetRequests'),

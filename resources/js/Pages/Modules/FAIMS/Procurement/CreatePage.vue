@@ -114,7 +114,7 @@
 
                             <div class="col-12">
                               <div class="form-group compact-form-group">
-                                <InputLabel for="Mode Procurement " value="Procurement Codes" :message="form.errors.procurement_code_ids" />
+                                <InputLabel for="Mode Procurement " value="PAP Codes" :message="form.errors.procurement_code_ids" />
                                 <Multiselect
                                   :options="availableProcurementCodes"
                                   v-model="form.procurement_code_ids"
@@ -126,10 +126,10 @@
                                   :append-to-body="true"
                                 />
                                 <small
-                                  v-if="form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage"
+                                  v-if="form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage || procurementCodeUnitHelper"
                                   class="text-danger d-block mt-2 fs-5 fw-bold"
                                 >
-                                  {{ form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage }}
+                                  {{ form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage || procurementCodeUnitHelper }}
                                 </small>
                               </div>
                             </div>
@@ -223,11 +223,13 @@
                       <div class="ms-auto">
                         <b-button
                           v-if="canManageRequestDetails"
-                          :disabled="!form.division_id || !form.unit_id || !form.fund_cluster_id || !form.purpose"
+                          :disabled="!canAddItems"
                           @click="openAddItem()"
                           variant="primary"
                           size="sm"
                           class="add-item-btn"
+                          v-b-tooltip.hover
+                          :title="addItemDisabledReason"
                         >
                           <i class="ri-add-line me-1"></i>
                           Add Item
@@ -435,7 +437,14 @@
       @toggleRightSidebar="toggleRightSidebar"
     />
 
-    <Item :dropdowns="dropdowns" @refresh="getDataFromLocalStorage()" ref="item" />
+    <Item
+      :dropdowns="dropdowns"
+      :ppmp-items="ppmpItems"
+      :require-ppmp-item="option === 'create'"
+      :is-loading-ppmp-items="isLoadingPpmpItems"
+      @refresh="getDataFromLocalStorage()"
+      ref="item"
+    />
   </div>
 </template>
 <script>
@@ -475,6 +484,9 @@ export default {
       action: null,
       showModal: false,
       units: [],
+      ppmpItems: [],
+      isLoadingPpmpItems: false,
+      latestPpmpItemsKey: "",
       isRightCollapsed: false,
       isCollapsed: false,
     };
@@ -487,7 +499,14 @@ export default {
       }
     },
 
+    "form.unit_id"() {
+      this.removeInvalidProcurementCodesForUnit();
+      this.fetchPpmpItems();
+    },
+
     "form.procurement_code_ids": function (value) {
+      this.fetchPpmpItems();
+
       if (this.action == "create") {
         if (Array.isArray(value) && value.length > 0) {
           // Reset the title before adding new ones
@@ -569,6 +588,9 @@ export default {
         return {
           ...option,
           remaining_budget: remainingBudget,
+          end_user_ids: Array.isArray(option.end_user_ids)
+            ? option.end_user_ids.map((id) => Number(id))
+            : [],
           label: baseLabel,
         };
       });
@@ -585,8 +607,81 @@ export default {
       );
 
       return this.normalizedProcurementCodes.filter((option) => {
-        return selectedIds.has(Number(option.value)) || option.remaining_budget > 0;
+        const belongsToSelectedUnit = this.procurementCodeBelongsToSelectedUnit(option);
+
+        return (
+          belongsToSelectedUnit &&
+          (selectedIds.has(Number(option.value)) || option.remaining_budget > 0)
+        );
       });
+    },
+    hasSelectedUnitProcurementCodes() {
+      return this.normalizedProcurementCodes.some((option) =>
+        this.procurementCodeBelongsToSelectedUnit(option)
+      );
+    },
+    hasSelectedProcurementCodes() {
+      return Array.isArray(this.form.procurement_code_ids) && this.form.procurement_code_ids.length > 0;
+    },
+    availablePpmpItemIds() {
+      return new Set(this.ppmpItems.map((item) => Number(item.value)));
+    },
+    hasPpmpItemsForSelectedPap() {
+      return this.ppmpItems.length > 0;
+    },
+    canAddItems() {
+      return Boolean(
+        this.form.division_id &&
+        this.form.unit_id &&
+        this.form.fund_cluster_id &&
+        this.form.purpose &&
+        this.hasSelectedProcurementCodes &&
+        this.hasPpmpItemsForSelectedPap
+      );
+    },
+    addItemDisabledReason() {
+      if (!this.form.unit_id) {
+        return "Select the end user/unit first.";
+      }
+
+      if (!this.hasSelectedUnitProcurementCodes) {
+        return "No PAP code is assigned to the selected end user/unit.";
+      }
+
+      if (!this.hasSelectedProcurementCodes) {
+        return "Select a PAP code assigned to this end user/unit before adding items.";
+      }
+
+      if (!this.hasPpmpItemsForSelectedPap) {
+        return this.isLoadingPpmpItems
+          ? "Loading PPMP items for the selected PAP code."
+          : "No PPMP items are available for the selected unit and PAP code.";
+      }
+
+      if (!this.form.division_id || !this.form.fund_cluster_id || !this.form.purpose) {
+        return "Complete the request details before adding items.";
+      }
+
+      return "Add Item";
+    },
+    procurementCodeUnitHelper() {
+      if (this.option !== "create" || !this.form.unit_id) {
+        return null;
+      }
+
+      if (!this.hasSelectedUnitProcurementCodes) {
+        return "No PAP codes are assigned to the selected end user/unit.";
+      }
+
+      if (!this.hasSelectedProcurementCodes) {
+        return "Select a PAP code assigned to this end user/unit before adding PPMP items.";
+      }
+
+      if (!this.isLoadingPpmpItems && !this.hasPpmpItemsForSelectedPap) {
+        return "No PPMP items are available for the selected unit and PAP code.";
+      }
+
+      return null;
     },
     selectedProcurementCodeBalance() {
       if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
@@ -696,6 +791,7 @@ export default {
       return this.form.division_id &&
              this.form.unit_id &&
              this.form.fund_cluster_id &&
+             this.hasSelectedProcurementCodes &&
              this.form.purpose &&
              this.form.requested_by_id &&
              this.form.approved_by_id &&
@@ -712,6 +808,9 @@ export default {
     if (this.option === 'create' && this.dropdowns.regional_director) {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
  
+    }
+    if (this.option === "create") {
+      this.prefillUserDivisionAndUnit();
     }
     try {
       this.isRightCollapsed = JSON.parse(localStorage.getItem("isRightCollapsed")) ?? true;
@@ -753,8 +852,119 @@ export default {
       localStorage.setItem("isRightCollapsed", this.isRightCollapsed);
     },
 
+    prefillUserDivisionAndUnit() {
+      const organization = this.$page.props.user?.data?.organization || {};
+      const divisionId = organization.division_id ? Number(organization.division_id) : null;
+      const unitId = organization.unit_id ? Number(organization.unit_id) : null;
+
+      if (!divisionId) {
+        return;
+      }
+
+      this.form.division_id = divisionId;
+
+      if (unitId) {
+        this.getUnits(divisionId, unitId);
+      }
+    },
+
     openAddItem() {
+      if (!this.canAddItems) {
+        return;
+      }
+
       this.$refs.item.show();
+    },
+
+    procurementCodeBelongsToSelectedUnit(option) {
+      if (!this.form.unit_id) {
+        return false;
+      }
+
+      const endUserIds = Array.isArray(option?.end_user_ids)
+        ? option.end_user_ids.map((id) => Number(id))
+        : [];
+
+      return endUserIds.includes(Number(this.form.unit_id));
+    },
+
+    removeInvalidProcurementCodesForUnit() {
+      if (!Array.isArray(this.form.procurement_code_ids) || !this.form.procurement_code_ids.length) {
+        return;
+      }
+
+      const availableIds = new Set(
+        this.availableProcurementCodes.map((option) => Number(option.value))
+      );
+
+      this.form.procurement_code_ids = this.form.procurement_code_ids.filter((id) =>
+        availableIds.has(Number(id))
+      );
+    },
+
+    fetchPpmpItems() {
+      if (this.option !== "create") {
+        return;
+      }
+
+      const procurementCodeIds = Array.isArray(this.form.procurement_code_ids)
+        ? this.form.procurement_code_ids.filter(Boolean)
+        : [];
+
+      if (!this.form.unit_id || procurementCodeIds.length === 0) {
+        this.ppmpItems = [];
+        this.removeItemsOutsideCurrentPpmp();
+        return;
+      }
+
+      const requestKey = `${this.form.unit_id}:${procurementCodeIds.join(",")}`;
+      this.latestPpmpItemsKey = requestKey;
+      this.isLoadingPpmpItems = true;
+
+      axios
+        .get("/faims/procurements/create", {
+          params: {
+            option: "ppmp_items",
+            unit_id: this.form.unit_id,
+            procurement_code_ids: procurementCodeIds,
+          },
+        })
+        .then((response) => {
+          if (this.latestPpmpItemsKey !== requestKey) {
+            return;
+          }
+
+          this.ppmpItems = Array.isArray(response.data) ? response.data : [];
+          this.removeItemsOutsideCurrentPpmp();
+        })
+        .catch((err) => {
+          console.log(err);
+          this.ppmpItems = [];
+          this.removeItemsOutsideCurrentPpmp();
+        })
+        .finally(() => {
+          if (this.latestPpmpItemsKey === requestKey) {
+            this.isLoadingPpmpItems = false;
+          }
+        });
+    },
+
+    removeItemsOutsideCurrentPpmp() {
+      if (this.option !== "create" || !Array.isArray(this.form.items) || !this.form.items.length) {
+        return;
+      }
+
+      const availableIds = this.availablePpmpItemIds;
+      const filteredItems = this.form.items.filter((item) =>
+        item.ppmp_item_id && availableIds.has(Number(item.ppmp_item_id))
+      );
+
+      if (filteredItems.length === this.form.items.length) {
+        return;
+      }
+
+      this.form.items = filteredItems;
+      localStorage.setItem("itemsAdded", JSON.stringify(filteredItems));
     },
 
     openProcurementCodeProfile(id) {
@@ -876,7 +1086,7 @@ export default {
       return Number(value) < 0 ? "text-danger" : "text-success";
     },
 
-    getUnits(division_id) {
+    getUnits(division_id, preferred_unit_id = null) {
       axios
         .get("/faims/procurements/create", {
           params: {
@@ -887,6 +1097,13 @@ export default {
         .then((response) => {
           if (response) {
             this.units = response.data;
+            if (preferred_unit_id) {
+              const hasPreferredUnit = this.units.some((unit) => Number(unit.value) === Number(preferred_unit_id));
+
+              if (hasPreferredUnit) {
+                this.form.unit_id = Number(preferred_unit_id);
+              }
+            }
           }
         })
         .catch((err) => console.log(err));

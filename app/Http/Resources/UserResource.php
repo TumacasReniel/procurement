@@ -28,6 +28,12 @@ class UserResource extends JsonResource
             'birthdate' => $this->profile->birthdate,
             'profile_id' => $this->profile->id,
             'position' => $this->organization->position->name,
+            'organization' => [
+                'division_id' => $this->organization?->division_id,
+                'division' => $this->organization?->division?->name,
+                'unit_id' => $this->organization?->unit_id,
+                'unit' => $this->organization?->unit?->name,
+            ],
             'signatory' => $this->signatory,
             'is_active' => $this->is_active,
             'must_change' => $this->must_change,

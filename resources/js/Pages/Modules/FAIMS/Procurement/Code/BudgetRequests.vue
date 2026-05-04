@@ -278,13 +278,13 @@ export default {
       this.fetch();
     }, 300),
     fetch(pageUrl) {
-      const url = pageUrl || "/faims/procurement-code-budget-requests";
+      const url = pageUrl || "/faims/procurement-codes";
       axios
         .get(url, {
           params: {
             keyword: this.filter.keyword,
             status: this.filter.status,
-            option: "lists",
+            option: "budget_request_lists",
           },
         })
         .then((response) => {
@@ -302,8 +302,11 @@ export default {
       this.processingLogId = log.id;
 
       router.patch(
-        `/faims/procurement-codes/${log.procurement_code.id}/budget-increase-requests/${log.id}/${action}`,
-        {},
+        `/faims/procurement-codes/${log.procurement_code.id}`,
+        {
+          option: action === "approve" ? "approve_budget_increase" : "reject_budget_increase",
+          budget_log_id: log.id,
+        },
         {
           preserveScroll: true,
           preserveState: true,

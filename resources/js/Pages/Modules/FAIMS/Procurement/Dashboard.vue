@@ -149,8 +149,29 @@
       </div>
     </section>
 
+    <section class="dashboard-tabs mb-3">
+      <button
+        type="button"
+        class="dashboard-tab"
+        :class="{ active: activeDashboardTab === 'overview' }"
+        @click="activeDashboardTab = 'overview'"
+      >
+        <i class="ri-dashboard-line"></i>
+        Overview
+      </button>
+      <button
+        type="button"
+        class="dashboard-tab"
+        :class="{ active: activeDashboardTab === 'graphs' }"
+        @click="activeDashboardTab = 'graphs'"
+      >
+        <i class="ri-line-chart-line"></i>
+        Graphs
+      </button>
+    </section>
+
     <!-- Metrics -->
-    <section class="dashboard-metric-section mt-2">
+    <section v-show="activeDashboardTab === 'overview'" class="dashboard-metric-section mt-2">
       <div class="dashboard-metric-section__header">
         <div>
           <span class="section-kicker">Workflow Status</span>
@@ -182,7 +203,7 @@
       </BRow>
     </section>
 
-    <section class="dashboard-metric-section">
+    <section v-show="activeDashboardTab === 'overview'" class="dashboard-metric-section">
       <div class="dashboard-metric-section__header">
         <div>
           <span class="section-kicker">Budget Snapshot</span>
@@ -215,7 +236,7 @@
     </section>
 
 
-    <BRow class="g-2">
+    <BRow v-show="activeDashboardTab === 'overview'" class="g-2">
       <BCol  v-for="module in workspaceModules" :key="module.key" xl="4" md="6">
         <BCard class="module-card" :style="{ '--module-accent': module.accentColor || '#405189' }">
           <BCardBody>
@@ -247,7 +268,7 @@
     </BRow>
 
     <!-- Charts -->
-    <BRow class="g-2 mb-2">
+    <BRow v-show="activeDashboardTab === 'graphs'" class="g-2 mb-2">
       <BCol xl="12">
         <BCard class="panel-card h-100">
           <BCardHeader>
@@ -265,7 +286,7 @@
     </BRow>
 
     <!-- Unit Breakdown -->
-    <BCard class="panel-card mb-2">
+    <BCard v-show="activeDashboardTab === 'graphs'" class="panel-card mb-2">
       <BCardHeader class="d-flex justify-content-between align-items-center">
         <div>
           <h5><i class="ri-bar-chart-horizontal-line me-2"></i>Unit Breakdown</h5>
@@ -334,7 +355,7 @@
     </BCard>
 
     <!-- Recent + Insights -->
-    <BRow class="g-2 mb-2">
+    <BRow v-show="activeDashboardTab === 'overview'" class="g-2 mb-2">
       <BCol xl="7">
         <BCard class="panel-card h-100">
           <BCardHeader class="d-flex justify-content-between align-items-center">
@@ -528,6 +549,7 @@ export default {
         start_date: null,
         end_date: null,
       },
+      activeDashboardTab: 'overview',
       periodOptions: [
         { value: 'all', label: 'All Time' },
         { value: 'today', label: 'Today' },
@@ -1515,59 +1537,34 @@ export default {
 
 <style scoped>
 .procurement-dashboard-page {
-  --proc-brand: #405189;
-  --proc-brand-dark: #344272;
-  --proc-accent: #0ab39c;
-  --proc-ink: #0f172a;
-  --proc-muted: #64748b;
-  --proc-border: #e8edf5;
-  --proc-soft: rgba(64, 81, 137, 0.1);
-  --proc-surface: rgba(255, 255, 255, .86);
+  --proc-brand: #6d5dfc;
+  --proc-brand-dark: #3e63f4;
+  --proc-accent: #14d4d8;
+  --proc-ink: #182039;
+  --proc-muted: #6f7895;
+  --proc-border: rgba(91, 105, 153, 0.13);
+  --proc-soft: rgba(109, 93, 252, 0.1);
+  --proc-surface: rgba(255, 255, 255, .88);
   --proc-card: #ffffff;
-  --proc-card-soft: #f8fafc;
+  --proc-card-soft: #f5f7ff;
   --proc-card-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   --proc-panel-header: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
-  --proc-chart-bg: linear-gradient(180deg, rgba(248, 250, 252, .72), #ffffff 28%), #ffffff;
+  --proc-chart-bg: linear-gradient(180deg, rgba(247, 249, 255, .92), #ffffff 34%), #ffffff;
   --proc-table-row: #ffffff;
-  --proc-table-hover: rgba(64, 81, 137, 0.06);
+  --proc-table-hover: rgba(109, 93, 252, 0.06);
   --proc-input: #ffffff;
-  --proc-shadow: rgba(15, 23, 42, .05);
-  padding-bottom: 1.5rem;
-}
-
-:global([data-bs-theme="dark"]) .procurement-dashboard-page {
-  --proc-brand: #93c5fd;
-  --proc-brand-dark: #60a5fa;
-  --proc-accent: #5eead4;
-  --proc-ink: #e5edf7;
-  --proc-muted: #9fb0c7;
-  --proc-border: rgba(148, 163, 184, 0.18);
-  --proc-soft: rgba(96, 165, 250, 0.14);
-  --proc-surface: rgba(19, 29, 43, 0.92);
-  --proc-card: #131d2b;
-  --proc-card-soft: #182235;
-  --proc-card-gradient: linear-gradient(180deg, #172235 0%, #101827 100%);
-  --proc-panel-header: linear-gradient(180deg, #172235 0%, #131d2b 100%);
-  --proc-chart-bg: linear-gradient(180deg, rgba(24, 34, 53, .72), #101827 30%), #101827;
-  --proc-table-row: #182235;
-  --proc-table-hover: rgba(96, 165, 250, 0.12);
-  --proc-input: #101827;
-  --proc-shadow: rgba(0, 0, 0, .28);
-}
-
-:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-dark),
-:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-body) {
-  color: var(--proc-ink) !important;
-}
-
-:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-muted),
-:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-body-secondary) {
-  color: var(--proc-muted) !important;
+  --proc-shadow: rgba(31, 45, 92, .09);
+  min-height: 100vh;
+  padding: .75rem .75rem 1.75rem;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(20, 212, 216, 0.13), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(255, 119, 151, 0.12), transparent 28%),
+    #f3f6ff;
 }
 
 .procurement-hero {
   position: relative;
-  border-radius: 22px;
+  border-radius: 24px;
   background:
     radial-gradient(circle at 8% 10%, rgba(255, 255, 255, .22), transparent 32%),
     radial-gradient(circle at 88% 22%, rgba(10, 179, 156, .32), transparent 28%),
@@ -1618,11 +1615,45 @@ export default {
 }
 
 .dashboard-filter-card {
-  border-radius: 14px !important;
+  border-radius: 18px !important;
   background: var(--proc-surface);
   border: 1px solid var(--proc-border) !important;
-  box-shadow: 0 14px 34px var(--proc-shadow) !important;
+  box-shadow: 0 16px 36px var(--proc-shadow) !important;
   backdrop-filter: blur(12px);
+}
+
+.dashboard-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .35rem;
+  border: 1px solid var(--proc-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 12px 28px var(--proc-shadow);
+}
+
+.dashboard-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 38px;
+  padding: .45rem .9rem;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--proc-muted);
+  font-weight: 800;
+}
+
+.dashboard-tab.active {
+  background: linear-gradient(135deg, #6d5dfc, #14d4d8);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(109, 93, 252, .18);
+}
+
+.dashboard-tab i {
+  font-size: 1rem;
 }
 
 .dashboard-filter-row {
@@ -1654,7 +1685,7 @@ export default {
   height: 100%;
   padding: .45rem .55rem;
   border: 1px solid var(--proc-border);
-  border-radius: 9px;
+  border-radius: 14px;
   background: var(--proc-card-soft);
 }
 
@@ -1725,13 +1756,7 @@ export default {
   font-weight: 700;
   padding: .5rem .85rem;
   border-radius: 999px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
-}
-
-:global([data-bs-theme="dark"]) .hero-pill {
-  background: rgba(15, 23, 42, .58);
-  border: 1px solid rgba(255, 255, 255, .16);
-  color: #dbeafe;
+  box-shadow: 0 10px 24px rgba(31, 45, 92, .12);
 }
 
 .hero-pill i {
@@ -1750,18 +1775,6 @@ export default {
   color: #1f2937;
 }
 
-:global([data-bs-theme="dark"]) .hero-pill.is-success {
-  color: #99f6e4;
-}
-
-:global([data-bs-theme="dark"]) .hero-pill.is-warning {
-  color: #fde68a;
-}
-
-:global([data-bs-theme="dark"]) .hero-pill.is-dark {
-  color: #e5edf7;
-}
-
 .hero-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1773,7 +1786,7 @@ export default {
   isolation: isolate;
   min-height: 88px;
   padding: .72rem;
-  border-radius: 10px;
+  border-radius: 18px;
   color: #fff;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .08));
@@ -1870,26 +1883,44 @@ export default {
 .panel-card {
   position: relative;
   border: 0;
-  border-radius: 10px;
+  border-radius: 20px;
   background: var(--proc-card);
   color: var(--proc-ink);
-  box-shadow: 0 6px 16px var(--proc-shadow);
+  box-shadow: 0 16px 36px var(--proc-shadow);
   overflow: hidden;
 }
 
 .metric-card::before,
 .module-card::before {
   position: absolute;
-  inset: 0 0 auto;
-  height: 4px;
+  inset: auto 1rem 1rem auto;
+  width: 96px;
+  height: 42px;
   content: "";
-  background: var(--metric-accent, var(--module-accent, var(--proc-brand)));
+  background:
+    radial-gradient(ellipse at 20% 65%, rgba(255,255,255,.46), transparent 36%),
+    linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.04));
+  border-radius: 50%;
+  transform: rotate(-8deg);
+  opacity: .75;
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: .85rem;
+  height: 34px;
+  border-bottom: 7px solid rgba(255, 255, 255, .46);
+  border-radius: 50%;
+  opacity: .5;
 }
 
 .metric-card .card-body,
 .module-card .card-body,
 .panel-card .card-body {
-  padding: .75rem;
+  padding: 1rem;
 }
 
 .module-card .card-body {
@@ -1902,13 +1933,49 @@ export default {
 
 .metric-card:hover,
 .module-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px var(--proc-shadow);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 42px rgba(31, 45, 92, .12);
 }
 
 .metric-card h4 {
-  color: var(--proc-ink);
-  font-size: 1.2rem;
+  color: #ffffff;
+  font-size: 1.55rem;
+}
+
+.metric-card p {
+  color: rgba(255,255,255,.88) !important;
+}
+
+.dashboard-metric-section:first-of-type .metric-card {
+  min-height: 144px;
+  color: #fff;
+}
+
+.dashboard-metric-section:first-of-type .row > [class*="col"]:nth-child(1) .metric-card {
+  background: linear-gradient(135deg, #8157ff 0%, #5536df 100%);
+}
+
+.dashboard-metric-section:first-of-type .row > [class*="col"]:nth-child(2) .metric-card {
+  background: linear-gradient(135deg, #28d8d9 0%, #4e8ff7 100%);
+}
+
+.dashboard-metric-section:first-of-type .row > [class*="col"]:nth-child(3) .metric-card {
+  background: linear-gradient(135deg, #ffd1a8 0%, #ff6f8f 100%);
+}
+
+.dashboard-metric-section:first-of-type .row > [class*="col"]:nth-child(4) .metric-card {
+  background: linear-gradient(135deg, #f3a2ee 0%, #6e74ff 100%);
+}
+
+.dashboard-metric-section:first-of-type .metric-icon {
+  background: rgba(255,255,255,.2) !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
+}
+
+.dashboard-metric-section:first-of-type .metric-card::before,
+.dashboard-metric-section:first-of-type .metric-card::after {
+  pointer-events: none;
 }
 
 .metric-icon,
@@ -1918,7 +1985,7 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 14px;
   font-size: .98rem;
   flex-shrink: 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5);
@@ -1944,7 +2011,7 @@ export default {
   justify-content: space-between;
   gap: .5rem;
   border: 1px solid rgba(64, 81, 137, .12);
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(64, 81, 137, .08);
   padding: .34rem .5rem;
   color: var(--proc-brand);
@@ -1965,7 +2032,7 @@ export default {
 .panel-card .card-header {
   background: var(--proc-panel-header);
   border-bottom: 1px solid var(--proc-border);
-  padding: .65rem .75rem;
+  padding: 1rem 1.1rem;
 }
 
 .panel-card .card-header h5 {
@@ -2019,8 +2086,8 @@ export default {
 .unit-breakdown-stat,
 .insight-item,
 .insight-highlight {
-  padding: .6rem;
-  border-radius: 9px;
+  padding: .85rem;
+  border-radius: 16px;
   background: var(--proc-card-gradient);
   border: 1px solid var(--proc-border);
 }
@@ -2054,7 +2121,7 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 16px;
   background: var(--proc-soft);
   color: var(--proc-brand);
   font-size: 1rem;
@@ -2097,14 +2164,14 @@ export default {
 
 .recent-table-body tbody td:first-child {
   border-left: 1px solid var(--proc-border);
-  border-top-left-radius: 10px;
-  border-bottom-left-radius: 10px;
+  border-top-left-radius: 14px;
+  border-bottom-left-radius: 14px;
 }
 
 .recent-table-body tbody td:last-child {
   border-right: 1px solid var(--proc-border);
-  border-top-right-radius: 10px;
-  border-bottom-right-radius: 10px;
+  border-top-right-radius: 14px;
+  border-bottom-right-radius: 14px;
 }
 
 .chart-body {

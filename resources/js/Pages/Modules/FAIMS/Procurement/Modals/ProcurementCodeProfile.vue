@@ -712,8 +712,11 @@ export default {
       this.processingLogId = log.id;
 
       router.patch(
-        `/faims/procurement-codes/${this.selected.id}/budget-increase-requests/${log.id}/${action}`,
-        {},
+        `/faims/procurement-codes/${this.selected.id}`,
+        {
+          option: action === "approve" ? "approve_budget_increase" : "reject_budget_increase",
+          budget_log_id: log.id,
+        },
         {
           preserveScroll: true,
           preserveState: true,

@@ -27,6 +27,31 @@
       </div>
 
       <BRow>
+        <BCol v-if="requirePpmpItem" lg="12" class="mt-3">
+          <InputLabel value="PPMP Item" :message="form.errors.ppmp_item_id" />
+          <Multiselect
+            :options="ppmpItems"
+            v-model="form.ppmp_item_id"
+            :searchable="true"
+            label="label"
+            placeholder="Select item from PPMP"
+            :loading="isLoadingPpmpItems"
+            :disabled="isLoadingPpmpItems || !ppmpItems.length"
+          />
+          <small v-if="!isLoadingPpmpItems && !ppmpItems.length" class="text-danger d-block mt-2 fw-semibold">
+            No PPMP items are available for the selected PAP code/end user.
+          </small>
+          <div v-if="selectedPpmpItem" class="ppmp-item-preview mt-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+              <span class="badge bg-primary-subtle text-primary">{{ selectedPpmpItem.ppmp_no }}</span>
+              <span class="badge bg-secondary-subtle text-secondary">{{ selectedPpmpItem.plan_name }}</span>
+              <span class="text-muted small">{{ selectedPpmpItem.quantity_label }}</span>
+            </div>
+            <div class="fw-semibold">{{ selectedPpmpItem.item_name }}</div>
+            <div class="text-muted small" v-html="selectedPpmpItem.item_description"></div>
+          </div>
+        </BCol>
+
         <BCol lg="12" class="mt-3">
           <InputLabel value="Item Name" :message="form.errors.item_name" />
           <div class="item-name-autocomplete">
@@ -36,6 +61,7 @@
               class="form-control"
               placeholder="Enter item name"
               autocomplete="off"
+              :readonly="requirePpmpItem"
               @focus="handleItemNameFocus"
               @blur="handleItemNameBlur"
               @keydown.down.prevent="moveSuggestionSelection(1)"
@@ -76,6 +102,7 @@
             type="number"
             class="form-control"
             placeholder="0"
+            :readonly="requirePpmpItem"
           />
         </BCol>
         <BCol lg="4" class="mt-2">
@@ -86,12 +113,20 @@
             :searchable="true"
             :label="unitTypeLabel"
             placeholder="Select Item Unit Type"
+            :disabled="requirePpmpItem"
           />
         </BCol>
 
         <BCol lg="4" class="mt-2">
           <InputLabel value="Unit Cost" />
-          <Amount @amount="amount" ref="amountComponent" />
+          <TextInput
+            v-if="requirePpmpItem"
+            :model-value="form.item_unit_cost"
+            type="number"
+            class="form-control"
+            readonly
+          />
+          <Amount v-else @amount="amount" ref="amountComponent" />
         </BCol>
         <BCol lg="12"><hr class="text-muted mt-4 mb-0" /></BCol>
       </BRow>
@@ -137,12 +172,27 @@ export default {
       type: String,
       default: "itemsAdded",
     },
+    ppmpItems: {
+      type: Array,
+      default: () => [],
+    },
+    requirePpmpItem: {
+      type: Boolean,
+      default: false,
+    },
+    isLoadingPpmpItems: {
+      type: Boolean,
+      default: false,
+    },
   },
   data() {
     return {
       currentUrl: window.location.origin,
       form: useForm({
         id: null,
+        ppmp_item_id: null,
+        ppmp_no: null,
+        ppmp_id: null,
         item_name: "",
         item_description: "",
         item_unit_type: null,
@@ -175,26 +225,42 @@ export default {
       this.queueItemNameSuggestions(value);
     },
     "form.item_unit_type_id": function (value) {
-      if (value) {
+      if (value && !this.requirePpmpItem) {
         this.getItemUnitType(value);
       }
     },
     "form.item_quantity": function (value) {
       this.calculateTotalCost();
     },
+    "form.ppmp_item_id": function (value) {
+      if (!this.requirePpmpItem || !value) {
+        return;
+      }
+
+      this.fillFromPpmpItem(this.selectedPpmpItem);
+    },
   },
 
   computed: {
+    selectedPpmpItem() {
+      if (!this.form.ppmp_item_id) {
+        return null;
+      }
+
+      return this.ppmpItems.find((item) => Number(item.value) === Number(this.form.ppmp_item_id)) || null;
+    },
+
     unitTypeLabel() {
       return this.form.item_quantity > 1 ? "name_long" : "name_short";
     },
 
     shouldShowItemNameDropdown() {
-      return this.isItemNameFocused && this.itemNameSuggestions.length > 0;
+      return !this.requirePpmpItem && this.isItemNameFocused && this.itemNameSuggestions.length > 0;
     },
 
     isItemFormValid() {
-      return this.form.item_name &&
+      return (!this.requirePpmpItem || this.form.ppmp_item_id) &&
+             this.form.item_name &&
              this.form.item_description &&
              this.form.item_quantity &&
              this.form.item_unit_type_id &&
@@ -225,11 +291,32 @@ export default {
       return parseFloat(cleaned);
     },
 
+    fillFromPpmpItem(ppmpItem) {
+      if (!ppmpItem) {
+        return;
+      }
+
+      this.form.ppmp_item_id = ppmpItem.value;
+      this.form.ppmp_id = ppmpItem.ppmp_id;
+      this.form.ppmp_no = ppmpItem.ppmp_no;
+      this.form.item_name = ppmpItem.item_name || "";
+      this.form.item_description = ppmpItem.item_description || "";
+      this.form.item_quantity = ppmpItem.item_quantity;
+      this.form.item_unit_type_id = ppmpItem.item_unit_type_id;
+      this.form.item_unit_type = ppmpItem.item_unit_type;
+      this.form.item_unit_cost = Number(ppmpItem.item_unit_cost) || 0;
+      this.form.total_cost = Number(ppmpItem.total_cost) || 0;
+      this.$refs.amountComponent?.emitValue(this.form.item_unit_cost.toFixed(2));
+    },
+
     show() {
       this.form.reset();
-      this.form.item_unit_cost = this.$refs.amountComponent.emitValue(0.0);
+      this.form.item_unit_cost = 0.0;
+      this.$refs.amountComponent?.emitValue(0.0);
       this.showModal = true;
-      this.fetchItemNameSuggestions("");
+      if (!this.requirePpmpItem) {
+        this.fetchItemNameSuggestions("");
+      }
     },
 
     edit(item, index) {
@@ -237,17 +324,22 @@ export default {
       this.editItem = item;
       this.editIndex = index;
       this.form.reset();
+      this.form.ppmp_item_id = item.ppmp_item_id || null;
+      this.form.ppmp_id = item.ppmp_id || null;
+      this.form.ppmp_no = item.ppmp_no || null;
       this.form.item_name = item.item_name || "";
       this.form.item_description = item.item_description;
       this.form.item_quantity = item.item_quantity;
       this.form.item_unit_cost = parseFloat(item.item_unit_cost);
-      this.$refs.amountComponent.emitValue((this.form.item_unit_cost).toFixed(2));
+      this.$refs.amountComponent?.emitValue((this.form.item_unit_cost).toFixed(2));
       this.form.item_unit_type_id = item.item_unit_type_id;
       this.form.item_unit_type = item.item_unit_type;
       this.calculateTotalCost();
       this.form.id = item.id;
       this.showModal = true;
-      this.fetchItemNameSuggestions(this.form.item_name);
+      if (!this.requirePpmpItem) {
+        this.fetchItemNameSuggestions(this.form.item_name);
+      }
     },
 
     addItem(item) {
@@ -292,6 +384,10 @@ export default {
     },
 
     handleItemNameFocus() {
+      if (this.requirePpmpItem) {
+        return;
+      }
+
       clearTimeout(this.itemNameBlurTimeout);
       this.isItemNameFocused = true;
       this.activeSuggestionIndex = -1;
@@ -305,6 +401,10 @@ export default {
     },
 
     ensureItemNameSuggestions() {
+      if (this.requirePpmpItem) {
+        return;
+      }
+
       if (!this.itemNameSuggestions.length) {
         this.fetchItemNameSuggestions(this.form.item_name || "");
       }
@@ -392,6 +492,9 @@ export default {
       clearTimeout(this.itemNameBlurTimeout);
       this.form.reset();
       this.form.item_unit_cost = 0.0;
+      this.form.ppmp_item_id = null;
+      this.form.ppmp_id = null;
+      this.form.ppmp_no = null;
       this.isEditing = false;
       this.editItem = null;
       this.editIndex = null;
@@ -441,5 +544,12 @@ export default {
 .item-name-suggestion--active {
   background: #eaf2ff;
   color: #2846a6;
+}
+
+.ppmp-item-preview {
+  padding: 0.85rem;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 8px;
+  background: #f8fbff;
 }
 </style>

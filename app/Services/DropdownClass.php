@@ -469,7 +469,7 @@ class DropdownClass
 
     public function procurement_codes()
     {
-        $data = ProcurementCode::get()->map(function ($item) {
+        $data = ProcurementCode::with('end_users')->get()->map(function ($item) {
             $label = $item->code;
             $remainingBudget = (float) ($item->remaining_budget ?? $item->allocated_budget ?? 0);
 
@@ -483,6 +483,8 @@ class DropdownClass
                 'title' => $item->title,
                 'allocated_budget' => (float) $item->allocated_budget,
                 'remaining_budget' => $remainingBudget,
+                'app_type_id' => $item->app_type_id,
+                'end_user_ids' => $item->end_users->pluck('end_user_id')->map(fn ($id) => (int) $id)->values(),
                 'label' => $label,
             ];
         });

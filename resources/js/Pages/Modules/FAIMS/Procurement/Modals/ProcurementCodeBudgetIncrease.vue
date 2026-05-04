@@ -183,6 +183,7 @@ export default {
       sourceCodes: [],
       sourceKeyword: "",
       form: useForm({
+        option: "request_budget_increase",
         request_type: "additional_budget",
         source_procurement_code_id: null,
         amount: null,
@@ -323,7 +324,9 @@ export default {
       this.errorMessage = null;
       this.form.clearErrors();
 
-      this.form.post(`/faims/procurement-codes/${this.selected.id}/budget-increase-requests`, {
+      this.form.option = "request_budget_increase";
+
+      this.form.patch(`/faims/procurement-codes/${this.selected.id}`, {
         preserveScroll: true,
         preserveState: true,
         forceFormData: true,

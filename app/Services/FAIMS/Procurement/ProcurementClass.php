@@ -87,6 +87,7 @@ class ProcurementClass
             'unit_type' => $this->dropdown->unit_type($request->code),
             'title' => $this->procurement_title($request->id),
             'item_names' => $this->item_names($request->keyword),
+            'ppmp_items' => $this->ppmp_items($request),
             default => null,
         };
     }
@@ -136,12 +137,16 @@ class ProcurementClass
         $validator = Validator::make(
             $request->all(),
             [
-                'procurement_code_ids' => ['nullable', 'array'],
+                'procurement_code_ids' => ['required', 'array', 'min:1'],
                 'procurement_code_ids.*' => ['integer', 'distinct', 'exists:procurement_codes,id'],
+                'unit_id' => ['nullable', 'integer'],
                 'items' => ['nullable', 'array'],
+                'items.*.ppmp_item_id' => ['nullable', 'integer', 'exists:procurement_items,id'],
                 'items.*.total_cost' => ['nullable', 'numeric', 'min:0'],
             ],
             [
+                'procurement_code_ids.required' => 'Select at least one PAP code before adding procurement items.',
+                'procurement_code_ids.min' => 'Select at least one PAP code before adding procurement items.',
                 'procurement_code_ids.*.exists' => 'One or more selected PAP codes are no longer available.',
             ]
         );
@@ -157,7 +162,65 @@ class ProcurementClass
                 return;
             }
 
-            $requestedAmount = collect($request->input('items', []))
+            $submittedItems = collect($request->input('items', []));
+            if ($request->isMethod('post') && $submittedItems->contains(fn ($item) => blank(data_get($item, 'ppmp_item_id')))) {
+                $validator->errors()->add(
+                    'items',
+                    'Select each PR item from the PPMP items assigned to the selected PAP code.'
+                );
+
+                return;
+            }
+
+            if ($request->filled('unit_id')) {
+                $invalidEndUserCodes = ProcurementCode::query()
+                    ->whereIn('id', $procurementCodeIds)
+                    ->whereDoesntHave('end_users', function ($query) use ($request) {
+                        $query->where('end_user_id', (int) $request->unit_id);
+                    })
+                    ->pluck('code')
+                    ->filter()
+                    ->values();
+
+                if ($invalidEndUserCodes->isNotEmpty()) {
+                    $validator->errors()->add(
+                        'procurement_code_ids',
+                        'Selected PAP code(s) are not assigned to the selected end user/unit: ' . $invalidEndUserCodes->implode(', ') . '.'
+                    );
+                }
+            }
+
+            $ppmpItemIds = $submittedItems
+                ->pluck('ppmp_item_id')
+                ->filter(fn ($id) => filled($id))
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+
+            if ($ppmpItemIds->isNotEmpty()) {
+                $validPPMPItemIds = ProcurementItem::query()
+                    ->whereIn('id', $ppmpItemIds)
+                    ->whereHas('procurement', function ($query) use ($request, $procurementCodeIds) {
+                        $query
+                            ->when($request->filled('unit_id'), fn ($unitQuery) => $unitQuery->where('unit_id', (int) $request->unit_id))
+                            ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
+                                $codeQuery->whereIn('procurement_code_id', $procurementCodeIds);
+                            });
+                    })
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id);
+
+                $invalidPPMPItemIds = $ppmpItemIds->diff($validPPMPItemIds);
+
+                if ($invalidPPMPItemIds->isNotEmpty()) {
+                    $validator->errors()->add(
+                        'items',
+                        'One or more selected items are not part of the selected unit PPMP/PAP code.'
+                    );
+                }
+            }
+
+            $requestedAmount = $submittedItems
                 ->sum(fn ($item) => (float) data_get($item, 'total_cost', 0));
 
             if ($requestedAmount <= 0) {
@@ -253,6 +316,19 @@ class ProcurementClass
     protected function saveProcurementItems($request ,$procurement_id ){
     
         foreach ($request->items as $index => $item) {
+            if (!empty($item['ppmp_item_id'])) {
+                $ppmpItem = ProcurementItem::find($item['ppmp_item_id']);
+
+                if ($ppmpItem) {
+                    $item['item_unit_type_id'] = $ppmpItem->item_unit_type_id;
+                    $item['item_name'] = $ppmpItem->item_name;
+                    $item['item_unit_cost'] = $ppmpItem->item_unit_cost;
+                    $item['item_quantity'] = $ppmpItem->item_quantity;
+                    $item['item_description'] = $ppmpItem->item_description;
+                    $item['total_cost'] = $ppmpItem->total_cost;
+                }
+            }
+
             $data = new ProcurementItem();
             $data->item_no = $index + 1;
             $data->procurement_id = $procurement_id;
@@ -648,6 +724,69 @@ class ProcurementClass
             ->sortBy(fn ($name) => mb_strtolower($name))
             ->values()
             ->take($limit)
+            ->all();
+    }
+
+    public function ppmp_items($request): array
+    {
+        $unitId = (int) $request->input('unit_id');
+        $procurementCodeIds = collect($request->input('procurement_code_ids', []))
+            ->filter(fn ($id) => filled($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if (!$unitId || $procurementCodeIds->isEmpty()) {
+            return [];
+        }
+
+        return ProcurementItem::query()
+            ->with([
+                'item_unit_type',
+                'procurement.reference_app',
+                'procurement.codes.procurement_code',
+            ])
+            ->whereHas('procurement', function ($query) use ($unitId, $procurementCodeIds) {
+                $query->where('unit_id', $unitId)
+                    ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
+                        $codeQuery->whereIn('procurement_code_id', $procurementCodeIds);
+                    });
+            })
+            ->latest('id')
+            ->limit(100)
+            ->get()
+            ->map(function ($item) {
+                $procurement = $item->procurement;
+                $year = $procurement?->date ? date('Y', strtotime($procurement->date)) : date('Y');
+                $ppmpNo = $procurement
+                    ? 'PPMP-' . $year . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT)
+                    : null;
+                $quantity = (float) ($item->item_quantity ?? 0);
+                $unitName = $quantity > 1
+                    ? ($item->item_unit_type?->name_long ?? $item->item_unit_type?->name_short)
+                    : ($item->item_unit_type?->name_short ?? $item->item_unit_type?->name_long);
+
+                return [
+                    'value' => $item->id,
+                    'label' => trim(($ppmpNo ? "{$ppmpNo} - " : '') . ($item->item_name ?: 'PPMP Item')),
+                    'ppmp_id' => $procurement?->id,
+                    'ppmp_no' => $ppmpNo,
+                    'pr_no' => $procurement?->code,
+                    'plan_name' => $procurement?->reference_app?->name ?: 'PPMP',
+                    'pap_code_ids' => $procurement?->codes
+                        ? $procurement->codes->pluck('procurement_code_id')->map(fn ($id) => (int) $id)->values()
+                        : [],
+                    'item_name' => $item->item_name,
+                    'item_description' => $item->item_description,
+                    'item_quantity' => $item->item_quantity,
+                    'item_unit_type_id' => $item->item_unit_type_id,
+                    'item_unit_type' => $item->item_unit_type,
+                    'item_unit_cost' => (float) $item->item_unit_cost,
+                    'total_cost' => (float) $item->total_cost,
+                    'quantity_label' => trim($item->item_quantity . ' ' . ($unitName ?: '')),
+                ];
+            })
+            ->values()
             ->all();
     }
 
