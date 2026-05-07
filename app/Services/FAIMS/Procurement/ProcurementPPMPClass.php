@@ -7,8 +7,8 @@ use App\Models\ListData;
 use App\Models\ListDropdown;
 use App\Models\ListStatus;
 use App\Models\ListUnit;
-use App\Models\Procurement;
-use App\Models\ProcurementItem;
+use App\Models\ProcurementPpmp;
+use App\Models\ProcurementPpmpItem;
 use App\Models\Request as RequestModel;
 use App\Services\DropdownClass;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -21,6 +21,41 @@ class ProcurementPPMPClass
 {
     public function __construct(protected DropdownClass $dropdown)
     {
+    }
+
+    public function store($request): array
+    {
+        $this->ensureCanManage();
+
+        return match ($request->option) {
+            'create_unit_ppmp' => $this->createUnitPpmp($request),
+            default => $this->storeAppPlan($request),
+        };
+    }
+
+    public function updateByOption($id, $request): array
+    {
+        return match ($request->option) {
+            'submit_final' => $this->markFinal($id, $request),
+            'add_item' => $this->addItem($id, $request),
+            default => abort(404),
+        };
+    }
+
+    protected function storeAppPlan($request): array
+    {
+        if ($request->plan_type === 'supplemental') {
+            $this->ensureCanCreateSpp();
+        }
+
+        return $this->createPlan($request);
+    }
+
+    protected function markFinal($id, $request): array
+    {
+        $this->ensureCanMarkFinalPpmp();
+
+        return $this->submitFinal($id, $request);
     }
 
     public function lists($request)
@@ -55,9 +90,18 @@ class ProcurementPPMPClass
                 'designation' => Auth::user()->org_chart?->designation,
                 'statuses' => $this->dropdown->statuses('Procurement'),
                 'units' => $this->dropdown->list_units(),
+                'unit_types' => $this->dropdown->unit_types(),
+                'classifications' => $this->dropdown->dropdowns('Classification'),
+                'mode_of_procurements' => $this->dropdown->dropdowns('Mode of Procurement'),
                 'app_types' => $this->dropdown->dropdowns('APP Type'),
+                'annual_app_years' => $this->registered_plan_years('Annual Procurement Plan'),
             ],
         ];
+    }
+
+    public function indexPageProps(): array
+    {
+        return $this->index_page_props();
     }
 
     public function show_page_props($id, $request = null): array
@@ -66,14 +110,21 @@ class ProcurementPPMPClass
             'ppmp' => $this->show($id, $request),
             'dropdowns' => [
                 'unit_types' => $this->dropdown->unit_types(),
+                'classifications' => $this->dropdown->dropdowns('Classification'),
+                'mode_of_procurements' => $this->dropdown->dropdowns('Mode of Procurement'),
             ],
         ];
+    }
+
+    public function showPageProps($id, $request = null): array
+    {
+        return $this->show_page_props($id, $request);
     }
 
     public function available_ppmp_units($request): array
     {
         $year = (int) ($request->year ?: now()->year);
-        $used_unit_ids = Procurement::query()
+        $used_unit_ids = ProcurementPpmp::query()
             ->whereYear('date', $year)
             ->whereNull('reference_app_id')
             ->whereNotNull('unit_id')
@@ -96,9 +147,14 @@ class ProcurementPPMPClass
             ->all();
     }
 
+    public function availablePpmpUnits($request): array
+    {
+        return $this->available_ppmp_units($request);
+    }
+
     public function show($id, $request = null): array
     {
-        $procurement = Procurement::query()
+        $procurement = ProcurementPpmp::query()
             ->with($this->relations())
             ->findOrFail($id);
 
@@ -117,6 +173,10 @@ class ProcurementPPMPClass
 
     public function create_plan($request): array
     {
+        if ($request->plan_type === 'supplemental') {
+            return $this->create_spp_item_plan($request);
+        }
+
         $app_type_name = $request->plan_type === 'supplemental'
             ? 'Supplemental Procurement Plan'
             : 'Annual Procurement Plan';
@@ -138,7 +198,23 @@ class ProcurementPPMPClass
             ]);
         }
 
-        $query = Procurement::query()
+        if ($request->plan_type === 'annual') {
+            $annual_app_exists = ProcurementPpmp::query()
+                ->whereYear('date', $request->year)
+                ->where('status_id', $approved_status_id)
+                ->whereHas('reference_app', function ($reference_query) {
+                    $reference_query->where('name', 'Annual Procurement Plan');
+                })
+                ->exists();
+
+            if ($annual_app_exists) {
+                throw ValidationException::withMessages([
+                    'year' => 'An APP already exists for the selected year.',
+                ]);
+            }
+        }
+
+        $query = ProcurementPpmp::query()
             ->whereYear('date', $request->year)
             ->where('status_id', $reviewed_status_id);
 
@@ -150,7 +226,7 @@ class ProcurementPPMPClass
                     });
             });
         } else {
-            $has_approved_app = Procurement::query()
+            $has_approved_app = ProcurementPpmp::query()
                 ->whereYear('date', $request->year)
                 ->where('status_id', $approved_status_id)
                 ->whereHas('reference_app', function ($reference_query) {
@@ -192,6 +268,104 @@ class ProcurementPPMPClass
         ];
     }
 
+    public function createPlan($request): array
+    {
+        return $this->create_plan($request);
+    }
+
+    public function create_spp_item_plan($request): array
+    {
+        $year = now()->year;
+        $unit = ListUnit::query()->findOrFail((int) $request->unit_id);
+        $app_type_id = ListDropdown::getID('Supplemental Procurement Plan', 'APP Type');
+        $approved_status_id = ListStatus::getID('Approved', 'Procurement');
+        $pending_status_id = ListStatus::getID('Pending', 'Procurement');
+        $fund_cluster_id = ListDropdown::getID('Regular Fund', 'Fund Cluster')
+            ?: ListDropdown::query()
+                ->where(function ($query) {
+                    $query->where('classification', 'Fund Cluster')
+                        ->orWhere('type', 'Fund Cluster');
+                })
+                ->value('id');
+
+        if (!$app_type_id) {
+            throw ValidationException::withMessages([
+                'plan_type' => 'Supplemental Procurement Plan is not configured in APP Type dropdowns.',
+            ]);
+        }
+
+        if (!$approved_status_id || !$pending_status_id) {
+            throw ValidationException::withMessages([
+                'plan_type' => 'Approved or Pending procurement status is not configured.',
+            ]);
+        }
+
+        $has_approved_app = ProcurementPpmp::query()
+            ->whereYear('date', $year)
+            ->where('status_id', $approved_status_id)
+            ->whereHas('reference_app', function ($reference_query) {
+                $reference_query->where('name', 'Annual Procurement Plan');
+            })
+            ->exists();
+
+        if (!$has_approved_app) {
+            throw ValidationException::withMessages([
+                'plan_type' => 'APP must be approved for the current year before creating an SPP update.',
+            ]);
+        }
+
+        $procurement = ProcurementPpmp::query()->create([
+            'code' => 'SPP-' . $year . '-UNIT-' . str_pad((string) $unit->id, 3, '0', STR_PAD_LEFT) . '-' . str_pad((string) (ProcurementPpmp::query()->whereYear('date', $year)->where('unit_id', $unit->id)->count() + 1), 2, '0', STR_PAD_LEFT),
+            'date' => $year . '-01-01',
+            'purpose' => 'Supplemental Procurement Plan update for ' . $unit->name,
+            'title' => 'Supplemental Procurement Plan',
+            'division_id' => $unit->division_id,
+            'unit_id' => $unit->id,
+            'fund_cluster_id' => $fund_cluster_id,
+            'reference_app_id' => $app_type_id,
+            'created_by_id' => Auth::id(),
+            'requested_by_id' => Auth::id(),
+            'approved_by_id' => Auth::id(),
+            'status_id' => $approved_status_id,
+        ]);
+
+        if (Schema::hasColumn('procurement_ppmps', 'request_id')) {
+            $procurement->request_id = $this->create_ppmp_request()->id;
+            $procurement->save();
+        }
+
+        $quantity = (float) $request->item_quantity;
+        $unit_cost = (float) $request->item_unit_cost;
+        $supporting_document = $this->store_supporting_document($request);
+
+        ProcurementPpmpItem::query()->create([
+            'item_no' => 1,
+            'procurement_ppmp_id' => $procurement->id,
+            'item_unit_type_id' => $request->item_unit_type_id,
+            'item_name' => $request->item_name,
+            'item_description' => $request->item_description,
+            'project_type' => $request->project_type,
+            'recommended_mode_of_procurement' => $request->recommended_mode_of_procurement,
+            'end_of_procurement_activity' => $request->end_of_procurement_activity,
+            'expected_delivery_date' => $request->expected_delivery_date,
+            'attached_supporting_documents' => $request->attached_supporting_documents,
+            'supporting_document_path' => $supporting_document['path'],
+            'supporting_document_original_name' => $supporting_document['original_name'],
+            'remarks' => $request->remarks,
+            'item_quantity' => $quantity,
+            'item_unit_cost' => $unit_cost,
+            'total_cost' => $quantity * $unit_cost,
+            'status_id' => $pending_status_id,
+        ]);
+
+        return [
+            'data' => $this->show($procurement->id, (object) ['plan_type' => 'supplemental']),
+            'message' => 'Supplemental plan item added successfully!',
+            'info' => "{$request->item_name} was added to {$unit->name}'s SPP for {$year}.",
+            'status' => true,
+        ];
+    }
+
     public function create_unit_ppmp($request): array
     {
         $year = (int) $request->year;
@@ -217,7 +391,7 @@ class ProcurementPPMPClass
             ]);
         }
 
-        $exists = Procurement::query()
+        $exists = ProcurementPpmp::query()
             ->where('unit_id', $unit->id)
             ->whereYear('date', $year)
             ->whereNull('reference_app_id')
@@ -230,7 +404,7 @@ class ProcurementPPMPClass
         }
 
         $payload = [
-            'code' => 'PPMP-' . $year . '-UNIT-' . str_pad((string) $unit->id, 3, '0', STR_PAD_LEFT),
+            'code' => 'PPMP-' . $year . '-' . str_pad((string) $unit->id, 3, '0', STR_PAD_LEFT),
             'date' => $year . '-01-01',
             'purpose' => 'Project Procurement Management Plan for ' . $unit->name,
             'title' => 'Project Procurement Management Plan',
@@ -243,11 +417,11 @@ class ProcurementPPMPClass
             'status_id' => $pending_status_id,
         ];
 
-        if (Schema::hasColumn('procurements', 'request_id')) {
+        if (Schema::hasColumn('procurement_ppmps', 'request_id')) {
             $payload['request_id'] = $this->create_ppmp_request()->id;
         }
 
-        $procurement = Procurement::query()->create($payload);
+        $procurement = ProcurementPpmp::query()->create($payload);
 
         return [
             'data' => $this->show($procurement->id),
@@ -257,9 +431,14 @@ class ProcurementPPMPClass
         ];
     }
 
+    public function createUnitPpmp($request): array
+    {
+        return $this->create_unit_ppmp($request);
+    }
+
     public function submit_final($id, $request = null): array
     {
-        $procurement = Procurement::query()
+        $procurement = ProcurementPpmp::query()
             ->with($this->relations())
             ->findOrFail($id);
 
@@ -279,7 +458,7 @@ class ProcurementPPMPClass
 
         $year = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y');
         $is_annual_app_approval = data_get($request, 'plan_type') === 'annual';
-        $updated = Procurement::query()
+        $updated = ProcurementPpmp::query()
             ->whereYear('date', $year)
             ->whereNull('reference_app_id')
             ->when(!$is_annual_app_approval, fn ($query) => $query->where('unit_id', $procurement->unit_id))
@@ -299,9 +478,14 @@ class ProcurementPPMPClass
         ];
     }
 
+    public function submitFinal($id, $request = null): array
+    {
+        return $this->submit_final($id, $request);
+    }
+
     public function add_item($id, $request): array
     {
-        $procurement = Procurement::query()
+        $procurement = ProcurementPpmp::query()
             ->with(['reference_app', 'status'])
             ->findOrFail($id);
 
@@ -312,30 +496,56 @@ class ProcurementPPMPClass
         }
 
         $pending_status_id = ListStatus::getID('Pending', 'Procurement');
-        $quantity = (float) $request->item_quantity;
-        $unit_cost = (float) $request->item_unit_cost;
-        $next_item_no = ((int) ProcurementItem::query()
-            ->where('procurement_id', $procurement->id)
+        $supporting_document = $this->store_supporting_document($request);
+        $next_item_no = ((int) ProcurementPpmpItem::query()
+            ->where('procurement_ppmp_id', $procurement->id)
             ->max('item_no')) + 1;
+        $rows = collect($request->items ?: [[
+            'item_name' => $request->item_name,
+            'item_description' => $request->item_description,
+            'item_quantity' => $request->item_quantity,
+            'item_unit_type_id' => $request->item_unit_type_id,
+            'item_unit_cost' => $request->item_unit_cost,
+        ]]);
 
-        $item = new ProcurementItem();
-        $item->item_no = $next_item_no;
-        $item->procurement_id = $procurement->id;
-        $item->item_unit_type_id = $request->item_unit_type_id;
-        $item->item_name = $request->item_name;
-        $item->item_description = $request->item_description;
-        $item->item_quantity = $quantity;
-        $item->item_unit_cost = $unit_cost;
-        $item->total_cost = $quantity * $unit_cost;
-        $item->status_id = $pending_status_id;
-        $item->save();
+        $created_items = $rows->map(function ($row, $index) use ($procurement, $request, $pending_status_id, $supporting_document, $next_item_no) {
+            $quantity = (float) data_get($row, 'item_quantity', 0);
+            $unit_cost = (float) data_get($row, 'item_unit_cost', 0);
+
+            $item = new ProcurementPpmpItem();
+            $item->item_no = $next_item_no + $index;
+            $item->procurement_ppmp_id = $procurement->id;
+            $item->item_unit_type_id = data_get($row, 'item_unit_type_id');
+            $item->item_name = data_get($row, 'item_name');
+            $item->item_description = data_get($row, 'item_description');
+            $item->project_type = $request->project_type;
+            $item->recommended_mode_of_procurement = $request->recommended_mode_of_procurement;
+            $item->end_of_procurement_activity = $request->end_of_procurement_activity;
+            $item->expected_delivery_date = $request->expected_delivery_date;
+            $item->attached_supporting_documents = $request->attached_supporting_documents;
+            $item->supporting_document_path = $supporting_document['path'];
+            $item->supporting_document_original_name = $supporting_document['original_name'];
+            $item->remarks = $request->remarks;
+            $item->item_quantity = $quantity;
+            $item->item_unit_cost = $unit_cost;
+            $item->total_cost = $quantity * $unit_cost;
+            $item->status_id = $pending_status_id;
+            $item->save();
+
+            return $item;
+        });
 
         return [
             'data' => $this->show($procurement->id),
-            'message' => 'PPMP item added successfully!',
-            'info' => "{$item->item_name} was added to {$procurement->code}.",
+            'message' => $created_items->count() === 1 ? 'PPMP item added successfully!' : 'PPMP items added successfully!',
+            'info' => $created_items->count() . ' ' . ($created_items->count() === 1 ? 'item was' : 'items were') . " added to {$procurement->code}.",
             'status' => true,
         ];
+    }
+
+    public function addItem($id, $request): array
+    {
+        return $this->add_item($id, $request);
     }
 
     protected function relations(): array
@@ -347,6 +557,8 @@ class ProcurementPPMPClass
             'classification',
             'reference_app',
             'created_by.profile',
+            'created_by.org_chart.designation',
+            'created_by.organization.position',
             'requested_by.profile',
             'approved_by.profile',
             'codes.procurement_code.mode_of_procurement',
@@ -356,6 +568,50 @@ class ProcurementPPMPClass
             'status',
             'sub_status',
         ];
+    }
+
+    protected function store_supporting_document($request): array
+    {
+        if (!$request->hasFile('supporting_document_file')) {
+            return [
+                'path' => null,
+                'original_name' => null,
+            ];
+        }
+
+        $file = $request->file('supporting_document_file');
+
+        return [
+            'path' => $file->store('procurement/ppmp/supporting-documents', 'public'),
+            'original_name' => $file->getClientOriginalName(),
+        ];
+    }
+
+    protected function ensureCanManage(): void
+    {
+        abort_unless(
+            Auth::user()?->hasRole('Procurement Officer') || Auth::user()?->hasRole('Administrator'),
+            403,
+            'Only Procurement Officer or Administrator can manage PPMP APP plans.'
+        );
+    }
+
+    protected function ensureCanMarkFinalPpmp(): void
+    {
+        abort_unless(
+            Auth::user()?->hasRole('Procurement Officer'),
+            403,
+            'Only Procurement Officer can mark PPMP as final.'
+        );
+    }
+
+    protected function ensureCanCreateSpp(): void
+    {
+        abort_unless(
+            Auth::user()?->hasRole('Procurement Officer'),
+            403,
+            'Only Procurement Officer can create an SPP update.'
+        );
     }
 
     protected function create_ppmp_request(): RequestModel
@@ -394,9 +650,25 @@ class ProcurementPPMPClass
         return 'REQUEST-' . now()->format('mY') . '-PPMP-' . str_pad((string) $count, 4, '0', STR_PAD_LEFT);
     }
 
+    protected function registered_plan_years(string $plan_name): array
+    {
+        return ProcurementPpmp::query()
+            ->whereHas('reference_app', function ($reference_query) use ($plan_name) {
+                $reference_query->where('name', $plan_name);
+            })
+            ->whereNotNull('date')
+            ->selectRaw('YEAR(date) as year')
+            ->distinct()
+            ->orderByDesc('year')
+            ->pluck('year')
+            ->map(fn ($year) => (int) $year)
+            ->values()
+            ->all();
+    }
+
     protected function ppmp_query($request)
     {
-        return Procurement::query()
+        return ProcurementPpmp::query()
             ->with($this->relations())
             ->when($request->keyword, function ($query, $keyword) {
                 $query->where(function ($search_query) use ($keyword) {
@@ -445,14 +717,14 @@ class ProcurementPPMPClass
             });
     }
 
-    protected function aggregate_source_query(Procurement $procurement, ?string $plan_type = null)
+    protected function aggregate_source_query(ProcurementPpmp $procurement, ?string $plan_type = null)
     {
         $plan_name = $plan_type === 'annual'
             ? 'Annual Procurement Plan'
             : ($plan_type === 'supplemental' ? 'Supplemental Procurement Plan' : $procurement->reference_app?->name);
         $year = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y');
 
-        return Procurement::query()
+        return ProcurementPpmp::query()
             ->with($this->relations())
             ->when($plan_name === 'Annual Procurement Plan', function ($query) use ($year) {
                 $query->whereYear('date', $year)
@@ -534,7 +806,7 @@ class ProcurementPPMPClass
             ->values();
     }
 
-    protected function compare_ppmp_groups(Procurement $first, Procurement $second, ?string $sort = null): int
+    protected function compare_ppmp_groups(ProcurementPpmp $first, ProcurementPpmp $second, ?string $sort = null): int
     {
         if ($sort === 'pr_asc') {
             return strcmp((string) $first->code, (string) $second->code);

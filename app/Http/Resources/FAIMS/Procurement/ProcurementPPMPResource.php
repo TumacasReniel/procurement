@@ -16,6 +16,12 @@ class ProcurementPPMPResource extends JsonResource
         $plan_type = $this->plan_type($plan_name);
         $ppmp_status = $this->ppmp_status($plan_name);
         $reviewed_by = $ppmp_status === 'Final' ? $this->approved_by?->profile?->full_name : null;
+        $submitted_by = $ppmp_status === 'Final'
+            ? ($this->approved_by?->profile?->full_name ?? $this->requested_by?->profile?->full_name)
+            : $this->requested_by?->profile?->full_name;
+        $prepared_by_designation = $this->created_by?->org_chart?->designation?->name
+            ?? $this->created_by?->organization?->position?->name
+            ?? $this->created_by?->designation;
         $approval_status = $this->approval_status($plan_name);
         $can_add_items = !$plan_name && !$this->has_completed_status();
         $year = $this->date ? date('Y', strtotime($this->date)) : date('Y', strtotime((string) $this->created_at));
@@ -63,10 +69,12 @@ class ProcurementPPMPResource extends JsonResource
             'requested_by_id' => $this->requested_by_id,
             'approved_by' => $this->approved_by?->profile?->full_name,
             'approved_by_id' => $this->approved_by_id,
+            'comments_count' => $this->comments_count ?? 0,
             'reviewed_by' => $reviewed_by,
             'reviewed_at' => $reviewed_by ? $this->updated_at : null,
             'prepared_by' => $this->created_by?->profile?->full_name,
-            'submitted_by' => $this->requested_by?->profile?->full_name,
+            'prepared_by_designation' => $prepared_by_designation,
+            'submitted_by' => $submitted_by,
             'codes' => $this->codes,
             'source_ppmps' => $this->source_ppmps(),
             'item_details' => $this->item_details($items),
@@ -102,7 +110,7 @@ class ProcurementPPMPResource extends JsonResource
         return $items
             ->map(function ($item) {
                 $quantity = trim((string) ($item->item_quantity ?? ''));
-                $unit = trim((string) ($item->item_unit_type?->name ?? ''));
+                $unit = trim((string) $this->item_unit_label($item));
                 $name = trim((string) ($item->item_name ?? $item->item_description ?? ''));
 
                 return trim($quantity . ' ' . $unit . ($name ? ' - ' . $name : ''));
@@ -124,14 +132,40 @@ class ProcurementPPMPResource extends JsonResource
                     'item_no' => $item->item_no,
                     'name' => $item->item_name,
                     'description' => $item->item_description,
+                    'project_type' => $item->project_type,
+                    'recommended_mode_of_procurement' => $item->recommended_mode_of_procurement,
                     'quantity' => $quantity,
-                    'unit' => $item->item_unit_type?->name,
+                    'unit' => $this->item_unit_label($item),
                     'unit_price' => round($unit_cost, 2),
                     'abc' => round((float) ($item->total_cost ?? ($quantity * $unit_cost)), 2),
+                    'end_of_procurement_activity' => $item->end_of_procurement_activity,
+                    'expected_delivery_date' => $item->expected_delivery_date,
+                    'attached_supporting_documents' => $item->attached_supporting_documents,
+                    'supporting_document_path' => $item->supporting_document_path,
+                    'supporting_document_original_name' => $item->supporting_document_original_name,
+                    'supporting_document_url' => $item->supporting_document_path
+                        ? asset('storage/' . $item->supporting_document_path)
+                        : null,
+                    'remarks' => $item->remarks,
                     'status' => $item->status,
                 ];
             })
             ->values();
+    }
+
+    protected function item_unit_label($item): ?string
+    {
+        $quantity = (float) ($item->item_quantity ?? 0);
+
+        if ($quantity > 1) {
+            return $item->item_unit_type?->name_long
+                ?? $item->item_unit_type?->name
+                ?? $item->item_unit_type?->name_short;
+        }
+
+        return $item->item_unit_type?->name_short
+            ?? $item->item_unit_type?->name
+            ?? $item->item_unit_type?->name_long;
     }
 
     protected function plan_type(?string $plan_name): string

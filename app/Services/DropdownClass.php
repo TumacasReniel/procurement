@@ -201,7 +201,7 @@ class DropdownClass
     protected function resolveDropdownClassifications(string $classification): array
     {
         return match ($classification) {
-            'mode_of_procurement', 'modes_of_procurement' => [
+            'mode_of_procurement', 'modes_of_procurement', 'Mode of Procurement' => [
                 'mode_of_procurement',
                 'modes_of_procurement',
                 'Mode of Procurement',

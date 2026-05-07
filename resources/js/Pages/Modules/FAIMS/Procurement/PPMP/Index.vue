@@ -2,10 +2,10 @@
   <Head title="PPMP" />
   <PageHeader title="Project Procurement Management Plan" pageTitle="Procurement" />
 
-  <BRow class="procurement-index-page">
+  <BRow class="procurement-index-page ppmp-index-page">
     <div class="col-md-12">
-      <div class="card bg-light-subtle shadow-none border">
-        <div class="card-header bg-light-subtle">
+      <div class="card ppmp-shell shadow-none border">
+        <div class="card-header ppmp-shell__header">
           <div class="d-flex mb-n3">
             <div class="flex-shrink-0 me-3">
               <div style="height: 2.5rem; width: 2.5rem">
@@ -25,7 +25,7 @@
           </div>
         </div>
 
-        <div class="car-body bg-white border-bottom shadow-none">
+        <div class="card-body ppmp-filter-panel border-bottom shadow-none">
           <div class="px-3 pt-3">
             <ul class="nav nav-tabs nav-tabs-custom" role="tablist">
               <li class="nav-item" role="presentation">
@@ -87,7 +87,7 @@
                   value-prop="value"
                   :searchable="true"
                   :append-to-body="true"
-                  placeholder="Filter Unit"
+                  placeholder="Select Unit"
                 />
                 <Multiselect
                   class="white"
@@ -132,7 +132,7 @@
                   Create APP
                 </b-button>
                 <b-button
-                  v-if="filter.plan_type === 'supplemental' && canManagePPMP"
+                  v-if="filter.plan_type === 'supplemental' && canCreateSPP"
                   variant="warning"
                   @click="openCreateSppModal"
                 >
@@ -144,11 +144,10 @@
           </b-row>
         </div>
 
-        <b-card no-body>
-          <div class="card-body bg-white rounded-bottom mt-3">
+        <b-card no-body class="ppmp-list-card">
+          <div class="card-body ppmp-table-panel rounded-bottom">
             <div
-              class="table-responsive table-card"
-              style="margin-top: -39px; height: calc(100vh - 350px); overflow: auto"
+              class="table-responsive table-card ppmp-list-scroll"
             >
               <table class="table align-middle table-hover mb-0 ppmp-table">
                 <thead class="table-light thead-fixed">
@@ -160,7 +159,7 @@
                     <th style="min-width: 210px">{{ isPlanRegister ? "Included PPMPs" : "Items" }}</th>
                     <th style="min-width: 130px" class="text-end">Total ABC</th>
                     <th style="min-width: 140px">Schedule</th>
-                    <th style="min-width: 165px" class="text-center">PPMP Status</th>
+                    <th style="min-width: 165px" class="text-center">Status</th>
                     <th style="min-width: 100px" class="text-center">Actions</th>
                   </tr>
                 </thead>
@@ -239,8 +238,8 @@
                         Reviewed by {{ list.reviewed_by }}
                       </small>
                     </td>
-                    <td>
-                      <div class="d-flex justify-content-center gap-1">
+                    <td class="text-center">
+                      <div class="ppmp-action-group">
                         <b-button
                           @click.stop="goPPMPPage(list)"
                           size="sm"
@@ -250,12 +249,12 @@
                           :title="`View ${planShortName(list)} Details`"
                           style="border-radius: 8px"
                         >
+
                           <i class="ri-eye-line"></i>
                         </b-button>
-
                         <b-button
-                          v-if="list.can_submit_final"
-                          @click.stop="approveFinal(list)"
+                          v-if="canApprovePPMP(list)"
+                          @click.stop="openApproveFinalModal(list)"
                           size="sm"
                           variant="success"
                           class="btn-icon"
@@ -303,6 +302,59 @@
       </div>
     </div>
   </BRow>
+
+  <b-modal
+    v-model="approveFinalModal.show"
+    header-class="p-3"
+    title="Confirm Final PPMP"
+    size="md"
+    class="v-modal-custom"
+    modal-class="zoomIn"
+    centered
+    no-close-on-backdrop
+  >
+    <div v-if="approveFinalModal.data" class="ppmp-confirm">
+      <div class="ppmp-confirm__icon">
+        <i class="ri-check-double-line"></i>
+      </div>
+      <div>
+        <h5 class="mb-1">Mark this PPMP as final?</h5>
+        <p class="text-muted mb-3">
+          This will approve the plan for consolidation and further procurement planning.
+        </p>
+      </div>
+
+      <div class="ppmp-confirm__summary">
+        <div>
+          <span>Plan No.</span>
+          <strong>{{ approveFinalModal.data.ppmp_no || "-" }}</strong>
+        </div>
+        <div>
+          <span>Unit</span>
+          <strong>{{ approveFinalModal.data.unit?.name || "-" }}</strong>
+        </div>
+        <div>
+          <span>Total ABC</span>
+          <strong>{{ formatCurrency(approveFinalModal.data.estimated_budget) }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <template v-slot:footer>
+      <b-button @click="closeApproveFinalModal" variant="light" block>
+        Cancel
+      </b-button>
+      <b-button
+        @click="approveFinal"
+        variant="success"
+        :disabled="approveFinalForm.processing"
+        block
+      >
+        <i class="ri-check-double-line align-bottom me-1"></i>
+        {{ approveFinalForm.processing ? "Approving..." : "Approve Final" }}
+      </b-button>
+    </template>
+  </b-modal>
 
   <b-modal
     v-model="createPpmpModal.show"
@@ -382,7 +434,7 @@
         <BCol lg="12" class="mt-2">
           <label class="form-label">APP Year</label>
           <Multiselect
-            :options="yearOptions"
+            :options="availableAppYearOptions"
             v-model="createAppForm.year"
             label="name"
             value-prop="value"
@@ -393,11 +445,14 @@
           <div v-if="createAppForm.errors.year || createAppForm.errors.plan_type" class="invalid-feedback d-block">
             {{ createAppForm.errors.year || createAppForm.errors.plan_type }}
           </div>
+          <small v-if="!availableAppYearOptions.length" class="text-muted d-block mt-2">
+            All selectable years already have an APP.
+          </small>
         </BCol>
 
         <BCol lg="12" class="mt-3">
           <div class="alert alert-info mb-0 fs-13">
-            This creates the APP register for the selected year using final PPMP entries.
+            This creates one APP register for the selected year using final PPMP entries.
           </div>
         </BCol>
       </BRow>
@@ -408,7 +463,7 @@
       <b-button
         @click="submitCreateApp"
         variant="primary"
-        :disabled="createAppForm.processing"
+        :disabled="createAppForm.processing || !createAppForm.year || appYearHasExisting"
         block
       >
         {{ createAppForm.processing ? "Creating..." : "Create APP" }}
@@ -416,54 +471,15 @@
     </template>
   </b-modal>
 
-  <b-modal
+  <CreateSppModal
     v-model="createSppModal.show"
-    header-class="p-3"
-    title="Create SPP"
-    size="md"
-    class="v-modal-custom"
-    modal-class="zoomIn"
-    centered
-    no-close-on-backdrop
-  >
-    <form class="customform">
-      <BRow>
-        <BCol lg="12" class="mt-2">
-          <label class="form-label">SPP Year</label>
-          <Multiselect
-            :options="yearOptions"
-            v-model="createSppForm.year"
-            label="name"
-            value-prop="value"
-            :searchable="true"
-            :class="{ 'is-invalid': createSppForm.errors.year || createSppForm.errors.plan_type }"
-            placeholder="Select Year"
-          />
-          <div v-if="createSppForm.errors.year || createSppForm.errors.plan_type" class="invalid-feedback d-block">
-            {{ createSppForm.errors.year || createSppForm.errors.plan_type }}
-          </div>
-        </BCol>
-
-        <BCol lg="12" class="mt-3">
-          <div class="alert alert-info mb-0 fs-13">
-            This creates the SPP update for the selected year after the APP has been approved.
-          </div>
-        </BCol>
-      </BRow>
-    </form>
-
-    <template v-slot:footer>
-      <b-button @click="closeCreateSppModal" variant="light" block>Close</b-button>
-      <b-button
-        @click="submitCreateSpp"
-        variant="warning"
-        :disabled="createSppForm.processing"
-        block
-      >
-        {{ createSppForm.processing ? "Creating..." : "Create SPP" }}
-      </b-button>
-    </template>
-  </b-modal>
+    :form="createSppForm"
+    :dropdowns="dropdowns"
+    :unit-options="unitOptions"
+    :current-year="currentYear"
+    @close="closeCreateSppModal"
+    @submit="submitCreateSpp"
+  />
 
   <b-modal
     v-model="detailModal.show"
@@ -588,6 +604,7 @@ import { router, useForm } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
+import CreateSppModal from "./Modals/CreateSpp.vue";
 
 export default {
   props: ["dropdowns"],
@@ -595,6 +612,7 @@ export default {
     Multiselect,
     PageHeader,
     Pagination,
+    CreateSppModal,
   },
   data() {
     return {
@@ -631,6 +649,19 @@ export default {
       createSppForm: useForm({
         year: new Date().getFullYear(),
         plan_type: "supplemental",
+        unit_id: null,
+        item_name: "",
+        item_description: "",
+        project_type: "",
+        recommended_mode_of_procurement: "",
+        item_quantity: null,
+        item_unit_type_id: null,
+        item_unit_cost: null,
+        end_of_procurement_activity: null,
+        expected_delivery_date: null,
+        attached_supporting_documents: "",
+        supporting_document_file: null,
+        remarks: "",
       }),
       availablePpmpUnits: [],
       detailModal: {
@@ -640,6 +671,10 @@ export default {
       approveFinalForm: useForm({
         option: "submit_final",
       }),
+      approveFinalModal: {
+        show: false,
+        data: null,
+      },
     };
   },
   computed: {
@@ -649,24 +684,45 @@ export default {
     canManagePPMP() {
       return this.currentRoles.some((role) => ["Procurement Officer", "Administrator"].includes(role));
     },
+    canCreateSPP() {
+      return this.currentRoles.some((role) => ["Procurement Officer"].includes(role));
+    },
     isPlanRegister() {
       return ["annual", "supplemental"].includes(this.filter.plan_type);
     },
     unitOptions() {
       return this.normalizeOptions(this.dropdowns?.units);
     },
+    defaultUserUnitId() {
+      const unitId = this.$page.props.user?.data?.organization?.unit_id;
+
+      return unitId ? Number(unitId) : null;
+    },
     statusOptions() {
       return this.normalizeOptions(this.dropdowns?.statuses);
     },
     yearOptions() {
-      const currentYear = new Date().getFullYear();
       const years = [];
 
-      for (let year = currentYear + 2; year >= currentYear - 5; year--) {
+      for (let year = this.currentYear + 2; year >= this.currentYear - 5; year--) {
         years.push({ value: year, name: year.toString() });
       }
 
       return years;
+    },
+    currentYear() {
+      return new Date().getFullYear();
+    },
+    annualAppYears() {
+      const years = this.dropdowns?.annual_app_years || [];
+      return Array.isArray(years) ? years.map((year) => Number(year)) : [];
+    },
+    availableAppYearOptions() {
+      const usedYears = new Set(this.annualAppYears);
+      return this.yearOptions.filter((year) => !usedYears.has(Number(year.value)));
+    },
+    appYearHasExisting() {
+      return this.annualAppYears.includes(Number(this.createAppForm.year));
     },
     activePlanTitle() {
       if (this.filter.plan_type === "annual") {
@@ -736,6 +792,25 @@ export default {
     this.fetch();
   },
   methods: {
+    canApprovePPMP(item) {
+      if (!this.currentRoles.some((role) => ["Procurement Officer"].includes(role))) {
+        return false;
+      }
+
+      if (!item || item.is_final || (item.ppmp_status || "").toLowerCase() === "final") {
+        return false;
+      }
+
+      const statusName = typeof item.status === "string"
+        ? item.status
+        : item.status?.name;
+
+      const isPending = [statusName, item.ppmp_status]
+        .filter(Boolean)
+        .some((status) => String(status).toLowerCase() === "pending");
+
+      return Boolean(item.can_submit_final) || isPending;
+    },
     normalizeOptions(options) {
       if (Array.isArray(options)) {
         return options;
@@ -820,14 +895,37 @@ export default {
         plan_type: data?.plan_type || "ppmp",
       });
     },
-    approveFinal(data) {
+    openApproveFinalModal(data) {
+      if (!data?.id || this.approveFinalForm.processing) {
+        return;
+      }
+
+      this.approveFinalForm.clearErrors();
+      this.approveFinalModal.data = data;
+      this.approveFinalModal.show = true;
+    },
+    closeApproveFinalModal() {
+      if (this.approveFinalForm.processing) {
+        return;
+      }
+
+      this.approveFinalModal.show = false;
+      this.approveFinalModal.data = null;
+      this.approveFinalForm.clearErrors();
+    },
+    approveFinal() {
+      const data = this.approveFinalModal.data;
       if (!data?.id || this.approveFinalForm.processing) {
         return;
       }
 
       this.approveFinalForm.patch(`/faims/procurement-ppmp/${data.id}`, {
         preserveScroll: true,
-        onSuccess: () => this.fetch(),
+        onSuccess: () => {
+          this.approveFinalModal.show = false;
+          this.approveFinalModal.data = null;
+          this.fetch();
+        },
       });
     },
     openPrint(data) {
@@ -993,7 +1091,7 @@ export default {
       const currentYear = new Date().getFullYear();
 
       this.createPpmpForm.clearErrors();
-      this.createPpmpForm.unit_id = null;
+      this.createPpmpForm.unit_id = this.defaultUserUnitId;
       this.createPpmpForm.year = currentYear;
       this.createPpmpModal.show = true;
       this.fetchAvailablePpmpUnits();
@@ -1004,7 +1102,11 @@ export default {
     },
     openCreateAppModal() {
       this.createAppForm.clearErrors();
-      this.createAppForm.year = new Date().getFullYear();
+      const currentYear = new Date().getFullYear();
+      const currentYearAvailable = this.availableAppYearOptions.some((year) => Number(year.value) === currentYear);
+      this.createAppForm.year = currentYearAvailable
+        ? currentYear
+        : (this.availableAppYearOptions[0]?.value || null);
       this.createAppForm.plan_type = "annual";
       this.createAppModal.show = true;
     },
@@ -1014,9 +1116,28 @@ export default {
     },
     openCreateSppModal() {
       this.createSppForm.clearErrors();
-      this.createSppForm.year = new Date().getFullYear();
+      this.createSppForm.year = this.currentYear;
       this.createSppForm.plan_type = "supplemental";
+      this.createSppForm.unit_id = this.defaultUnitExistsInOptions() ? this.defaultUserUnitId : null;
+      this.createSppForm.item_name = "";
+      this.createSppForm.item_description = "";
+      this.createSppForm.project_type = "";
+      this.createSppForm.recommended_mode_of_procurement = "";
+      this.createSppForm.item_quantity = null;
+      this.createSppForm.item_unit_type_id = null;
+      this.createSppForm.item_unit_cost = null;
+      this.createSppForm.end_of_procurement_activity = null;
+      this.createSppForm.expected_delivery_date = null;
+      this.createSppForm.attached_supporting_documents = "";
+      this.createSppForm.supporting_document_file = null;
+      this.createSppForm.remarks = "";
       this.createSppModal.show = true;
+    },
+    defaultUnitExistsInOptions(options = this.unitOptions) {
+      return Boolean(
+        this.defaultUserUnitId &&
+        options.some((unit) => Number(unit.value) === this.defaultUserUnitId)
+      );
     },
     closeCreateSppModal() {
       this.createSppModal.show = false;
@@ -1034,6 +1155,9 @@ export default {
         })
         .then((response) => {
           this.availablePpmpUnits = Array.isArray(response.data) ? response.data : [];
+          if (!this.createPpmpForm.unit_id && this.defaultUnitExistsInOptions(this.availablePpmpUnits)) {
+            this.createPpmpForm.unit_id = this.defaultUserUnitId;
+          }
           if (!this.availablePpmpUnits.some((unit) => Number(unit.value) === Number(this.createPpmpForm.unit_id))) {
             this.createPpmpForm.unit_id = null;
           }
@@ -1060,6 +1184,11 @@ export default {
       });
     },
     submitCreateApp() {
+      if (!this.createAppForm.year || this.appYearHasExisting) {
+        this.createAppForm.setError('year', 'An APP already exists for the selected year.');
+        return;
+      }
+
       this.createAppForm.plan_type = "annual";
 
       this.createAppForm.post("/faims/procurement-ppmp", {
@@ -1073,9 +1202,11 @@ export default {
       });
     },
     submitCreateSpp() {
+      this.createSppForm.year = this.currentYear;
       this.createSppForm.plan_type = "supplemental";
 
       this.createSppForm.post("/faims/procurement-ppmp", {
+        forceFormData: true,
         preserveScroll: true,
         onSuccess: () => {
           this.closeCreateSppModal();
@@ -1090,6 +1221,277 @@ export default {
 </script>
 
 <style scoped>
+.ppmp-index-page {
+  --ppmp-bg: #f3f6ff;
+  --ppmp-card: #ffffff;
+  --ppmp-card-soft: #f8fafc;
+  --ppmp-header: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --ppmp-border: rgba(91, 105, 153, .14);
+  --ppmp-ink: #182039;
+  --ppmp-muted: #6f7895;
+  --ppmp-input: #ffffff;
+  --ppmp-hover: rgba(64, 81, 137, .06);
+  --ppmp-shadow: rgba(31, 45, 92, .08);
+  padding: .5rem;
+  background: var(--ppmp-bg);
+}
+
+.ppmp-shell {
+  overflow: hidden;
+  border-color: var(--ppmp-border) !important;
+  border-radius: 16px;
+  background: var(--ppmp-card);
+  color: var(--ppmp-ink);
+  box-shadow: 0 16px 34px var(--ppmp-shadow) !important;
+}
+
+.ppmp-shell__header,
+.ppmp-filter-panel,
+.ppmp-table-panel {
+  background: var(--ppmp-card) !important;
+  color: var(--ppmp-ink);
+}
+
+.ppmp-shell__header {
+  background: var(--ppmp-header) !important;
+  border-bottom-color: var(--ppmp-border);
+}
+
+.ppmp-filter-panel {
+  padding: .75rem .75rem .55rem;
+  border-color: var(--ppmp-border) !important;
+}
+
+.ppmp-table-panel {
+  padding: .65rem;
+}
+
+.ppmp-list-card {
+  border: 0;
+  background: var(--ppmp-card);
+}
+
+.ppmp-list-scroll {
+  min-height: 360px;
+  max-height: calc(100vh - 306px);
+  overflow: auto;
+  border: 1px solid var(--ppmp-border);
+  border-radius: 12px;
+  background: var(--ppmp-card);
+}
+
+.ppmp-index-page .input-group-text,
+.ppmp-index-page .form-control,
+.ppmp-index-page .form-select,
+.ppmp-index-page :deep(.multiselect) {
+  border-color: var(--ppmp-border);
+  background: var(--ppmp-input);
+  color: var(--ppmp-ink);
+}
+
+.ppmp-index-page .nav-tabs-custom .nav-link {
+  color: var(--ppmp-muted);
+}
+
+.ppmp-index-page .nav-tabs-custom .nav-link.active {
+  color: #405189;
+  background: var(--ppmp-card);
+}
+
+.ppmp-table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--ppmp-ink);
+  --bs-table-hover-bg: var(--ppmp-hover);
+  --bs-table-hover-color: var(--ppmp-ink);
+  color: var(--ppmp-ink);
+}
+
+.ppmp-table > :not(caption) > * > * {
+  padding: .48rem .55rem;
+}
+
+.ppmp-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ppmp-card-soft);
+  color: var(--ppmp-muted);
+  border-color: var(--ppmp-border);
+}
+
+.ppmp-table tbody td {
+  border-color: var(--ppmp-border);
+}
+
+.ppmp-index-page .card-footer {
+  background: var(--ppmp-card);
+  border-color: var(--ppmp-border);
+}
+
+.ppmp-index-page .btn-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.ppmp-action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .28rem;
+  white-space: nowrap;
+}
+
+.ppmp-confirm {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: .85rem;
+  color: var(--ppmp-ink);
+}
+
+.ppmp-confirm__icon {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: rgba(10, 179, 156, .14);
+  color: #0ab39c;
+  font-size: 1.35rem;
+}
+
+.ppmp-confirm__summary {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .5rem;
+}
+
+.ppmp-confirm__summary > div {
+  padding: .65rem;
+  border: 1px solid var(--ppmp-border);
+  border-radius: 12px;
+  background: var(--ppmp-card-soft);
+}
+
+.ppmp-confirm__summary span {
+  display: block;
+  color: var(--ppmp-muted);
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.ppmp-confirm__summary strong {
+  display: block;
+  margin-top: .18rem;
+  color: var(--ppmp-ink);
+  font-size: .9rem;
+  line-height: 1.25;
+}
+
+@media (max-width: 1199.98px) {
+  .ppmp-index-page .input-group {
+    display: grid;
+    grid-template-columns: 42px minmax(220px, 1fr) repeat(3, minmax(150px, .55fr)) auto auto;
+    gap: .35rem;
+  }
+
+  .ppmp-index-page .input-group > * {
+    width: 100% !important;
+    border-radius: .375rem !important;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .ppmp-index-page .input-group {
+    grid-template-columns: 1fr;
+  }
+
+  .ppmp-list-scroll {
+    max-height: none;
+  }
+
+  .ppmp-confirm,
+  .ppmp-confirm__summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+:global([data-bs-theme="dark"]) .ppmp-index-page {
+  --ppmp-bg: #0b1220;
+  --ppmp-card: #151e33;
+  --ppmp-card-soft: #10192c;
+  --ppmp-header: linear-gradient(180deg, #172136 0%, #121b30 100%);
+  --ppmp-border: rgba(170, 184, 220, .16);
+  --ppmp-ink: #e8edf9;
+  --ppmp-muted: #9aa8c7;
+  --ppmp-input: #0f1728;
+  --ppmp-hover: rgba(142, 164, 255, .1);
+  --ppmp-shadow: rgba(0, 0, 0, .24);
+}
+
+:global([data-bs-theme="dark"]) .ppmp-index-page .card,
+:global([data-bs-theme="dark"]) .ppmp-index-page .card-body,
+:global([data-bs-theme="dark"]) .ppmp-index-page .card-header,
+:global([data-bs-theme="dark"]) .ppmp-index-page .table-responsive,
+:global([data-bs-theme="dark"]) .ppmp-index-page .table-card {
+  background: var(--ppmp-card) !important;
+  color: var(--ppmp-ink);
+  border-color: var(--ppmp-border) !important;
+}
+
+:global([data-bs-theme="dark"]) .ppmp-index-page .bg-white,
+:global([data-bs-theme="dark"]) .ppmp-index-page .bg-light,
+:global([data-bs-theme="dark"]) .ppmp-index-page .bg-light-subtle,
+:global([data-bs-theme="dark"]) .ppmp-index-page .table-light {
+  background-color: var(--ppmp-card-soft) !important;
+  color: var(--ppmp-ink) !important;
+}
+
+:global([data-bs-theme="dark"]) .ppmp-index-page .text-body,
+:global([data-bs-theme="dark"]) .ppmp-index-page .text-primary {
+  color: var(--ppmp-ink) !important;
+}
+
+:global([data-bs-theme="dark"]) .ppmp-index-page .text-muted {
+  color: var(--ppmp-muted) !important;
+}
+
+:global([data-bs-theme="dark"]) .ppmp-index-page .table,
+:global([data-bs-theme="dark"]) .ppmp-index-page .table > :not(caption) > * > * {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--ppmp-ink);
+  --bs-table-hover-bg: var(--ppmp-hover);
+  --bs-table-hover-color: var(--ppmp-ink);
+  color: var(--ppmp-ink);
+  border-color: var(--ppmp-border);
+}
+
+:global([data-bs-theme="dark"]) .ppmp-index-page .table-active,
+:global([data-bs-theme="dark"]) .ppmp-index-page .table-active > * {
+  --bs-table-bg-state: rgba(142, 164, 255, .14);
+  color: var(--ppmp-ink);
+}
+
+:global([data-bs-theme="dark"]) .ppmp-index-page .input-group-text,
+:global([data-bs-theme="dark"]) .ppmp-index-page .form-control,
+:global([data-bs-theme="dark"]) .ppmp-index-page .form-select,
+:global([data-bs-theme="dark"]) .ppmp-index-page :deep(.multiselect),
+:global([data-bs-theme="dark"]) .ppmp-index-page :deep(.multiselect-dropdown),
+:global([data-bs-theme="dark"]) .ppmp-index-page :deep(.multiselect-options),
+:global([data-bs-theme="dark"]) .ppmp-index-page :deep(.multiselect-search),
+:global([data-bs-theme="dark"]) .ppmp-index-page :deep(.multiselect-single-label) {
+  background: var(--ppmp-input) !important;
+  border-color: var(--ppmp-border) !important;
+  color: var(--ppmp-ink) !important;
+}
+
 .ppmp-document-header {
   display: flex;
   align-items: center;

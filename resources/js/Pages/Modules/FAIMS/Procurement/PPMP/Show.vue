@@ -7,9 +7,9 @@
       <div class="card bg-light-subtle shadow-none border">
         <div class="card-header bg-white border-bottom">
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div class="d-flex align-items-center gap-3">
-              <span class="avatar-title bg-primary-subtle rounded p-2">
-                <i class="ri-file-list-3-line text-primary fs-24"></i>
+            <div class="d-flex align-items-center gap-2">
+              <span class="p-1 bg-primary-subtle rounded">
+                <i class="ri-file-list-3-line text-primary fs-24 " ></i>
               </span>
               <div>
                 <div class="d-flex flex-wrap align-items-center gap-2">
@@ -70,31 +70,25 @@
           </div>
 
           <div class="row g-3 mb-3">
-            <div v-if="ppmp.plan_type === 'ppmp'" class="col-xl-3 col-md-6">
+            <div v-if="ppmp.plan_type === 'ppmp'" class="col-xl-4 col-md-6">
               <div class="overview-box">
                 <span class="overview-label">{{ planNumberLabel }}</span>
                 <span class="overview-value">{{ ppmp.pr_no || ppmp.code || "-" }}</span>
               </div>
             </div>
-            <div class="col-xl-3 col-md-6">
-              <div class="overview-box">
-                <span class="overview-label">Plan</span>
-                <span class="overview-value">{{ planLongName }}</span>
-              </div>
-            </div>
-            <div v-if="ppmp.plan_type === 'ppmp'" class="col-xl-3 col-md-6">
+            <div v-if="ppmp.plan_type === 'ppmp'" class="col-xl-4 col-md-6">
               <div class="overview-box">
                 <span class="overview-label">Items</span>
                 <span class="overview-value">{{ ppmp.items_count || 0 }}</span>
               </div>
             </div>
-            <div class="col-xl-3 col-md-6">
+            <div class="col-xl-4 col-md-6">
               <div class="overview-box">
                 <span class="overview-label">Total ABC</span>
                 <span class="overview-value text-primary">{{ formatCurrency(ppmp.estimated_budget) }}</span>
               </div>
             </div>
-            <div v-if="ppmp.is_final" class="col-xl-3 col-md-6">
+            <div v-if="ppmp.is_final" class="col-xl-4 col-md-6">
               <div class="overview-box">
                 <span class="overview-label">Reviewed By</span>
                 <span class="overview-value">{{ ppmp.reviewed_by || "-" }}</span>
@@ -268,6 +262,7 @@
                     <th style="width: 4%" class="text-center">#</th>
                     <th style="width: 18%">Item</th>
                     <th>Description</th>
+                    <th style="width: 18%">PPMP Details</th>
                     <th style="width: 10%" class="text-end">Qty</th>
                     <th style="width: 10%">Unit</th>
                     <th style="width: 14%" class="text-end">Unit Price</th>
@@ -281,18 +276,33 @@
                     <td>
                       <div class="text-muted" v-html="item.description || '-'"></div>
                     </td>
+                    <td class="fs-12">
+                      <div><strong>Type:</strong> {{ item.project_type || "-" }}</div>
+                      <div><strong>Mode:</strong> {{ item.recommended_mode_of_procurement || "-" }}</div>
+                      <div><strong>Docs:</strong> {{ item.attached_supporting_documents || "-" }}</div>
+                      <a
+                        v-if="item.supporting_document_url"
+                        :href="item.supporting_document_url"
+                        target="_blank"
+                        rel="noopener"
+                        class="d-inline-block mt-1"
+                      >
+                        {{ item.supporting_document_original_name || "View attachment" }}
+                      </a>
+                      <div><strong>Remarks:</strong> {{ item.remarks || "-" }}</div>
+                    </td>
                     <td class="text-end">{{ formatQuantity(item.quantity) }}</td>
                     <td>{{ item.unit || "-" }}</td>
                     <td class="text-end">{{ formatCurrency(item.unit_price) }}</td>
                     <td class="text-end fw-semibold">{{ formatCurrency(item.abc) }}</td>
                   </tr>
                   <tr v-if="!ppmp.item_details?.length">
-                    <td colspan="7" class="text-center text-muted py-4">No items found.</td>
+                    <td colspan="8" class="text-center text-muted py-4">No items found.</td>
                   </tr>
                 </tbody>
                 <tfoot>
                   <tr>
-                    <th colspan="6" class="text-end">Total ABC</th>
+                    <th colspan="7" class="text-end">Total ABC</th>
                     <th class="text-end">{{ formatCurrency(ppmp.estimated_budget) }}</th>
                   </tr>
                 </tfoot>
@@ -365,7 +375,6 @@ export default {
         return "Agency update to approved APP";
       }
 
-      return "End-user unit PPMP";
     },
     planBadgeVariant() {
       if (this.ppmp.plan_type === "annual") {
@@ -445,7 +454,7 @@ export default {
   border: 1px solid #e9ebec;
   border-radius: 8px;
   padding: 14px;
-  background: #f8f9fb;
+  background: #ffff;
 }
 
 .overview-label,

@@ -4,6 +4,7 @@ namespace App\Services\FAIMS\Procurement;
 
 use App\Services\DropdownClass;
 use App\Models\Procurement;
+use App\Models\ProcurementPpmp;
 use App\Models\ProcurementQuotation;
 use App\Models\ProcurementBac;
 use App\Models\ProcurementBacNoa;
@@ -192,7 +193,7 @@ class PrintClass
 
     public function printPPMP($id)
     {
-        $procurement = Procurement::with(
+        $procurement = ProcurementPpmp::with(
             'division',
             'unit.responsibility_center',
             'fund_cluster',
@@ -202,6 +203,8 @@ class PrintClass
             'items.item_unit_type',
             'items.status',
             'created_by.profile',
+            'created_by.org_chart.designation',
+            'created_by.organization.position',
             'requested_by.profile',
             'approved_by.profile'
         )->findOrFail($id);
@@ -232,12 +235,12 @@ class PrintClass
         return $pdf->stream($ppmpNo . '.pdf');
     }
 
-    protected function aggregatePPMPForPrint(Procurement $procurement): Procurement
+    protected function aggregatePPMPForPrint(ProcurementPpmp $procurement): ProcurementPpmp
     {
         $planName = $procurement->reference_app?->name;
         $year = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y');
 
-        $procurements = Procurement::with(
+        $procurements = ProcurementPpmp::with(
             'division',
             'unit.responsibility_center',
             'fund_cluster',
@@ -247,6 +250,8 @@ class PrintClass
             'items.item_unit_type',
             'items.status',
             'created_by.profile',
+            'created_by.org_chart.designation',
+            'created_by.organization.position',
             'requested_by.profile',
             'approved_by.profile'
         )
@@ -274,7 +279,24 @@ class PrintClass
         }
 
         $representative = $procurements->first();
-        $items = $procurements->flatMap(fn ($item) => $item->items ?? collect())->values();
+        $items = $procurements
+            ->flatMap(function ($sourceProcurement) {
+                $sourceMode = $sourceProcurement->codes
+                    ?->pluck('procurement_code.mode_of_procurement.name')
+                    ->filter()
+                    ->unique()
+                    ->implode(', ');
+
+                return ($sourceProcurement->items ?? collect())->map(function ($item) use ($sourceProcurement, $sourceMode) {
+                    $item->setAttribute('print_classification_name', $sourceProcurement->classification?->name);
+                    $item->setAttribute('print_mode_of_procurement', $sourceMode);
+                    $item->setAttribute('print_source_of_funds', $sourceProcurement->fund_cluster?->name);
+                    $item->setAttribute('print_start_date', $sourceProcurement->date);
+
+                    return $item;
+                });
+            })
+            ->values();
         $codes = $procurements
             ->flatMap(fn ($item) => $item->codes ?? collect())
             ->unique('procurement_code_id')

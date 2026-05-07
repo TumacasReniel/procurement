@@ -11,6 +11,7 @@ use App\Models\ProcurementCode;
 use App\Models\ProcurementCodeGroup;
 use App\Models\ProcurementCodeBudgetLog;
 use App\Models\ProcurementItem;
+use App\Models\ProcurementPpmpItem;
 use App\Models\InventoryItem;
 use App\Models\RequestComment;
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
@@ -141,7 +142,7 @@ class ProcurementClass
                 'procurement_code_ids.*' => ['integer', 'distinct', 'exists:procurement_codes,id'],
                 'unit_id' => ['nullable', 'integer'],
                 'items' => ['nullable', 'array'],
-                'items.*.ppmp_item_id' => ['nullable', 'integer', 'exists:procurement_items,id'],
+                'items.*.ppmp_item_id' => ['nullable', 'integer', 'exists:procurement_ppmp_items,id'],
                 'items.*.total_cost' => ['nullable', 'numeric', 'min:0'],
             ],
             [
@@ -198,13 +199,17 @@ class ProcurementClass
                 ->values();
 
             if ($ppmpItemIds->isNotEmpty()) {
-                $validPPMPItemIds = ProcurementItem::query()
+                $validPPMPItemIds = ProcurementPpmpItem::query()
                     ->whereIn('id', $ppmpItemIds)
-                    ->whereHas('procurement', function ($query) use ($request, $procurementCodeIds) {
+                    ->whereHas('ppmp', function ($query) use ($request, $procurementCodeIds) {
                         $query
                             ->when($request->filled('unit_id'), fn ($unitQuery) => $unitQuery->where('unit_id', (int) $request->unit_id))
-                            ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
-                                $codeQuery->whereIn('procurement_code_id', $procurementCodeIds);
+                            ->where(function ($ppmpQuery) use ($procurementCodeIds) {
+                                $ppmpQuery
+                                    ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
+                                        $codeQuery->whereIn('procurement_code_id', $procurementCodeIds);
+                                    })
+                                    ->orDoesntHave('codes');
                             });
                     })
                     ->pluck('id')
@@ -317,7 +322,7 @@ class ProcurementClass
     
         foreach ($request->items as $index => $item) {
             if (!empty($item['ppmp_item_id'])) {
-                $ppmpItem = ProcurementItem::find($item['ppmp_item_id']);
+                $ppmpItem = ProcurementPpmpItem::find($item['ppmp_item_id']);
 
                 if ($ppmpItem) {
                     $item['item_unit_type_id'] = $ppmpItem->item_unit_type_id;
@@ -740,23 +745,78 @@ class ProcurementClass
             return [];
         }
 
-        return ProcurementItem::query()
+        $papEndUserUnitIds = ProcurementCode::query()
+            ->whereIn('id', $procurementCodeIds)
+            ->with('end_users')
+            ->get()
+            ->flatMap(fn ($code) => $code->end_users->pluck('end_user_id'))
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $ppmpUnitIds = $papEndUserUnitIds->isNotEmpty()
+            ? $papEndUserUnitIds
+            : collect([$unitId]);
+
+        $usedPpmpItemIds = Schema::hasColumn('procurement_items', 'ppmp_item_id')
+            ? ProcurementItem::query()
+                ->whereNotNull('ppmp_item_id')
+                ->whereHas('procurement', function ($query) use ($ppmpUnitIds) {
+                    $query
+                        ->whereIn('unit_id', $ppmpUnitIds)
+                        ->where('code', 'not like', 'PPMP-%')
+                        ->whereDoesntHave('status', function ($statusQuery) {
+                            $statusQuery->where('name', 'Cancelled');
+                        });
+                })
+                ->pluck('ppmp_item_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+            : collect();
+
+        $usedItemSignatures = ProcurementItem::query()
+            ->whereHas('procurement', function ($query) use ($ppmpUnitIds) {
+                $query
+                    ->whereIn('unit_id', $ppmpUnitIds)
+                    ->where('code', 'not like', 'PPMP-%')
+                    ->whereDoesntHave('status', function ($statusQuery) {
+                        $statusQuery->where('name', 'Cancelled');
+                    });
+            })
+            ->get(['item_name', 'item_description', 'item_quantity', 'item_unit_type_id', 'item_unit_cost', 'total_cost'])
+            ->map(fn ($item) => $this->ppmp_item_signature($item))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return ProcurementPpmpItem::query()
             ->with([
                 'item_unit_type',
-                'procurement.reference_app',
-                'procurement.codes.procurement_code',
+                'ppmp.reference_app',
+                'ppmp.codes.procurement_code',
             ])
-            ->whereHas('procurement', function ($query) use ($unitId, $procurementCodeIds) {
-                $query->where('unit_id', $unitId)
-                    ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
-                        $codeQuery->whereIn('procurement_code_id', $procurementCodeIds);
+            ->when($usedPpmpItemIds->isNotEmpty(), function ($query) use ($usedPpmpItemIds) {
+                $query->whereNotIn('id', $usedPpmpItemIds);
+            })
+            ->whereHas('ppmp', function ($query) use ($ppmpUnitIds, $procurementCodeIds) {
+                $query->whereIn('unit_id', $ppmpUnitIds)
+                    ->where(function ($ppmpQuery) use ($procurementCodeIds) {
+                        $ppmpQuery
+                            ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
+                                $codeQuery->whereIn('procurement_code_id', $procurementCodeIds);
+                            })
+                            ->orDoesntHave('codes');
                     });
             })
             ->latest('id')
             ->limit(100)
             ->get()
+            ->reject(fn ($item) => $usedItemSignatures->contains($this->ppmp_item_signature($item)))
             ->map(function ($item) {
-                $procurement = $item->procurement;
+                $procurement = $item->ppmp;
                 $year = $procurement?->date ? date('Y', strtotime($procurement->date)) : date('Y');
                 $ppmpNo = $procurement
                     ? 'PPMP-' . $year . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT)
@@ -788,6 +848,18 @@ class ProcurementClass
             })
             ->values()
             ->all();
+    }
+
+    protected function ppmp_item_signature($item): string
+    {
+        return implode('|', [
+            mb_strtolower(trim((string) ($item->item_name ?? ''))),
+            trim(strip_tags((string) ($item->item_description ?? ''))),
+            (string) (float) ($item->item_quantity ?? 0),
+            (string) (int) ($item->item_unit_type_id ?? 0),
+            number_format((float) ($item->item_unit_cost ?? 0), 2, '.', ''),
+            number_format((float) ($item->total_cost ?? 0), 2, '.', ''),
+        ]);
     }
 
     protected function reportSignatories(): array

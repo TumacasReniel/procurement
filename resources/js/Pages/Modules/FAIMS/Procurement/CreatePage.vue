@@ -120,8 +120,11 @@
                                   v-model="form.procurement_code_ids"
                                   :searchable="true"
                                   label="label"
+                                  valueProp="value"
+                                  trackBy="label"
                                   placeholder="Select PAP Codes"
                                   mode="tags"
+                                  :close-on-select="false"
                                   class="modern-select"
                                   :append-to-body="true"
                                 />
@@ -219,7 +222,7 @@
                   <div class="content-card">
                     <div class="card-header-custom">
                       <i class="ri-shopping-bag-line card-header-icon"></i>
-                      <h5 class="card-header-title">Procurement Items</h5>
+                      <h5 class="card-header-title">Items</h5>
                       <div class="ms-auto">
                         <b-button
                           v-if="canManageRequestDetails"
@@ -232,7 +235,7 @@
                           :title="addItemDisabledReason"
                         >
                           <i class="ri-add-line me-1"></i>
-                          Add Item
+                          Select PPMP Item
                         </b-button>
                       </div>
                     </div>
@@ -312,8 +315,8 @@
                         <div class="empty-state-icon">
                           <i class="ri-shopping-bag-line"></i>
                         </div>
-                        <h6 class="empty-state-title">No Items Added</h6>
-                        <p class="empty-state-text">Click "Add Item" to start adding procurement items.</p>
+                        <h6 class="empty-state-title">No PPMP Items Selected</h6>
+                        <p class="empty-state-text">Click "Select PPMP Item" to add approved PPMP items to this PR.</p>
                       </div>
                     </div>
                   </div>
@@ -437,11 +440,18 @@
       @toggleRightSidebar="toggleRightSidebar"
     />
 
-    <Item
-      :dropdowns="dropdowns"
+    <SelectPpmpItems
+      v-if="option === 'create'"
       :ppmp-items="ppmpItems"
-      :require-ppmp-item="option === 'create'"
-      :is-loading-ppmp-items="isLoadingPpmpItems"
+      :existing-items="form.items || []"
+      :is-loading="isLoadingPpmpItems"
+      @refresh="getDataFromLocalStorage()"
+      ref="ppmpItemSelector"
+    />
+
+    <Item
+      v-else
+      :dropdowns="dropdowns"
       @refresh="getDataFromLocalStorage()"
       ref="item"
     />
@@ -449,6 +459,7 @@
 </template>
 <script>
 import Item from "./Modals/Item.vue";
+import SelectPpmpItems from "./Modals/SelectPpmpItems.vue";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import { useForm } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
@@ -459,7 +470,7 @@ import { router } from "@inertiajs/vue3";
 import RightSidebar from "./Pages/Components/RightSidebar.vue";
 
 export default {
-  components: { PageHeader, InputError, InputLabel, TextInput, Multiselect, Item, RightSidebar },
+  components: { PageHeader, InputError, InputLabel, TextInput, Multiselect, Item, SelectPpmpItems, RightSidebar },
   props: ["procurement", "dropdowns", "option", "regional_director"],
   data() {
     return {
@@ -580,18 +591,23 @@ export default {
         : [];
 
       return options.map((option) => {
+        const value = Number(option.value ?? option.id);
         const remainingBudget = Number(
           option.remaining_budget ?? option.allocated_budget ?? 0
         );
         const baseLabel = option.label || option.code || option.title || "";
+        const endUserIds = Array.isArray(option.end_user_ids)
+          ? option.end_user_ids
+          : Array.isArray(option.end_users)
+            ? option.end_users.map((endUser) => endUser.end_user_id ?? endUser.value ?? endUser.id)
+            : [];
 
         return {
           ...option,
+          value,
           remaining_budget: remainingBudget,
-          end_user_ids: Array.isArray(option.end_user_ids)
-            ? option.end_user_ids.map((id) => Number(id))
-            : [],
-          label: baseLabel,
+          end_user_ids: endUserIds.map((id) => Number(id)).filter(Boolean),
+          label: baseLabel || `PAP Code #${value}`,
         };
       });
     },
@@ -606,14 +622,9 @@ export default {
           : []
       );
 
-      return this.normalizedProcurementCodes.filter((option) => {
-        const belongsToSelectedUnit = this.procurementCodeBelongsToSelectedUnit(option);
-
-        return (
-          belongsToSelectedUnit &&
-          (selectedIds.has(Number(option.value)) || option.remaining_budget > 0)
-        );
-      });
+      return this.normalizedProcurementCodes.filter((option) =>
+        selectedIds.has(Number(option.value)) || option.remaining_budget > 0
+      );
     },
     hasSelectedUnitProcurementCodes() {
       return this.normalizedProcurementCodes.some((option) =>
@@ -644,12 +655,8 @@ export default {
         return "Select the end user/unit first.";
       }
 
-      if (!this.hasSelectedUnitProcurementCodes) {
-        return "No PAP code is assigned to the selected end user/unit.";
-      }
-
       if (!this.hasSelectedProcurementCodes) {
-        return "Select a PAP code assigned to this end user/unit before adding items.";
+        return "Select a PAP code before adding items.";
       }
 
       if (!this.hasPpmpItemsForSelectedPap) {
@@ -669,12 +676,8 @@ export default {
         return null;
       }
 
-      if (!this.hasSelectedUnitProcurementCodes) {
-        return "No PAP codes are assigned to the selected end user/unit.";
-      }
-
       if (!this.hasSelectedProcurementCodes) {
-        return "Select a PAP code assigned to this end user/unit before adding PPMP items.";
+        return "Select a PAP code before adding PPMP items.";
       }
 
       if (!this.isLoadingPpmpItems && !this.hasPpmpItemsForSelectedPap) {
@@ -873,7 +876,12 @@ export default {
         return;
       }
 
-      this.$refs.item.show();
+      if (this.option === "create") {
+        this.$refs.ppmpItemSelector?.show();
+        return;
+      }
+
+      this.$refs.item?.show();
     },
 
     procurementCodeBelongsToSelectedUnit(option) {
@@ -976,7 +984,12 @@ export default {
     },
 
     editItem(index) {
-      this.$refs.item.edit(this.form.items[index], index);
+      if (this.option === "create") {
+        this.$refs.ppmpItemSelector?.edit(this.form.items[index], index);
+        return;
+      }
+
+      this.$refs.item?.edit(this.form.items[index], index);
     },
 
     removeItem(index) {

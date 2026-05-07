@@ -2,7 +2,7 @@
   <b-modal
     v-model="showModal"
     header-class="p-3"
-    :title="isEditing ? 'Edit Item' : 'Add Item'"
+    :title="modalTitle"
     :size="modal_size"
     class="v-modal-custom"
     modal-class="zoomIn"
@@ -28,31 +28,131 @@
 
       <BRow>
         <BCol v-if="requirePpmpItem" lg="12" class="mt-3">
-          <InputLabel value="PPMP Item" :message="form.errors.ppmp_item_id" />
-          <Multiselect
-            :options="ppmpItems"
-            v-model="form.ppmp_item_id"
-            :searchable="true"
-            label="label"
-            placeholder="Select item from PPMP"
-            :loading="isLoadingPpmpItems"
-            :disabled="isLoadingPpmpItems || !ppmpItems.length"
-          />
-          <small v-if="!isLoadingPpmpItems && !ppmpItems.length" class="text-danger d-block mt-2 fw-semibold">
-            No PPMP items are available for the selected PAP code/end user.
-          </small>
-          <div v-if="selectedPpmpItem" class="ppmp-item-preview mt-3">
-            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-              <span class="badge bg-primary-subtle text-primary">{{ selectedPpmpItem.ppmp_no }}</span>
-              <span class="badge bg-secondary-subtle text-secondary">{{ selectedPpmpItem.plan_name }}</span>
-              <span class="text-muted small">{{ selectedPpmpItem.quantity_label }}</span>
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="ppmp-item-search">
+              <i class="ri-search-line"></i>
+              <input
+                v-model="ppmpItemKeyword"
+                type="search"
+                class="form-control form-control-sm"
+                placeholder="Search PPMP items..."
+              />
             </div>
-            <div class="fw-semibold">{{ selectedPpmpItem.item_name }}</div>
-            <div class="text-muted small" v-html="selectedPpmpItem.item_description"></div>
+
+            <div class="text-muted fs-12">
+              {{ selectedPpmpItemCount }} of {{ ppmpItems.length }} item(s) selected
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <div class="form-check mb-0">
+              <input
+                id="ppmp-select-all-items"
+                class="form-check-input"
+                type="checkbox"
+                :checked="allFilteredPpmpItemsSelected"
+                :disabled="!filteredPpmpItems.length"
+                @change="toggleAllPpmpItems($event.target.checked)"
+              />
+              <label class="form-check-label" for="ppmp-select-all-items">
+                Select all visible PPMP items
+              </label>
+            </div>
+            <strong class="text-primary fs-12">{{ formatCurrency(selectedPpmpItemAmount) }}</strong>
+          </div>
+
+          <div class="table-responsive border rounded ppmp-selection-table-wrap">
+            <table class="table align-middle mb-0 ppmp-selection-table">
+              <thead>
+                <tr class="fs-11">
+                  <th style="width: 6%" class="text-center">Pick</th>
+                  <th style="width: 16%">PPMP No.</th>
+                  <th>Item</th>
+                  <th style="width: 10%" class="text-center">Qty</th>
+                  <th style="width: 10%" class="text-center">Unit</th>
+                  <th style="width: 14%" class="text-end">Unit Cost</th>
+                  <th style="width: 14%" class="text-end">ABC</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in paginatedPpmpItems" :key="item.value">
+                  <td class="text-center">
+                    <input
+                      :id="`ppmp-item-${item.value}`"
+                      class="form-check-input"
+                      type="checkbox"
+                      :checked="isPpmpItemSelected(item.value)"
+                      @change="togglePpmpItem(item.value, $event.target.checked)"
+                    />
+                  </td>
+                  <td>
+                    <span class="fw-semibold text-primary">{{ item.ppmp_no || "-" }}</span>
+                    <small class="d-block text-muted">{{ item.plan_name || "PPMP" }}</small>
+                  </td>
+                  <td>
+                    <div class="fw-semibold">{{ item.item_name || "-" }}</div>
+                    <div class="text-muted small ppmp-selection-description" v-html="item.item_description || '-'" />
+                  </td>
+                  <td class="text-center">{{ formatQuantity(item.item_quantity) }}</td>
+                  <td class="text-center">{{ item.unit_label || unitFromQuantityLabel(item) || "-" }}</td>
+                  <td class="text-end">{{ formatCurrency(item.item_unit_cost) }}</td>
+                  <td class="text-end fw-semibold">{{ formatCurrency(item.total_cost) }}</td>
+                </tr>
+
+                <tr v-if="isLoadingPpmpItems">
+                  <td colspan="7" class="text-center text-muted py-4">Loading PPMP items...</td>
+                </tr>
+                <tr v-else-if="!filteredPpmpItems.length">
+                  <td colspan="7" class="text-center text-muted py-4">
+                    {{ ppmpItems.length ? "No PPMP items match your search." : "No PPMP items are available for the selected PAP code/end user." }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div
+            v-if="filteredPpmpItems.length"
+            class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3"
+          >
+            <div class="text-muted fs-12">
+              Showing {{ ppmpPaginationStart }}-{{ ppmpPaginationEnd }} of {{ filteredPpmpItems.length }} item(s)
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+              <select v-model.number="ppmpItemsPerPage" class="form-select form-select-sm ppmp-page-size">
+                <option :value="5">5</option>
+                <option :value="10">10</option>
+                <option :value="20">20</option>
+                <option :value="50">50</option>
+              </select>
+
+              <b-button
+                size="sm"
+                variant="light"
+                :disabled="ppmpItemPage <= 1"
+                @click="ppmpItemPage -= 1"
+              >
+                <i class="ri-arrow-left-s-line"></i>
+              </b-button>
+
+              <span class="text-muted fs-12">
+                Page {{ ppmpItemPage }} of {{ ppmpTotalPages }}
+              </span>
+
+              <b-button
+                size="sm"
+                variant="light"
+                :disabled="ppmpItemPage >= ppmpTotalPages"
+                @click="ppmpItemPage += 1"
+              >
+                <i class="ri-arrow-right-s-line"></i>
+              </b-button>
+            </div>
           </div>
         </BCol>
 
-        <BCol lg="12" class="mt-3">
+        <BCol v-if="!requirePpmpItem" lg="12" class="mt-3">
           <InputLabel value="Item Name" :message="form.errors.item_name" />
           <div class="item-name-autocomplete">
             <TextInput
@@ -90,12 +190,12 @@
           </div>
         </BCol>
 
-        <BCol lg="12" class="mt-3">
+        <BCol v-if="!requirePpmpItem" lg="12" class="mt-3">
           <InputLabel value="Description" :message="form.errors.item_description" />
           <CustomEditorMini v-model="form.item_description" :modal-size="modal_size" />
         </BCol>
 
-        <BCol lg="4" class="mt-2">
+        <BCol v-if="!requirePpmpItem" lg="4" class="mt-2">
           <InputLabel value="Quantity" />
           <TextInput
             v-model="form.item_quantity"
@@ -105,7 +205,7 @@
             :readonly="requirePpmpItem"
           />
         </BCol>
-        <BCol lg="4" class="mt-2">
+        <BCol v-if="!requirePpmpItem" lg="4" class="mt-2">
           <InputLabel for="unit_type" value="Unit Type" />
           <Multiselect
             :options="dropdowns.unit_types"
@@ -117,7 +217,7 @@
           />
         </BCol>
 
-        <BCol lg="4" class="mt-2">
+        <BCol v-if="!requirePpmpItem" lg="4" class="mt-2">
           <InputLabel value="Unit Cost" />
           <TextInput
             v-if="requirePpmpItem"
@@ -135,7 +235,7 @@
     <template v-slot:footer>
       <b-button @click="hide()" variant="light" block>Cancel</b-button>
       <b-button @click="addItem(form)" variant="primary" :disabled="!isItemFormValid || form.processing" block
-        >{{ isEditing ? 'Update' : 'add' }}</b-button
+        >{{ submitLabel }}</b-button
       >
     </template>
   </b-modal>
@@ -213,6 +313,10 @@ export default {
       latestItemNameKeyword: "",
       isItemNameFocused: false,
       activeSuggestionIndex: -1,
+      ppmpItemKeyword: "",
+      selectedPpmpItemIds: [],
+      ppmpItemPage: 1,
+      ppmpItemsPerPage: 10,
     };
   },
 
@@ -239,6 +343,17 @@ export default {
 
       this.fillFromPpmpItem(this.selectedPpmpItem);
     },
+    ppmpItemKeyword() {
+      this.ppmpItemPage = 1;
+    },
+    ppmpItemsPerPage() {
+      this.ppmpItemPage = 1;
+    },
+    filteredPpmpItems() {
+      if (this.ppmpItemPage > this.ppmpTotalPages) {
+        this.ppmpItemPage = this.ppmpTotalPages;
+      }
+    },
   },
 
   computed: {
@@ -248,6 +363,85 @@ export default {
       }
 
       return this.ppmpItems.find((item) => Number(item.value) === Number(this.form.ppmp_item_id)) || null;
+    },
+    filteredPpmpItems() {
+      const keyword = this.ppmpItemKeyword.trim().toLowerCase();
+
+      if (!keyword) {
+        return this.ppmpItems;
+      }
+
+      return this.ppmpItems.filter((item) => {
+        const searchable = [
+          item.ppmp_no,
+          item.plan_name,
+          item.item_name,
+          item.item_description,
+          item.quantity_label,
+          item.unit_label,
+          item.total_cost,
+        ]
+          .filter((value) => value !== null && value !== undefined)
+          .join(" ")
+          .toLowerCase();
+
+        return searchable.includes(keyword);
+      });
+    },
+
+    selectedPpmpItems() {
+      const selectedIds = new Set(this.selectedPpmpItemIds.map((id) => Number(id)));
+      return this.ppmpItems.filter((item) => selectedIds.has(Number(item.value)));
+    },
+
+    ppmpTotalPages() {
+      return Math.max(Math.ceil(this.filteredPpmpItems.length / this.ppmpItemsPerPage), 1);
+    },
+
+    paginatedPpmpItems() {
+      const start = (this.ppmpItemPage - 1) * this.ppmpItemsPerPage;
+      return this.filteredPpmpItems.slice(start, start + this.ppmpItemsPerPage);
+    },
+
+    ppmpPaginationStart() {
+      if (!this.filteredPpmpItems.length) {
+        return 0;
+      }
+
+      return ((this.ppmpItemPage - 1) * this.ppmpItemsPerPage) + 1;
+    },
+
+    ppmpPaginationEnd() {
+      return Math.min(this.ppmpItemPage * this.ppmpItemsPerPage, this.filteredPpmpItems.length);
+    },
+
+    selectedPpmpItemCount() {
+      return this.selectedPpmpItemIds.length;
+    },
+
+    selectedPpmpItemAmount() {
+      return this.selectedPpmpItems.reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0);
+    },
+
+    allFilteredPpmpItemsSelected() {
+      return this.filteredPpmpItems.length > 0
+        && this.filteredPpmpItems.every((item) => this.isPpmpItemSelected(item.value));
+    },
+
+    modalTitle() {
+      if (this.requirePpmpItem) {
+        return this.isEditing ? "Change PPMP Item" : "Select PPMP Item";
+      }
+
+      return this.isEditing ? "Edit Item" : "Add Item";
+    },
+
+    submitLabel() {
+      if (this.requirePpmpItem) {
+        return this.isEditing ? "Update Selected Item" : "Use Selected PPMP Item";
+      }
+
+      return this.isEditing ? "Update" : "Add";
     },
 
     unitTypeLabel() {
@@ -259,8 +453,11 @@ export default {
     },
 
     isItemFormValid() {
-      return (!this.requirePpmpItem || this.form.ppmp_item_id) &&
-             this.form.item_name &&
+      if (this.requirePpmpItem) {
+        return this.selectedPpmpItemCount > 0;
+      }
+
+      return this.form.item_name &&
              this.form.item_description &&
              this.form.item_quantity &&
              this.form.item_unit_type_id &&
@@ -291,6 +488,71 @@ export default {
       return parseFloat(cleaned);
     },
 
+    formatCurrency(value) {
+      return new Intl.NumberFormat("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      }).format(Number(value || 0));
+    },
+
+    formatQuantity(value) {
+      const quantity = Number(value || 0);
+
+      return Number.isInteger(quantity)
+        ? quantity.toString()
+        : quantity.toLocaleString("en-US", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 4,
+          });
+    },
+
+    unitFromQuantityLabel(item) {
+      const quantity = String(item?.item_quantity ?? "").trim();
+      const label = String(item?.quantity_label || "").trim();
+
+      if (!label) {
+        return "";
+      }
+
+      return label.replace(quantity, "").trim();
+    },
+
+    isPpmpItemSelected(itemId) {
+      return this.selectedPpmpItemIds.some((id) => Number(id) === Number(itemId));
+    },
+
+    togglePpmpItem(itemId, checked) {
+      const numericId = Number(itemId);
+
+      if (checked) {
+        if (!this.isPpmpItemSelected(numericId)) {
+          this.selectedPpmpItemIds.push(numericId);
+        }
+      } else {
+        this.selectedPpmpItemIds = this.selectedPpmpItemIds.filter((id) => Number(id) !== numericId);
+      }
+
+      this.form.ppmp_item_id = this.selectedPpmpItemIds[0] || null;
+      this.form.clearErrors();
+    },
+
+    toggleAllPpmpItems(checked) {
+      const visibleIds = this.filteredPpmpItems.map((item) => Number(item.value));
+
+      if (checked) {
+        this.selectedPpmpItemIds = Array.from(new Set([
+          ...this.selectedPpmpItemIds.map((id) => Number(id)),
+          ...visibleIds,
+        ]));
+      } else {
+        const visibleIdSet = new Set(visibleIds);
+        this.selectedPpmpItemIds = this.selectedPpmpItemIds.filter((id) => !visibleIdSet.has(Number(id)));
+      }
+
+      this.form.ppmp_item_id = this.selectedPpmpItemIds[0] || null;
+      this.form.clearErrors();
+    },
+
     fillFromPpmpItem(ppmpItem) {
       if (!ppmpItem) {
         return;
@@ -312,6 +574,8 @@ export default {
     show() {
       this.form.reset();
       this.form.item_unit_cost = 0.0;
+      this.ppmpItemKeyword = "";
+      this.selectedPpmpItemIds = [];
       this.$refs.amountComponent?.emitValue(0.0);
       this.showModal = true;
       if (!this.requirePpmpItem) {
@@ -325,6 +589,7 @@ export default {
       this.editIndex = index;
       this.form.reset();
       this.form.ppmp_item_id = item.ppmp_item_id || null;
+      this.selectedPpmpItemIds = item.ppmp_item_id ? [Number(item.ppmp_item_id)] : [];
       this.form.ppmp_id = item.ppmp_id || null;
       this.form.ppmp_no = item.ppmp_no || null;
       this.form.item_name = item.item_name || "";
@@ -345,6 +610,41 @@ export default {
     addItem(item) {
       // Step 1: Parse the existing array
       this.itemsAdded = JSON.parse(localStorage.getItem(this.storageKey)) || [];
+
+      if (this.requirePpmpItem) {
+        const existingPpmpItemIds = new Set(
+          this.itemsAdded
+            .map((existingItem) => Number(existingItem.ppmp_item_id))
+            .filter(Boolean)
+        );
+        const selectedItems = this.selectedPpmpItems
+          .filter((ppmpItem) => this.isEditing || !existingPpmpItemIds.has(Number(ppmpItem.value)))
+          .map((ppmpItem) => ({
+            id: Date.now() + Number(ppmpItem.value),
+            is_new: true,
+            ppmp_item_id: ppmpItem.value,
+            ppmp_id: ppmpItem.ppmp_id,
+            ppmp_no: ppmpItem.ppmp_no,
+            item_name: ppmpItem.item_name || "",
+            item_description: ppmpItem.item_description || "",
+            item_quantity: ppmpItem.item_quantity,
+            item_unit_type_id: ppmpItem.item_unit_type_id,
+            item_unit_type: ppmpItem.item_unit_type,
+            item_unit_cost: Number(ppmpItem.item_unit_cost) || 0,
+            total_cost: Number(ppmpItem.total_cost) || 0,
+          }));
+
+        if (this.isEditing) {
+          this.itemsAdded.splice(this.editIndex, 1, ...selectedItems);
+        } else {
+          this.itemsAdded.push(...selectedItems);
+        }
+
+        localStorage.setItem(this.storageKey, JSON.stringify(this.itemsAdded));
+        this.$emit("refresh");
+        this.hide();
+        return;
+      }
 
       if (this.isEditing) {
         // Update existing item
@@ -495,6 +795,8 @@ export default {
       this.form.ppmp_item_id = null;
       this.form.ppmp_id = null;
       this.form.ppmp_no = null;
+      this.ppmpItemKeyword = "";
+      this.selectedPpmpItemIds = [];
       this.isEditing = false;
       this.editItem = null;
       this.editIndex = null;
@@ -551,5 +853,91 @@ export default {
   border: 1px solid rgba(59, 130, 246, 0.18);
   border-radius: 8px;
   background: #f8fbff;
+}
+
+.ppmp-item-search {
+  position: relative;
+  width: min(360px, 100%);
+}
+
+.ppmp-item-search i {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  z-index: 1;
+  color: #94a3b8;
+  transform: translateY(-50%);
+}
+
+.ppmp-item-search .form-control {
+  padding-left: 2rem;
+}
+
+.ppmp-selection-table-wrap {
+  max-height: 430px;
+  overflow: auto;
+}
+
+.ppmp-selection-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #4a5b93;
+  color: #ffffff;
+}
+
+.ppmp-selection-table th {
+  background-color: #4a5b93;
+  border-bottom: 0;
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ppmp-selection-description {
+  display: -webkit-box;
+  max-height: 2.75rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ppmp-page-size {
+  width: 76px;
+}
+
+.selected-ppmp-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.selected-ppmp-summary > div {
+  padding: 0.75rem;
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.selected-ppmp-summary span {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.selected-ppmp-summary strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #1e293b;
+}
+
+@media (max-width: 768px) {
+  .selected-ppmp-summary {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

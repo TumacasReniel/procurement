@@ -45,7 +45,18 @@ class ViewClass
         $procurementApprovalUserIds = $this->procurementApprovalUserIds();
 
         $data = ProcurementResource::collection(
-            Procurement::with('status')
+            Procurement::with(
+                'status',
+                'sub_status',
+                'division',
+                'fund_cluster',
+                'created_by.profile',
+                'requested_by.profile',
+                'approved_by.profile',
+                'codes.procurement_code.mode_of_procurement',
+                'codes.procurement_code.app_type',
+                'items'
+            )
                 ->withCount('comments')
                 ->when($request->keyword, function ($query, $keyword) {
                     $query->where(function ($searchQuery) use ($keyword) {

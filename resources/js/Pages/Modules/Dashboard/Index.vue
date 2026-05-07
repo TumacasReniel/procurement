@@ -3,9 +3,9 @@
     <Head title="Dashboard" />
     <PageHeader title="Dashboard" pageTitle="Home" />
 
-    <section class="dashboard-hero card border-0 overflow-hidden mb-4">
-      <div class="card-body p-4 p-xl-5">
-        <div class="row g-4 align-items-center">
+    <section class="dashboard-hero card border-0 overflow-hidden mb-2">
+      <div class="card-body">
+        <div class="row g-2 align-items-center">
           <div class="col-xl-7">
             <span class="dashboard-kicker">Operations Workspace</span>
             <h2 class="text-white">Welcome back, {{ firstName }}.</h2>
@@ -63,11 +63,11 @@
       </div>
     </section>
 
-    <div class="row g-4">
+    <div class="row g-2">
       <div class="col-xl-8">
         <section class="card border-0 shadow-sm h-100">
-          <div class="card-body p-4">
-            <div class="section-heading mb-4">
+          <div class="card-body compact-card">
+            <div class="section-heading">
               <div>
                 <span class="section-kicker">Quick Access</span>
                 <h4 class="section-title mb-1">Jump into your workspaces</h4>
@@ -102,7 +102,7 @@
       <div class="col-xl-4">
         <div class="dashboard-side-stack">
           <section class="card border-0 shadow-sm">
-            <div class="card-body p-4">
+            <div class="card-body compact-card">
               <span class="section-kicker">Focus</span>
               <h4 class="section-title mb-3">What needs attention</h4>
 
@@ -124,7 +124,7 @@
           </section>
 
           <section class="card border-0 shadow-sm">
-            <div class="card-body p-4">
+            <div class="card-body compact-card">
               <span class="section-kicker">Account</span>
               <h4 class="section-title mb-3">Signed in profile</h4>
 
@@ -403,6 +403,8 @@ export default {
   --dashboard-brand-soft: #eef1fb;
   --dashboard-ink: #182032;
   --dashboard-muted: #667085;
+  --dashboard-border: #e6ebf4;
+  --dashboard-shadow: rgba(31, 45, 92, 0.08);
 }
 
 .dashboard-hero {
@@ -410,7 +412,23 @@ export default {
     radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 32%),
     linear-gradient(135deg, var(--dashboard-brand) 0%, var(--dashboard-brand-deep) 100%);
   color: #fff;
-  box-shadow: 0 26px 48px rgba(56, 69, 119, 0.22);
+  border-radius: 18px;
+  box-shadow: 0 20px 44px rgba(56, 69, 119, 0.18);
+}
+
+.dashboard-hero .card-body,
+.compact-card {
+  padding: 0.82rem;
+}
+
+.dashboard-page > .row {
+  --bs-gutter-x: 0.5rem;
+  --bs-gutter-y: 0.5rem;
+}
+
+.dashboard-page .card:not(.dashboard-hero) {
+  border-radius: 18px;
+  box-shadow: 0 14px 30px var(--dashboard-shadow) !important;
 }
 
 .dashboard-kicker,
@@ -426,10 +444,10 @@ export default {
 }
 
 .dashboard-kicker {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .dashboard-title {
@@ -442,38 +460,40 @@ export default {
 .dashboard-lead {
   max-width: 640px;
   color: rgba(255, 255, 255, 0.82);
-  font-size: 15px;
-  margin-bottom: 18px;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 10px;
 }
 
 .dashboard-role-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 22px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .dashboard-role-chip {
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .dashboard-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .dashboard-hero-btn,
 .dashboard-outline-btn {
-  min-width: 160px;
-  border-radius: 14px;
-  padding: 11px 18px;
+  min-width: 138px;
+  border-radius: 10px;
+  padding: 8px 14px;
   font-weight: 700;
+  font-size: 13px;
 }
 
 .dashboard-outline-btn {
@@ -491,29 +511,30 @@ export default {
 .dashboard-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 8px;
 }
 
 .dashboard-stat-card {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 14px;
+  gap: 10px;
   align-items: start;
-  padding: 18px;
-  border-radius: 20px;
+  min-height: 88px;
+  padding: 12px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.11);
   border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(8px);
 }
 
 .dashboard-stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 17px;
 }
 
 .dashboard-stat-label {
@@ -523,54 +544,57 @@ export default {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .dashboard-stat-value {
   display: block;
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 800;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .dashboard-stat-note {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .section-kicker {
   color: var(--dashboard-brand);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .section-title {
   color: var(--dashboard-ink);
   font-weight: 800;
+  font-size: 0.98rem;
 }
 
 .section-copy {
   color: var(--dashboard-muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .dashboard-side-stack {
   display: grid;
-  gap: 16px;
+  gap: 8px;
 }
 
 .workspace-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 8px;
 }
 
 .workspace-card {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid #e7ebf4;
+  gap: 10px;
+  min-height: 116px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--dashboard-border);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 255, 0.98)),
     linear-gradient(135deg, color-mix(in srgb, var(--workspace-accent) 12%, white), transparent);
@@ -580,51 +604,52 @@ export default {
 }
 
 .workspace-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--workspace-accent) 24%, white);
   box-shadow: 0 18px 30px rgba(15, 23, 42, 0.08);
 }
 
 .workspace-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 18px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: color-mix(in srgb, var(--workspace-accent) 12%, white);
   color: var(--workspace-accent);
-  font-size: 20px;
+  font-size: 17px;
 }
 
 .workspace-kicker {
   color: var(--workspace-accent);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .workspace-title {
   color: var(--dashboard-ink);
   font-weight: 800;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  font-size: 0.95rem;
 }
 
 .workspace-copy,
 .focus-copy,
 .profile-copy {
   color: var(--dashboard-muted);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .focus-list {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .focus-item {
-  padding: 16px;
-  border-radius: 18px;
-  border: 1px solid #e6ebf4;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--dashboard-border);
   background: #fbfcff;
 }
 
@@ -632,12 +657,12 @@ export default {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 4px 8px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .focus-badge.warning {
@@ -664,11 +689,12 @@ export default {
 .profile-name {
   color: var(--dashboard-ink);
   font-weight: 800;
+  font-size: 0.92rem;
 }
 
 .focus-link {
   display: inline-flex;
-  margin-top: 12px;
+  margin-top: 8px;
   color: var(--dashboard-brand);
   font-weight: 700;
   text-decoration: none;
@@ -677,26 +703,26 @@ export default {
 .profile-panel {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 16px;
+  gap: 10px;
   align-items: center;
-  padding: 16px;
-  border-radius: 20px;
+  padding: 12px;
+  border-radius: 14px;
   background: linear-gradient(180deg, var(--dashboard-brand-soft), #ffffff);
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .profile-avatar {
-  width: 58px;
-  height: 58px;
-  border-radius: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--dashboard-brand);
   color: #fff;
   font-weight: 800;
-  font-size: 20px;
-  box-shadow: 0 16px 30px rgba(75, 91, 147, 0.24);
+  font-size: 16px;
+  box-shadow: 0 12px 22px rgba(75, 91, 147, 0.2);
 }
 
 .profile-copy.muted {
@@ -706,21 +732,21 @@ export default {
 .profile-status-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .profile-status-card {
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid #e6ebf4;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--dashboard-border);
   background: #fff;
 }
 
 .profile-status-card span {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--dashboard-muted);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .profile-status-card strong {

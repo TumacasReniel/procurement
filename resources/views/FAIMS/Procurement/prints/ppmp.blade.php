@@ -5,13 +5,10 @@
             ?? $procurement->created_by?->name
             ?? ''
     );
-
-    $submittedName = strtoupper(
-        $procurement->requested_by?->profile?->fullname
-            ?? $procurement->requested_by?->profile?->full_name
-            ?? $procurement->requested_by?->name
-            ?? ''
-    );
+    $preparedDesignation = $procurement->created_by?->org_chart?->designation?->name
+        ?? $procurement->created_by?->organization?->position?->name
+        ?? $procurement->created_by?->designation
+        ?? ($planShortName === 'SPP' ? 'Agency' : 'End-User / Requesting Office');
 
     $modeOfProcurement = $procurement->codes
         ?->pluck('procurement_code.mode_of_procurement.name')
@@ -31,6 +28,15 @@
         default => 'PROJECT PROCUREMENT MANAGEMENT PLAN (PPMP) NO.',
     };
     $isFinal = $planName !== 'PPMP' || $procurement->status?->name === 'Reviewed';
+    $submittedUser = $isFinal && $procurement->approved_by
+        ? $procurement->approved_by
+        : $procurement->requested_by;
+    $submittedName = strtoupper(
+        $submittedUser?->profile?->fullname
+            ?? $submittedUser?->profile?->full_name
+            ?? $submittedUser?->name
+            ?? ''
+    );
     $ppmpYear = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y', strtotime((string) $procurement->created_at));
     $ppmpNo = $procurement->ppmp_no_override ?: 'PPMP-' . $ppmpYear . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT);
     $prNo = $procurement->pr_no_override ?: ($procurement->code ?: '');
@@ -76,7 +82,6 @@
         .agency-header {
             position: relative;
             min-height: 96px;
-            border-bottom: 2.5px solid #000;
             margin-bottom: 4px;
         }
 
@@ -93,7 +98,7 @@
             position: absolute;
             top: 0;
             right: 58px;
-            width: 108px;
+            width: 90px;
             height: 88px;
             object-fit: contain;
         }
@@ -127,13 +132,16 @@
             font-size: 19px;
             font-weight: bold;
             line-height: 1.15;
+            margin-bottom:20px;
         }
 
         .title-line {
             display: inline-block;
-            min-width: 82px;
-            border-bottom: 2.5px solid #000;
+            min-width: 2px;
+            font-size: 15px;
+            border-bottom: 1px solid #000;
             padding: 0 8px 1px;
+            color:red;
         }
 
         .status-row {
@@ -144,22 +152,31 @@
         .status-option {
             display: inline-block;
             margin: 0 50px;
-            font-size: 18px;
+            font-size: 15px;
             font-weight: bold;
             vertical-align: middle;
         }
 
-        .box {
-            display: inline-block;
-            width: 30px;
-            height: 30px;
-            border: 1.5px solid #000;
-            margin-right: 10px;
-            text-align: center;
-            line-height: 29px;
-            vertical-align: middle;
-            font-size: 18px;
+     .box {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 1px solid #000;
+        vertical-align: middle;
+        margin-right: 4px;
+    }
+
+    .box.filled {
+        background-color: #000;
+    }
+
+    @media print {
+        .box.filled {
+            background-color: #000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
+    }
 
         .meta-table {
             margin-bottom: 5px;
@@ -177,6 +194,16 @@
         }
 
         .field-value {
+            font-weight: bold;
+        }
+
+        .table-header-info {
+            margin: 4px 0 3px;
+            font-size: 10px;
+            line-height: 1.45;
+        }
+
+        .table-header-info div {
             font-weight: bold;
         }
 
@@ -203,6 +230,16 @@
             font-weight: bold;
             vertical-align: middle;
             line-height: 1.12;
+        }
+
+        .ppmp-table .group-header th {
+            padding: 8px 4px;
+            font-size: 7.2px;
+            line-height: 1.1;
+        }
+
+        .ppmp-table .main-header th {
+            padding: 4px 4px;
         }
 
         .column-label th {
@@ -247,10 +284,10 @@
 
         .signature-line {
             display: block;
-            min-height: 18px;
-            border-bottom: 1px solid #000;
+            min-height: 0px;
             padding-bottom: 2px;
             font-weight: bold;
+            
         }
 
         .signature-label {
@@ -273,8 +310,8 @@
             <div class="department">DEPARTMENT OF SCIENCE AND TECHNOLOGY</div>
             <div class="region">Regional Office IX</div>
         </div>
-        @if (file_exists(public_path('images/bp-logo.webp')))
-            <img src="{{ public_path('images/bp-logo.webp') }}" alt="Bagong Pilipinas Logo" class="bagong-logo">
+        @if (file_exists(public_path('images/bp-sm.png')))
+            <img src="{{ public_path('images/bp-sm.png') }}" alt="Bagong Pilipinas Logo" class="bagong-logo">
         @endif
     </div>
 
@@ -284,53 +321,58 @@
             <span class="title-line">{{ $ppmpNo }}</span>
         </div>
         <div class="status-row">
-            <span class="status-option"><span class="box">{{ $isFinal ? '' : 'X' }}</span> INDICATIVE</span>
-            <span class="status-option"><span class="box">{{ $isFinal ? 'X' : '' }}</span> FINAL</span>
+            <span class="status-option">
+                <span class="box {{ !$isFinal ? 'filled' : '' }}"></span>
+                INDICATIVE
+            </span>
+
+            <span class="status-option">
+                <span class="box {{ $isFinal ? 'filled' : '' }}"></span>
+                FINAL
+            </span>
         </div>
     </div>
 
-    <table class="meta-table">
-        <tr>
-            <td width="25%">
-                <span class="field-label">{{ $planShortName === 'APP' ? 'Included PR Nos.:' : 'PR No.:' }}</span>
-                <span class="field-value">{{ $prNo ?: '-' }}</span>
-            </td>
-            <td width="25%">
-                <span class="field-label">Plan:</span>
-                <span class="field-value">{{ $planName }}</span>
-            </td>
-            <td width="25%">
-                <span class="field-label">{{ $planShortName === 'APP' ? 'Coverage:' : 'Unit:' }}</span>
-                <span class="field-value">{{ $unitName }}</span>
-            </td>
-            <td width="25%">
-                <span class="field-label">Date:</span>
-                <span class="field-value">{{ $procurement->date ? date('F j, Y', strtotime($procurement->date)) : '-' }}</span>
-            </td>
-        </tr>
-        <tr>
-            <td colspan="4">
-                <span class="field-label">Total ABC:</span>
-                <span class="field-value">PHP {{ number_format((float) $totalAmount, 2) }}</span>
-            </td>
-        </tr>
-    </table>
+
+    <div class="table-header-info">
+        <div>Fiscal Year : {{ $ppmpYear }}</div>
+        <div>End-User or Implementing Unit: {{ $unitName }}</div>
+    </div>
 
     <table class="ppmp-table">
+        <colgroup>
+            <col style="width: 15%;">
+            <col style="width: 10%;">
+            <col style="width: 12%;">
+            <col style="width: 10%;">
+            <col style="width: 8%;">
+            <col style="width: 8%;">
+            <col style="width: 8%;">
+            <col style="width: 8%;">
+            <col style="width: 9%;">
+            <col style="width: 8%;">
+            <col style="width: 7%;">
+            <col style="width: 7%;">
+        </colgroup>
         <thead>
-            <tr>
-                <th width="15%">General Description and Objective of the Project to be Procured</th>
-                <th width="10%">Type of the Project to be Procured</th>
-                <th width="12%">Quantity and Size of the Project to be Procured</th>
-                <th width="10%">Recommended Mode of Procurement</th>
-                <th width="8%">Pre-Procurement Conference, if applicable</th>
-                <th width="8%">Start of Procurement Activity</th>
-                <th width="8%">End of Procurement Activity</th>
-                <th width="8%">Expected Delivery/Implementation Period</th>
-                <th width="9%">Source of Funds</th>
-                <th width="8%">Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
-                <th width="7%">Attached Supporting Documents</th>
-                <th width="7%">Remarks</th>
+            <tr class="group-header">
+                <th colspan="5">PROCUREMENT PROJECT DETAILS</th>
+                <th colspan="3">PROJECTED TIMELINE (MM/YYYY)</th>
+                <th colspan="2">FUNDING DETAILS</th>
+                <th rowspan="2">ATTACHED SUPPORTING DOCUMENTS</th>
+                <th rowspan="2">REMARKS</th>
+            </tr>
+            <tr class="main-header">
+                <th>General Description and Objective of the Project to be Procured</th>
+                <th>Type of the Project to be Procured (whether Goods, Infrastructure and Consulting Services)</th>
+                <th>Quantity and Size of the Project to be Procured</th>
+                <th>Recommended Mode of Procurement</th>
+                <th>Pre-Procurement Conference, if applicable</th>
+                <th>Start of Procurement Activity</th>
+                <th>End of Procurement Activity</th>
+                <th>Expected Delivery/Implementation Period</th>
+                <th>Source of Funds</th>
+                <th>Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
             </tr>
             <tr class="column-label">
                 @for ($column = 1; $column <= 12; $column++)
@@ -340,47 +382,55 @@
         </thead>
         <tbody>
             @if ($items->isNotEmpty())
-                <tr>
-                    <td>
-                        <span class="item-name">{{ $procurement->title ?: $procurement->purpose }}</span>
-                        <div class="item-description">{{ $procurement->purpose }}</div>
-                    </td>
-                    <td class="text-center">{{ $classificationName }}</td>
-                    <td>
-                        <ul class="item-list">
-                            @foreach ($items as $item)
-                                @php
-                                    $quantity = (float) ($item->item_quantity ?? 0);
-                                    $unitCost = (float) ($item->item_unit_cost ?? 0);
-                                    $lineTotal = (float) ($item->total_cost ?? ($quantity * $unitCost));
-                                    $unitName = $item->item_unit_type?->name ?? $item->item_unit_type?->name_short ?? '';
-                                @endphp
-                                <li>
-                                    <strong>{{ $item->item_name ?: 'Item ' . $loop->iteration }}</strong><br>
-                                    {{ rtrim(rtrim(number_format($quantity, 2), '0'), '.') }} {{ $unitName }}
-                                    x PHP {{ number_format($unitCost, 2) }}
-                                    = PHP {{ number_format($lineTotal, 2) }}
-                                </li>
-                            @endforeach
-                        </ul>
-                    </td>
-                    <td>{{ $modeOfProcurement ?: '-' }}</td>
-                    <td class="text-center">N/A</td>
-                    <td class="text-center">{{ $startDate ? date('m/d/Y', strtotime($startDate)) : '-' }}</td>
-                    <td class="text-center">-</td>
-                    <td class="text-center">-</td>
-                    <td>{{ $sourceOfFunds }}</td>
-                    <td class="text-right nowrap">{{ number_format((float) $totalAmount, 2) }}</td>
-                    <td class="text-center">-</td>
-                    <td class="text-center">-</td>
-                </tr>
+                @foreach ($items as $item)
+                    @php
+                        $quantity = (float) ($item->item_quantity ?? 0);
+                        $unitCost = (float) ($item->item_unit_cost ?? 0);
+                        $lineTotal = (float) ($item->total_cost ?? ($quantity * $unitCost));
+                        $unitName = $item->item_unit_type?->name ?? $item->item_unit_type?->name_short ?? '';
+                        $itemClassificationName = $item->project_type ?: ($item->print_classification_name ?: $classificationName);
+                        $itemModeOfProcurement = $item->recommended_mode_of_procurement ?: ($item->print_mode_of_procurement ?: $modeOfProcurement);
+                        $itemSourceOfFunds = $item->print_source_of_funds ?: $sourceOfFunds;
+                        $itemStartDate = $item->print_start_date ?: $startDate;
+                        $itemEndDate = $item->end_of_procurement_activity;
+                        $itemExpectedDeliveryDate = $item->expected_delivery_date;
+                    @endphp
+                    <tr>
+                        <td>
+                            @if ($loop->first)
+                                <div class="item-description">{{ $procurement->purpose }}</div>
+                            @endif
+                        </td>
+                        <td class="text-center">{{ $itemClassificationName ?: '-' }}</td>
+                        <td>
+                            <span class="item-name">{{ $item->item_name ?: 'Item ' . $loop->iteration }}</span>
+                            <div class="item-description">
+                                {{ rtrim(rtrim(number_format($quantity, 2), '0'), '.') }} {{ $unitName }}
+                                x PHP {{ number_format($unitCost, 2) }}
+                                = PHP {{ number_format($lineTotal, 2) }}
+                            </div>
+                            @if ($item->item_description)
+                                <div class="item-description">{!! $item->item_description !!}</div>
+                            @endif
+                        </td>
+                        <td>{{ $itemModeOfProcurement ?: '-' }}</td>
+                        <td class="text-center">No</td>
+                        <td class="text-center">{{ $itemStartDate ? date('M-d', strtotime($itemStartDate)) : '-' }}</td>
+                        <td class="text-center">{{ $itemEndDate ? date('m/Y', strtotime($itemEndDate)) : '-' }}</td>
+                        <td class="text-center">{{ $itemExpectedDeliveryDate ? date('m/Y', strtotime($itemExpectedDeliveryDate)) : '-' }}</td>
+                        <td>{{ $itemSourceOfFunds ?: '-' }}</td>
+                        <td class="text-right nowrap">{{ number_format($lineTotal, 2) }}</td>
+                        <td class="text-center">{{ $item->attached_supporting_documents ?: '-' }}</td>
+                        <td class="text-center">{{ $item->remarks ?: '-' }}</td>
+                    </tr>
+                @endforeach
             @else
                 <tr>
                     <td colspan="12" class="text-center">No items found.</td>
                 </tr>
             @endif
             <tr class="total-row">
-                <td colspan="9" class="text-right">TOTAL ABC</td>
+                <td colspan="9" class="text-right">TOTAL BUDGET</td>
                 <td class="text-right nowrap">{{ number_format((float) $totalAmount, 2) }}</td>
                 <td colspan="2"></td>
             </tr>
@@ -390,14 +440,16 @@
     <table class="signatory-table">
         <tr>
             <td width="50%">
-                <span class="signature-line">{{ $preparedName }}</span>
                 <div class="signature-label">Prepared By</div>
-                <div class="signature-role">{{ $planShortName === 'SPP' ? 'Agency' : 'End-User / Requesting Office' }}</div>
+                <span class="signature-line"><u>{{ $submittedName }}</u></span>
+                <div class="signature-role">{{ $preparedDesignation }}</div>
+                 <div style="margin-top:20px">Date:______________</div>
             </td>
             <td width="50%">
-                <span class="signature-line">{{ $submittedName }}</span>
                 <div class="signature-label">Submitted By</div>
-                <div class="signature-role">Head of Requesting Unit</div>
+                <span class="signature-line"><u>{{ $submittedName }}</u></span>
+                <div class="signature-role">AOV/Procurement Officer</div>
+                <div style="margin-top:20px">Date:______________</div>
             </td>
         </tr>
     </table>

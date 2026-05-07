@@ -25,8 +25,8 @@
                             </h5>
                             <p class="text-muted text-truncate-two-lines fs-12">
                                 A detailed list of submitted purchase
-                                requests including code, purpose, title, and
-                                status.
+                                requests including code, purpose, total amount,
+                                fund source, and status.
                             </p>
                         </div>
                         <div class="flex-shrink-0" style="width: 45%"></div>
@@ -112,13 +112,15 @@
                                         </th>
                                         <th style="width: 12%">Code</th>
                                         <th style="width: 18%">Purpose</th>
-                                        <th style="width: 12%">Division</th>
-                                        <th style="width: 12%">
+                                        <th style="width: 10%">Division</th>
+                                        <th style="width: 11%">Total Amount</th>
+                                        <th style="width: 11%">Fund Source / Cluster</th>
+                                        <th style="width: 11%">
                                             Created By/Date
                                         </th>
-                                        <th style="width: 12%">Requested By</th>
+                                        <th style="width: 10%">Requested By</th>
                                         <th style="width: 10%">PAP Code</th>
-                                        <th style="width: 14%">Status / Sub-status</th>
+                                        <th style="width: 12%">Status / Sub-status</th>
                                         <th
                                             style="width: 10%"
                                             class="text-center"
@@ -165,7 +167,17 @@
                                                 {{ list.purpose }}
                                             </div>
                                         </td>
-                                        <td>{{ list.division?.name }}</td>
+                                        <td>{{ list.division?.name || '-' }}</td>
+                                        <td class="fw-semibold text-nowrap">
+                                            {{ formatCurrency(list.total_amount) }}
+                                        </td>
+                                        <td>
+                                            <span
+                                                class="badge bg-soft-info text-info px-2 py-1 fs-12 fw-medium rounded-pill"
+                                            >
+                                                {{ fundClusterLabel(list) }}
+                                            </span>
+                                        </td>
                                         <td>
                                             {{ list.created_by }}
                                             <p class="text-muted">
@@ -536,6 +548,19 @@ export default {
 
             const year = startDate.getFullYear(); // assume same year
             return `${startStr}-${endStr}, ${year}`;
+        },
+
+        formatCurrency(value) {
+            return new Intl.NumberFormat("en-PH", {
+                style: "currency",
+                currency: "PHP",
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(Number(value) || 0);
+        },
+
+        fundClusterLabel(list) {
+            return list?.fund_cluster_name || list?.fund_cluster?.name || "-";
         },
 
         formatPapCode(codeGroup) {
