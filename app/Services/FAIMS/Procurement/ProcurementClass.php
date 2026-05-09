@@ -81,6 +81,41 @@ class ProcurementClass
         ];
     }
 
+    public function createByCategoryPageProps($request): array
+    {
+        $props = $this->createPageProps($request);
+        $props['dropdowns']['units'] = $this->dropdown->list_units();
+        $props['dropdowns']['item_categories'] = $this->dropdown->dropdowns('Item Category');
+        $props['dropdowns']['ppmp_item_categories'] = $this->approvedPpmpItemCategories();
+        $props['option'] = $request->option ?: 'create_by_category';
+
+        return $props;
+    }
+
+    protected function approvedPpmpItemCategories(): array
+    {
+        $approvedStatusIds = $this->finalPpmpStatusIds();
+
+        if (empty($approvedStatusIds)) {
+            return [];
+        }
+
+        return ProcurementPpmpItem::query()
+            ->with('item_category')
+            ->whereNotNull('item_category_id')
+            ->whereHas('ppmp', fn ($query) => $query->whereIn('status_id', $approvedStatusIds))
+            ->get()
+            ->map(fn ($item) => [
+                'value' => $item->item_category_id,
+                'name' => $item->item_category?->name,
+            ])
+            ->filter(fn ($category) => filled($category['value']) && filled($category['name']))
+            ->unique(fn ($category) => (int) $category['value'])
+            ->sortBy(fn ($category) => mb_strtolower($category['name']))
+            ->values()
+            ->all();
+    }
+
     public function createIndexData($request)
     {
         return match ($request->option) {
@@ -89,6 +124,7 @@ class ProcurementClass
             'title' => $this->procurement_title($request->id),
             'item_names' => $this->item_names($request->keyword),
             'ppmp_items' => $this->ppmp_items($request),
+            'ppmp_category_items' => $this->ppmp_category_items($request),
             default => null,
         };
     }
@@ -173,7 +209,9 @@ class ProcurementClass
                 return;
             }
 
-            if ($request->filled('unit_id')) {
+            $isCreateByCategory = $request->input('option') === 'create_by_category';
+
+            if (!$isCreateByCategory && $request->filled('unit_id')) {
                 $invalidEndUserCodes = ProcurementCode::query()
                     ->whereIn('id', $procurementCodeIds)
                     ->whereDoesntHave('end_users', function ($query) use ($request) {
@@ -201,9 +239,9 @@ class ProcurementClass
             if ($ppmpItemIds->isNotEmpty()) {
                 $validPPMPItemIds = ProcurementPpmpItem::query()
                     ->whereIn('id', $ppmpItemIds)
-                    ->whereHas('ppmp', function ($query) use ($request, $procurementCodeIds) {
+                    ->whereHas('ppmp', function ($query) use ($request, $procurementCodeIds, $isCreateByCategory) {
                         $query
-                            ->when($request->filled('unit_id'), fn ($unitQuery) => $unitQuery->where('unit_id', (int) $request->unit_id))
+                            ->when(!$isCreateByCategory && $request->filled('unit_id'), fn ($unitQuery) => $unitQuery->where('unit_id', (int) $request->unit_id))
                             ->where(function ($ppmpQuery) use ($procurementCodeIds) {
                                 $ppmpQuery
                                     ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
@@ -296,11 +334,15 @@ class ProcurementClass
     public function saveProcurement($request, $data){
         $user = Auth::user();
         $purchase_request_number = Procurement::generateProcurementNumber();
-        $payload = array_merge($request->all(), [
+        $fillable = array_flip((new Procurement())->getFillable());
+        $payload = array_merge(array_intersect_key($request->all(), $fillable), [
             'code' => $purchase_request_number,
             'status_id' => ListStatus::getID('Pending', 'Procurement'), //set to "Pending"
             'created_by_id' => $user->id,
         ]);
+
+        $payload['division_id'] = $payload['division_id'] ?? $user->organization?->division_id;
+        $payload['unit_id'] = $payload['unit_id'] ?? $user->organization?->unit_id;
 
         // Handle schema drift safely for older DBs that may not yet have request_id.
         if (Schema::hasColumn('procurements', 'request_id')) {
@@ -337,6 +379,7 @@ class ProcurementClass
             $data = new ProcurementItem();
             $data->item_no = $index + 1;
             $data->procurement_id = $procurement_id;
+            $data->ppmp_item_id = $item['ppmp_item_id'] ?? null;
             $data->item_unit_type_id =  $item['item_unit_type_id'];
             $data->item_name = $item['item_name'] ?? null;
             $data->item_unit_cost = $item['item_unit_cost'];
@@ -850,6 +893,103 @@ class ProcurementClass
             ->all();
     }
 
+    public function ppmp_category_items($request): array
+    {
+        $categoryId = (int) $request->input('item_category_id');
+        $fundClusterId = (int) $request->input('fund_cluster_id');
+        $approvedStatusIds = $this->finalPpmpStatusIds();
+        if (!$categoryId || !$fundClusterId || empty($approvedStatusIds)) {
+            return [];
+        }
+
+        $usedPpmpItemIds = Schema::hasColumn('procurement_items', 'ppmp_item_id')
+            ? ProcurementItem::query()
+                ->whereNotNull('ppmp_item_id')
+                ->whereHas('procurement', function ($query) {
+                    $query
+                        ->where('code', 'not like', 'PPMP-%')
+                        ->whereDoesntHave('status', function ($statusQuery) {
+                            $statusQuery->where('name', 'Cancelled');
+                        });
+                })
+                ->pluck('ppmp_item_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+            : collect();
+
+        return ProcurementPpmpItem::query()
+            ->with([
+                'item_unit_type',
+                'item_category',
+                'ppmp.unit',
+                'ppmp.reference_app',
+                'ppmp.codes.procurement_code',
+            ])
+            ->where('item_category_id', $categoryId)
+            ->when($usedPpmpItemIds->isNotEmpty(), function ($query) use ($usedPpmpItemIds) {
+                $query->whereNotIn('id', $usedPpmpItemIds);
+            })
+            ->whereHas('ppmp', function ($query) use ($approvedStatusIds, $fundClusterId) {
+                $query
+                    ->whereIn('status_id', $approvedStatusIds)
+                    ->where('fund_cluster_id', $fundClusterId);
+            })
+            ->latest('id')
+            ->get()
+            ->map(function ($item) {
+                $procurement = $item->ppmp;
+                $year = $procurement?->date ? date('Y', strtotime($procurement->date)) : date('Y');
+                $ppmpNo = $procurement
+                    ? 'PPMP-' . $year . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT)
+                    : null;
+                $quantity = (float) ($item->item_quantity ?? 0);
+                $unitName = $quantity > 1
+                    ? ($item->item_unit_type?->name_long ?? $item->item_unit_type?->name_short)
+                    : ($item->item_unit_type?->name_short ?? $item->item_unit_type?->name_long);
+
+                return [
+                    'value' => $item->id,
+                    'label' => trim(($ppmpNo ? "{$ppmpNo} - " : '') . ($item->item_name ?: 'PPMP Item')),
+                    'ppmp_id' => $procurement?->id,
+                    'ppmp_no' => $ppmpNo,
+                    'pr_no' => $procurement?->code,
+                    'unit_id' => $procurement?->unit_id,
+                    'unit_name' => $procurement?->unit?->name,
+                    'item_category_id' => $item->item_category_id,
+                    'item_category' => $item->item_category?->name,
+                    'plan_name' => $procurement?->reference_app?->name ?: 'PPMP',
+                    'pap_code_ids' => $procurement?->codes
+                        ? $procurement->codes->pluck('procurement_code_id')->map(fn ($id) => (int) $id)->values()
+                        : [],
+                    'item_name' => $item->item_name,
+                    'item_description' => $item->item_description,
+                    'item_quantity' => $item->item_quantity,
+                    'item_unit_type_id' => $item->item_unit_type_id,
+                    'item_unit_type' => $item->item_unit_type,
+                    'item_unit_cost' => (float) $item->item_unit_cost,
+                    'total_cost' => (float) $item->total_cost,
+                    'quantity_label' => trim($item->item_quantity . ' ' . ($unitName ?: '')),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function finalPpmpStatusIds(): array
+    {
+        return collect([
+            ListStatus::getID('Reviewed', 'Procurement'),
+            ListStatus::getID('Approved', 'Procurement'),
+        ])
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     protected function ppmp_item_signature($item): string
     {
         return implode('|', [
@@ -884,9 +1024,19 @@ class ProcurementClass
             })
             ->first();
 
-        $assistantRegionalDirector = OrgChart::with('user.profile', 'designation')
+        $assistantRegionalDirector = OrgChart::with('user.profile', 'oic.profile', 'designation', 'assigned')
             ->where('designation_id', ListDropdown::getID('Assistant Regional Director', 'Designation'))
+            ->whereHas('assigned', function ($query) {
+                $query->where('others', 'FASS')
+                    ->orWhere('name', 'like', '%Finance and Administrative Support Services%');
+            })
+            ->orderByDesc('is_active')
+            ->orderBy('order')
             ->first();
+        $notedByUser = $assistantRegionalDirector?->is_oic
+            ? ($assistantRegionalDirector?->oic ?: $assistantRegionalDirector?->user)
+            : ($assistantRegionalDirector?->user ?: $assistantRegionalDirector?->oic);
+        $notedByDesignation = $assistantRegionalDirector?->is_oic ? 'OIC ARD-FASS' : 'ARD-FASS';
 
         return [
             'prepared_by' => array_slice($procurementStaff, 0, 2),
@@ -894,9 +1044,9 @@ class ProcurementClass
                 'name' => strtoupper($supplyOfficer->profile?->full_name ?? ('USER #' . $supplyOfficer->id)),
                 'role' => 'Supply Officer',
             ] : null,
-            'noted_by' => $assistantRegionalDirector ? [
-                'name' => strtoupper($assistantRegionalDirector->user?->profile?->full_name ?? ''),
-                'designation' => 'ARD-FASS',
+            'noted_by' => $notedByUser ? [
+                'name' => strtoupper($notedByUser->profile?->full_name ?? ''),
+                'designation' => $notedByDesignation,
             ] : null,
         ];
     }

@@ -44,6 +44,32 @@
     $classificationName = $procurement->classification_override ?: ($procurement->classification?->name ?? '-');
     $sourceOfFunds = $procurement->source_of_funds_override ?: ($procurement->fund_cluster?->name ?? '-');
     $startDate = $procurement->start_date_override ?: $procurement->date;
+    $printItems = $items->values();
+    $rowspansFor = function ($resolver) use ($printItems) {
+        $rowspans = [];
+        $lastValue = null;
+        $lastIndex = null;
+
+        foreach ($printItems as $index => $item) {
+            $value = trim((string) $resolver($item));
+
+            if ($lastIndex !== null && $value === $lastValue) {
+                $rowspans[$lastIndex]++;
+                $rowspans[$index] = 0;
+                continue;
+            }
+
+            $lastValue = $value;
+            $lastIndex = $index;
+            $rowspans[$index] = 1;
+        }
+
+        return $rowspans;
+    };
+    $generalDescriptionRowspans = $rowspansFor(fn ($item) => $item->print_general_description ?: ($procurement->title ?: $procurement->purpose));
+    $projectTypeRowspans = $rowspansFor(fn ($item) => $item->project_type ?: ($item->print_classification_name ?: $classificationName));
+    $supportingDocumentsRowspans = $rowspansFor(fn ($item) => $item->attached_supporting_documents ?: '-');
+    $remarksRowspans = $rowspansFor(fn ($item) => $item->remarks ?: '-');
 @endphp
 <!DOCTYPE html>
 <html>
@@ -343,16 +369,16 @@
         <colgroup>
             <col style="width: 15%;">
             <col style="width: 10%;">
-            <col style="width: 12%;">
-            <col style="width: 10%;">
+            <col style="width: 18%;">
             <col style="width: 8%;">
-            <col style="width: 8%;">
-            <col style="width: 8%;">
-            <col style="width: 8%;">
-            <col style="width: 9%;">
-            <col style="width: 8%;">
+            <col style="width: 6%;">
             <col style="width: 7%;">
             <col style="width: 7%;">
+            <col style="width: 7%;">
+            <col style="width: 8%;">
+            <col style="width: 8%;">
+            <col style="width: 6%;">
+            <col style="width: 6%;">
         </colgroup>
         <thead>
             <tr class="group-header">
@@ -381,47 +407,54 @@
             </tr>
         </thead>
         <tbody>
-            @if ($items->isNotEmpty())
-                @foreach ($items as $item)
+            @if ($printItems->isNotEmpty())
+                @foreach ($printItems as $item)
                     @php
+                        $itemIndex = $loop->index;
                         $quantity = (float) ($item->item_quantity ?? 0);
                         $unitCost = (float) ($item->item_unit_cost ?? 0);
                         $lineTotal = (float) ($item->total_cost ?? ($quantity * $unitCost));
                         $unitName = $item->item_unit_type?->name ?? $item->item_unit_type?->name_short ?? '';
                         $itemClassificationName = $item->project_type ?: ($item->print_classification_name ?: $classificationName);
                         $itemModeOfProcurement = $item->recommended_mode_of_procurement ?: ($item->print_mode_of_procurement ?: $modeOfProcurement);
+                        $itemPreProcurementConference = $item->pre_procurement_conference ?: 'No';
                         $itemSourceOfFunds = $item->print_source_of_funds ?: $sourceOfFunds;
                         $itemStartDate = $item->print_start_date ?: $startDate;
                         $itemEndDate = $item->end_of_procurement_activity;
                         $itemExpectedDeliveryDate = $item->expected_delivery_date;
+                        $itemGeneralDescription = $item->print_general_description ?: ($procurement->title ?: $procurement->purpose);
                     @endphp
                     <tr>
+                        @if (($generalDescriptionRowspans[$itemIndex] ?? 1) > 0)
+                            <td rowspan="{{ $generalDescriptionRowspans[$itemIndex] }}">
+                                <div class="item-description">{{ $itemGeneralDescription ?: '-' }}</div>
+                            </td>
+                        @endif
+                        @if (($projectTypeRowspans[$itemIndex] ?? 1) > 0)
+                            <td rowspan="{{ $projectTypeRowspans[$itemIndex] }}" class="text-center">{{ $itemClassificationName ?: '-' }}</td>
+                        @endif
                         <td>
-                            @if ($loop->first)
-                                <div class="item-description">{{ $procurement->purpose }}</div>
-                            @endif
-                        </td>
-                        <td class="text-center">{{ $itemClassificationName ?: '-' }}</td>
-                        <td>
-                            <span class="item-name">{{ $item->item_name ?: 'Item ' . $loop->iteration }}</span>
                             <div class="item-description">
-                                {{ rtrim(rtrim(number_format($quantity, 2), '0'), '.') }} {{ $unitName }}
-                                x PHP {{ number_format($unitCost, 2) }}
-                                = PHP {{ number_format($lineTotal, 2) }}
+                                &bull; {{ rtrim(rtrim(number_format($quantity, 2), '0'), '.') }} {{ $unitName }}
+                                {{ $item->item_name ?: 'Item ' . $loop->iteration }}
                             </div>
                             @if ($item->item_description)
                                 <div class="item-description">{!! $item->item_description !!}</div>
                             @endif
                         </td>
                         <td>{{ $itemModeOfProcurement ?: '-' }}</td>
-                        <td class="text-center">No</td>
+                        <td class="text-center">{{ $itemPreProcurementConference }}</td>
                         <td class="text-center">{{ $itemStartDate ? date('M-d', strtotime($itemStartDate)) : '-' }}</td>
-                        <td class="text-center">{{ $itemEndDate ? date('m/Y', strtotime($itemEndDate)) : '-' }}</td>
-                        <td class="text-center">{{ $itemExpectedDeliveryDate ? date('m/Y', strtotime($itemExpectedDeliveryDate)) : '-' }}</td>
-                        <td>{{ $itemSourceOfFunds ?: '-' }}</td>
+                        <td class="text-center">{{ $itemEndDate ? date('M-d', strtotime($itemEndDate)) : '-' }}</td>
+                        <td class="text-center">{{ $itemExpectedDeliveryDate ? date('M-d', strtotime($itemExpectedDeliveryDate)) : '-' }}</td>
+                        <td class="text-center">{{ $itemSourceOfFunds ?: '-' }}</td>
                         <td class="text-right nowrap">{{ number_format($lineTotal, 2) }}</td>
-                        <td class="text-center">{{ $item->attached_supporting_documents ?: '-' }}</td>
-                        <td class="text-center">{{ $item->remarks ?: '-' }}</td>
+                        @if (($supportingDocumentsRowspans[$itemIndex] ?? 1) > 0)
+                            <td rowspan="{{ $supportingDocumentsRowspans[$itemIndex] }}" class="text-center">{{ $item->attached_supporting_documents ?: '-' }}</td>
+                        @endif
+                        @if (($remarksRowspans[$itemIndex] ?? 1) > 0)
+                            <td rowspan="{{ $remarksRowspans[$itemIndex] }}" class="text-center">{{ $item->remarks ?: '-' }}</td>
+                        @endif
                     </tr>
                 @endforeach
             @else
@@ -440,13 +473,13 @@
     <table class="signatory-table">
         <tr>
             <td width="50%">
-                <div class="signature-label">Prepared By</div>
+                <div class="signature-label" style="margin-left:-120px; margin-bottom:20px">Prepared By</div>
                 <span class="signature-line"><u>{{ $submittedName }}</u></span>
                 <div class="signature-role">{{ $preparedDesignation }}</div>
                  <div style="margin-top:20px">Date:______________</div>
             </td>
             <td width="50%">
-                <div class="signature-label">Submitted By</div>
+                <div class="signature-label" style="margin-left:-120px;margin-bottom:20px">Submitted By</div>
                 <span class="signature-line"><u>{{ $submittedName }}</u></span>
                 <div class="signature-role">AOV/Procurement Officer</div>
                 <div style="margin-top:20px">Date:______________</div>
@@ -462,7 +495,7 @@
             $height = $pdf->get_height();
             $y_axis = $height - 22;
 
-            $text_code = "{{ $ppmpNo }}";
+            $text_code = "";
             $pdf->page_text(28, $y_axis, $text_code, $font, $size, array(0,0,0));
 
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";

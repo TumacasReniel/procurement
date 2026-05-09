@@ -87,6 +87,17 @@
                                     ></i>
                                     Create
                                 </b-button>
+                                <b-button
+                                    v-if="canCreateByCategory"
+                                    type="button"
+                                    variant="success"
+                                    @click="goCreateByCategoryPage"
+                                >
+                                    <i
+                                        class="ri-list-check-2 align-bottom me-1"
+                                    ></i>
+                                    Create by Category
+                                </b-button>
                             </div>
                         </b-col>
                     </b-row>
@@ -113,8 +124,7 @@
                                         <th style="width: 12%">Code</th>
                                         <th style="width: 18%">Purpose</th>
                                         <th style="width: 10%">Division</th>
-                                        <th style="width: 11%">Total Amount</th>
-                                        <th style="width: 11%">Fund Source / Cluster</th>
+                                        <th style="width: 11%">Total Amount/Fund Source</th>
                                         <th style="width: 11%">
                                             Created By/Date
                                         </th>
@@ -168,10 +178,9 @@
                                             </div>
                                         </td>
                                         <td>{{ list.division?.name || '-' }}</td>
-                                        <td class="fw-semibold text-nowrap">
-                                            {{ formatCurrency(list.total_amount) }}
-                                        </td>
+                                       
                                         <td>
+                                            <span>{{ formatCurrency(list.total_amount) }}</span>
                                             <span
                                                 class="badge bg-soft-info text-info px-2 py-1 fs-12 fw-medium rounded-pill"
                                             >
@@ -416,6 +425,12 @@ export default {
             activeChatRequest: null,
             pendingChatRequestId: this.comment_request_id ? Number(this.comment_request_id) : null,
         };
+    },
+    computed: {
+        canCreateByCategory() {
+            const roles = this.$page.props.roles || [];
+            return roles.includes("Procurement Encoder") || roles.includes("Administrator");
+        },
     },
     watch: {
         comment_request_id: {
@@ -677,6 +692,10 @@ export default {
 
         goCreatePage() {
             router.get("/faims/procurements/create", { option: "create" });
+        },
+
+        goCreateByCategoryPage() {
+            router.get("/faims/procurements/create-by-category");
         },
 
         goViewPage(data) {

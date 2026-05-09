@@ -653,7 +653,10 @@ export default {
         item_name: "",
         item_description: "",
         project_type: "",
+        item_category_id: null,
+        item_category: "",
         recommended_mode_of_procurement: "",
+        pre_procurement_conference: "",
         item_quantity: null,
         item_unit_type_id: null,
         item_unit_cost: null,
@@ -1122,7 +1125,10 @@ export default {
       this.createSppForm.item_name = "";
       this.createSppForm.item_description = "";
       this.createSppForm.project_type = "";
+      this.createSppForm.item_category_id = null;
+      this.createSppForm.item_category = "";
       this.createSppForm.recommended_mode_of_procurement = "";
+      this.createSppForm.pre_procurement_conference = "";
       this.createSppForm.item_quantity = null;
       this.createSppForm.item_unit_type_id = null;
       this.createSppForm.item_unit_cost = null;

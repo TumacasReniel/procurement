@@ -62,7 +62,8 @@
                 $page.props.roles.includes('Procurement Staff') ||
                 $page.props.roles.includes('Procurement Officer') ||
                 $page.props.roles.includes('Budget Officer') ||
-                $page.props.roles.includes('Administrator')
+                $page.props.roles.includes('Administrator') || 
+                $page.props.roles.includes('Employee')
                 "
             >
                 <Link

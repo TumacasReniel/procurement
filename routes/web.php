@@ -105,6 +105,7 @@ Route::prefix('faims')->group(function () {
         ->middleware(['auth', 'verified']);
     Route::patch('/procurement-mention-notifications/{notification}/read', [App\Http\Controllers\FAIMS\Procurement\ProcurementNotificationController::class, 'update'])
         ->middleware(['auth', 'verified']);
+    Route::get('/procurements/create-by-category', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'createByCategory']);
     Route::resource('/procurements', App\Http\Controllers\FAIMS\Procurement\ProcurementController::class)->names([
         'index' => 'procurement.index',
     ]);

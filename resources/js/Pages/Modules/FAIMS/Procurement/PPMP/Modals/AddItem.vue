@@ -2,7 +2,7 @@
   <b-modal
     v-model="modal.show"
     header-class="p-3"
-    title="Add PPMP Item"
+    :title="modalTitle"
     size="xl"
     class="v-modal-custom"
     modal-class="zoomIn"
@@ -11,6 +11,15 @@
   >
     <form class="customform">
       <BRow>
+       <BCol lg="12" class="mb-3">
+          <InputLabel value="General Description and Objective" :message="form.errors.general_description_objective" />
+          <textarea
+            v-model="form.general_description_objective"
+            class="form-control"
+            rows="3"
+            placeholder="General description and objective of the project to be procured"
+          ></textarea>
+        </BCol>
         <BCol lg="6" >
           <InputLabel value="Type of Project to be Procured" :message="form.errors.project_type" />
           <Multiselect
@@ -20,6 +29,17 @@
             label="name"
             value-prop="name"
             placeholder="Select project type"
+          />
+        </BCol>
+
+        <BCol lg="6">
+          <InputLabel value="Item Category" :message="form.errors.item_category_id" />
+          <Multiselect
+            :options="itemCategoryOptions"
+            v-model="form.item_category_id"
+            :searchable="true"
+            label="name"
+            placeholder="Select item category"
           />
         </BCol>
 
@@ -34,6 +54,8 @@
             placeholder="Select mode"
           />
         </BCol>
+
+      
 
         <BCol lg="6" class="mt-3">
           <InputLabel value="End of Procurement Activity" :message="form.errors.end_of_procurement_activity" />
@@ -53,13 +75,25 @@
           />
         </BCol>
 
-        <BCol lg="12" class="mt-3">
+        <BCol lg="6" class="mt-3">
           <InputLabel value="Attached Supporting Document Name" :message="form.errors.attached_supporting_documents" />
           <TextInput
             v-model="form.attached_supporting_documents"
             type="text"
             class="form-control"
             placeholder="Document name or type"
+          />
+        </BCol>
+
+        <BCol lg="6" class="mt-3">
+          <InputLabel value="Pre-Procurement Conference" :message="form.errors.pre_procurement_conference" />
+          <Multiselect
+            :options="preProcurementConferenceOptions"
+            v-model="form.pre_procurement_conference"
+            :searchable="false"
+            label="label"
+            value-prop="value"
+            placeholder="Select option"
           />
         </BCol>
 
@@ -110,16 +144,24 @@
      
 
         <BCol lg="12" class="mt-3">
-        <BRow>
-        <BCol lg="12" class="text-end mb-1">
-             <b-button  size="sm" >
+          <div class="items-table-toolbar">
+            <div>
+              <h6 class="items-table-title">Procurement Items</h6>
+              <span class="items-table-subtitle">
+                {{ itemRows.length }} item{{ itemRows.length === 1 ? "" : "s" }} {{ isEditing ? "selected" : "queued" }}
+              </span>
+            </div>
+            <b-button
+              v-if="!isEditing"
+              type="button"
+              size="sm"
+              variant="primary"
+              @click="openItemRowModal"
+            >
+              <i class="ri-add-line me-1"></i>
               Add Item
             </b-button>
-        </BCol>
-     
-        </BRow>
-        
-       
+          </div>
           <div class="items-table-container">
             <div class="table-responsive">
             <table class="items-table ppmp-item-entry-table">
@@ -129,86 +171,13 @@
                   <th style="width: 18%">Item Name</th>
                   <th>Description</th>
                   <th style="width: 120px">Unit Type</th>
+                  <th style="width: 90px" class="text-end">Qty</th>
                   <th style="width: 140px" class="text-end">Unit Cost</th>
+                  <th style="width: 140px" class="text-end">Total</th>
                   <th style="width: 54px"></th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="ppmp-item-entry-row">
-                  <td class="text-center text-muted">New</td>
-                  <td>
-                    <div class="item-name-autocomplete">
-                      <TextInput
-                        v-model="form.item_name"
-                        type="text"
-                        class="form-control form-control-sm"
-                        placeholder="Item name"
-                        autocomplete="off"
-                        @focus="handleItemNameFocus"
-                        @blur="handleItemNameBlur"
-                        @keydown.down.prevent="moveSuggestionSelection(1)"
-                        @keydown.up.prevent="moveSuggestionSelection(-1)"
-                        @keydown.enter.prevent="confirmActiveSuggestion"
-                        @keydown.esc.prevent="closeItemNameDropdown"
-                      />
-
-                      <div v-if="shouldShowItemNameDropdown" class="item-name-suggestions">
-                        <button
-                          v-for="(suggestion, index) in itemNameSuggestions"
-                          :key="suggestion"
-                          type="button"
-                          :class="[
-                            'item-name-suggestion',
-                            { 'item-name-suggestion--active': index === activeSuggestionIndex },
-                          ]"
-                          @mousedown.prevent="selectItemNameSuggestion(suggestion)"
-                        >
-                          {{ suggestion }}
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <textarea
-                      v-model="form.item_description"
-                      class="form-control form-control-sm"
-                      rows="2"
-                      placeholder="Description"
-                    ></textarea>
-                  </td>
-                  <td>
-                    <Multiselect
-                      :options="unitTypeOptions"
-                      v-model="form.item_unit_type_id"
-                      :searchable="true"
-                      :label="itemUnitTypeLabel"
-                      value-prop="value"
-                      placeholder="Unit"
-                    />
-                  </td>
-                  <td class="text-end">
-                    <TextInput
-                      v-model="form.item_unit_cost"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      class="form-control form-control-sm text-end"
-                      placeholder="0.00"
-                    />
-                  </td>
-                  <td class="text-center">
-                    <b-button
-                      type="button"
-                      size="sm"
-                      variant="primary"
-                      :disabled="!canAddItemRow"
-                      @click="addItemRow"
-                    >
-                      <i class="ri-add-line me-1"></i>
-                      Add
-                    </b-button>
-                  </td>
-                </tr>
                 <tr v-for="(row, index) in itemRows" :key="row.key" class="item-row">
                   <td class="text-center item-number">{{ index + 1 }}</td>
                   <td class="item-description">
@@ -218,21 +187,50 @@
                   <td class="item-unit">
                     <span class="unit-badge">{{ unitTypeName(row.item_unit_type_id) }}</span>
                   </td>
+                  <td class="text-end item-quantity">{{ formatQuantity(row.item_quantity) }}</td>
                   <td class="text-end item-cost">{{ formatCurrency(row.item_unit_cost) }}</td>
+                  <td class="text-end item-cost">{{ formatCurrency(row.total_cost) }}</td>
                   <td class="text-center">
-                    <b-button
-                      type="button"
-                      variant="danger"
-                      size="sm"
-                      class="btn-icon"
-                      style="border-radius: 8px;"
-                      @click="removeItemRow(index)"
-                    >
-                      <i class="ri-delete-bin-line"></i>
-                    </b-button>
+                    <div class="d-flex justify-content-center gap-1">
+                      <b-button
+                        type="button"
+                        variant="success"
+                        size="sm"
+                        class="btn-icon"
+                        style="border-radius: 8px;"
+                        @click="editItemRow(index)"
+                      >
+                        <i class="ri-edit-2-line"></i>
+                      </b-button>
+                      <b-button
+                        v-if="!isEditing"
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        class="btn-icon"
+                        style="border-radius: 8px;"
+                        @click="removeItemRow(index)"
+                      >
+                        <i class="ri-delete-bin-line"></i>
+                      </b-button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="!itemRows.length" class="items-empty-row">
+                  <td colspan="8" class="text-center">
+                    Click Add Item to open the item form and queue an item in this table.
                   </td>
                 </tr>
               </tbody>
+              <tfoot>
+                <tr class="grand-total-row">
+                  <td colspan="6" class="text-end grand-total-label">Queued Total:</td>
+                  <td class="text-end grand-total-amount">
+                    {{ formatCurrency(itemRows.length ? itemRowsTotalCost : itemTotalCost) }}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
             </div>
           </div>
@@ -240,7 +238,7 @@
 
            <BCol lg="12" class="mt-3">
           <div class="item-total-preview">
-            <span>{{ itemRows.length ? "Batch Total Amount" : "Total Amount" }}</span>
+            <span>{{ isEditing ? "Updated Total Amount" : (itemRows.length ? "Batch Total Amount" : "Total Amount") }}</span>
             <strong>{{ formatCurrency(itemRows.length ? itemRowsTotalCost : itemTotalCost) }}</strong>
           </div>
           <div v-if="form.errors.item" class="text-danger small fw-semibold mt-2">
@@ -262,6 +260,13 @@
       </b-button>
     </template>
   </b-modal>
+
+  <AddItemTableModal
+    ref="itemTableModal"
+    :unit-type-options="unitTypeOptions"
+    :errors="form.errors"
+    @save="saveItemRow"
+  />
 </template>
 
 <script>
@@ -269,9 +274,10 @@ import { useForm } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
 import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
 import TextInput from "@/Shared/Components/Forms/TextInput.vue";
+import AddItemTableModal from "./AddItemTableModal.vue";
 
 export default {
-  components: { Multiselect, InputLabel, TextInput },
+  components: { Multiselect, InputLabel, TextInput, AddItemTableModal },
   props: {
     ppmp: {
       type: Object,
@@ -296,12 +302,17 @@ export default {
       modal: {
         show: false,
       },
+      editingItem: null,
       form: useForm({
         option: "add_item",
+        item_id: null,
         item_name: "",
         item_description: "",
+        general_description_objective: "",
         project_type: "",
+        item_category_id: null,
         recommended_mode_of_procurement: "",
+        pre_procurement_conference: "",
         item_quantity: 1,
         item_unit_type_id: null,
         item_unit_cost: null,
@@ -312,24 +323,9 @@ export default {
         supporting_document_file: null,
         remarks: "",
       }),
-      itemNameSuggestions: [],
       itemRows: [],
-      itemNameLookupTimeout: null,
-      itemNameBlurTimeout: null,
-      latestItemNameKeyword: "",
-      isItemNameFocused: false,
-      activeSuggestionIndex: -1,
       isSupportingDocumentDragging: false,
     };
-  },
-  watch: {
-    "form.item_name"(value) {
-      if (!this.modal.show) {
-        return;
-      }
-
-      this.queueItemNameSuggestions(value);
-    },
   },
   computed: {
     unitTypeOptions() {
@@ -352,6 +348,28 @@ export default {
         }))
         .filter((option) => option.name);
     },
+    itemCategoryOptions() {
+      const options = this.dropdowns?.item_categories || [];
+
+      return (Array.isArray(options) ? options : Object.values(options))
+        .map((option) => ({
+          ...option,
+          name: option.name || option.label || option.title || option.code || "",
+        }))
+        .filter((option) => option.name);
+    },
+    selectedItemCategoryName() {
+      const category = this.itemCategoryOptions.find((option) => Number(option.value) === Number(this.form.item_category_id));
+
+      return category?.name || "";
+    },
+    preProcurementConferenceOptions() {
+      return [
+        { label: "Yes", value: "Yes" },
+        { label: "No", value: "No" },
+        { label: "Not Applicable", value: "Not Applicable" },
+      ];
+    },
     itemUnitTypeLabel() {
       return "name_short";
     },
@@ -361,7 +379,13 @@ export default {
         this.form.errors.item_unit_type_id ||
         this.form.errors.item_unit_cost ||
         this.form.errors.items ||
+        this.firstItemRowError ||
         null;
+    },
+    firstItemRowError() {
+      const itemErrorKey = Object.keys(this.form.errors || {}).find((key) => key.startsWith("items."));
+
+      return itemErrorKey ? this.form.errors[itemErrorKey] : null;
     },
     itemTotalCost() {
       return Number(this.form.item_unit_cost || 0);
@@ -369,66 +393,125 @@ export default {
     itemRowsTotalCost() {
       return this.itemRows.reduce((sum, row) => sum + Number(row.total_cost || 0), 0);
     },
+    isEditing() {
+      return Boolean(this.editingItem);
+    },
+    modalTitle() {
+      return this.isEditing ? "Edit PPMP Item" : "Add PPMP Item";
+    },
     isFormValid() {
+      if (this.isEditing) {
+        return Boolean(
+          this.form.project_type &&
+          this.form.item_category_id &&
+          this.form.recommended_mode_of_procurement &&
+          this.form.pre_procurement_conference &&
+          this.form.general_description_objective &&
+          this.form.end_of_procurement_activity &&
+          this.form.expected_delivery_date &&
+          this.form.attached_supporting_documents &&
+          this.form.remarks &&
+          this.itemRows.length === 1
+        );
+      }
+
       return Boolean(
         this.form.project_type &&
+        this.form.item_category_id &&
         this.form.recommended_mode_of_procurement &&
-        (this.itemRows.length > 0 || this.canAddItemRow)
+        this.form.pre_procurement_conference &&
+        this.form.general_description_objective &&
+        this.form.end_of_procurement_activity &&
+        this.form.expected_delivery_date &&
+        this.form.attached_supporting_documents &&
+        this.form.supporting_document_file &&
+        this.form.remarks &&
+        this.itemRows.length > 0
       );
     },
     canAddItemRow() {
-      return Boolean(
-        this.form.item_name &&
-        this.form.item_description &&
-        this.form.item_unit_type_id &&
-        Number(this.form.item_unit_cost) >= 0
-      );
-    },
-    shouldShowItemNameDropdown() {
-      return this.isItemNameFocused && this.itemNameSuggestions.length > 0;
+      return this.itemRows.length > 0;
     },
     submitLabel() {
+      if (this.isEditing) {
+        return "Update Item";
+      }
+
       return this.mode === "draft" ? "Use Item" : "Add Item";
     },
     supportingDocumentName() {
-      return this.form.supporting_document_file?.name || "";
+      return this.form.supporting_document_file?.name || this.editingItem?.supporting_document_original_name || "";
     },
   },
-  beforeUnmount() {
-    this.clearItemNameSuggestionState();
-  },
   methods: {
-    show() {
+    show(editingItem = null) {
       this.form.clearErrors();
       this.form.reset();
       this.itemRows = [];
+      this.editingItem = editingItem;
+
+      if (editingItem) {
+        this.form.option = "update_item";
+        this.form.item_id = editingItem.id;
+        this.form.project_type = editingItem.project_type || "";
+        this.form.item_category_id = editingItem.item_category_id || null;
+        this.form.recommended_mode_of_procurement = editingItem.recommended_mode_of_procurement || "";
+        this.form.pre_procurement_conference = editingItem.pre_procurement_conference || "No";
+        this.form.general_description_objective = this.ppmp?.general_description_objective || this.ppmp?.title || "";
+        this.form.item_quantity = editingItem.quantity || 1;
+        this.form.end_of_procurement_activity = editingItem.end_of_procurement_activity || null;
+        this.form.expected_delivery_date = editingItem.expected_delivery_date || null;
+        this.form.attached_supporting_documents = editingItem.attached_supporting_documents || "";
+        this.form.supporting_document_file = null;
+        this.form.remarks = editingItem.remarks || "";
+        this.itemRows = [{
+          key: `${editingItem.id}-${Date.now()}`,
+          item_name: editingItem.name || "",
+          item_description: editingItem.description || "",
+          item_quantity: editingItem.quantity || 1,
+          item_unit_type_id: editingItem.item_unit_type_id ?? null,
+          item_unit_cost: Number(editingItem.unit_price || 0),
+          total_cost: Number(editingItem.abc || 0),
+        }];
+        this.modal.show = true;
+        return;
+      }
+
       const draftItem = this.mode === "draft" ? this.draftItem : null;
 
       if (draftItem) {
-        this.form.item_name = draftItem.item_name || "";
-        this.form.item_description = draftItem.item_description || "";
         this.form.project_type = draftItem.project_type || "";
+        this.form.item_category_id = draftItem.item_category_id || null;
         this.form.recommended_mode_of_procurement = draftItem.recommended_mode_of_procurement || "";
+        this.form.pre_procurement_conference = draftItem.pre_procurement_conference || "No";
+        this.form.general_description_objective = draftItem.general_description_objective || "";
         this.form.item_quantity = 1;
-        this.form.item_unit_type_id = draftItem.item_unit_type_id ?? null;
-        this.form.item_unit_cost = Number(draftItem.item_unit_cost || 0);
         this.form.end_of_procurement_activity = draftItem.end_of_procurement_activity || null;
         this.form.expected_delivery_date = draftItem.expected_delivery_date || null;
         this.form.attached_supporting_documents = draftItem.attached_supporting_documents || "";
         this.form.supporting_document_file = draftItem.supporting_document_file || null;
         this.form.remarks = draftItem.remarks || "";
+        this.itemRows = [{
+          key: `${Date.now()}-${Math.random()}`,
+          item_name: draftItem.item_name || "",
+          item_description: draftItem.item_description || "",
+          item_quantity: 1,
+          item_unit_type_id: draftItem.item_unit_type_id ?? null,
+          item_unit_cost: Number(draftItem.item_unit_cost || 0),
+          total_cost: Number(draftItem.item_unit_cost || 0),
+        }];
       } else {
         this.form.item_quantity = 1;
         this.form.item_unit_cost = 0.0;
       }
 
       this.modal.show = true;
-      this.fetchItemNameSuggestions("");
     },
     hide() {
       this.modal.show = false;
       this.form.clearErrors();
       this.form.reset();
+      this.editingItem = null;
       this.form.item_quantity = 1;
       this.form.item_unit_cost = 0.0;
       this.form.supporting_document_file = null;
@@ -436,16 +519,34 @@ export default {
       if (this.$refs.supportingDocumentInput) {
         this.$refs.supportingDocumentInput.value = "";
       }
-      this.clearItemNameSuggestionState();
     },
     submit() {
       if (!this.isFormValid) {
         return;
       }
 
-      this.form.option = "add_item";
-      const rowsToSubmit = this.itemRows.length ? this.itemRows : [this.currentItemRow()];
+      const rowsToSubmit = this.itemRows;
       this.form.items = rowsToSubmit.map(({ key, total_cost, ...row }) => row);
+
+      if (this.isEditing) {
+        const firstRow = rowsToSubmit[0];
+        this.form.option = "update_item";
+        this.form.item_id = this.editingItem.id;
+        this.form.item_name = firstRow.item_name;
+        this.form.item_description = firstRow.item_description;
+        this.form.item_quantity = firstRow.item_quantity;
+        this.form.item_unit_type_id = firstRow.item_unit_type_id;
+        this.form.item_unit_cost = Number(firstRow.item_unit_cost || 0);
+
+        this.form.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
+          forceFormData: true,
+          preserveScroll: true,
+          onSuccess: () => this.hide(),
+        });
+        return;
+      }
+
+      this.form.option = "add_item";
 
       if (this.mode === "draft") {
         const firstRow = rowsToSubmit[0];
@@ -453,7 +554,11 @@ export default {
           item_name: firstRow.item_name,
           item_description: firstRow.item_description,
           project_type: this.form.project_type,
+          item_category_id: this.form.item_category_id,
+          item_category: this.selectedItemCategoryName,
           recommended_mode_of_procurement: this.form.recommended_mode_of_procurement,
+          pre_procurement_conference: this.form.pre_procurement_conference,
+          general_description_objective: this.form.general_description_objective,
           item_quantity: 1,
           item_unit_type_id: firstRow.item_unit_type_id,
           item_unit_cost: Number(firstRow.item_unit_cost || 0),
@@ -485,37 +590,37 @@ export default {
         currency: "PHP",
       }).format(Number(value || 0));
     },
-    currentItemRow() {
-      const quantity = 1;
-      const unitCost = Number(this.form.item_unit_cost || 0);
-
-      return {
-        key: `${Date.now()}-${Math.random()}`,
-        item_name: this.form.item_name,
-        item_description: this.form.item_description,
-        item_quantity: quantity,
-        item_unit_type_id: this.form.item_unit_type_id,
-        item_unit_cost: unitCost,
-        total_cost: quantity * unitCost,
-      };
+    formatQuantity(value) {
+      const amount = Number(value || 0);
+      return Number.isInteger(amount) ? amount.toString() : amount.toFixed(4).replace(/\.?0+$/, "");
     },
-    addItemRow() {
-      if (!this.canAddItemRow) {
+    saveItemRow({ row, editIndex }) {
+      if (editIndex === null) {
+        this.itemRows.push(row);
+      } else {
+        this.itemRows.splice(editIndex, 1, {
+          ...row,
+          key: this.itemRows[editIndex]?.key || row.key,
+        });
+      }
+    },
+    openItemRowModal() {
+      this.$refs.itemTableModal?.show();
+    },
+    editItemRow(index) {
+      const row = this.itemRows[index];
+
+      if (!row) {
         return;
       }
 
-      this.itemRows.push(this.currentItemRow());
-      this.form.item_name = "";
-      this.form.item_description = "";
-      this.form.item_quantity = 1;
-      this.form.item_unit_type_id = null;
-      this.form.item_unit_cost = 0.0;
+      this.$refs.itemTableModal?.show(row, index);
     },
     removeItemRow(index) {
       this.itemRows.splice(index, 1);
     },
     unitTypeName(unitTypeId) {
-      const unitType = this.unitTypeOptions.find((option) => Number(option.value) === Number(unitTypeId));
+      const unitType = this.unitTypeOptions.find((option) => Number(option.value ?? option.id) === Number(unitTypeId));
 
       if (!unitType) {
         return "-";
@@ -546,100 +651,6 @@ export default {
       if (this.$refs.supportingDocumentInput) {
         this.$refs.supportingDocumentInput.value = "";
       }
-    },
-    handleItemNameFocus() {
-      clearTimeout(this.itemNameBlurTimeout);
-      this.isItemNameFocused = true;
-      this.activeSuggestionIndex = -1;
-      this.ensureItemNameSuggestions();
-    },
-    handleItemNameBlur() {
-      this.itemNameBlurTimeout = setTimeout(() => {
-        this.closeItemNameDropdown();
-      }, 120);
-    },
-    ensureItemNameSuggestions() {
-      if (!this.itemNameSuggestions.length) {
-        this.fetchItemNameSuggestions(this.form.item_name || "");
-      }
-    },
-    closeItemNameDropdown() {
-      this.isItemNameFocused = false;
-      this.activeSuggestionIndex = -1;
-    },
-    moveSuggestionSelection(direction) {
-      if (!this.itemNameSuggestions.length) {
-        return;
-      }
-
-      this.isItemNameFocused = true;
-
-      if (this.activeSuggestionIndex === -1) {
-        this.activeSuggestionIndex = direction > 0 ? 0 : this.itemNameSuggestions.length - 1;
-        return;
-      }
-
-      const nextIndex = this.activeSuggestionIndex + direction;
-
-      if (nextIndex < 0) {
-        this.activeSuggestionIndex = this.itemNameSuggestions.length - 1;
-      } else if (nextIndex >= this.itemNameSuggestions.length) {
-        this.activeSuggestionIndex = 0;
-      } else {
-        this.activeSuggestionIndex = nextIndex;
-      }
-    },
-    confirmActiveSuggestion() {
-      if (
-        this.activeSuggestionIndex < 0 ||
-        this.activeSuggestionIndex >= this.itemNameSuggestions.length
-      ) {
-        return;
-      }
-
-      this.selectItemNameSuggestion(this.itemNameSuggestions[this.activeSuggestionIndex]);
-    },
-    selectItemNameSuggestion(suggestion) {
-      this.form.item_name = suggestion;
-      this.closeItemNameDropdown();
-    },
-    queueItemNameSuggestions(keyword) {
-      clearTimeout(this.itemNameLookupTimeout);
-      this.itemNameLookupTimeout = setTimeout(() => {
-        this.fetchItemNameSuggestions(keyword);
-      }, 250);
-    },
-    fetchItemNameSuggestions(keyword = "") {
-      const searchKeyword = (keyword || "").trim();
-      this.latestItemNameKeyword = searchKeyword;
-
-      axios
-        .get("/faims/procurements/create", {
-          params: {
-            option: "item_names",
-            keyword: searchKeyword,
-          },
-        })
-        .then((response) => {
-          if (this.latestItemNameKeyword !== searchKeyword) {
-            return;
-          }
-
-          this.itemNameSuggestions = Array.isArray(response.data) ? response.data : [];
-          this.activeSuggestionIndex = this.itemNameSuggestions.length ? 0 : -1;
-        })
-        .catch((err) => {
-          console.log(err);
-          this.itemNameSuggestions = [];
-          this.activeSuggestionIndex = -1;
-        });
-    },
-    clearItemNameSuggestionState() {
-      clearTimeout(this.itemNameLookupTimeout);
-      clearTimeout(this.itemNameBlurTimeout);
-      this.itemNameSuggestions = [];
-      this.latestItemNameKeyword = "";
-      this.closeItemNameDropdown();
     },
   },
 };
@@ -678,45 +689,6 @@ export default {
   color: #0f766e;
   font-size: 15px;
   font-weight: 800;
-}
-
-.item-name-autocomplete {
-  position: relative;
-}
-
-.item-name-suggestions {
-  position: absolute;
-  top: calc(100% + 0.45rem);
-  left: 0;
-  right: 0;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 0.45rem;
-  border: 1px solid rgba(191, 219, 254, 0.9);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.14);
-}
-
-.item-name-suggestion {
-  width: 100%;
-  padding: 0.65rem 0.75rem;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #1e293b;
-  font-size: 0.95rem;
-  text-align: left;
-}
-
-.item-name-suggestion:hover,
-.item-name-suggestion--active {
-  background: #eaf2ff;
-  color: #2846a6;
 }
 
 .supporting-document-dropzone {
@@ -777,6 +749,29 @@ export default {
   font-size: 13px;
 }
 
+.items-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.items-table-title {
+  margin: 0;
+  color: var(--procurement-create-text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.items-table-subtitle {
+  display: block;
+  margin-top: 2px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .items-table-container {
   border-radius: 10px;
   overflow: hidden;
@@ -786,6 +781,7 @@ export default {
 
 .items-table {
   width: 100%;
+  min-width: 920px;
   border-collapse: collapse;
   background: var(--procurement-create-table-bg);
 }
@@ -823,6 +819,11 @@ export default {
   color: var(--procurement-create-text);
 }
 
+.items-table tfoot td {
+  border-bottom: 0;
+  background: var(--procurement-create-table-row-alt);
+}
+
 .item-number {
   font-weight: 600;
   color: #667eea;
@@ -857,8 +858,36 @@ export default {
   background: var(--procurement-create-table-row-alt);
 }
 
+.ppmp-item-entry-table .ppmp-item-entry-row:hover td {
+  background: var(--procurement-create-table-row-alt);
+}
+
 .ppmp-item-entry-table textarea {
   min-height: 38px;
   resize: vertical;
+}
+
+.items-empty-row td {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.grand-total-label {
+  color: #6b7280;
+  font-weight: 800;
+}
+
+.grand-total-amount {
+  color: #28a745;
+  font-family: "Courier New", monospace;
+  font-weight: 800;
+}
+
+@media (max-width: 576px) {
+  .items-table-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 </style>

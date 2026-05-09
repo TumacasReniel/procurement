@@ -38,6 +38,8 @@ class ProcurementPPMPClass
         return match ($request->option) {
             'submit_final' => $this->markFinal($id, $request),
             'add_item' => $this->addItem($id, $request),
+            'update_item' => $this->updateItem($id, $request),
+            'delete_item' => $this->deleteItem($id, $request),
             default => abort(404),
         };
     }
@@ -92,6 +94,7 @@ class ProcurementPPMPClass
                 'units' => $this->dropdown->list_units(),
                 'unit_types' => $this->dropdown->unit_types(),
                 'classifications' => $this->dropdown->dropdowns('Classification'),
+                'item_categories' => $this->dropdown->dropdowns('Item Category'),
                 'mode_of_procurements' => $this->dropdown->dropdowns('Mode of Procurement'),
                 'app_types' => $this->dropdown->dropdowns('APP Type'),
                 'annual_app_years' => $this->registered_plan_years('Annual Procurement Plan'),
@@ -111,6 +114,7 @@ class ProcurementPPMPClass
             'dropdowns' => [
                 'unit_types' => $this->dropdown->unit_types(),
                 'classifications' => $this->dropdown->dropdowns('Classification'),
+                'item_categories' => $this->dropdown->dropdowns('Item Category'),
                 'mode_of_procurements' => $this->dropdown->dropdowns('Mode of Procurement'),
             ],
         ];
@@ -345,7 +349,9 @@ class ProcurementPPMPClass
             'item_name' => $request->item_name,
             'item_description' => $request->item_description,
             'project_type' => $request->project_type,
+            'item_category_id' => $request->item_category_id,
             'recommended_mode_of_procurement' => $request->recommended_mode_of_procurement,
+            'pre_procurement_conference' => $request->pre_procurement_conference,
             'end_of_procurement_activity' => $request->end_of_procurement_activity,
             'expected_delivery_date' => $request->expected_delivery_date,
             'attached_supporting_documents' => $request->attached_supporting_documents,
@@ -495,6 +501,9 @@ class ProcurementPPMPClass
             ]);
         }
 
+        $procurement->title = $request->general_description_objective;
+        $procurement->save();
+
         $pending_status_id = ListStatus::getID('Pending', 'Procurement');
         $supporting_document = $this->store_supporting_document($request);
         $next_item_no = ((int) ProcurementPpmpItem::query()
@@ -519,7 +528,9 @@ class ProcurementPPMPClass
             $item->item_name = data_get($row, 'item_name');
             $item->item_description = data_get($row, 'item_description');
             $item->project_type = $request->project_type;
+            $item->item_category_id = $request->item_category_id;
             $item->recommended_mode_of_procurement = $request->recommended_mode_of_procurement;
+            $item->pre_procurement_conference = $request->pre_procurement_conference;
             $item->end_of_procurement_activity = $request->end_of_procurement_activity;
             $item->expected_delivery_date = $request->expected_delivery_date;
             $item->attached_supporting_documents = $request->attached_supporting_documents;
@@ -548,6 +559,96 @@ class ProcurementPPMPClass
         return $this->add_item($id, $request);
     }
 
+    public function update_item($id, $request): array
+    {
+        $procurement = ProcurementPpmp::query()
+            ->with(['reference_app', 'status'])
+            ->findOrFail($id);
+
+        if ($procurement->reference_app_id || in_array($procurement->status?->name, ['Reviewed', 'Approved'], true)) {
+            throw ValidationException::withMessages([
+                'item' => 'Items can only be edited while the PPMP is still indicative.',
+            ]);
+        }
+
+        $item = ProcurementPpmpItem::query()
+            ->where('procurement_ppmp_id', $procurement->id)
+            ->findOrFail($request->item_id);
+
+        $quantity = (float) $request->item_quantity;
+        $unit_cost = (float) $request->item_unit_cost;
+
+        $procurement->title = $request->general_description_objective;
+        $procurement->save();
+
+        $item->item_name = $request->item_name;
+        $item->item_description = $request->item_description;
+        $item->project_type = $request->project_type;
+        $item->item_category_id = $request->item_category_id;
+        $item->recommended_mode_of_procurement = $request->recommended_mode_of_procurement;
+        $item->pre_procurement_conference = $request->pre_procurement_conference;
+        $item->end_of_procurement_activity = $request->end_of_procurement_activity;
+        $item->expected_delivery_date = $request->expected_delivery_date;
+        $item->attached_supporting_documents = $request->attached_supporting_documents;
+        $item->remarks = $request->remarks;
+        $item->item_quantity = $quantity;
+        $item->item_unit_type_id = $request->item_unit_type_id;
+        $item->item_unit_cost = $unit_cost;
+        $item->total_cost = $quantity * $unit_cost;
+
+        if ($request->hasFile('supporting_document_file')) {
+            $supporting_document = $this->store_supporting_document($request);
+            $item->supporting_document_path = $supporting_document['path'];
+            $item->supporting_document_original_name = $supporting_document['original_name'];
+        }
+
+        $item->save();
+
+        return [
+            'data' => $this->show($procurement->id),
+            'message' => 'PPMP item updated successfully!',
+            'info' => "{$item->item_name} was updated.",
+            'status' => true,
+        ];
+    }
+
+    public function updateItem($id, $request): array
+    {
+        return $this->update_item($id, $request);
+    }
+
+    public function delete_item($id, $request): array
+    {
+        $procurement = ProcurementPpmp::query()
+            ->with(['reference_app', 'status'])
+            ->findOrFail($id);
+
+        if ($procurement->reference_app_id || in_array($procurement->status?->name, ['Reviewed', 'Approved'], true)) {
+            throw ValidationException::withMessages([
+                'item' => 'Items can only be deleted while the PPMP is still indicative.',
+            ]);
+        }
+
+        $item = ProcurementPpmpItem::query()
+            ->where('procurement_ppmp_id', $procurement->id)
+            ->findOrFail($request->item_id);
+        $item_name = $item->item_name;
+
+        $item->delete();
+
+        return [
+            'data' => $this->show($procurement->id),
+            'message' => 'PPMP item deleted successfully!',
+            'info' => "{$item_name} was removed from {$procurement->code}.",
+            'status' => true,
+        ];
+    }
+
+    public function deleteItem($id, $request): array
+    {
+        return $this->delete_item($id, $request);
+    }
+
     protected function relations(): array
     {
         return [
@@ -564,6 +665,7 @@ class ProcurementPPMPClass
             'codes.procurement_code.mode_of_procurement',
             'codes.procurement_code.app_type',
             'items.item_unit_type',
+            'items.item_category',
             'items.status',
             'status',
             'sub_status',

@@ -288,6 +288,7 @@ class PrintClass
                     ->implode(', ');
 
                 return ($sourceProcurement->items ?? collect())->map(function ($item) use ($sourceProcurement, $sourceMode) {
+                    $item->setAttribute('print_general_description', $sourceProcurement->title ?: $sourceProcurement->purpose);
                     $item->setAttribute('print_classification_name', $sourceProcurement->classification?->name);
                     $item->setAttribute('print_mode_of_procurement', $sourceMode);
                     $item->setAttribute('print_source_of_funds', $sourceProcurement->fund_cluster?->name);
@@ -699,9 +700,19 @@ class PrintClass
             })
             ->first();
 
-        $assistantRegionalDirector = OrgChart::with('user.profile', 'designation')
+        $assistantRegionalDirector = OrgChart::with('user.profile', 'oic.profile', 'designation', 'assigned')
             ->where('designation_id', ListDropdown::getID('Assistant Regional Director', 'Designation'))
+            ->whereHas('assigned', function ($query) {
+                $query->where('others', 'FASS')
+                    ->orWhere('name', 'like', '%Finance and Administrative Support Services%');
+            })
+            ->orderByDesc('is_active')
+            ->orderBy('order')
             ->first();
+        $notedByUser = $assistantRegionalDirector?->is_oic
+            ? ($assistantRegionalDirector?->oic ?: $assistantRegionalDirector?->user)
+            : ($assistantRegionalDirector?->user ?: $assistantRegionalDirector?->oic);
+        $notedByDesignation = $assistantRegionalDirector?->is_oic ? 'OIC ARD-FASS' : 'ARD-FASS';
 
         return [
             'prepared_by' => array_slice($procurementStaff, 0, 2),
@@ -709,9 +720,9 @@ class PrintClass
                 'name' => strtoupper($supplyOfficer->profile?->full_name ?? ('USER #' . $supplyOfficer->id)),
                 'role' => 'Supply Officer',
             ] : null,
-            'noted_by' => $assistantRegionalDirector ? [
-                'name' => strtoupper($assistantRegionalDirector->user?->profile?->full_name ?? ''),
-                'designation' => 'ARD-FASS',
+            'noted_by' => $notedByUser ? [
+                'name' => strtoupper($notedByUser->profile?->full_name ?? ''),
+                'designation' => $notedByDesignation,
             ] : null,
         ];
     }

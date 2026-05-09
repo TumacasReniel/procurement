@@ -95,7 +95,9 @@
                     </td>
                     <td>
                       <span class="d-block fw-semibold">{{ form.project_type || "-" }}</span>
-                      <small class="text-muted">{{ form.recommended_mode_of_procurement || "-" }}</small>
+                      <small class="text-muted">{{ form.item_category || "-" }}</small>
+                      <small class="text-muted d-block">{{ form.recommended_mode_of_procurement || "-" }}</small>
+                      <small class="text-muted d-block">Pre-Proc: {{ form.pre_procurement_conference || "-" }}</small>
                     </td>
                     <td class="text-center item-quantity">
                       {{ form.item_quantity }}
@@ -229,7 +231,11 @@ export default {
         item_name: this.form.item_name,
         item_description: this.form.item_description,
         project_type: this.form.project_type,
+        item_category_id: this.form.item_category_id,
+        item_category: this.form.item_category,
         recommended_mode_of_procurement: this.form.recommended_mode_of_procurement,
+        pre_procurement_conference: this.form.pre_procurement_conference,
+        general_description_objective: this.form.general_description_objective || "",
         item_quantity: this.form.item_quantity,
         item_unit_type_id: this.form.item_unit_type_id,
         item_unit_cost: this.form.item_unit_cost,
@@ -254,7 +260,9 @@ export default {
       return this.form.errors.item_name ||
         this.form.errors.item_description ||
         this.form.errors.project_type ||
+        this.form.errors.item_category_id ||
         this.form.errors.recommended_mode_of_procurement ||
+        this.form.errors.pre_procurement_conference ||
         this.form.errors.item_quantity ||
         this.form.errors.item_unit_type_id ||
         this.form.errors.item_unit_cost ||
@@ -271,7 +279,9 @@ export default {
         this.form.item_name &&
         this.form.item_description &&
         this.form.project_type &&
+        this.form.item_category_id &&
         this.form.recommended_mode_of_procurement &&
+        this.form.pre_procurement_conference &&
         Number(this.form.item_quantity) > 0 &&
         this.form.item_unit_type_id &&
         Number(this.form.item_unit_cost) >= 0
@@ -286,7 +296,13 @@ export default {
       this.form.item_name = item.item_name;
       this.form.item_description = item.item_description;
       this.form.project_type = item.project_type;
+      this.form.item_category_id = item.item_category_id;
+      this.form.item_category = item.item_category;
       this.form.recommended_mode_of_procurement = item.recommended_mode_of_procurement;
+      this.form.pre_procurement_conference = item.pre_procurement_conference;
+      if ("general_description_objective" in this.form) {
+        this.form.general_description_objective = item.general_description_objective;
+      }
       this.form.item_quantity = item.item_quantity;
       this.form.item_unit_type_id = item.item_unit_type_id;
       this.form.item_unit_cost = item.item_unit_cost;

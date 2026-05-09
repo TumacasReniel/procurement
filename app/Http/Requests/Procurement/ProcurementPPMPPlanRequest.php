@@ -36,7 +36,9 @@ class ProcurementPPMPPlanRequest extends FormRequest
             $rules['item_unit_type_id'] = ['required', 'integer', 'exists:unit_types,id'];
             $rules['item_unit_cost'] = ['required', 'numeric', 'min:0'];
             $rules['project_type'] = ['required', 'string', 'max:255'];
+            $rules['item_category_id'] = ['required', 'integer', 'exists:list_dropdowns,id'];
             $rules['recommended_mode_of_procurement'] = ['required', 'string', 'max:255'];
+            $rules['pre_procurement_conference'] = ['required', 'string', 'max:255'];
             $rules['end_of_procurement_activity'] = ['nullable', 'date'];
             $rules['expected_delivery_date'] = ['nullable', 'date'];
             $rules['attached_supporting_documents'] = ['nullable', 'string', 'max:255'];

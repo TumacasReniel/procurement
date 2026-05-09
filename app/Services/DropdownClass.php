@@ -479,6 +479,7 @@ class DropdownClass
 
             return [
                 'value' => $item->id,
+                'name' => $label,
                 'code' => $item->code,
                 'title' => $item->title,
                 'allocated_budget' => (float) $item->allocated_budget,
