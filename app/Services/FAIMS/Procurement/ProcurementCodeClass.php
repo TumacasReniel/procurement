@@ -452,10 +452,7 @@ class ProcurementCodeClass
             ->with('profile')
             ->where('is_active', 1)
             ->where('id', '!=', $actor->id)
-            ->whereHas('roles', function ($query) {
-                $query->where('list_roles.name', 'Budget Officer')
-                    ->where('user_roles.is_active', 1);
-            })
+            ->whereHasActiveRole('Budget Officer')
             ->get()
             ->unique('id');
 

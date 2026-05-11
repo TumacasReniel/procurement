@@ -1,112 +1,18 @@
 <?php
 
-namespace App\Http\Middleware;
+namespace App\Services\FAIMS\Procurement;
 
-use Illuminate\Http\Request;
-use Inertia\Middleware;
+use App\Models\User;
 use App\Notifications\PendingProcurementCodeBudgetRequestNotification;
 use App\Notifications\PendingSupplierApprovalNotification;
 use App\Notifications\ProcurementCommentMentioned;
-use App\Models\OrgSignatory;
-use App\Models\Procurement;
-use App\Models\User;
-use App\Models\Survey;
-use App\Models\SurveyAnswer;
-use App\Models\SurveyQuestion;
-use App\Http\Resources\UserResource;
-use App\Models\ListStatus;
 use Illuminate\Support\Facades\Schema;
 
-class HandleInertiaRequests extends Middleware
+class NotificationClass
 {
-    protected $rootView = 'app';
-
-    public function version(Request $request): ?string
+    public function mentionNotifications($request): array
     {
-        return parent::version($request);
-    }
-
-    public function share(Request $request): array
-    {
-        $user = $request->user();
-        $activeSurvey = Survey::where('is_active', true)->latest()->first();
-        $approvalAccess = false;
-
-        $status = true;
-        $surveyRequired = false;
-        $surveyQuestions = [];
-
-        if ($user && $activeSurvey) {
-            $status = $user->profile->is_completed;
-            $survey_id = $activeSurvey->id;
-            $hasAnswered = SurveyAnswer::where('user_id', $user->id)
-                ->where('survey_id', $activeSurvey->id)
-                ->exists();
-
-            if (!$hasAnswered) {
-                $surveyRequired = true;
-                $surveyQuestions = SurveyQuestion::where('is_active',1)->get()->map(function ($item) use ($survey_id){
-                    return [
-                        'id' => $item->id,
-                        'question' => $item->question,
-                        'rating' => null,
-                        'color' => null,
-                        'survey_id' => $survey_id
-                    ];
-                });
-            }
-        }
-
-        if ($user) {
-            $approvalUserIds = OrgSignatory::query()
-                ->where(function ($query) use ($user) {
-                    $query->where('user_id', $user->id)
-                        ->orWhere('oic_id', $user->id);
-                })
-                ->where('is_active', 1)
-                ->pluck('user_id')
-                ->push($user->id)
-                ->filter()
-                ->unique()
-                ->values();
-
-            $approvalAccess = !empty($user->signatory)
-                || Procurement::query()
-                    ->whereIn('approved_by_id', $approvalUserIds)
-                    ->where(function ($query) {
-                        $query->where('status_id', ListStatus::getID('Reviewed', 'Procurement'))
-                            ->orWhere('status_id', ListStatus::getID('Approved', 'Procurement'));
-                    })
-                    ->exists();
-        }
-
-        return [
-            ...parent::share($request),
-            'user' => (\Auth::check()) ? new UserResource(User::with('profile','organization.position','organization.division','organization.unit')->where('id',\Auth::user()->id)->first()) : null,
-            'roles' => (\Auth::check()) ? \Auth::user()->roles()->where('user_roles.is_active', 1)->pluck('name') : null,
-            'approvals' => [
-                'has_access' => $approvalAccess,
-            ],
-            'features' => [
-                'procurement_mention_notifications' => Schema::hasTable('notifications'),
-            ],
-            'procurement_mention_notification_feed' => $this->procurementMentionNotificationFeed($user),
-            'flash' => [
-                'data'    => session('data') ?? null,
-                'message' => session('message') ?? null,
-                'info'    => session('info') ?? null,
-                'status'  => session('status') ?? null,
-                'type'    => session('type') ?? null,
-            ],
-            'updateRequired' => ($status == 0) ? true : false, 
-            'surveyRequired' => $surveyRequired,
-            'surveyQuestions' => $surveyQuestions
-        ];
-    }
-
-    private function procurementMentionNotificationFeed(?User $user): array
-    {
-        if (!$user || !Schema::hasTable('notifications')) {
+        if (!Schema::hasTable('notifications')) {
             return [
                 'data' => [],
                 'meta' => [
@@ -116,42 +22,81 @@ class HandleInertiaRequests extends Middleware
             ];
         }
 
-        $limit = 6;
+        if (!$request->user()) {
+            return [
+                'data' => [],
+                'meta' => [
+                    'unread_count' => 0,
+                    'has_more' => false,
+                ],
+                '_status' => 401,
+            ];
+        }
 
-        $query = $user->unreadNotifications()
-            ->whereIn('type', [
-                ProcurementCommentMentioned::class,
-                PendingProcurementCodeBudgetRequestNotification::class,
-                PendingSupplierApprovalNotification::class,
-            ])
-            ->latest();
+        $limit = max(1, min((int) $request->input('limit', 4), 10));
+
+        $query = $request->user()
+            ->unreadNotifications()
+            ->whereIn('type', $this->notificationTypes());
 
         $visibleNotifications = (clone $query)
+            ->latest()
             ->get()
-            ->filter(fn ($notification) => $this->procurementNotificationVisibleToUser($notification, $user))
+            ->filter(fn ($notification) => $this->procurementNotificationVisibleToUser($notification, $request->user()))
             ->values();
 
         $unreadCount = $visibleNotifications->count();
 
         $notifications = $visibleNotifications
             ->take($limit)
-            ->map(function ($notification) {
-                return $this->transformProcurementNotification($notification);
-            })
+            ->map(fn ($notification) => $this->transformProcurementNotification($notification))
             ->filter()
-            ->values()
-            ->all();
+            ->values();
 
         return [
             'data' => $notifications,
             'meta' => [
                 'unread_count' => $unreadCount,
-                'has_more' => $unreadCount > count($notifications),
+                'has_more' => $unreadCount > $notifications->count(),
             ],
         ];
     }
 
-    private function procurementNotificationVisibleToUser($notification, User $user): bool
+    public function markMentionNotificationRead(string $notificationId, $request): array
+    {
+        if (!Schema::hasTable('notifications')) {
+            return ['status' => false];
+        }
+
+        if (!$request->user()) {
+            return [
+                'status' => false,
+                '_status' => 401,
+            ];
+        }
+
+        $notification = $request->user()
+            ->notifications()
+            ->whereIn('type', $this->notificationTypes())
+            ->findOrFail($notificationId);
+
+        if (!$notification->read_at) {
+            $notification->markAsRead();
+        }
+
+        return ['status' => true];
+    }
+
+    protected function notificationTypes(): array
+    {
+        return [
+            ProcurementCommentMentioned::class,
+            PendingProcurementCodeBudgetRequestNotification::class,
+            PendingSupplierApprovalNotification::class,
+        ];
+    }
+
+    protected function procurementNotificationVisibleToUser($notification, User $user): bool
     {
         if ($notification->type === PendingSupplierApprovalNotification::class) {
             return $user->hasActiveRole(['Procurement Officer', 'Administrator']);
@@ -168,7 +113,7 @@ class HandleInertiaRequests extends Middleware
         return false;
     }
 
-    private function transformProcurementNotification($notification): ?array
+    protected function transformProcurementNotification($notification): ?array
     {
         $actor = data_get($notification->data, 'actor')
             ?: data_get($notification->data, 'mentioned_by');

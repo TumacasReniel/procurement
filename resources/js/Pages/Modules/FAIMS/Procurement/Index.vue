@@ -709,10 +709,26 @@ export default {
         },
 
         goReviewPage(data) {
+            if (data.is_create_by_category) {
+                router.get("/faims/procurements/create-by-category", {
+                    id: data.id,
+                    option: "review",
+                });
+                return;
+            }
+
             router.get("/faims/procurements/" + data.id, { option: "review" });
         },
 
         goApprovePage(data) {
+            if (data.is_create_by_category) {
+                router.get("/faims/procurements/create-by-category", {
+                    id: data.id,
+                    option: "approve",
+                });
+                return;
+            }
+
             router.get("/faims/procurements/" + data.id, { option: "approve" });
         },
 

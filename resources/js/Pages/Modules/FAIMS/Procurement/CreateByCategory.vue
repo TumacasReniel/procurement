@@ -1,6 +1,6 @@
 <template>
   <div class="procurement-category-create procurement-create-container">
-    <Head title="Create Purchase Request" />
+    <Head :title="pageTitle" />
 
     <div class="hero-header mb-3">
       <div class="hero-gradient">
@@ -12,7 +12,7 @@
                   <i class="ri-shopping-bag-3-line hero-icon"></i>
                 </div>
                 <div>
-                  <h1 class="hero-title mb-1">Create Purchase Request</h1>
+                  <h1 class="hero-title mb-1">{{ pageTitle }}</h1>
                   <p class="hero-subtitle mb-0">Create one purchase request from approved PPMP items across units</p>
                 </div>
               </div>
@@ -44,10 +44,10 @@
                 <InputLabel value="Fund Cluster" :message="form.errors.fund_cluster_id" />
                 <Multiselect
                   v-model="form.fund_cluster_id"
-                  :options="dropdowns.fund_clusters"
+                  :options="fundClusterOptions"
                   :searchable="true"
                   label="name"
-                  value-prop="value"
+                  valueProp="value"
                   placeholder="Select fund cluster"
                   class="modern-select"
                   :append-to-body="true"
@@ -63,7 +63,7 @@
                   :options="categoryOptions"
                   :searchable="true"
                   label="name"
-                  value-prop="value"
+                  valueProp="value"
                   placeholder="Example: ICT supplies"
                   class="modern-select"
                   :append-to-body="true"
@@ -76,12 +76,12 @@
                 <InputLabel value="PAP Codes" :message="form.errors.procurement_code_ids" />
                 <Multiselect
                   v-model="form.procurement_code_ids"
-                  :options="dropdowns.procurement_codes"
+                  :options="procurementCodeOptions"
                   :searchable="true"
                   mode="tags"
                   label="label"
-                  value-prop="value"
-                  track-by="label"
+                  valueProp="value"
+                  trackBy="label"
                   placeholder="Select PAP code/s"
                   class="modern-select"
                   :append-to-body="true"
@@ -89,12 +89,47 @@
               </div>
             </div>
 
+
             <div class="col-lg-6">
               <div class="form-group compact-form-group">
                 <InputLabel value="Title" :message="form.errors.title" />
                 <TextInput v-model="form.title" type="text" class="form-control modern-input" placeholder="PR title" />
               </div>
             </div>
+
+            <div v-if="isLockedMode" class="col-lg-6">
+              <div class="form-group compact-form-group">
+                <InputLabel value="Classification" :message="form.errors.classification_id" />
+                <Multiselect
+                  v-model="form.classification_id"
+                  :options="classificationOptions"
+                  :searchable="true"
+                  label="name"
+                  valueProp="value"
+                  placeholder="Select classification"
+                  class="modern-select"
+                  :append-to-body="true"
+                />
+              </div>
+            </div>
+
+            <div v-if="isLockedMode" class="col-lg-6">
+              <div class="form-group compact-form-group">
+                <InputLabel value="Reference APP" :message="form.errors.reference_app_id" />
+                <Multiselect
+                  v-model="form.reference_app_id"
+                  :options="referenceAppOptions"
+                  :searchable="true"
+                  label="name"
+                  valueProp="value"
+                  placeholder="Select reference APP"
+                  class="modern-select"
+                  :append-to-body="true"
+                />
+              </div>
+            </div>
+
+        
 
             <div class="col-12">
               <div class="form-group compact-form-group">
@@ -116,7 +151,13 @@
               <span class="divider-dot"></span>
               <strong>{{ formatCurrency(selectedTotal) }}</strong>
             </div>
-            <b-button type="button" variant="primary" :disabled="!canLoadItems || loadingItems" @click="fetchItems">
+            <b-button
+              v-if="!isLockedMode"
+              type="button"
+              variant="primary"
+              :disabled="!canLoadItems || loadingItems"
+              @click="fetchItems"
+            >
               <span v-if="loadingItems" class="spinner-border spinner-border-sm me-1"></span>
               <i v-else class="ri-download-cloud-2-line align-bottom me-1"></i>
               Load Items
@@ -157,7 +198,7 @@
                 </tr>
                 <tr v-else-if="items.length === 0">
                   <td colspan="8" class="text-center text-muted py-4">
-                    Choose an item category, then load approved PPMP items.
+                    {{ emptyItemsMessage }}
                   </td>
                 </tr>
                 <tr v-for="item in items" :key="item.value" class="item-row">
@@ -167,6 +208,7 @@
                       type="checkbox"
                       :checked="selectedIds.includes(item.value)"
                       @change="toggleItem(item)"
+                      :disabled="isLockedMode"
                     />
                   </td>
                   <td>{{ item.ppmp_no || '-' }}</td>
@@ -192,9 +234,10 @@
                     <InputLabel value="Requested By" :message="form.errors.requested_by_id" />
                     <Multiselect
                       v-model="form.requested_by_id"
-                      :options="dropdowns.requesters"
+                      :options="requesterOptions"
                       :searchable="true"
                       label="name"
+                      valueProp="value"
                       placeholder="Select requester"
                       class="modern-select"
                       :append-to-body="true"
@@ -207,9 +250,10 @@
                     <InputLabel value="Approved By" :message="form.errors.approved_by_id" />
                     <Multiselect
                       v-model="form.approved_by_id"
-                      :options="dropdowns.approvers"
+                      :options="approverOptions"
                       :searchable="true"
                       label="name"
+                      valueProp="value"
                       placeholder="Select approver"
                       class="modern-select"
                       :append-to-body="true"
@@ -223,7 +267,7 @@
             <b-button type="submit" variant="success" :disabled="!canSubmit || form.processing">
               <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>
               <i v-else class="ri-check-line align-bottom me-1"></i>
-              Create PR
+              {{ submitLabel }}
             </b-button>
             </div>
           </div>
@@ -250,10 +294,11 @@ import CategoryItemSelectionModal from "./Modals/CategoryItemSelection.vue";
 
 export default {
   components: { Head, InputLabel, TextInput, Multiselect, CategoryItemSelectionModal },
-  props: ["dropdowns", "option"],
+  props: ["dropdowns", "option", "procurement"],
   data() {
     return {
       loadingItems: false,
+      hydratingProcurement: false,
       items: [],
       selectedIds: [],
       availableItems: [],
@@ -261,6 +306,7 @@ export default {
         show: false,
       },
       form: useForm({
+        id: null,
         option: "create_by_category",
         date: this.getCurrentDate(),
         purpose: null,
@@ -279,16 +325,71 @@ export default {
     };
   },
   computed: {
+    isApproveMode() {
+      return this.option === "approve";
+    },
+    isReviewMode() {
+      return this.option === "review";
+    },
+    isLockedMode() {
+      return this.isReviewMode || this.isApproveMode;
+    },
+    pageTitle() {
+      if (this.isApproveMode) {
+        return "Approve Purchase Request by Category";
+      }
+
+      if (this.isReviewMode) {
+        return "Review Purchase Request by Category";
+      }
+
+      return "Create Purchase Request";
+    },
+    submitLabel() {
+      if (this.isApproveMode) {
+        return "Approve PR";
+      }
+
+      if (this.isReviewMode) {
+        return "Review PR";
+      }
+
+      return "Create PR";
+    },
+    emptyItemsMessage() {
+      return this.isLockedMode
+        ? "No items are attached to this purchase request."
+        : "Choose an item category, then load approved PPMP items.";
+    },
     canLoadItems() {
       return Boolean(this.form.item_category_id && this.form.fund_cluster_id);
+    },
+    fundClusterOptions() {
+      return this.normalizeDropdownOptions(this.dropdowns?.fund_clusters);
+    },
+    procurementCodeOptions() {
+      return this.normalizeDropdownOptions(this.dropdowns?.procurement_codes, "label");
+    },
+    requesterOptions() {
+      return this.normalizeDropdownOptions(this.dropdowns?.requesters);
+    },
+    approverOptions() {
+      return this.normalizeDropdownOptions(this.dropdowns?.approvers);
     },
     categoryOptions() {
       const ppmpCategories = this.dropdowns.ppmp_item_categories || [];
       const options = ppmpCategories.length > 0 ? ppmpCategories : (this.dropdowns.item_categories || []);
-      return options.map((option) => ({
-        ...option,
-        value: option.value,
-      }));
+      return this.normalizeDropdownOptions(options);
+    },
+    classificationOptions() {
+      return this.normalizeDropdownOptions(this.dropdowns?.classifications);
+    },
+    referenceAppOptions() {
+      const options = this.normalizeList(this.dropdowns?.reference_apps);
+      const fallbackOptions = this.normalizeList(this.dropdowns?.app_types);
+      const source = options.length ? options : fallbackOptions;
+
+      return this.normalizeDropdownOptions(source);
     },
     selectedItems() {
       return this.items.filter((item) => this.selectedIds.includes(item.value));
@@ -321,6 +422,11 @@ export default {
     },
   },
   mounted() {
+    if (this.procurement?.id) {
+      this.hydrateProcurement();
+      return;
+    }
+
     if (this.dropdowns?.regional_director?.value) {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
     }
@@ -330,7 +436,94 @@ export default {
     getCurrentDate() {
       return new Date().toISOString().split("T")[0];
     },
+    hydrateProcurement() {
+      this.hydratingProcurement = true;
+      this.form.id = this.procurement.id;
+      this.form.option = this.option || "create_by_category";
+      this.form.date = this.normalizeDate(this.procurement.date);
+      this.form.purpose = this.procurement.purpose;
+      this.form.title = this.procurement.title;
+      this.form.division_id = this.procurement.division_id;
+      this.form.unit_id = this.procurement.unit_id;
+      this.form.fund_cluster_id = this.procurement.fund_cluster_id;
+      this.form.classification_id = this.procurement.classification_id;
+      this.form.reference_app_id = this.procurement.reference_app_id;
+      this.form.requested_by_id = this.procurement.requested_by_id;
+      this.form.approved_by_id = this.procurement.approved_by_id;
+      const codes = this.normalizeList(this.procurement.codes);
+      const items = this.normalizeList(this.procurement.items);
+
+      this.form.procurement_code_ids = codes
+        .map((code) => code.procurement_code_id)
+        .filter(Boolean);
+
+      this.items = items.map((item) => this.normalizeProcurementItem(item));
+      this.selectedIds = this.items.map((item) => item.value);
+      this.form.item_category_id = this.items[0]?.item_category_id || null;
+      this.syncFormItems();
+      this.$nextTick(() => {
+        this.hydratingProcurement = false;
+      });
+    },
+    normalizeList(value) {
+      if (Array.isArray(value)) {
+        return value;
+      }
+
+      if (value && typeof value === "object") {
+        return Object.values(value);
+      }
+
+      return [];
+    },
+    normalizeDropdownOptions(value, labelKey = "name") {
+      return this.normalizeList(value).map((option) => {
+        const normalizedValue = option.value ?? option.id;
+        const normalizedLabel = option[labelKey] ?? option.name ?? option.label ?? option.code ?? option.title;
+
+        return {
+          ...option,
+          value: normalizedValue,
+          [labelKey]: normalizedLabel,
+          name: option.name ?? normalizedLabel,
+          label: option.label ?? normalizedLabel,
+        };
+      });
+    },
+    normalizeDate(value) {
+      if (!value) return this.getCurrentDate();
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+
+      return date.toISOString().split("T")[0];
+    },
+    normalizeProcurementItem(item) {
+      const ppmpItem = item.ppmp_item || {};
+      const ppmp = ppmpItem.ppmp || {};
+      const value = item.ppmp_item_id || item.id;
+
+      return {
+        value,
+        ppmp_item_id: item.ppmp_item_id,
+        ppmp_no: ppmp.code,
+        unit_name: ppmp.unit?.name || ppmp.unit_name,
+        item_category_id: ppmpItem.item_category_id,
+        item_category: ppmpItem.item_category?.name,
+        item_unit_type_id: item.item_unit_type_id,
+        item_name: item.item_name,
+        item_unit_cost: item.item_unit_cost,
+        item_quantity: item.item_quantity,
+        item_description: item.item_description,
+        total_cost: item.total_cost,
+        quantity_label: item.item_quantity,
+      };
+    },
     clearItems() {
+      if (this.hydratingProcurement) {
+        return;
+      }
+
       this.items = [];
       this.selectedIds = [];
       this.availableItems = [];
@@ -381,6 +574,8 @@ export default {
       this.itemSelectionModal.show = false;
     },
     toggleItem(item) {
+      if (this.isLockedMode) return;
+
       if (this.selectedIds.includes(item.value)) {
         this.selectedIds = this.selectedIds.filter((id) => id !== item.value);
       } else {
@@ -389,6 +584,8 @@ export default {
       this.syncFormItems();
     },
     toggleAll() {
+      if (this.isLockedMode) return;
+
       this.selectedIds = this.allVisibleSelected ? [] : this.items.map((item) => item.value);
       this.syncFormItems();
     },
@@ -405,6 +602,17 @@ export default {
     },
     submit() {
       this.syncFormItems();
+      this.form.option = this.isApproveMode
+        ? "approve"
+        : (this.isReviewMode ? "review" : "create_by_category");
+
+      if (this.isLockedMode && this.form.id) {
+        this.form.put(`/faims/procurements/${this.form.id}`, {
+          preserveScroll: true,
+        });
+        return;
+      }
+
       this.form.post("/faims/procurements", {
         preserveScroll: true,
       });

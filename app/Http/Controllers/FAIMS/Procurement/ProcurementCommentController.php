@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\FAIMS\Procurement;
 
 use App\Http\Controllers\Controller;
-use App\Services\FAIMS\Procurement\ProcurementClass;
+use App\Services\FAIMS\Procurement\CommentClass;
 use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
 
@@ -11,7 +11,7 @@ class ProcurementCommentController extends Controller
 {
     use HandlesTransaction;
 
-    public function __construct(protected ProcurementClass $procurement)
+    public function __construct(protected CommentClass $comments)
     {
     }
 
@@ -22,7 +22,7 @@ class ProcurementCommentController extends Controller
         ]);
 
         $result = $this->handleTransaction(function () use ($id, $request) {
-            return $this->procurement->addComment($id, $request);
+            return $this->comments->addComment($id, $request);
         });
 
         return back()->with([

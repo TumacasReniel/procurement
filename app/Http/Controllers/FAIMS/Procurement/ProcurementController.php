@@ -5,6 +5,7 @@ namespace App\Http\Controllers\FAIMS\Procurement;
 use App\Http\Controllers\Controller;
 use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
+use App\Http\Requests\Procurement\ProcurementRequest;
 use App\Services\FAIMS\Procurement\PrintClass;
 use App\Services\FAIMS\Procurement\ProcurementClass;
 use App\Services\FAIMS\Procurement\ViewClass;
@@ -68,9 +69,7 @@ class ProcurementController extends Controller
         return inertia('Modules/FAIMS/Procurement/CreateByCategory', $this->procurement->createByCategoryPageProps($request));
     }
 
-    public function store(Request $request) {
-        $this->procurement->validateProcurementBudgetAvailability($request);
-
+    public function store(ProcurementRequest $request) {
         $result = $this->handleTransaction(function () use ($request) {
             return $this->procurement->save($request);
         });
@@ -93,19 +92,7 @@ class ProcurementController extends Controller
 
 
 
-     public function update($id, Request $request) {
-        switch($request->option){
-            case 'edit':
-            case 'review':
-            case 'approve':
-                return  $this->procurement->validateProcurementBudgetAvailability($request);
-            break;
-            case 'ppmp_category_items':
-                dd('hry');
-            break;
-
-
-        }
+     public function update($id, ProcurementRequest $request) {
         $result = $this->handleTransaction(function () use ($id, $request) {
             return $this->procurement->updateByOption($id, $request);
         });

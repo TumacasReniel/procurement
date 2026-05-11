@@ -55,7 +55,7 @@ class ViewClass
                 'approved_by.profile',
                 'codes.procurement_code.mode_of_procurement',
                 'codes.procurement_code.app_type',
-                'items'
+                'items.ppmp_item.ppmp'
             )
                 ->withCount('comments')
                 ->when($request->keyword, function ($query, $keyword) {

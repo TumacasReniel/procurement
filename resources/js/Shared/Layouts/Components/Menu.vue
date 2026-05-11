@@ -310,7 +310,7 @@
                 </Link>
             </li>
   
-            <li class="menu-title">
+            <!-- <li class="menu-title">
                 <i class="ri-more-fill" aria-expanded="false"></i>
                 <span data-key="t-menu">Finance</span>
             </li>
@@ -434,7 +434,7 @@
                 <i class="ri-user-star-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Creditors</span>
                 </Link>
-            </li>
+            </li> -->
 
             <template 
             v-if="

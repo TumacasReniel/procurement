@@ -2,7 +2,6 @@
 
 namespace App\Services\FAIMS\Procurement;
 
-use App\Events\CommentAdded;
 use App\Models\Request;
 use App\Models\OrgChart;
 use App\Models\OrgSignatory;
@@ -13,7 +12,6 @@ use App\Models\ProcurementCodeBudgetLog;
 use App\Models\ProcurementItem;
 use App\Models\ProcurementPpmpItem;
 use App\Models\InventoryItem;
-use App\Models\RequestComment;
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
 use App\Models\ListDropdown;
 use Illuminate\Support\Facades\Auth;
@@ -22,12 +20,8 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\User;
 use App\Models\ListStatus;
 use App\Models\ListData;
-use App\Notifications\PendingProcurementCodeBudgetRequestNotification;
-use App\Notifications\PendingSupplierApprovalNotification;
-use App\Notifications\ProcurementCommentMentioned;
 use App\Services\DropdownClass;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class ProcurementClass
@@ -69,7 +63,8 @@ class ProcurementClass
                 'divisions' => $this->dropdown->dropdowns('Division'),
                 'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
                 'classifications' => $this->dropdown->dropdowns('Classification'),
-                'reference_apps' => $this->dropdown->dropdowns('Reference APP'),
+                'reference_apps' => $this->referenceAppDropdowns(),
+                'app_types' => $this->dropdown->dropdowns('APP Type'),
                 'procurement_codes' => $this->dropdown->procurement_codes(),
                 'unit_types' => $this->dropdown->unit_types(),
                 'requesters' => $this->dropdown->requesters(),
@@ -81,6 +76,17 @@ class ProcurementClass
         ];
     }
 
+    protected function referenceAppDropdowns(): array
+    {
+        $referenceApps = $this->dropdown->dropdowns('Reference APP');
+
+        if ($referenceApps->isNotEmpty()) {
+            return $referenceApps->all();
+        }
+
+        return $this->dropdown->dropdowns('APP Type')->all();
+    }
+
     public function createByCategoryPageProps($request): array
     {
         $props = $this->createPageProps($request);
@@ -88,6 +94,24 @@ class ProcurementClass
         $props['dropdowns']['item_categories'] = $this->dropdown->dropdowns('Item Category');
         $props['dropdowns']['ppmp_item_categories'] = $this->approvedPpmpItemCategories();
         $props['option'] = $request->option ?: 'create_by_category';
+
+        if ($request->filled('id')) {
+            $props['procurement'] = Procurement::with(
+                'division',
+                'unit',
+                'classification',
+                'reference_app',
+                'codes',
+                'items.item_unit_type',
+                'items.ppmp_item.item_category',
+                'items.ppmp_item.ppmp.unit',
+                'approved_by.profile',
+                'requested_by',
+                'created_by',
+                'status',
+                'sub_status'
+            )->findOrFail((int) $request->id);
+        }
 
         return $props;
     }
@@ -167,131 +191,6 @@ class ProcurementClass
             ->unique()
             ->values()
             ->all();
-    }
-
-    public function validateProcurementBudgetAvailability($request): void
-    {
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'procurement_code_ids' => ['required', 'array', 'min:1'],
-                'procurement_code_ids.*' => ['integer', 'distinct', 'exists:procurement_codes,id'],
-                'unit_id' => ['nullable', 'integer'],
-                'items' => ['nullable', 'array'],
-                'items.*.ppmp_item_id' => ['nullable', 'integer', 'exists:procurement_ppmp_items,id'],
-                'items.*.total_cost' => ['nullable', 'numeric', 'min:0'],
-            ],
-            [
-                'procurement_code_ids.required' => 'Select at least one PAP code before adding procurement items.',
-                'procurement_code_ids.min' => 'Select at least one PAP code before adding procurement items.',
-                'procurement_code_ids.*.exists' => 'One or more selected PAP codes are no longer available.',
-            ]
-        );
-
-        $validator->after(function ($validator) use ($request) {
-            $procurementCodeIds = collect($request->input('procurement_code_ids', []))
-                ->filter(fn ($id) => filled($id))
-                ->map(fn ($id) => (int) $id)
-                ->unique()
-                ->values();
-
-            if ($procurementCodeIds->isEmpty()) {
-                return;
-            }
-
-            $submittedItems = collect($request->input('items', []));
-            if ($request->isMethod('post') && $submittedItems->contains(fn ($item) => blank(data_get($item, 'ppmp_item_id')))) {
-                $validator->errors()->add(
-                    'items',
-                    'Select each PR item from the PPMP items assigned to the selected PAP code.'
-                );
-
-                return;
-            }
-
-            $isCreateByCategory = $request->input('option') === 'create_by_category';
-
-            if (!$isCreateByCategory && $request->filled('unit_id')) {
-                $invalidEndUserCodes = ProcurementCode::query()
-                    ->whereIn('id', $procurementCodeIds)
-                    ->whereDoesntHave('end_users', function ($query) use ($request) {
-                        $query->where('end_user_id', (int) $request->unit_id);
-                    })
-                    ->pluck('code')
-                    ->filter()
-                    ->values();
-
-                if ($invalidEndUserCodes->isNotEmpty()) {
-                    $validator->errors()->add(
-                        'procurement_code_ids',
-                        'Selected PAP code(s) are not assigned to the selected end user/unit: ' . $invalidEndUserCodes->implode(', ') . '.'
-                    );
-                }
-            }
-
-            $ppmpItemIds = $submittedItems
-                ->pluck('ppmp_item_id')
-                ->filter(fn ($id) => filled($id))
-                ->map(fn ($id) => (int) $id)
-                ->unique()
-                ->values();
-
-            if ($ppmpItemIds->isNotEmpty()) {
-                $validPPMPItemIds = ProcurementPpmpItem::query()
-                    ->whereIn('id', $ppmpItemIds)
-                    ->whereHas('ppmp', function ($query) use ($request, $procurementCodeIds, $isCreateByCategory) {
-                        $query
-                            ->when(!$isCreateByCategory && $request->filled('unit_id'), fn ($unitQuery) => $unitQuery->where('unit_id', (int) $request->unit_id))
-                            ->where(function ($ppmpQuery) use ($procurementCodeIds) {
-                                $ppmpQuery
-                                    ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
-                                        $codeQuery->whereIn('procurement_code_id', $procurementCodeIds);
-                                    })
-                                    ->orDoesntHave('codes');
-                            });
-                    })
-                    ->pluck('id')
-                    ->map(fn ($id) => (int) $id);
-
-                $invalidPPMPItemIds = $ppmpItemIds->diff($validPPMPItemIds);
-
-                if ($invalidPPMPItemIds->isNotEmpty()) {
-                    $validator->errors()->add(
-                        'items',
-                        'One or more selected items are not part of the selected unit PPMP/PAP code.'
-                    );
-                }
-            }
-
-            $requestedAmount = $submittedItems
-                ->sum(fn ($item) => (float) data_get($item, 'total_cost', 0));
-
-            if ($requestedAmount <= 0) {
-                return;
-            }
-
-            $availableAmount = ProcurementCode::query()
-                ->whereIn('id', $procurementCodeIds)
-                ->get(['remaining_budget', 'allocated_budget'])
-                ->sum(function ($code) {
-                    return (float) ($code->remaining_budget ?? $code->allocated_budget ?? 0);
-                });
-
-            if (($availableAmount + 0.009) >= $requestedAmount) {
-                return;
-            }
-
-            $validator->errors()->add(
-                'procurement_code_ids',
-                sprintf(
-                    'The selected PAP codes only have PHP %s remaining, which is not enough for the request total of PHP %s.',
-                    number_format($availableAmount, 2),
-                    number_format($requestedAmount, 2)
-                )
-            );
-        });
-
-        $validator->validate();
     }
 
     public function updateByOption($id, $request): array
@@ -450,7 +349,7 @@ class ProcurementClass
                     'data' => new ProcurementResource($procurement),
                     'message' => 'Procurement classification is required.',
                     'info' => 'Please select whether this PR is for Goods and Services, Infrastructure Projects, or Consulting Services before reviewing.',
-                    'status' => 'warning',
+                    'status' => false,
                 ];
             }
 
@@ -1051,326 +950,4 @@ class ProcurementClass
         ];
     }
 
-    public function addComment($id, $request): array
-    {
-        $procurement = Procurement::findOrFail($id);
-
-        $comment = $procurement->comments()->create([
-            'content' => $request->content,
-            'user_id' => Auth::id(),
-        ]);
-
-        $comment->load('user.profile');
-
-        $this->notifyCommentRecipients($procurement, $comment);
-
-        broadcast(new CommentAdded($comment))->toOthers();
-
-        return [
-            'data' => $comment->load('user.profile'),
-            'message' => 'Comment added successfully',
-            'info' => 'Your comment has been added to the procurement.',
-            'status' => true,
-        ];
-    }
-
-    public function mentionNotifications($request): array
-    {
-        if (!Schema::hasTable('notifications')) {
-            return [
-                'data' => [],
-                'meta' => [
-                    'unread_count' => 0,
-                    'has_more' => false,
-                ],
-            ];
-        }
-
-        if (!$request->user()) {
-            return [
-                'data' => [],
-                'meta' => [
-                    'unread_count' => 0,
-                    'has_more' => false,
-                ],
-                '_status' => 401,
-            ];
-        }
-
-        $limit = max(1, min((int) $request->input('limit', 4), 10));
-
-        $query = $request->user()
-            ->unreadNotifications()
-            ->whereIn('type', [
-                ProcurementCommentMentioned::class,
-                PendingProcurementCodeBudgetRequestNotification::class,
-                PendingSupplierApprovalNotification::class,
-            ])
-            ->latest();
-
-        $visibleNotifications = (clone $query)
-            ->get()
-            ->filter(fn ($notification) => $this->procurementNotificationVisibleToUser($notification, $request->user()))
-            ->values();
-
-        $unreadCount = $visibleNotifications->count();
-
-        $notifications = $visibleNotifications
-            ->take($limit)
-            ->map(function ($notification) {
-                return $this->transformProcurementNotification($notification);
-            })
-            ->filter()
-            ->values();
-
-        return [
-            'data' => $notifications,
-            'meta' => [
-                'unread_count' => $unreadCount,
-                'has_more' => $unreadCount > $notifications->count(),
-            ],
-        ];
-    }
-
-    public function markMentionNotificationRead(string $notificationId, $request): array
-    {
-        if (!Schema::hasTable('notifications')) {
-            return ['status' => false];
-        }
-
-        if (!$request->user()) {
-            return [
-                'status' => false,
-                '_status' => 401,
-            ];
-        }
-
-        $notification = $request->user()
-            ->notifications()
-            ->whereIn('type', [
-                ProcurementCommentMentioned::class,
-                PendingProcurementCodeBudgetRequestNotification::class,
-                PendingSupplierApprovalNotification::class,
-            ])
-            ->findOrFail($notificationId);
-
-        if (!$notification->read_at) {
-            $notification->markAsRead();
-        }
-
-        return ['status' => true];
-    }
-
-    protected function procurementNotificationVisibleToUser($notification, User $user): bool
-    {
-        if ($notification->type === PendingSupplierApprovalNotification::class) {
-            return $user->hasRole('Procurement Officer') || $user->hasRole('Administrator');
-        }
-
-        if ($notification->type === PendingProcurementCodeBudgetRequestNotification::class) {
-            return $user->hasRole('Budget Officer');
-        }
-
-        if ($notification->type === ProcurementCommentMentioned::class) {
-            return in_array(data_get($notification->data, 'reason', 'mention'), ['mention', 'owner'], true);
-        }
-
-        return false;
-    }
-
-    protected function notifyCommentRecipients(Procurement $procurement, RequestComment $comment): void
-    {
-        if (!Schema::hasTable('notifications')) {
-            return;
-        }
-
-        $author = $comment->relationLoaded('user')
-            ? $comment->user
-            : User::with('profile')->find($comment->user_id);
-
-        if (!$author) {
-            return;
-        }
-
-        $recipients = $this->resolveCommentNotificationRecipients($procurement, $comment, $author);
-
-        foreach ($recipients as $recipient) {
-            $recipient['user']->notify(
-                new ProcurementCommentMentioned(
-                    $procurement,
-                    $comment,
-                    $author,
-                    $recipient['reason'],
-                )
-            );
-        }
-    }
-
-    protected function resolveCommentNotificationRecipients(
-        Procurement $procurement,
-        RequestComment $comment,
-        User $author
-    ): Collection {
-        $recipients = collect();
-        $mentionedUsernames = $this->extractMentionedUsernames((string) $comment->content);
-
-        if ($procurement->created_by_id && (int) $procurement->created_by_id !== (int) $author->id) {
-            $owner = User::with('profile')->find($procurement->created_by_id);
-
-            if ($owner) {
-                $recipients->push([
-                    'user' => $owner,
-                    'reason' => 'owner',
-                ]);
-            }
-        }
-
-        $mentionedUsers = $this->findMentionedUsers($mentionedUsernames, (int) $author->id);
-
-        foreach ($mentionedUsers as $mentionedUser) {
-            $recipients->push([
-                'user' => $mentionedUser,
-                'reason' => 'mention',
-            ]);
-        }
-
-        return $recipients
-            ->filter(fn ($recipient) => isset($recipient['user']) && $recipient['user'] instanceof User)
-            ->groupBy(fn ($recipient) => (int) $recipient['user']->id)
-            ->map(function (Collection $group) {
-                $selected = $group
-                    ->sortByDesc(fn ($recipient) => $recipient['reason'] === 'mention' ? 2 : 1)
-                    ->first();
-
-                return [
-                    'user' => $selected['user'],
-                    'reason' => $selected['reason'],
-                ];
-            })
-            ->values();
-    }
-
-    protected function extractMentionedUsernames(string $content): Collection
-    {
-        preg_match_all('/@([A-Za-z0-9._-]+)/', $content, $matches);
-
-        return collect($matches[1] ?? [])
-            ->map(fn ($username) => strtolower((string) $username))
-            ->filter()
-            ->unique()
-            ->values();
-    }
-
-    protected function findMentionedUsers(Collection $usernames, int $excludedUserId): Collection
-    {
-        if ($usernames->isEmpty()) {
-            return collect();
-        }
-
-        return User::query()
-            ->with('profile')
-            ->where('id', '!=', $excludedUserId)
-            ->where(function ($query) use ($usernames) {
-                foreach ($usernames as $username) {
-                    $query->orWhereRaw('LOWER(username) = ?', [$username]);
-                }
-            })
-            ->get()
-            ->unique('id')
-            ->values();
-    }
-
-    protected function transformProcurementNotification($notification): ?array
-    {
-        $actor = data_get($notification->data, 'actor')
-            ?: data_get($notification->data, 'mentioned_by');
-
-        if ($notification->type === PendingSupplierApprovalNotification::class) {
-            $supplierId = data_get($notification->data, 'supplier.id');
-
-            return [
-                'id' => $notification->id,
-                'notification_type' => 'supplier_pending_approval',
-                'reason' => data_get($notification->data, 'reason', 'approval_required'),
-                'supplier_id' => $supplierId,
-                'procurement_id' => null,
-                'procurement_code' => data_get($notification->data, 'supplier.code'),
-                'procurement_purpose' => data_get($notification->data, 'supplier.name'),
-                'comment_id' => null,
-                'comment_content' => data_get($notification->data, 'message'),
-                'actor' => $actor,
-                'mentioned_by' => $actor,
-                'created_at' => $notification->created_at,
-                'created_ago' => $notification->created_at?->diffForHumans(),
-                'context_label' => 'Supplier Approval',
-                'action_label' => 'Review supplier',
-                'target' => [
-                    'route' => '/faims/suppliers',
-                    'query' => array_filter([
-                        'status' => 'pending_approval',
-                        'supplier_id' => $supplierId,
-                    ]),
-                ],
-            ];
-        }
-
-        if ($notification->type === PendingProcurementCodeBudgetRequestNotification::class) {
-            $budgetRequestId = data_get($notification->data, 'budget_request.id');
-
-            return [
-                'id' => $notification->id,
-                'notification_type' => 'procurement_code_budget_request',
-                'reason' => data_get($notification->data, 'reason', 'budget_review_required'),
-                'supplier_id' => null,
-                'procurement_id' => data_get($notification->data, 'procurement_code.id'),
-                'procurement_code' => data_get($notification->data, 'procurement_code.code'),
-                'procurement_purpose' => data_get($notification->data, 'procurement_code.title'),
-                'comment_id' => null,
-                'comment_content' => data_get($notification->data, 'message'),
-                'actor' => $actor,
-                'mentioned_by' => $actor,
-                'created_at' => $notification->created_at,
-                'created_ago' => $notification->created_at?->diffForHumans(),
-                'context_label' => 'Budget Review',
-                'action_label' => 'Review request',
-                'target' => [
-                    'route' => '/faims/procurement-code-budget-requests',
-                    'query' => array_filter([
-                        'status' => 'pending',
-                        'budget_request_id' => $budgetRequestId,
-                    ]),
-                ],
-            ];
-        }
-
-        $procurementId = data_get($notification->data, 'procurement.id');
-        $reason = data_get($notification->data, 'reason', 'mention');
-
-        return [
-            'id' => $notification->id,
-            'notification_type' => data_get($notification->data, 'type', 'procurement_comment_notification'),
-            'reason' => $reason,
-            'procurement_id' => $procurementId,
-            'procurement_code' => data_get($notification->data, 'procurement.code'),
-            'procurement_purpose' => data_get($notification->data, 'procurement.purpose'),
-            'comment_id' => data_get($notification->data, 'comment.id'),
-            'comment_content' => data_get($notification->data, 'comment.content'),
-            'actor' => $actor,
-            'mentioned_by' => $actor,
-            'created_at' => $notification->created_at,
-            'created_ago' => $notification->created_at?->diffForHumans(),
-            'context_label' => $reason === 'owner' ? 'Your PR' : 'Mentioned You',
-            'action_label' => 'Open PR chat',
-            'target' => [
-                'route' => '/faims/procurements',
-                'query' => [
-                    'comment_request_id' => $procurementId,
-                ],
-            ],
-        ];
-    }
-
-    
-  
-   
 }

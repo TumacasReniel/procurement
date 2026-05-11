@@ -20,7 +20,7 @@
             placeholder="General description and objective of the project to be procured"
           ></textarea>
         </BCol>
-        <BCol lg="6" >
+        <BCol lg="4" >
           <InputLabel value="Type of Project to be Procured" :message="form.errors.project_type" />
           <Multiselect
             :options="projectTypeOptions"
@@ -32,7 +32,7 @@
           />
         </BCol>
 
-        <BCol lg="6">
+        <BCol lg="4">
           <InputLabel value="Item Category" :message="form.errors.item_category_id" />
           <Multiselect
             :options="itemCategoryOptions"
@@ -43,7 +43,7 @@
           />
         </BCol>
 
-        <BCol lg="6">
+        <BCol lg="4">
           <InputLabel value="Recommended Mode of Procurement" :message="form.errors.recommended_mode_of_procurement" />
           <Multiselect
             :options="modeOfProcurementOptions"
@@ -57,7 +57,7 @@
 
       
 
-        <BCol lg="6" class="mt-3">
+        <BCol lg="4" class="mt-3">
           <InputLabel value="End of Procurement Activity" :message="form.errors.end_of_procurement_activity" />
           <TextInput
             v-model="form.end_of_procurement_activity"
@@ -66,7 +66,7 @@
           />
         </BCol>
 
-        <BCol lg="6" class="mt-3">
+        <BCol lg="4" class="mt-3">
           <InputLabel value="Expected Delivery Date" :message="form.errors.expected_delivery_date" />
           <TextInput
             v-model="form.expected_delivery_date"
@@ -75,17 +75,8 @@
           />
         </BCol>
 
-        <BCol lg="6" class="mt-3">
-          <InputLabel value="Attached Supporting Document Name" :message="form.errors.attached_supporting_documents" />
-          <TextInput
-            v-model="form.attached_supporting_documents"
-            type="text"
-            class="form-control"
-            placeholder="Document name or type"
-          />
-        </BCol>
-
-        <BCol lg="6" class="mt-3">
+        
+        <BCol lg="4" class="mt-3">
           <InputLabel value="Pre-Procurement Conference" :message="form.errors.pre_procurement_conference" />
           <Multiselect
             :options="preProcurementConferenceOptions"
@@ -96,6 +87,17 @@
             placeholder="Select option"
           />
         </BCol>
+
+        <BCol lg="12" class="mt-3">
+          <InputLabel value="Attached Supporting Document Name" :message="form.errors.attached_supporting_documents" />
+          <TextInput
+            v-model="form.attached_supporting_documents"
+            type="text"
+            class="form-control"
+            placeholder="Document name or type"
+          />
+        </BCol>
+
 
         <BCol lg="12" class="mt-3">
           <InputLabel value="Attachment" :message="form.errors.supporting_document_file" />

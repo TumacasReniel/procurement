@@ -37,6 +37,7 @@ class ProcurementResource extends JsonResource
             'approved_by_id' => $this->approved_by_id,
             'codes' =>  $this->codes,
             'items' =>  $this->items,
+            'is_create_by_category' => $this->isCreateByCategory(),
             'total_amount' => round((float) $this->items->sum('total_cost'), 2),
             'quotation_count'  => $this->quotation_count,
             'reawarded_count'  => $this->reawarded_count,
@@ -45,5 +46,16 @@ class ProcurementResource extends JsonResource
             'status' =>  $this->status,
             'sub_status' =>  $this->sub_status,
         ];
+    }
+
+    protected function isCreateByCategory(): bool
+    {
+        if (!$this->unit_id) {
+            return false;
+        }
+
+        return $this->items
+            ->contains(fn ($item) => $item->ppmp_item?->ppmp?->unit_id
+                && (int) $item->ppmp_item->ppmp->unit_id !== (int) $this->unit_id);
     }
 }

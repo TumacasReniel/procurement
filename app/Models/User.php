@@ -128,6 +128,26 @@ class User extends Authenticatable  implements MustVerifyEmail
         return $this->roles()->where('name', $roleName)->exists();
     }
 
+    public function hasActiveRole($roleNames): bool
+    {
+        $roleNames = is_array($roleNames) ? $roleNames : [$roleNames];
+
+        return $this->roles()
+            ->whereIn('name', $roleNames)
+            ->where('user_roles.is_active', 1)
+            ->exists();
+    }
+
+    public function scopeWhereHasActiveRole($query, $roleNames)
+    {
+        $roleNames = is_array($roleNames) ? $roleNames : [$roleNames];
+
+        return $query->whereHas('roles', function ($roleQuery) use ($roleNames) {
+            $roleQuery->whereIn('list_roles.name', $roleNames)
+                ->where('user_roles.is_active', 1);
+        });
+    }
+
     public function org_chart()
     {
         return $this->hasOne('App\Models\OrgChart', 'user_id')->with('designation');

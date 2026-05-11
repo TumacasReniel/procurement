@@ -15,8 +15,9 @@ class ProcurementPPMPResource extends JsonResource
         $plan_name = $this->plan_name_override ?: $this->reference_app?->name;
         $plan_type = $this->plan_type($plan_name);
         $ppmp_status = $this->ppmp_status($plan_name);
-        $reviewed_by = $ppmp_status === 'Final' ? $this->approved_by?->profile?->full_name : null;
-        $submitted_by = $ppmp_status === 'Final'
+        $is_final = $this->is_final_ppmp($plan_name);
+        $reviewed_by = $is_final ? $this->approved_by?->profile?->full_name : null;
+        $submitted_by = $is_final
             ? ($this->approved_by?->profile?->full_name ?? $this->requested_by?->profile?->full_name)
             : $this->requested_by?->profile?->full_name;
         $prepared_by_designation = $this->created_by?->org_chart?->designation?->name
@@ -35,8 +36,8 @@ class ProcurementPPMPResource extends JsonResource
             'ppmp_no' => $ppmp_no,
             'ppmp_status' => $ppmp_status,
             'approval_status' => $approval_status,
-            'is_final' => $ppmp_status === 'Final',
-            'is_pending_app_approval' => $approval_status === 'For Procurement Officer Approval',
+            'is_final' => $is_final,
+            'is_pending_app_approval' => $approval_status === 'For Approval',
             'can_submit_final' => $this->can_mark_final_ppmp($plan_name, $plan_type),
             'can_add_items' => $can_add_items,
             'can_approve_to_app' => $this->can_approve_to_app($approval_status),
@@ -184,17 +185,21 @@ class ProcurementPPMPResource extends JsonResource
     protected function ppmp_status(?string $plan_name): string
     {
         return $this->ppmp_status_override
-            ?: ($plan_name || $this->status?->name === 'Reviewed' ? 'Final' : 'Indicative');
+            ?: match ($this->status?->name) {
+                'Reviewed' => 'For Approval',
+                'Approved' => 'Approved',
+                default => 'Pending',
+            };
     }
 
     protected function approval_status(?string $plan_name): string
     {
         return $this->approval_status_override ?: match ($this->status?->name) {
-            'Reviewed' => 'For Procurement Officer Approval',
+            'Reviewed' => 'For Approval',
             'Approved' => $plan_name === 'Supplemental Procurement Plan'
                 ? 'Approved in SPP'
                 : ($plan_name ? 'Approved in APP' : 'Approved'),
-            default => 'Draft',
+            default => 'Pending',
         };
     }
 
@@ -224,11 +229,16 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function can_approve_to_app(string $approval_status): bool
     {
-        return $approval_status === 'For Procurement Officer Approval'
+        return $approval_status === 'For Approval'
             && (
-                auth()->user()?->hasRole('Procurement Officer')
+                auth()->user()?->hasRole('Budget Officer')
                 || auth()->user()?->hasRole('Administrator')
             );
+    }
+
+    protected function is_final_ppmp(?string $plan_name): bool
+    {
+        return (bool) $plan_name || in_array($this->status?->name, ['Reviewed', 'Approved'], true);
     }
 
     protected function has_completed_status(): bool

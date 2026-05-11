@@ -78,7 +78,7 @@
                   :style="{ width: filter.plan_type === 'annual' || filter.plan_type === 'supplemental' ? '52%' : '37%' }"
                 />
                 <Multiselect
-                  v-if="filter.plan_type === 'all'"
+                  v-if="filter.plan_type === 'all' && canManagePPMP"
                   class="white"
                   style="width: 15%"
                   :options="unitOptions"
@@ -124,7 +124,7 @@
                   Create PPMP
                 </b-button>
                 <b-button
-                  v-if="filter.plan_type === 'annual' && canManagePPMP"
+                  v-if="filter.plan_type === 'annual' && canApprovePPMPPlans"
                   variant="primary"
                   @click="openCreateAppModal"
                 >
@@ -132,7 +132,7 @@
                   Create APP
                 </b-button>
                 <b-button
-                  v-if="filter.plan_type === 'supplemental' && canCreateSPP"
+                  v-if="filter.plan_type === 'supplemental' && canApprovePPMPPlans"
                   variant="warning"
                   @click="openCreateSppModal"
                 >
@@ -153,10 +153,8 @@
                 <thead class="table-light thead-fixed">
                   <tr class="fs-12 fw-semibold align-middle">
                     <th style="width: 4%" class="text-center">#</th>
-                    <th style="min-width: 160px">Plan No.</th>
-                    <th style="min-width: 260px">{{ isPlanRegister ? "Description" : "Summary" }}</th>
-                    <th style="min-width: 180px">Scope / Plan</th>
-                    <th style="min-width: 210px">{{ isPlanRegister ? "Included PPMPs" : "Items" }}</th>
+                    <th style="min-width: 160px">PPMP No.</th>
+                    <th style="min-width: 260px">Division/Unit</th>
                     <th style="min-width: 130px" class="text-end">Total ABC</th>
                     <th style="min-width: 140px">Schedule</th>
                     <th style="min-width: 165px" class="text-center">Status</th>
@@ -177,50 +175,12 @@
                     </td>
                     <td>
                       <div class="fw-semibold text-primary">{{ list.ppmp_no || "-" }}</div>
-                      <small class="d-block text-muted">{{ planShortName(list) }} - {{ list.ppmp_count || 1 }} source entr{{ (list.ppmp_count || 1) === 1 ? "y" : "ies" }}</small>
                     </td>
-                    <td>
-                      <div 
-                        class="text-truncate fw-medium"
-                        style="max-width: 260px"
-                        v-b-tooltip.hover
-                        :title="list.general_description_objective"
-                      >
-                        {{ list.general_description_objective || "-" }}
-                      </div>
-                      <small class="d-block text-muted">{{ list.type_of_project || "Unclassified" }}</small>
-                      <small class="d-block text-muted">{{ list.recommended_mode_of_procurement || "No mode set" }}</small>
-                    </td>
+                  
                     <td>
                       <div class="fw-medium">{{ list.unit?.name || "-" }}</div>
                       <small class="text-muted">{{ list.plan_type === "ppmp" ? list.division?.name || "-" : "All end-user units" }}</small>
                       <small class="d-block text-muted">{{ list.plan_name || "PPMP" }}</small>
-                    </td>
-                    <td>
-                      <template v-if="['annual', 'supplemental'].includes(list.plan_type)">
-                        <div class="fw-semibold">{{ (list.source_ppmps || []).length }} approved PPMP{{ (list.source_ppmps || []).length === 1 ? "" : "s" }}</div>
-                        <small
-                          v-if="(list.source_ppmps || []).length"
-                          class="d-block text-muted text-truncate"
-                          style="max-width: 210px"
-                          v-b-tooltip.hover
-                          :title="(list.source_ppmps || []).map(ppmp => ppmp.unit?.name).filter(Boolean).join(', ')"
-                        >
-                          {{ (list.source_ppmps || []).map(ppmp => ppmp.unit?.name).filter(Boolean).slice(0, 2).join(", ") }}
-                        </small>
-                      </template>
-                      <template v-else>
-                        <div class="fw-semibold">{{ list.items_count || 0 }} item{{ (list.items_count || 0) === 1 ? "" : "s" }}</div>
-                      </template>
-                      <small
-                        v-if="!['annual', 'supplemental'].includes(list.plan_type) && (list.item_details || []).length"
-                        class="d-block text-muted text-truncate"
-                        style="max-width: 210px"
-                        v-b-tooltip.hover
-                        :title="(list.item_details || []).map(item => item.name || item.description).filter(Boolean).join(', ')"
-                      >
-                        {{ (list.item_details || []).map(item => item.name || item.description).filter(Boolean).slice(0, 2).join(", ") }}
-                      </small>
                     </td>
                     <td class="text-end">
                       <span class="fw-semibold">{{ formatCurrency(list.estimated_budget) }}</span>
@@ -232,10 +192,10 @@
                     </td>
                     <td class="text-center">
                       <b-badge :variant="ppmpStatusBadgeVariant(list)">
-                        {{ list.ppmp_status || "Indicative" }}
+                        {{ list.ppmp_status || "Pending" }}
                       </b-badge>
-                      <small v-if="list.reviewed_by" class="d-block text-muted mt-1">
-                        Reviewed by {{ list.reviewed_by }}
+                      <small v-if="statusUserLabel(list)" class="d-block text-muted mt-1">
+                        {{ statusUserLabel(list) }}
                       </small>
                     </td>
                     <td class="text-center">
@@ -259,11 +219,24 @@
                           variant="success"
                           class="btn-icon"
                           v-b-tooltip.hover
-                          title="Mark as final PPMP"
+                          title="Submit PPMP for Budget Officer approval"
                           style="border-radius: 8px"
                           :disabled="approveFinalForm.processing"
                         >
                           <i class="ri-check-double-line"></i>
+                        </b-button>
+                        <b-button
+                          v-if="canApproveToApp(list)"
+                          @click.stop="openApproveToAppModal(list)"
+                          size="sm"
+                          variant="success"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Approve PPMP"
+                          style="border-radius: 8px"
+                          :disabled="approveAppForm.processing"
+                        >
+                          <i class="ri-checkbox-circle-line"></i>
                         </b-button>
                         <b-button
                           @click.stop="printPPMP(list)"
@@ -303,173 +276,40 @@
     </div>
   </BRow>
 
-  <b-modal
-    v-model="approveFinalModal.show"
-    header-class="p-3"
-    title="Confirm Final PPMP"
-    size="md"
-    class="v-modal-custom"
-    modal-class="zoomIn"
-    centered
-    no-close-on-backdrop
-  >
-    <div v-if="approveFinalModal.data" class="ppmp-confirm">
-      <div class="ppmp-confirm__icon">
-        <i class="ri-check-double-line"></i>
-      </div>
-      <div>
-        <h5 class="mb-1">Mark this PPMP as final?</h5>
-        <p class="text-muted mb-3">
-          This will approve the plan for consolidation and further procurement planning.
-        </p>
-      </div>
+  <SubmitForApprovalModal
+    v-model:show="approveFinalModal.show"
+    :ppmp="approveFinalModal.data"
+    :processing="approveFinalForm.processing"
+    @cancel="closeApproveFinalModal"
+    @confirm="approveFinal"
+  />
 
-      <div class="ppmp-confirm__summary">
-        <div>
-          <span>Plan No.</span>
-          <strong>{{ approveFinalModal.data.ppmp_no || "-" }}</strong>
-        </div>
-        <div>
-          <span>Unit</span>
-          <strong>{{ approveFinalModal.data.unit?.name || "-" }}</strong>
-        </div>
-        <div>
-          <span>Total ABC</span>
-          <strong>{{ formatCurrency(approveFinalModal.data.estimated_budget) }}</strong>
-        </div>
-      </div>
-    </div>
+  <ApproveToAppModal
+    v-model:show="approveAppModal.show"
+    :ppmp="approveAppModal.data"
+    :processing="approveAppForm.processing"
+    @cancel="closeApproveToAppModal"
+    @confirm="approveToApp"
+  />
 
-    <template v-slot:footer>
-      <b-button @click="closeApproveFinalModal" variant="light" block>
-        Cancel
-      </b-button>
-      <b-button
-        @click="approveFinal"
-        variant="success"
-        :disabled="approveFinalForm.processing"
-        block
-      >
-        <i class="ri-check-double-line align-bottom me-1"></i>
-        {{ approveFinalForm.processing ? "Approving..." : "Approve Final" }}
-      </b-button>
-    </template>
-  </b-modal>
+  <CreateUnitPpmpModal
+    v-model:show="createPpmpModal.show"
+    :form="createPpmpForm"
+    :year-options="yearOptions"
+    :unit-options="availablePpmpUnits"
+    :loading="createPpmpModal.loading"
+    @close="closeCreatePpmpModal"
+    @submit="submitCreatePpmp"
+  />
 
-  <b-modal
-    v-model="createPpmpModal.show"
-    header-class="p-3"
-    title="Create Unit PPMP"
-    size="md"
-    class="v-modal-custom"
-    modal-class="zoomIn"
-    centered
-    no-close-on-backdrop
-  >
-    <form class="customform">
-      <BRow>
-        <BCol lg="12" class="mt-2">
-          <label class="form-label">Plan Year</label>
-          <Multiselect
-            :options="yearOptions"
-            v-model="createPpmpForm.year"
-            label="name"
-            value-prop="value"
-            :searchable="true"
-            :class="{ 'is-invalid': createPpmpForm.errors.year }"
-            placeholder="Select Year"
-          />
-          <div v-if="createPpmpForm.errors.year" class="invalid-feedback d-block">
-            {{ createPpmpForm.errors.year }}
-          </div>
-        </BCol>
-
-        <BCol lg="12" class="mt-2">
-          <label class="form-label">Unit Without PPMP</label>
-          <Multiselect
-            :options="availablePpmpUnits"
-            v-model="createPpmpForm.unit_id"
-            label="name"
-            value-prop="value"
-            :searchable="true"
-            :loading="createPpmpModal.loading"
-            :class="{ 'is-invalid': createPpmpForm.errors.unit_id }"
-            placeholder="Select Unit"
-          />
-          <div v-if="createPpmpForm.errors.unit_id" class="invalid-feedback d-block">
-            {{ createPpmpForm.errors.unit_id }}
-          </div>
-          <small v-if="!createPpmpModal.loading && !availablePpmpUnits.length" class="text-muted d-block mt-2">
-            All active units already have a PPMP for the selected year.
-          </small>
-        </BCol>
-      </BRow>
-    </form>
-
-    <template v-slot:footer>
-      <b-button @click="closeCreatePpmpModal" variant="light" block>Close</b-button>
-      <b-button
-        @click="submitCreatePpmp"
-        variant="primary"
-        :disabled="createPpmpForm.processing || !createPpmpForm.unit_id"
-        block
-      >
-        {{ createPpmpForm.processing ? "Creating..." : "Create PPMP" }}
-      </b-button>
-    </template>
-  </b-modal>
-
-  <b-modal
-    v-model="createAppModal.show"
-    header-class="p-3"
-    title="Create APP"
-    size="md"
-    class="v-modal-custom"
-    modal-class="zoomIn"
-    centered
-    no-close-on-backdrop
-  >
-    <form class="customform">
-      <BRow>
-        <BCol lg="12" class="mt-2">
-          <label class="form-label">APP Year</label>
-          <Multiselect
-            :options="availableAppYearOptions"
-            v-model="createAppForm.year"
-            label="name"
-            value-prop="value"
-            :searchable="true"
-            :class="{ 'is-invalid': createAppForm.errors.year || createAppForm.errors.plan_type }"
-            placeholder="Select Year"
-          />
-          <div v-if="createAppForm.errors.year || createAppForm.errors.plan_type" class="invalid-feedback d-block">
-            {{ createAppForm.errors.year || createAppForm.errors.plan_type }}
-          </div>
-          <small v-if="!availableAppYearOptions.length" class="text-muted d-block mt-2">
-            All selectable years already have an APP.
-          </small>
-        </BCol>
-
-        <BCol lg="12" class="mt-3">
-          <div class="alert alert-info mb-0 fs-13">
-            This creates one APP register for the selected year using final PPMP entries.
-          </div>
-        </BCol>
-      </BRow>
-    </form>
-
-    <template v-slot:footer>
-      <b-button @click="closeCreateAppModal" variant="light" block>Close</b-button>
-      <b-button
-        @click="submitCreateApp"
-        variant="primary"
-        :disabled="createAppForm.processing || !createAppForm.year || appYearHasExisting"
-        block
-      >
-        {{ createAppForm.processing ? "Creating..." : "Create APP" }}
-      </b-button>
-    </template>
-  </b-modal>
+  <CreateAppModal
+    v-model:show="createAppModal.show"
+    :form="createAppForm"
+    :year-options="availableAppYearOptions"
+    :year-has-existing="appYearHasExisting"
+    @close="closeCreateAppModal"
+    @submit="submitCreateApp"
+  />
 
   <CreateSppModal
     v-model="createSppModal.show"
@@ -481,121 +321,12 @@
     @submit="submitCreateSpp"
   />
 
-  <b-modal
-    v-model="detailModal.show"
-    header-class="p-3"
-    title="PPMP Details"
-    size="xl"
-    class="v-modal-custom"
-    modal-class="zoomIn"
-    centered
-    no-close-on-backdrop
-  >
-    <div v-if="detailModal.data" class="ppmp-print-area">
-      <div class="ppmp-document-header">
-        <img src="/images/logo-sm.png" alt="DOST Logo" class="ppmp-header-logo" />
-        <div class="text-center flex-grow-1">
-          <div class="fw-semibold fs-18">Republic of the Philippines</div>
-          <div class="fw-bold fs-20">DEPARTMENT OF SCIENCE AND TECHNOLOGY</div>
-          <div class="fw-semibold fs-18">Regional Office IX</div>
-        </div>
-        <img src="/images/bp-logo.webp" alt="Bagong Pilipinas Logo" class="ppmp-header-logo" />
-      </div>
-
-      <div class="ppmp-title-block">
-        <div class="fw-bold fs-22">
-          PROJECT PROCUREMENT MANAGEMENT PLAN (PPMP) NO.
-          <span class="ppmp-line">{{ detailModal.data.ppmp_no || "" }}</span>
-        </div>
-        <div class="d-flex justify-content-center gap-5 mt-2">
-          <div class="ppmp-status-check">
-            <span class="ppmp-checkbox" :class="{ checked: !detailModal.data.is_final }"></span>
-            <span>INDICATIVE</span>
-          </div>
-          <div class="ppmp-status-check">
-            <span class="ppmp-checkbox" :class="{ checked: detailModal.data.is_final }"></span>
-            <span>FINAL</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="row g-2 mb-3">
-        <div class="col-md-4">
-          <div class="border rounded p-2 h-100">
-            <small class="text-muted d-block">Plan</small>
-            <span class="fw-semibold">{{ detailModal.data.plan_name }}</span>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="border rounded p-2 h-100">
-            <small class="text-muted d-block">Unit</small>
-            <span class="fw-semibold">{{ detailModal.data.unit?.name || "-" }}</span>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="border rounded p-2 h-100">
-            <small class="text-muted d-block">Total ABC</small>
-            <span class="fw-semibold">{{ formatCurrency(detailModal.data.estimated_budget) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="table-responsive">
-        <table class="table table-bordered align-middle mb-0">
-          <thead class="table-light">
-            <tr class="fs-12 text-center">
-              <th style="width: 4%">#</th>
-              <th>Item</th>
-              <th>Description</th>
-              <th style="width: 10%">Qty</th>
-              <th style="width: 10%">Unit</th>
-              <th style="width: 14%">Unit Price</th>
-              <th style="width: 14%">ABC</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, itemIndex) in detailModal.data.item_details" :key="item.id">
-              <td class="text-center">{{ itemIndex + 1 }}</td>
-              <td>{{ item.name || "-" }}</td>
-              <td>{{ item.description || "-" }}</td>
-              <td class="text-end">{{ formatQuantity(item.quantity) }}</td>
-              <td>{{ item.unit || "-" }}</td>
-              <td class="text-end">{{ formatCurrency(item.unit_price) }}</td>
-              <td class="text-end fw-semibold">{{ formatCurrency(item.abc) }}</td>
-            </tr>
-            <tr v-if="!detailModal.data.item_details.length">
-              <td colspan="7" class="text-center text-muted">No items found.</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <th colspan="6" class="text-end">Total ABC</th>
-              <th class="text-end">{{ formatCurrency(detailModal.data.estimated_budget) }}</th>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div class="ppmp-signatories">
-        <div class="ppmp-signatory">
-          <div class="ppmp-signatory-line">{{ detailModal.data.prepared_by || "" }}</div>
-          <div class="ppmp-signatory-label">Prepared By</div>
-        </div>
-        <div class="ppmp-signatory">
-          <div class="ppmp-signatory-line">{{ detailModal.data.submitted_by || "" }}</div>
-          <div class="ppmp-signatory-label">Submitted By</div>
-        </div>
-      </div>
-    </div>
-
-    <template v-slot:footer>
-      <b-button @click="detailModal.show = false" variant="light" block>Close</b-button>
-      <b-button @click="printPPMP(detailModal.data)" variant="dark" block>
-        <i class="ri-printer-line align-bottom me-1"></i>
-        Print
-      </b-button>
-    </template>
-  </b-modal>
+  <DetailsModal
+    v-model:show="detailModal.show"
+    :ppmp="detailModal.data"
+    @close="detailModal.show = false"
+    @print="printPPMP"
+  />
 </template>
 
 <script>
@@ -604,7 +335,12 @@ import { router, useForm } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
+import CreateUnitPpmpModal from "./Modals/CreateUnitPpmp.vue";
+import CreateAppModal from "./Modals/CreateApp.vue";
 import CreateSppModal from "./Modals/CreateSpp.vue";
+import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
+import ApproveToAppModal from "./Modals/ApproveToApp.vue";
+import DetailsModal from "./Modals/Details.vue";
 
 export default {
   props: ["dropdowns"],
@@ -612,7 +348,12 @@ export default {
     Multiselect,
     PageHeader,
     Pagination,
+    CreateUnitPpmpModal,
+    CreateAppModal,
     CreateSppModal,
+    SubmitForApprovalModal,
+    ApproveToAppModal,
+    DetailsModal,
   },
   data() {
     return {
@@ -646,6 +387,13 @@ export default {
         year: new Date().getFullYear(),
         plan_type: "annual",
       }),
+      approveAppForm: useForm({
+        option: "approve_to_app",
+      }),
+      approveAppModal: {
+        show: false,
+        data: null,
+      },
       createSppForm: useForm({
         year: new Date().getFullYear(),
         plan_type: "supplemental",
@@ -687,8 +435,8 @@ export default {
     canManagePPMP() {
       return this.currentRoles.some((role) => ["Procurement Officer", "Administrator"].includes(role));
     },
-    canCreateSPP() {
-      return this.currentRoles.some((role) => ["Procurement Officer"].includes(role));
+    canApprovePPMPPlans() {
+      return this.currentRoles.some((role) => ["Budget Officer", "Administrator"].includes(role));
     },
     isPlanRegister() {
       return ["annual", "supplemental"].includes(this.filter.plan_type);
@@ -702,7 +450,10 @@ export default {
       return unitId ? Number(unitId) : null;
     },
     statusOptions() {
-      return this.normalizeOptions(this.dropdowns?.statuses);
+      return this.normalizeOptions(this.dropdowns?.statuses).map((status) => ({
+        ...status,
+        name: status.name === "Reviewed" ? "For Approval" : status.name,
+      }));
     },
     yearOptions() {
       const years = [];
@@ -740,7 +491,7 @@ export default {
     },
     activePlanDescription() {
       if (this.filter.plan_type === "annual") {
-        return "This is the agency-wide consolidated plan built only from final PPMPs approved by the Procurement Officer.";
+        return "This is the agency-wide consolidated plan built from PPMPs reviewed by Procurement Officer and approved by Budget Officer.";
       }
 
       if (this.filter.plan_type === "supplemental") {
@@ -762,7 +513,7 @@ export default {
     },
     emptyStateHint() {
       if (this.filter.plan_type === "annual") {
-        return "Approve unit PPMPs as final first, then the APP list appears here by year.";
+        return "Submit unit PPMPs for approval first, then Budget Officer approval creates the APP list by year.";
       }
 
       if (this.filter.plan_type === "supplemental") {
@@ -800,7 +551,7 @@ export default {
         return false;
       }
 
-      if (!item || item.is_final || (item.ppmp_status || "").toLowerCase() === "final") {
+      if (!item || item.is_final || ["for approval", "approved"].includes((item.ppmp_status || "").toLowerCase())) {
         return false;
       }
 
@@ -813,6 +564,11 @@ export default {
         .some((status) => String(status).toLowerCase() === "pending");
 
       return Boolean(item.can_submit_final) || isPending;
+    },
+    canApproveToApp(item) {
+      return this.canApprovePPMPPlans
+        && Boolean(item?.can_approve_to_app)
+        && (item?.ppmp_status || "").toLowerCase() === "for approval";
     },
     normalizeOptions(options) {
       if (Array.isArray(options)) {
@@ -884,11 +640,30 @@ export default {
       return "PPMP";
     },
     ppmpStatusBadgeVariant(item) {
-      if ((item?.ppmp_status || "").toLowerCase() === "final" || item?.is_final) {
+      const status = (item?.ppmp_status || "").toLowerCase();
+
+      if (status === "approved") {
         return "success";
       }
 
+      if (status === "for approval") {
+        return "warning";
+      }
+
       return "secondary";
+    },
+    statusUserLabel(item) {
+      const status = (item?.ppmp_status || "").toLowerCase();
+
+      if (status === "pending" && item?.created_by) {
+        return `Created by ${item.created_by}`;
+      }
+
+      if (item?.reviewed_by) {
+        return `Reviewed by ${item.reviewed_by}`;
+      }
+
+      return null;
     },
     goViewPage(data) {
       router.get(`/faims/procurements/${data.id}`, { option: "view" });
@@ -1112,6 +887,41 @@ export default {
         : (this.availableAppYearOptions[0]?.value || null);
       this.createAppForm.plan_type = "annual";
       this.createAppModal.show = true;
+    },
+    openApproveToAppModal(data) {
+      if (!data?.id || this.approveAppForm.processing) {
+        return;
+      }
+
+      this.approveAppForm.clearErrors();
+      this.approveAppModal.data = data;
+      this.approveAppModal.show = true;
+    },
+    closeApproveToAppModal() {
+      if (this.approveAppForm.processing) {
+        return;
+      }
+
+      this.approveAppModal.show = false;
+      this.approveAppModal.data = null;
+      this.approveAppForm.clearErrors();
+    },
+    approveToApp() {
+      const data = this.approveAppModal.data;
+      if (!data?.id || this.approveAppForm.processing) {
+        return;
+      }
+
+      this.approveAppForm.option = "approve_to_app";
+      this.approveAppForm.patch(`/faims/procurement-ppmp/${data.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+          this.approveAppModal.show = false;
+          this.approveAppModal.data = null;
+          this.filter.plan_type = "all";
+          this.fetch();
+        },
+      });
     },
     closeCreateAppModal() {
       this.createAppModal.show = false;

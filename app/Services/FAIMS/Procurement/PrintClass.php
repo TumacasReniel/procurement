@@ -220,6 +220,7 @@ class PrintClass
             'items' => $items,
             'totalAmount' => $totalAmount,
             'regional_director' => $this->dropdown->regional_director(),
+            'prepared_user' => Auth::user()?->loadMissing('profile', 'org_chart.designation', 'organization.position'),
         ];
 
         $pdf = \PDF::loadView('FAIMS.Procurement.prints.ppmp', $array)

@@ -1,11 +1,24 @@
 @php
+    $planName = $procurement->plan_name_override ?? $procurement->reference_app?->name ?? 'PPMP';
+    $planShortName = match ($planName) {
+        'Annual Procurement Plan' => 'APP',
+        'Supplemental Procurement Plan' => 'SPP',
+        default => 'PPMP',
+    };
+    $preparedUser = $prepared_user ?? auth()->user();
     $preparedName = strtoupper(
-        $procurement->created_by?->profile?->fullname
+        $preparedUser?->profile?->fullname
+            ?? $preparedUser?->profile?->full_name
+            ?? $preparedUser?->name
+            ?? $procurement->created_by?->profile?->fullname
             ?? $procurement->created_by?->profile?->full_name
             ?? $procurement->created_by?->name
             ?? ''
     );
-    $preparedDesignation = $procurement->created_by?->org_chart?->designation?->name
+    $preparedDesignation = $preparedUser?->org_chart?->designation?->name
+        ?? $preparedUser?->organization?->position?->name
+        ?? $preparedUser?->designation
+        ?? $procurement->created_by?->org_chart?->designation?->name
         ?? $procurement->created_by?->organization?->position?->name
         ?? $procurement->created_by?->designation
         ?? ($planShortName === 'SPP' ? 'Agency' : 'End-User / Requesting Office');
@@ -16,18 +29,12 @@
         ->unique()
         ->implode(', ');
 
-    $planName = $procurement->plan_name_override ?? $procurement->reference_app?->name ?? 'PPMP';
-    $planShortName = match ($planName) {
-        'Annual Procurement Plan' => 'APP',
-        'Supplemental Procurement Plan' => 'SPP',
-        default => 'PPMP',
-    };
     $documentTitle = match ($planName) {
         'Annual Procurement Plan' => 'ANNUAL PROCUREMENT PLAN (APP) NO.',
         'Supplemental Procurement Plan' => 'SUPPLEMENTAL PROCUREMENT PLAN (SPP) NO.',
         default => 'PROJECT PROCUREMENT MANAGEMENT PLAN (PPMP) NO.',
     };
-    $isFinal = $planName !== 'PPMP' || $procurement->status?->name === 'Reviewed';
+    $isFinal = $planName !== 'PPMP' || in_array($procurement->status?->name, ['Reviewed', 'Approved'], true);
     $submittedUser = $isFinal && $procurement->approved_by
         ? $procurement->approved_by
         : $procurement->requested_by;
@@ -37,6 +44,12 @@
             ?? $submittedUser?->name
             ?? ''
     );
+    $preparedDate = $procurement->created_at
+        ? date('F d, Y', strtotime((string) $procurement->created_at))
+        : date('F d, Y');
+    $submittedDate = $isFinal && $procurement->updated_at
+        ? date('F d, Y', strtotime((string) $procurement->updated_at))
+        : '';
     $ppmpYear = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y', strtotime((string) $procurement->created_at));
     $ppmpNo = $procurement->ppmp_no_override ?: 'PPMP-' . $ppmpYear . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT);
     $prNo = $procurement->pr_no_override ?: ($procurement->code ?: '');
@@ -474,15 +487,15 @@
         <tr>
             <td width="50%">
                 <div class="signature-label" style="margin-left:-120px; margin-bottom:20px">Prepared By</div>
-                <span class="signature-line"><u>{{ $submittedName }}</u></span>
+                <span class="signature-line"><u>{{ $preparedName }}</u></span>
                 <div class="signature-role">{{ $preparedDesignation }}</div>
-                 <div style="margin-top:20px">Date:______________</div>
+                 <div style="margin-top:20px">Date: {{ $preparedDate }}</div>
             </td>
             <td width="50%">
                 <div class="signature-label" style="margin-left:-120px;margin-bottom:20px">Submitted By</div>
                 <span class="signature-line"><u>{{ $submittedName }}</u></span>
                 <div class="signature-role">AOV/Procurement Officer</div>
-                <div style="margin-top:20px">Date:______________</div>
+                <div style="margin-top:20px">Date: {{ $submittedDate ?: '______________' }}</div>
             </td>
         </tr>
     </table>
