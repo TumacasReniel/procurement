@@ -18,6 +18,7 @@ class ReceivingListRequest extends FormRequest
             'keyword' => ['nullable', 'string', 'max:255'],
             'count' => ['nullable', 'integer', 'min:1', 'max:100'],
             'sort' => ['nullable', 'in:latest,oldest'],
+            'delivery_date' => ['nullable', 'date'],
         ];
     }
 }

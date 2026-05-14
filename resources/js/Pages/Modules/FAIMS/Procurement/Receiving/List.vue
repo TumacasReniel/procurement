@@ -40,8 +40,44 @@
       </div>
     </div>
 
+    <div
+      class="receiving-list-alert"
+      :class="hasTodayDeliveries ? 'receiving-list-alert-active' : 'receiving-list-alert-quiet'"
+    >
+      <div class="receiving-list-alert-icon">
+        <i :class="hasTodayDeliveries ? 'ri-notification-3-line' : 'ri-time-line'"></i>
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-bold">{{ deliveryAlertTitle }}</div>
+        <div class="small">{{ deliveryAlertMessage }}</div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <b-button
+          type="button"
+          size="sm"
+          :variant="show_today_only ? 'primary' : 'soft-primary'"
+          class="receiving-list-alert-btn"
+          :disabled="!hasTodayDeliveries"
+          @click="toggleTodayOnly"
+        >
+          <i class="ri-calendar-check-line me-1"></i>
+          {{ show_today_only ? "Show All" : "Today" }}
+        </b-button>
+        <b-button
+          type="button"
+          size="sm"
+          variant="soft-secondary"
+          class="receiving-list-alert-btn"
+          @click="refresh"
+        >
+          <i class="ri-refresh-line me-1"></i>
+          Refresh
+        </b-button>
+      </div>
+    </div>
+
     <div class="row g-2 mb-3">
-      <div class="col-md-4">
+      <div class="col-md-3">
         <div class="receiving-list-stat">
           <span class="receiving-list-stat-icon text-primary"><i class="ri-inbox-archive-line"></i></span>
           <div>
@@ -50,7 +86,16 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
+        <div class="receiving-list-stat">
+          <span class="receiving-list-stat-icon text-warning"><i class="ri-notification-badge-line"></i></span>
+          <div>
+            <div class="small text-muted fw-semibold text-uppercase">Delivered Today</div>
+            <div class="fw-bold fs-5">{{ summary.today_count || 0 }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
         <div class="receiving-list-stat">
           <span class="receiving-list-stat-icon text-success"><i class="ri-stack-line"></i></span>
           <div>
@@ -59,7 +104,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <div class="receiving-list-stat">
           <span class="receiving-list-stat-icon text-info"><i class="ri-calculator-line"></i></span>
           <div>
@@ -89,15 +134,23 @@
             <tr v-if="loading">
               <td colspan="7" class="text-center text-muted py-5">Loading receiving records...</td>
             </tr>
+            <tr v-else-if="show_today_only && !lists.length">
+              <td colspan="7" class="text-center text-muted py-5">
+                No deliveries received today.
+              </td>
+            </tr>
             <tr v-else-if="!lists.length">
               <td colspan="7" class="text-center text-muted py-5">
                 No receiving records found.
               </td>
             </tr>
-            <tr v-for="record in sortedLists" v-else :key="record.id">
+            <tr v-for="record in displayLists" v-else :key="record.id" :class="{ 'receiving-list-today-row': isTodayDelivery(record) }">
               <td>
                 <div class="fw-bold text-primary">{{ record.code }}</div>
                 <div class="small text-muted">{{ record.invoice_no || "No invoice" }}</div>
+                <span v-if="isTodayDelivery(record)" class="badge rounded-pill bg-warning-subtle text-warning border border-warning mt-1">
+                  Today
+                </span>
               </td>
               <td>
                 <div class="fw-semibold">{{ record.po_code || "-" }}</div>
@@ -189,9 +242,11 @@ export default {
       lists: [],
       meta: {},
       links: {},
+      summary: {},
       loading: false,
       show_items_modal: false,
       selected_record: null,
+      show_today_only: false,
       filter: {
         keyword: null,
         count: 10,
@@ -208,11 +263,40 @@ export default {
     },
     sortedLists() {
       return [...this.lists].sort((first, second) => {
-        const firstDate = this.sortTimestamp(first.received_at || first.created_at || first.updated_at);
-        const secondDate = this.sortTimestamp(second.received_at || second.created_at || second.updated_at);
+        const firstDate = this.sortTimestamp(first.received_at_raw || first.received_at || first.created_at || first.updated_at);
+        const secondDate = this.sortTimestamp(second.received_at_raw || second.received_at || second.created_at || second.updated_at);
 
         return this.filter.sort === "oldest" ? firstDate - secondDate : secondDate - firstDate;
       });
+    },
+    displayLists() {
+      return this.sortedLists;
+    },
+    hasTodayDeliveries() {
+      return Number(this.summary.today_count || 0) > 0;
+    },
+    deliveryAlertTitle() {
+      if (this.hasTodayDeliveries) {
+        const count = Number(this.summary.today_count || 0);
+
+        return `${count} delivery ${count === 1 ? "was" : "were"} received today`;
+      }
+
+      return "No deliveries received today";
+    },
+    deliveryAlertMessage() {
+      if (this.hasTodayDeliveries) {
+        const latestCode = this.summary.latest_code ? `${this.summary.latest_code} ` : "";
+        const latestDate = this.summary.latest_received_at_display || "just now";
+
+        return `Latest receiving record: ${latestCode}at ${latestDate}.`;
+      }
+
+      if (this.summary.latest_received_at_display) {
+        return `Latest receiving record was ${this.summary.latest_code || "recorded"} on ${this.summary.latest_received_at_display}.`;
+      }
+
+      return "Refresh this page to check newly recorded PO deliveries.";
     },
   },
   watch: {
@@ -237,6 +321,7 @@ export default {
             keyword: this.filter.keyword,
             count: this.filter.count,
             sort: this.filter.sort,
+            delivery_date: this.show_today_only ? this.summary.today_date : null,
           },
         })
         .then((response) => {
@@ -244,6 +329,7 @@ export default {
 
           this.lists = payload.data || [];
           this.meta = payload.meta || payload || {};
+          this.summary = payload.summary || {};
           this.links = payload.links || {
             first: payload.first_page_url,
             prev: payload.prev_page_url,
@@ -258,7 +344,18 @@ export default {
     },
     refresh() {
       this.filter.keyword = null;
+      this.show_today_only = false;
       this.fetch();
+    },
+    toggleTodayOnly() {
+      this.show_today_only = !this.show_today_only;
+      this.fetch();
+    },
+    isTodayDelivery(record) {
+      const today = this.summary.today_date || new Date().toISOString().slice(0, 10);
+      const recordDate = record?.received_date_raw || String(record?.received_at_raw || record?.received_at || "").slice(0, 10);
+
+      return recordDate === today;
     },
     sortTimestamp(value) {
       if (!value) {
@@ -411,6 +508,51 @@ export default {
   max-width: 130px;
 }
 
+.receiving-list-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.85rem;
+  border: 1px solid var(--receiving-list-border);
+  border-radius: 8px;
+  background: var(--receiving-list-surface);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+}
+
+.receiving-list-alert-active {
+  border-color: rgba(var(--bs-warning-rgb), 0.4);
+  background: linear-gradient(90deg, rgba(var(--bs-warning-rgb), 0.12), var(--receiving-list-surface) 62%);
+}
+
+.receiving-list-alert-quiet {
+  color: var(--bs-secondary-color);
+}
+
+.receiving-list-alert-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(var(--bs-primary-rgb), 0.08);
+  color: var(--bs-primary);
+  border: 1px solid rgba(var(--bs-primary-rgb), 0.16);
+  font-size: 1.1rem;
+}
+
+.receiving-list-alert-active .receiving-list-alert-icon {
+  background: rgba(var(--bs-warning-rgb), 0.16);
+  color: var(--bs-warning);
+  border-color: rgba(var(--bs-warning-rgb), 0.32);
+}
+
+.receiving-list-alert-btn {
+  white-space: nowrap;
+}
+
 .receiving-list-stat {
   display: flex;
   align-items: center;
@@ -485,6 +627,14 @@ export default {
   background: rgba(var(--bs-primary-rgb), 0.04);
 }
 
+.receiving-list-table tbody tr.receiving-list-today-row td {
+  background: rgba(var(--bs-warning-rgb), 0.05);
+}
+
+.receiving-list-table tbody tr.receiving-list-today-row:hover td {
+  background: rgba(var(--bs-warning-rgb), 0.1);
+}
+
 .receiving-list-status-badge {
   margin-top: 0.18rem;
   border: 1px solid currentColor;
@@ -515,6 +665,11 @@ export default {
 
   .receiving-list-search {
     width: 100%;
+  }
+
+  .receiving-list-alert {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

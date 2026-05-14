@@ -101,6 +101,7 @@
             <div>
               <div class="small text-muted fw-semibold text-uppercase">{{ secondary_stat_label }}</div>
               <div class="fw-bold fs-5">{{ totalRemainingItems }}</div>
+              <div v-if="is_receiving_mode" class="receiving-stat-note">item(s) still to receive</div>
             </div>
           </div>
         </div>
@@ -108,8 +109,9 @@
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-success"><i class="ri-checkbox-circle-line"></i></span>
             <div>
-              <div class="small text-muted fw-semibold text-uppercase">Delivered Items</div>
+              <div class="small text-muted fw-semibold text-uppercase">{{ received_stat_label }}</div>
               <div class="fw-bold fs-5">{{ totalDeliveredItems }}</div>
+              <div v-if="is_receiving_mode" class="receiving-stat-note">item(s) recorded received</div>
             </div>
           </div>
         </div>
@@ -120,6 +122,28 @@
               <div class="small text-muted fw-semibold text-uppercase">{{ iar_stat_label }}</div>
               <div class="fw-bold fs-5">{{ totalIars }}</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="is_receiving_mode" class="receiving-workload mb-2">
+        <div class="receiving-workload-main">
+          <span class="receiving-workload-icon">
+            <i :class="totalRemainingItems > 0 ? 'ri-inbox-unarchive-line' : 'ri-checkbox-circle-line'"></i>
+          </span>
+          <div>
+            <div class="fw-bold">{{ receivingWorkloadTitle }}</div>
+            <div class="small text-muted">{{ receivingWorkloadMessage }}</div>
+          </div>
+        </div>
+        <div class="receiving-workload-counts">
+          <div class="receiving-workload-count">
+            <span class="text-warning">{{ totalRemainingItems }}</span>
+            <small>Needs Receiving</small>
+          </div>
+          <div class="receiving-workload-count">
+            <span class="text-success">{{ totalDeliveredItems }}</span>
+            <small>Received Already</small>
           </div>
         </div>
       </div>
@@ -186,10 +210,10 @@
               <td>
                 <div class="d-flex flex-wrap gap-1 mb-1">
                   <span v-if="is_receiving_mode" class="badge rounded-pill text-bg-warning">
-                    Remaining: {{ po.remaining_items_count || 0 }}
+                    Needs Receiving: {{ po.remaining_items_count || 0 }}
                   </span>
-                  <span class="badge rounded-pill text-bg-danger">
-                    Delivered: {{ po.delivered_items_count || 0 }}
+                  <span class="badge rounded-pill" :class="is_receiving_mode ? 'text-bg-success' : 'text-bg-danger'">
+                    {{ is_receiving_mode ? "Received Already" : "Delivered" }}: {{ po.delivered_items_count || 0 }}
                   </span>
                   <span v-if="is_receiving_mode && po.partial_items_count" class="badge rounded-pill text-bg-info">
                     Partial: {{ po.partial_items_count }}
@@ -674,7 +698,10 @@ export default {
       return this.is_receiving_mode ? "/faims/receiving-deliveries" : "/faims/ia-reports";
     },
     secondary_stat_label() {
-      return this.is_receiving_mode ? "Need Delivery" : "Pending Items";
+      return this.is_receiving_mode ? "Needs Receiving" : "Pending Items";
+    },
+    received_stat_label() {
+      return this.is_receiving_mode ? "Received Already" : "Delivered Items";
     },
     iar_stat_label() {
       return this.is_receiving_mode ? "Total Received PO" : "Total Received PO";
@@ -700,6 +727,22 @@ export default {
     },
     totalDeliveredItems() {
       return this.lists.reduce((sum, po) => sum + Number(po.delivered_items_count || 0), 0);
+    },
+    receivingWorkloadTitle() {
+      if (this.totalRemainingItems > 0) {
+        return `${this.totalRemainingItems} item${this.totalRemainingItems === 1 ? "" : "s"} still need receiving`;
+      }
+
+      return "All visible delivered items are received";
+    },
+    receivingWorkloadMessage() {
+      const received = `${this.totalDeliveredItems} item${this.totalDeliveredItems === 1 ? "" : "s"} received already`;
+
+      if (this.totalRemainingItems > 0) {
+        return `${received}. Open a PO to review the items and record the remaining delivery quantities.`;
+      }
+
+      return `${received}. Refresh the list to check for newly delivered items.`;
     },
     totalIars() {
       return this.lists.reduce((sum, po) => sum + this.iarCount(po), 0);
@@ -1334,6 +1377,74 @@ export default {
   font-size: 0.85rem;
 }
 
+.receiving-stat-note {
+  color: var(--bs-secondary-color);
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+.receiving-workload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(var(--bs-warning-rgb), 0.28);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(var(--bs-warning-rgb), 0.08), var(--receiving-surface) 58%);
+}
+
+.receiving-workload-main {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.receiving-workload-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--bs-warning);
+  background: rgba(var(--bs-warning-rgb), 0.14);
+  border: 1px solid rgba(var(--bs-warning-rgb), 0.28);
+}
+
+.receiving-workload-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.receiving-workload-count {
+  min-width: 118px;
+  padding: 0.38rem 0.55rem;
+  border: 1px solid var(--receiving-border);
+  border-radius: 8px;
+  background: var(--receiving-surface);
+  text-align: center;
+}
+
+.receiving-workload-count span {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.receiving-workload-count small {
+  display: block;
+  color: var(--bs-secondary-color);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .receiving-card {
   border: 0;
   border-radius: 8px;
@@ -1493,6 +1604,20 @@ export default {
 
   .receiving-search {
     width: 100%;
+  }
+
+  .receiving-workload {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .receiving-workload-counts {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .receiving-workload-count {
+    flex: 1 1 140px;
   }
 
   .receiving-iar-summary {

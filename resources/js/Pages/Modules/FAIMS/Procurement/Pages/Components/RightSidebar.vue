@@ -1,5 +1,8 @@
 <template>
-  <div class="floating-comments-wrapper">
+  <div
+    class="floating-comments-wrapper"
+    :class="{ 'floating-comments-wrapper-open': !isRightCollapsed }"
+  >
     <button
       v-if="isRightCollapsed"
       class="floating-comment-trigger"
@@ -1070,10 +1073,14 @@ export default {
 .floating-comments-wrapper {
   position: fixed;
   right: 24px;
-  bottom: 24px;
-  z-index: 1050;
+  bottom: 104px;
+  z-index: 1060;
   max-width: calc(100vw - 48px);
   max-height: calc(100dvh - 48px);
+}
+
+.floating-comments-wrapper-open {
+  bottom: 0;
 }
 
 .floating-comment-panel,
@@ -1094,6 +1101,7 @@ export default {
 
 .floating-comment-trigger {
   position: relative;
+  z-index: 1;
   width: 64px;
   height: 64px;
   border: 0;
@@ -1117,6 +1125,7 @@ export default {
 
 .floating-comment-panel {
   position: absolute;
+  z-index: 2;
   right: 0;
   bottom: 0;
   display: flex;
@@ -1347,17 +1356,21 @@ export default {
 @media (max-width: 768px) {
   .floating-comments-wrapper {
     right: 16px;
-    bottom: 16px;
+    bottom: 96px;
     max-width: calc(100vw - 32px);
     max-height: calc(100dvh - 32px);
+  }
+
+  .floating-comments-wrapper-open {
+    bottom: 0;
   }
 
   .floating-comment-panel {
     width: min(440px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);
-    max-height: calc(100dvh - 112px);
+    max-height: calc(100dvh - 16px);
     right: -4px;
-    bottom: 74px;
+    bottom: 0;
   }
 
   .floating-comment-body {

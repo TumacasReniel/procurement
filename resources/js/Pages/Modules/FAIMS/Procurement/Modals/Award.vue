@@ -38,7 +38,7 @@
               <tr v-for="(bidItem, indexData) in bidsForAward" :key="indexData">
                 <td class="text-center">{{ bidItem.rank }}</td>
                 <td class="text-center">{{ bidItem?.item_no }}</td>
-                <td>
+                <td class="text-center">
                   {{ bidItem?.item_quantity }}
                   {{
                     bidItem?.item_quantity > 1
@@ -185,6 +185,7 @@
   <b-modal
     v-model="showDetailModal"
     :title="detailModalTitle"
+    :size="detailModalSize"
     header-class="p-3 bg-light"
     body-class="award-detail-modal-body"
     centered
@@ -217,6 +218,7 @@ export default {
       showDetailModal: false,
       detailModalTitle: "",
       detailModalContent: "",
+      detailModalSize: "md",
     };
   },
 
@@ -257,6 +259,7 @@ export default {
     openDetailModal(title, content) {
       this.detailModalTitle = title;
       this.detailModalContent = content || "<p>No details available.</p>";
+      this.detailModalSize = title === "Bid Description" ? "xl" : "md";
       this.showDetailModal = true;
     },
 

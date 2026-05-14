@@ -349,7 +349,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="step in statusFlowNav" :key="step.name">
+                        <tr v-for="step in paginatedStatusFlowNav" :key="step.name">
                           <td class="fw-semibold">{{ step.name }}</td>
                           <td>
                             <span v-if="step.isCurrent" class="badge bg-primary">Current</span>
@@ -379,6 +379,16 @@
                         </tr>
                       </tbody>
                     </table>
+                    <div class="card-footer">
+                      <Pagination
+                        class="ms-2 me-2 mt-n1"
+                        v-if="statusFlowPagination.total > processPerPage"
+                        @fetch="changeProcessPage"
+                        :lists="paginatedStatusFlowNav.length"
+                        :links="statusFlowPaginationLinks"
+                        :pagination="statusFlowPagination"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -422,7 +432,7 @@
       </div>
     </div>
   </div>
-  <div class="floating-progress-wrapper">
+  <div v-if="isRightCollapsed" class="floating-progress-wrapper">
     <button
       class="floating-progress-trigger"
       type="button"
@@ -484,10 +494,12 @@ import ProcurementStatusTipModal from "./Pages/Components/Modals/StatusTip.vue";
 import { router } from "@inertiajs/vue3";
 
 import PageHeader from "@/Shared/Components/PageHeader.vue";
+import Pagination from "@/Shared/Components/Pagination.vue";
 import axios from "axios";
 export default {
   components: {
     PageHeader,
+    Pagination,
     Overview,
     Quotation,
     BACResolution,
@@ -527,6 +539,8 @@ export default {
       statusTipSteps: [],
       statusTipAssigned: [],
       showProgressModal: false,
+      processPage: 1,
+      processPerPage: 8,
     };
   },
 
@@ -705,6 +719,33 @@ export default {
       });
       return statusFlow;
     },
+    paginatedStatusFlowNav() {
+      const start = (this.processPage - 1) * this.processPerPage;
+
+      return this.statusFlowNav.slice(start, start + this.processPerPage);
+    },
+    statusFlowPagination() {
+      const total = this.statusFlowNav.length;
+      const lastPage = Math.max(Math.ceil(total / this.processPerPage), 1);
+      const currentPage = Math.min(this.processPage, lastPage);
+
+      return {
+        current_page: currentPage,
+        last_page: lastPage,
+        per_page: this.processPerPage,
+        total,
+      };
+    },
+    statusFlowPaginationLinks() {
+      const pagination = this.statusFlowPagination;
+
+      return {
+        first: pagination.current_page > 1 ? 1 : null,
+        prev: pagination.current_page > 1 ? pagination.current_page - 1 : null,
+        next: pagination.current_page < pagination.last_page ? pagination.current_page + 1 : null,
+        last: pagination.current_page < pagination.last_page ? pagination.last_page : null,
+      };
+    },
     subStatusFlowNav() {
       const currentStatus = this.procurement.status?.name;
       const currentSubStatus = this.procurement.sub_status?.name;
@@ -831,6 +872,15 @@ export default {
     this.openProgressModalOnce();
   },
   methods: {
+    changeProcessPage(page) {
+      const nextPage = Number(page);
+
+      if (!Number.isFinite(nextPage) || nextPage < 1) {
+        return;
+      }
+
+      this.processPage = Math.min(nextPage, this.statusFlowPagination.last_page);
+    },
     syncPurchaseOrderViewState(tab = this.activeTab, noa = this.noa) {
       this.selectedNoa = noa?.id ? noa : null;
       this.showCreatePOFlag = tab === 6 && Boolean(noa?.id);
@@ -2398,7 +2448,7 @@ export default {
 .floating-progress-wrapper {
   position: fixed;
   right: 24px;
-  bottom: 104px;
+  bottom: 24px;
   z-index: 1049;
 }
 
@@ -2645,7 +2695,7 @@ export default {
 
   .floating-progress-wrapper {
     right: 16px;
-    bottom: 96px;
+    bottom: 16px;
   }
 
   .floating-progress-trigger {

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Notice of Award</title>
+    <title>Abstract of Bids</title>
     <style>
         @page { 
             margin: 8px 24px 26px 24px;
@@ -43,19 +43,6 @@
             line-height: 1.15;
         }
 
-        .supplier-award-check {
-            display: inline-block;
-            width: 13px;
-            height: 13px;
-            margin-right: 4px;
-            border: 1px solid #000;
-            text-align: center;
-            font-size: 11px;
-            line-height: 12px;
-            font-weight: bold;
-            vertical-align: middle;
-        }
-
         .supplier-award-label {
             display: inline-block;
             vertical-align: middle;
@@ -90,6 +77,43 @@
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .bold { font-weight: bold; }
+        .award-price {
+            color: #198754;
+            font-weight: bold;
+        }
+        .award-price-table {
+            display: inline-table;
+            margin: 0 auto;
+            border-collapse: collapse;
+            border: none;
+            vertical-align: middle;
+            width: auto;
+        }
+        .award-price-table td {
+            border: none;
+            padding: 0;
+            vertical-align: middle;
+            line-height: 14px;
+        }
+        .award-price-check {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin: 0 3px 0 0;
+            border: 1px solid #198754;
+            border-radius: 50%;
+            background: #198754;
+            color: #fff;
+            font-family: "DejaVu Sans", Arial, sans-serif;
+            font-size: 8px;
+            line-height: 12px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .award-price-amount {
+            line-height: 14px;
+            white-space: nowrap;
+        }
         .description-cell {
             font-size: 12px;
             line-height: 1.15;
@@ -395,14 +419,11 @@
                                 return (int) $quotationItem->status_id === (int) $awardedStatusId;
                             });
                         @endphp
-                        <th style="width:auto">
-                            <div class="supplier-header">
-                                @if ($isSupplierAwarded)
-                                    <span class="supplier-award-check">&#10003;</span>
-                                @endif
-                                <span class="supplier-award-label">{{ $quotation->supplier->name }}</span>
-                            </div>
-                        </th>
+                    <th style="width:auto">
+                        <div class="supplier-header">
+                            <span class="supplier-award-label">{{ $quotation->supplier->name }}</span>
+                        </div>
+                    </th>
                     @endforeach
                 </tr>
             </thead>
@@ -470,18 +491,31 @@
                                             $isFree = (bool) ($quotationItem?->is_free);
                                             $isNoOffer = (bool) ($quotationItem?->is_no_offer);
                                             $isNotApplicable = (bool) ($quotationItem?->is_not_applicable);
+                                            $isAwardedItem = (int) ($quotationItem?->status_id ?? 0) === (int) $awardedStatusId;
+                                            $priceDisplay = null;
+
+                                            if ($isFree) {
+                                                $priceDisplay = 'free';
+                                            } elseif ($isNoOffer) {
+                                                $priceDisplay = 'No Offer';
+                                            } elseif ($isNotApplicable) {
+                                                $priceDisplay = 'Not Applicable';
+                                            } elseif (is_null($price) || (float) $price <= 0) {
+                                                $priceDisplay = 'No Bid';
+                                            } else {
+                                                $priceDisplay = number_format($price, 2);
+                                            }
                                         @endphp
 
-                                        @if ($isFree)
-                                            free
-                                        @elseif ($isNoOffer)
-                                            No Offer
-                                        @elseif ($isNotApplicable)
-                                            Not Applicable
-                                        @elseif (is_null($price) || (float) $price <= 0)
-                                            No Bid
+                                        @if ($isAwardedItem)
+                                            <table class="award-price-table">
+                                                <tr>
+                                                    <td><span class="award-price-check">&#10003;</span></td>
+                                                    <td><span class="award-price award-price-amount">{{ $priceDisplay }}</span></td>
+                                                </tr>
+                                            </table>
                                         @else
-                                            {{ number_format($price, 2) }}
+                                            {{ $priceDisplay }}
                                         @endif
                                     </td>
                                 @endforeach
