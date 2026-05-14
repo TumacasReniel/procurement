@@ -221,7 +221,7 @@
                                                 <b-badge
                                                     :class="list.sub_status?.bg"
                                                     class="fs-11"
-                                                    v-if="list.sub_status"
+                                                    v-if="shouldShowSubStatus(list)"
                                                 >
                                                     {{ list.sub_status?.name }}
                                                 </b-badge>
@@ -460,6 +460,12 @@ export default {
         this.fetchChatRequests();
     },
     methods: {
+        shouldShowSubStatus(list) {
+            const statusName = String(list?.status?.name || "").trim().toLowerCase();
+            const subStatusName = String(list?.sub_status?.name || "").trim().toLowerCase();
+
+            return Boolean(subStatusName && subStatusName !== statusName);
+        },
         canCancelProcurement(list) {
             const currentUserId = Number(this.$page.props.user?.data?.id || 0);
             const createdById = Number(list?.created_by_id || 0);

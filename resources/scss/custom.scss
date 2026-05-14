@@ -1356,4 +1356,35 @@ File: Custom Css File
   .procurement-dashboard-page .apexcharts-gridline {
     stroke: rgba(148, 163, 184, 0.16) !important;
   }
+
+  [class*="procurement-"].bg-white,
+  [class*="procurement-"] .bg-white,
+  [class*="procurement-"].card-body.bg-white,
+  [class*="procurement-"] .card-body.bg-white,
+  [class*="procurement-"].car-body.bg-white,
+  [class*="procurement-"] .car-body.bg-white,
+  [class*="procurement-"].card.bg-white,
+  [class*="procurement-"] .card.bg-white,
+  [class*="procurement-"].card-footer.bg-white,
+  [class*="procurement-"] .card-footer.bg-white,
+  [class*="procurement-"].input-group-text.bg-white,
+  [class*="procurement-"] .input-group-text.bg-white {
+    background: var(--module-surface) !important;
+    background-color: var(--module-surface) !important;
+    border-color: var(--module-border) !important;
+    color: var(--module-text) !important;
+  }
+
+  [class*="procurement-"] .bg-white.text-dark,
+  [class*="procurement-"].bg-white.text-dark {
+    color: var(--module-text) !important;
+  }
+
+  [class*="procurement-"] .table.bg-white,
+  [class*="procurement-"] table.bg-white,
+  [class*="procurement-"] .table-card.bg-white {
+    --bs-table-bg: transparent;
+    background: transparent !important;
+    color: var(--module-text) !important;
+  }
 }

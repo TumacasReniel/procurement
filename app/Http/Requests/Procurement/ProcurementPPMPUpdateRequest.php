@@ -14,7 +14,8 @@ class ProcurementPPMPUpdateRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'option' => ['required', 'in:submit_final,approve_to_app,add_item,update_item,delete_item'],
+            'option' => ['required', 'in:update_status,approve_to_app,add_item,update_item,delete_item'],
+            'plan_type' => ['nullable', 'in:PPMP,ppmp,APP,SPP,annual,supplemental'],
         ];
 
         if ($this->option === 'add_item') {

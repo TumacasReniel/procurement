@@ -21,7 +21,7 @@
                     {{ planShortName }}
                   </b-badge>
                 </div>
-                <p v-if="ppmp.plan_type === 'ppmp'" class="ppmp-subtitle mb-0">
+                <p v-if="normalizedPlanType === 'PPMP'" class="ppmp-subtitle mb-0">
                   {{ planDescription }} with {{ ppmp.items_count || 0 }}
                   item{{ (ppmp.items_count || 0) === 1 ? "" : "s" }}
                 </p>
@@ -37,17 +37,17 @@
               </b-button>
               <b-button variant="dark" @click="printPPMP">
                 <i class="ri-printer-line align-bottom me-1"></i>
-                Print PDF
+                Print
               </b-button>
           
               <b-button
-                v-if="ppmp.can_submit_final"
+                v-if="canShowAdvanceAction"
                 variant="primary"
                 :disabled="submitFinalForm.processing"
                 @click="submitFinalModal.show = true"
               >
                 <i class="ri-check-double-line align-bottom me-1"></i>
-                Submit for Approval
+                {{ advanceActionLabel }}
               </b-button>
               <b-button
                 v-if="ppmp.can_approve_to_app"
@@ -56,280 +56,24 @@
                 @click="approveAppModal.show = true"
               >
                 <i class="ri-checkbox-circle-line align-bottom me-1"></i>
-                Approve
+                Consolidate
               </b-button>
             </div>
           </div>
         </div>
 
-        <div class="card-body bg-white">
-          <div class="plan-detail-banner mb-3" :class="`plan-detail-banner--${ppmp.plan_type || 'ppmp'}`">
-            <div>
-              <div class="plan-detail-banner__eyebrow">{{ planScope }}</div>
-              <div class="plan-detail-banner__title">{{ planLongName }}</div>
-              <div class="plan-detail-banner__copy">{{ planDescription }}</div>
-              <div v-if="ppmp.can_submit_final" class="plan-detail-banner__hint">
-                Review this pending PPMP, then submit it for Budget Officer approval when the unit plan is ready.
-              </div>
-            </div>
-            <div class="plan-detail-banner__meta">
-              <div>
-                <span>{{ formatCurrency(ppmp.estimated_budget) }}</span>
-                <small>Total ABC</small>
-              </div>
-              <div>
-                <span>{{ ppmp.items_count || (ppmp.source_ppmps || []).length || 0 }}</span>
-                <small>{{ ppmp.plan_type !== "ppmp" ? "Source PPMPs" : "Items" }}</small>
-              </div>
-              <div>
-                <span>{{ ppmp.source_of_funds || ppmp.fund_cluster?.name || "-" }}</span>
-                <small>Fund Source</small>
-              </div>
-            </div>
-          </div>
-
-          <div class="row g-3 mb-3">
-            <div v-if="ppmp.plan_type === 'ppmp'" class="col-xl-4 col-md-6">
-              <div class="overview-box">
-                <i class="ri-file-text-line overview-icon"></i>
-                <span class="overview-label">{{ planNumberLabel }}</span>
-                <span class="overview-value">{{ ppmp.pr_no || ppmp.code || "-" }}</span>
-              </div>
-            </div>
-            <div v-if="ppmp.plan_type === 'ppmp'" class="col-xl-4 col-md-6">
-              <div class="overview-box">
-                <i class="ri-list-check-3 overview-icon"></i>
-                <span class="overview-label">Items</span>
-                <span class="overview-value">{{ ppmp.items_count || 0 }}</span>
-              </div>
-            </div>
-            <div class="col-xl-4 col-md-6">
-              <div class="overview-box">
-                <i class="ri-money-dollar-circle-line overview-icon"></i>
-                <span class="overview-label">Total ABC</span>
-                <span class="overview-value text-primary">{{ formatCurrency(ppmp.estimated_budget) }}</span>
-              </div>
-            </div>
-    
-          </div>
-
-          <div class="row g-3">
-            <div class="col-lg-8">
-              <div class="section-panel">
-                <div class="section-heading compact">
-                  <h6 class="mb-0 fs-14">Plan Information</h6>
-                </div>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <div class="info-row">
-                      <span>{{ ppmp.plan_type === "ppmp" ? "Unit" : "Coverage" }}</span>
-                      <strong>{{ ppmp.unit?.name || "-" }}</strong>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div v-if="ppmp.plan_type === 'ppmp'" class="info-row">
-                      <span>Division</span>
-                      <strong>{{ ppmp.division?.name || "-" }}</strong>
-                    </div>
-                  </div>
-                 
-   
-                 
-                </div>
-              </div>
-            </div>
-
-            <div class="col-lg-4">
-              <div class="section-panel h-100">
-                <div class="section-heading compact">
-                  <h6 class="mb-0 fs-14">Review and Approval</h6>
-                </div>
-                <div class="signatory-list">
-                  <div>
-                    <span>{{ ppmp.plan_type === "annual" ? "Prepared / Consolidated By" : "Reviewed By" }}</span>
-                    <strong>{{ ppmp.reviewed_by || "-" }}</strong>
-                    <small v-if="ppmp.plan_type === 'supplemental'" class="text-muted">Agency</small>
-                  </div>
-                  <div>
-                    <span>{{ ppmp.plan_type === "annual" ? "Submitted / Certified By" : "Approved By" }}</span>
-                    <strong>{{ ppmp.approved_by || "-" }}</strong>
-                  </div>
-                </div>
-              
-              </div>
-            </div>
-          </div>
-
-          <div class="section-panel mt-3">
-            <div class="section-heading">
-              <h6 class="mb-0 fs-14">{{ ppmp.plan_type !== "ppmp" ? "Approved Final PPMPs" : `${planShortName} Items` }}</h6>
-              <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
-                <span class="text-muted fs-12">
-                  <template v-if="ppmp.plan_type !== 'ppmp'">
-                    {{ (ppmp.source_ppmps || []).length }} PPMP{{ (ppmp.source_ppmps || []).length === 1 ? "" : "s" }}
-                  </template>
-                  <template v-else>
-                    {{ ppmp.items_count || 0 }} item{{ (ppmp.items_count || 0) === 1 ? "" : "s" }}
-                  </template>
-                </span>
-                <b-button
-                  v-if="canAddDraftItem"
-                  variant="success"
-                  size="sm"
-                  @click="openAddItemModal"
-                >
-                  <i class="ri-add-line align-bottom me-1"></i>
-                  Add Item
-                </b-button>
-              </div>
-            </div>
-            <div class="table-responsive ppmp-table-wrap">
-              <table v-if="ppmp.plan_type !== 'ppmp'" class="table align-middle table-hover mb-0">
-                <thead class="table-light">
-                  <tr class="fs-12">
-                    <th style="width: 4%" class="text-center">#</th>
-                    <th style="width: 18%">PPMP No.</th>
-                    <th>End-User Unit</th>
-                    <th style="width: 14%" class="text-end">ABC</th>
-                    <th style="width: 16%" class="text-center">Approval</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(source, index) in ppmp.source_ppmps" :key="source.id || index">
-                    <td class="text-center fw-semibold">{{ index + 1 }}</td>
-                    <td class="fw-medium text-primary">{{ source.ppmp_no || "-" }}</td>
-                    <td>
-                      <div class="fw-medium">{{ source.unit?.name || "-" }}</div>
-                      <small class="text-muted">{{ source.division?.name || "-" }}</small>
-                    </td>
-                    <td class="text-end fw-semibold">{{ formatCurrency(source.total_amount) }}</td>
-                    <td class="text-center">
-                      <b-badge variant="success">{{ source.approval_status || "Approved in APP" }}</b-badge>
-                    </td>
-                  </tr>
-                  <tr v-if="!ppmp.source_ppmps?.length">
-                    <td colspan="5" class="text-center text-muted py-4">No approved final PPMPs found.</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <th colspan="3" class="text-end">{{ planShortName }} Total ABC</th>
-                    <th class="text-end">{{ formatCurrency(ppmp.estimated_budget) }}</th>
-                    <th></th>
-                  </tr>
-                </tfoot>
-              </table>
-
-              <table v-else class="table align-middle table-hover mb-0 ppmp-items-table">
-                <thead class="table-light">
-                  <tr class="fs-12">
-                    <th style="width: 4%" class="text-center">#</th>
-                    <th style="width: 28%">Item Description</th>
-                    <th>PPMP Details</th>
-                    <th style="width: 10%" class="text-center">Qty/Unit</th>
-                    <th style="width: 14%" class="text-end">Unit Price</th>
-                    <th style="width: 14%" class="text-end">ABC</th>
-                    <th v-if="canEditIndicativeItems" style="width: 70px" class="text-center"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in ppmp.item_details" :key="item.id">
-                    <td class="text-center fw-semibold">{{ index + 1 }}</td>
-                    <td>
-                      <span class="fw-semibold text-dark">{{ item.name || "-" }}</span>
-                      <div class="text-muted small mt-1 item-description" v-html="item.description || '-'"></div>
-                    </td>
-                    <td class="fs-12 ppmp-details-cell">
-                      <div class="detail-summary">
-                        <div v-if="item.project_type" class="detail-summary__item">
-                          <span>Project Type</span>
-                          <strong>{{ item.project_type }}</strong>
-                        </div>
-                        <div v-if="item.item_category" class="detail-summary__item">
-                          <span>Category</span>
-                          <strong>{{ item.item_category }}</strong>
-                        </div>
-                        <div v-if="item.recommended_mode_of_procurement" class="detail-summary__item detail-summary__item--wide">
-                          <span>Mode of Procurement</span>
-                          <strong>{{ item.recommended_mode_of_procurement }}</strong>
-                        </div>
-                        <div v-if="item.pre_procurement_conference" class="detail-summary__item">
-                          <span>Pre-Procurement</span>
-                          <strong>{{ item.pre_procurement_conference }}</strong>
-                        </div>
-                        <div v-if="item.attached_supporting_documents" class="detail-summary__item">
-                          <span>Supporting Docs</span>
-                          <strong>{{ item.attached_supporting_documents }}</strong>
-                        </div>
-                        <div v-if="item.remarks" class="detail-summary__item detail-summary__item--wide">
-                          <span>Remarks</span>
-                          <strong>{{ item.remarks }}</strong>
-                        </div>
-                        <div
-                          v-if="!item.project_type && !item.item_category && !item.recommended_mode_of_procurement && !item.pre_procurement_conference && !item.attached_supporting_documents && !item.remarks"
-                          class="text-muted"
-                        >
-                          No additional details
-                        </div>
-                      </div>
-                      <a
-                        v-if="item.supporting_document_url"
-                        :href="item.supporting_document_url"
-                        target="_blank"
-                        rel="noopener"
-                        class="detail-attachment"
-                      >
-                        <i class="ri-attachment-2 align-bottom me-1"></i>
-                        {{ item.supporting_document_original_name || "View attachment" }}
-                      </a>
-                    </td>
-
-                    <td class="text-center">
-                      <span>{{ formatQuantity(item.quantity) }}</span>
-                      {{ item.unit || "-" }}
-                    </td>
-                    <td class="text-end">{{ formatCurrency(item.unit_price) }}</td>
-                    <td class="text-end fw-semibold">{{ formatCurrency(item.abc) }}</td>
-                    <td v-if="canEditIndicativeItems" class="text-center">
-                      <div class="d-flex justify-content-center gap-1">
-                        <b-button
-                          type="button"
-                          variant="success"
-                          size="sm"
-                          class="btn-icon"
-                          style="border-radius: 8px;"
-                          @click="openEditItemModal(item)"
-                        >
-                          <i class="ri-edit-2-line"></i>
-                        </b-button>
-                        <b-button
-                          type="button"
-                          variant="danger"
-                          size="sm"
-                          class="btn-icon"
-                          style="border-radius: 8px;"
-                          @click="openDeleteItemModal(item)"
-                        >
-                          <i class="ri-delete-bin-line"></i>
-                        </b-button>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr v-if="!ppmp.item_details?.length">
-                    <td :colspan="canEditIndicativeItems ? 7 : 6" class="text-center text-muted py-4">No items found.</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <th :colspan="canEditIndicativeItems ? 6 :5 " class="text-end">Total ABC</th>
-                    <th class="text-end">{{ formatCurrency(ppmp.estimated_budget) }}</th>
-                    <th v-if="canEditIndicativeItems"></th>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
+        <AppPlanView v-if="normalizedPlanType === 'APP'" :ppmp="ppmp" :dropdowns="dropdowns" />
+        <SppPlanView v-else-if="normalizedPlanType === 'SPP'" :ppmp="ppmp" :dropdowns="dropdowns" />
+        <PpmpPlanView
+          v-else
+          :ppmp="ppmp"
+          :can-add-draft-item="canAddDraftItem"
+          :can-edit-indicative-items="canEditIndicativeItems"
+          @add-item="openAddItemModal"
+          @edit-item="openEditItemModal"
+          @delete-item="openDeleteItemModal"
+          @advance-status="openSubmitFinalModal"
+        />
       </div>
     </BCol>
   </BRow>
@@ -347,7 +91,7 @@
     :ppmp="ppmp"
     :processing="submitFinalForm.processing"
     @cancel="closeSubmitFinalModal"
-    @confirm="submitFinal"
+    @confirm="updateStatus"
   />
 
   <ApproveToAppModal
@@ -366,20 +110,34 @@ import AddItemModal from "./Modals/AddItem.vue";
 import DeleteItemModal from "./Modals/DeleteItem.vue";
 import ApproveToAppModal from "./Modals/ApproveToApp.vue";
 import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
+import AppPlanView from "./Components/AppPlanView.vue";
+import SppPlanView from "./Components/SppPlanView.vue";
+import PpmpPlanView from "./Components/PpmpPlanView.vue";
 
 export default {
   props: ["ppmp", "dropdowns"],
-  components: { PageHeader, AddItemModal, DeleteItemModal, ApproveToAppModal, SubmitForApprovalModal },
+  components: {
+    PageHeader,
+    AddItemModal,
+    DeleteItemModal,
+    ApproveToAppModal,
+    SubmitForApprovalModal,
+    AppPlanView,
+    SppPlanView,
+    PpmpPlanView,
+  },
   data() {
     return {
       submitFinalForm: useForm({
-        option: "submit_final",
+        option: "update_status",
+        plan_type: this.ppmp?.plan_type || "PPMP",
       }),
       submitFinalModal: {
         show: false,
       },
       approveAppForm: useForm({
         option: "approve_to_app",
+        plan_type: this.ppmp?.plan_type || "PPMP",
       }),
       approveAppModal: {
         show: false,
@@ -395,52 +153,113 @@ export default {
     canEditIndicativeItems() {
       return this.canAddDraftItem;
     },
+    isPpmpCreator() {
+      const currentUserId = this.$page?.props?.user?.data?.id;
+
+      return Boolean(currentUserId && Number(currentUserId) === Number(this.ppmp?.created_by_id));
+    },
     canAddDraftItem() {
       const ppmpStatus = String(this.ppmp.ppmp_status || "").trim().toLowerCase();
       const approvalStatus = String(this.ppmp.approval_status || "").trim().toLowerCase();
       const is_pending = approvalStatus === "pending" && ppmpStatus === "pending";
 
-      return this.ppmp.plan_type === "ppmp" && (this.ppmp.can_add_items || is_pending);
+      return this.isPpmpCreator
+        && this.normalizedPlanType === "PPMP"
+        && (this.ppmp.can_add_items || is_pending);
     },
+    normalizedPlanType() {
+      switch (this.ppmp.plan_type) {
+        case "APP":
+        case "annual":
+          return "APP";
+
+        case "SPP":
+        case "supplemental":
+          return "SPP";
+
+        case "PPMP":
+        case "ppmp":
+        default:
+          return "PPMP";
+      }
+    },
+    currentRoles() {
+      return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
+    },
+    isBudgetOfficer() {
+      return this.currentRoles.includes("Budget Officer");
+    },
+    isAdministrator() {
+      return this.currentRoles.includes("Administrator");
+    },
+    isProcurementOfficer() {
+      return this.currentRoles.includes("Procurement Officer");
+    },
+    isPendingPpmp() {
+      return String(this.ppmp.ppmp_status || "").trim().toLowerCase() === "pending";
+    },
+    isReviewedForSubmission() {
+      return String(this.ppmp.ppmp_status || "").trim().toLowerCase() === "reviewed/for submission";
+    },
+    canShowAdvanceAction() {
+      if (!this.ppmp.can_submit_final) {
+        return false;
+      }
+
+      if (this.isAdministrator) {
+        return true;
+      }
+
+      if (this.isReviewedForSubmission) {
+        return this.isProcurementOfficer;
+      }
+
+      if (this.isPendingPpmp) {
+        return this.isBudgetOfficer;
+      }
+
+      return false;
+    },
+
     planShortName() {
-      if (this.ppmp.plan_type === "annual") {
+      if (this.normalizedPlanType === "APP") {
         return "APP";
       }
 
-      if (this.ppmp.plan_type === "supplemental") {
+      if (this.normalizedPlanType === "SPP") {
         return "SPP";
       }
 
       return "PPMP";
     },
     planLongName() {
-      if (this.ppmp.plan_type === "annual") {
+      if (this.normalizedPlanType === "APP") {
         return "Annual Procurement Plan";
       }
 
-      if (this.ppmp.plan_type === "supplemental") {
+      if (this.normalizedPlanType === "SPP") {
         return "Supplemental Procurement Plan";
       }
 
       return "Project Procurement Management Plan";
     },
     planScope() {
-      if (this.ppmp.plan_type === "supplemental") {
+      if (this.normalizedPlanType === "SPP") {
         return "Agency update to approved APP";
       }
 
-      if (this.ppmp.plan_type === "annual") {
+      if (this.normalizedPlanType === "APP") {
         return "Agency consolidated plan";
       }
 
       return "End-user unit plan";
     },
     planBadgeVariant() {
-      if (this.ppmp.plan_type === "annual") {
+      if (this.normalizedPlanType === "APP") {
         return "primary";
       }
 
-      if (this.ppmp.plan_type === "supplemental") {
+      if (this.normalizedPlanType === "SPP") {
         return "warning";
       }
 
@@ -449,33 +268,44 @@ export default {
     ppmpStatusVariant() {
       const status = String(this.ppmp.ppmp_status || "").toLowerCase();
 
-      if (status === "approved") {
+      if (status === "consolidated/added to app" || status === "consolidated/added to spp") {
         return "success";
       }
 
-      if (status === "for approval") {
+      if (status === "reviewed/for submission" || status === "submitted/for consolidation") {
         return "warning";
+      }
+
+      if (status === "consolidated/added to app" || status === "consolidated/added to spp") {
+        return "success";
       }
 
       return "secondary";
     },
     planNumberLabel() {
-      if (["annual", "supplemental"].includes(this.ppmp.plan_type)) {
+      if (["APP", "SPP"].includes(this.normalizedPlanType)) {
         return "Included PR Nos.";
       }
 
       return "PR No.";
     },
     planDescription() {
-      if (this.ppmp.plan_type === "annual") {
+      if (this.normalizedPlanType === "APP") {
         return "Agency-wide consolidated annual procurement plan";
       }
 
-      if (this.ppmp.plan_type === "supplemental") {
+      if (this.normalizedPlanType === "SPP") {
         return "Agency-prepared update to the approved APP for new needs or budget changes";
       }
 
       return `Project procurement management plan for ${this.ppmp.unit?.name || "unit"}`;
+    },
+    advanceActionLabel() {
+      if (this.isReviewedForSubmission) {
+        return "Submit for Consolidation";
+      }
+
+      return "Review";
     },
   },
   methods: {
@@ -504,9 +334,24 @@ export default {
       return Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
     },
     printPPMP() {
-      window.open(`/faims/procurement-ppmp/${this.ppmp.id}?option=print&type=ppmp`, "_blank");
+      const params = new URLSearchParams({
+        option: "print",
+        type: "ppmp",
+        plan_type: this.normalizedPlanType,
+      });
+
+      window.open(`/faims/procurement-ppmp/${this.ppmp.id}?${params.toString()}`, "_blank");
     },
-    submitFinal() {
+    openSubmitFinalModal() {
+      if (this.submitFinalForm.processing) {
+        return;
+      }
+
+      this.submitFinalModal.show = true;
+    },
+    updateStatus() {
+      this.submitFinalForm.option = "update_status";
+      this.submitFinalForm.plan_type = this.normalizedPlanType;
       this.submitFinalForm.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -524,6 +369,7 @@ export default {
     },
     approveToApp() {
       this.approveAppForm.option = "approve_to_app";
+      this.approveAppForm.plan_type = this.normalizedPlanType;
       this.approveAppForm.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -552,21 +398,36 @@ export default {
 };
 </script>
 
-<style scoped>
+<style>
 .ppmp-view-page {
-  --ppmp-border: #e9ebec;
-  --ppmp-muted: #6c757d;
-  --ppmp-soft: #f8fafc;
+  --ppmp-surface: var(--vz-card-bg, var(--bs-card-bg, #ffffff));
+  --ppmp-surface-soft: var(--vz-tertiary-bg, var(--bs-tertiary-bg, #f8fafc));
+  --ppmp-surface-softer: var(--vz-secondary-bg, var(--bs-secondary-bg, #eef2ff));
+  --ppmp-border: var(--vz-border-color, var(--bs-border-color, #e9ebec));
+  --ppmp-border-soft: var(--vz-border-color-translucent, var(--bs-border-color-translucent, #f0f2f5));
+  --ppmp-text: var(--vz-body-color, var(--bs-body-color, #212529));
+  --ppmp-muted: var(--vz-secondary-color, var(--bs-secondary-color, #6c757d));
+  --ppmp-soft: var(--ppmp-surface-soft);
+  --ppmp-primary: var(--vz-primary, var(--bs-primary, #405189));
+  background: var(--vz-body-bg, var(--bs-body-bg, transparent));
+  color: var(--ppmp-text);
 }
 
 .ppmp-shell {
   border-radius: 10px;
   overflow: hidden;
+  background: var(--ppmp-surface) !important;
+  color: var(--ppmp-text);
+}
+
+.ppmp-view-body {
+  background: var(--ppmp-surface) !important;
+  color: var(--ppmp-text);
 }
 
 .ppmp-header {
   padding: 1rem 1.15rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: var(--ppmp-surface-soft);
   border-bottom: 1px solid var(--ppmp-border);
 }
 
@@ -576,15 +437,15 @@ export default {
   justify-content: center;
   width: 42px;
   height: 42px;
-  color: #405189;
-  background: #eef2ff;
-  border: 1px solid #dfe5ff;
+  color: var(--ppmp-primary);
+  background: var(--ppmp-surface-softer);
+  border: 1px solid var(--ppmp-border);
   border-radius: 8px;
   font-size: 23px;
 }
 
 .ppmp-title {
-  color: #212529;
+  color: var(--ppmp-text);
   font-size: 16px;
   font-weight: 800;
 }
@@ -600,10 +461,10 @@ export default {
   display: flex;
   flex-direction: column;
   min-height: 76px;
-  border: 1px solid #e9ebec;
+  border: 1px solid var(--ppmp-border);
   border-radius: 8px;
   padding: 14px;
-  background: #fff;
+  background: var(--ppmp-surface);
   overflow: hidden;
 }
 
@@ -611,30 +472,30 @@ export default {
   position: absolute;
   right: 14px;
   bottom: 10px;
-  color: #e7ebf6;
+  color: var(--ppmp-border);
   font-size: 34px;
 }
 
 .overview-label,
 .info-row span,
 .signatory-list span {
-  color: #878a99;
+  color: var(--ppmp-muted);
   font-size: 12px;
   font-weight: 600;
 }
 
 .overview-value {
   margin-top: 7px;
-  color: #212529;
+  color: var(--ppmp-text);
   font-size: 16px;
   font-weight: 700;
 }
 
 .section-panel {
-  border: 1px solid #e9ebec;
+  border: 1px solid var(--ppmp-border);
   border-radius: 8px;
   padding: 16px;
-  background: #fff;
+  background: var(--ppmp-surface);
 }
 
 .section-heading {
@@ -648,7 +509,7 @@ export default {
 .section-heading.compact {
   margin-bottom: 12px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--ppmp-border-soft);
 }
 
 .info-row {
@@ -660,8 +521,27 @@ export default {
 
 .info-row strong,
 .signatory-list strong {
-  color: #212529;
+  color: var(--ppmp-text);
   font-size: 13px;
+  font-weight: 700;
+}
+
+.pr-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pr-list__item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border: 1px solid var(--ppmp-border);
+  border-radius: 8px;
+  background: var(--ppmp-surface-soft);
+  color: var(--ppmp-text);
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -682,23 +562,23 @@ export default {
   align-items: stretch;
   gap: 18px;
   padding: 18px;
-  border: 1px solid #e9ebec;
+  border: 1px solid var(--ppmp-border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--ppmp-surface-soft);
 }
 
 .plan-detail-banner--annual {
-  background: #f7fbff;
-  border-color: #d8e9ff;
+  background: var(--ppmp-surface-soft);
+  border-color: var(--ppmp-border);
 }
 
 .plan-detail-banner--supplemental {
-  background: #fffaf0;
-  border-color: #fde7ba;
+  background: var(--ppmp-surface-soft);
+  border-color: var(--ppmp-border);
 }
 
 .plan-detail-banner__eyebrow {
-  color: #64748b;
+  color: var(--ppmp-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -706,20 +586,20 @@ export default {
 
 .plan-detail-banner__title {
   margin-top: 2px;
-  color: #111827;
+  color: var(--ppmp-text);
   font-size: 16px;
   font-weight: 800;
 }
 
 .plan-detail-banner__copy {
   margin-top: 4px;
-  color: #64748b;
+  color: var(--ppmp-muted);
   font-size: 12px;
 }
 
 .plan-detail-banner__hint {
   margin-top: 8px;
-  color: #334155;
+  color: var(--ppmp-text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -737,25 +617,25 @@ export default {
   justify-content: center;
   min-height: 58px;
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--ppmp-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--ppmp-surface);
 }
 
 .plan-detail-banner__meta span {
-  color: #111827;
+  color: var(--ppmp-text);
   font-size: 14px;
   font-weight: 800;
 }
 
 .plan-detail-banner__meta small {
-  color: #6b7280;
+  color: var(--ppmp-muted);
   font-size: 11px;
   font-weight: 600;
 }
 
 .ppmp-table-wrap {
-  border: 1px solid #eef0f3;
+  border: 1px solid var(--ppmp-border);
   border-radius: 8px;
   max-height: 58vh;
 }
@@ -768,16 +648,16 @@ export default {
   position: sticky;
   top: 0;
   z-index: 2;
-  color: #495057;
+  color: var(--ppmp-muted);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--ppmp-border);
   white-space: nowrap;
 }
 
 .ppmp-items-table tbody td {
-  border-color: #eef0f3;
+  border-color: var(--ppmp-border);
 }
 
 .item-description {
@@ -806,7 +686,7 @@ export default {
 }
 
 .detail-summary__item span {
-  color: #878a99;
+  color: var(--ppmp-muted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.2;
@@ -814,7 +694,7 @@ export default {
 }
 
 .detail-summary__item strong {
-  color: #212529;
+  color: var(--ppmp-text);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
@@ -859,21 +739,21 @@ export default {
 
 .ppmp-confirm__summary > div {
   padding: 10px;
-  background: #f8fafc;
-  border: 1px solid #eef0f3;
+  background: var(--ppmp-surface-soft);
+  border: 1px solid var(--ppmp-border);
   border-radius: 8px;
 }
 
 .ppmp-confirm__summary span {
   display: block;
-  color: #878a99;
+  color: var(--ppmp-muted);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .ppmp-confirm__summary strong {
-  color: #212529;
+  color: var(--ppmp-text);
   font-size: 13px;
   font-weight: 700;
 }

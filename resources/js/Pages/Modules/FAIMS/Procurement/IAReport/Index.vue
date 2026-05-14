@@ -124,10 +124,11 @@
         </div>
       </div>
 
-      <b-card no-body class="border-0 shadow-sm receiving-card">
-      <div class="table-responsive">
-        <table class="table align-middle mb-0">
-          <thead class="table-light">
+      <b-card no-body class="receiving-card">
+      <div class="receiving-table-shell">
+      <div class="table-responsive receiving-table-wrap">
+        <table class="table align-middle table-hover mb-0 receiving-table">
+          <thead class="table-light thead-fixed">
             <tr>
               <th style="width: 12%">PO No.</th>
               <th>Procurement</th>
@@ -137,7 +138,7 @@
               <th style="width: 12%" class="text-center">Action</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="table-group-divider">
             <tr v-if="loading">
               <td colspan="6" class="text-center text-muted py-5">
                 {{ loading_message }}
@@ -238,6 +239,7 @@
           </tbody>
         </table>
       </div>
+      </div>
 
       <div class="card-footer bg-white">
         <Pagination
@@ -323,10 +325,11 @@
         </div>
       </div>
 
-      <b-card no-body class="border-0 shadow-sm receiving-card">
-        <div class="table-responsive">
-          <table class="table align-middle mb-0 ">
-            <thead class="table-light">
+      <b-card no-body class="receiving-card">
+        <div class="receiving-table-shell">
+        <div class="table-responsive receiving-table-wrap">
+          <table class="table align-middle table-hover mb-0 receiving-table">
+            <thead class="table-light thead-fixed">
               <tr>
                 <th style="width: 14%">IAR No.</th>
                 <th style="width: 14%">PO No.</th>
@@ -338,7 +341,7 @@
                 <th style="width: 14%" class="text-center">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="table-group-divider">
               <tr v-if="loading">
                 <td colspan="8" class="text-center text-muted py-5">
                   Loading inspection and acceptance reports...
@@ -417,6 +420,7 @@
             </tbody>
           </table>
         </div>
+        </div>
 
         <div class="card-footer bg-white">
           <Pagination
@@ -446,32 +450,32 @@
     v-model="show_iar_reports_modal"
     header-class="p-3 bg-light"
     title="Inspection and Acceptance Reports"
-    size="lg"
+    size="xl"
     class="v-modal-custom"
-    modal-class="zoomIn"
+    modal-class="zoomIn receiving-iar-modal"
     centered
     @hidden="handle_iar_reports_visibility(false)"
   >
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-      <div>
+    <div class="receiving-iar-summary mb-3">
+      <div class="receiving-iar-summary__item">
         <div class="text-muted fs-12">Purchase Order</div>
         <div class="fw-semibold">{{ selected_iar_po?.code || "-" }}</div>
       </div>
-      <div>
+      <div class="receiving-iar-summary__item">
         <div class="text-muted fs-12">Supplier</div>
         <div class="fw-semibold">{{ selected_iar_po?.supplier_name || "-" }}</div>
       </div>
-      <div class="text-md-end">
+      <div class="receiving-iar-summary__item">
         <div class="text-muted fs-12">Available for IAR</div>
         <div class="fw-semibold text-success">{{ receivedItemsPendingIar(selected_iar_po).length }}</div>
       </div>
-    </div>
-
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-      <div>
+      <div class="receiving-iar-summary__item">
         <div class="text-muted fs-12">Generated Reports</div>
         <div class="fw-semibold">{{ iarCount(selected_iar_po) }} report(s)</div>
       </div>
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-2">
       <b-button
         v-if="canGenerateIar(selected_iar_po)"
         type="button"
@@ -484,8 +488,8 @@
       </b-button>
     </div>
 
-    <div class="table-responsive border rounded receiving-compact-frame">
-      <table class="table align-middle mb-0">
+    <div class="table-responsive receiving-compact-frame">
+      <table class="table align-middle table-hover mb-0 receiving-modal-table">
         <thead class="table-light">
           <tr class="fs-11">
             <th style="width: 18%">IAR No.</th>
@@ -495,7 +499,7 @@
             <th style="width: 14%" class="text-center">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="table-group-divider">
           <tr v-for="report in iarReports(selected_iar_po)" :key="report.id">
             <td class="fw-semibold text-primary">{{ report.code || "IAR" }}</td>
             <td>{{ formatDateTime(report.created_at) }}</td>
@@ -543,7 +547,7 @@
             </td>
           </tr>
           <tr v-if="!iarReports(selected_iar_po).length">
-                <td colspan="5" class="text-center text-muted py-3">
+            <td colspan="5" class="text-center text-muted py-4">
               No IAR has been generated for this Purchase Order yet.
             </td>
           </tr>
@@ -1331,8 +1335,29 @@ export default {
 }
 
 .receiving-card {
-  border-radius: 6px;
+  border: 0;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+
+.receiving-table-shell {
+  padding: 0.35rem 0.65rem 0;
+  background: var(--receiving-surface);
+}
+
+.receiving-table-wrap {
+  max-height: calc(100vh - 430px);
+  min-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--receiving-border);
+  border-radius: 8px;
+}
+
+.receiving-table {
+  --bs-table-bg: var(--receiving-surface);
+  --bs-table-color: var(--bs-body-color);
+  --bs-table-border-color: var(--receiving-border);
 }
 
 .receiving-items-preview {
@@ -1373,11 +1398,33 @@ export default {
   line-height: 1;
 }
 
-.receiving-card :deep(.table > :not(caption) > * > *) {
-  padding: 0.35rem 0.45rem;
+.receiving-table :deep(thead th) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.62rem 0.75rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  background: var(--bs-light-bg-subtle, #f8f9fa);
+  border-bottom: 1px solid var(--receiving-border);
+  white-space: nowrap;
 }
 
-.receiving-card :deep(.badge) {
+.receiving-table :deep(tbody td) {
+  padding: 0.68rem 0.75rem;
+  border-color: var(--receiving-border);
+  vertical-align: middle;
+}
+
+.receiving-table :deep(tbody tr:hover td) {
+  background: rgba(var(--bs-primary-rgb), 0.04);
+}
+
+.receiving-card :deep(.badge),
+.receiving-compact-frame :deep(.badge) {
   padding: 0.28em 0.5em;
   font-size: 0.68rem;
 }
@@ -1394,13 +1441,49 @@ export default {
   padding: 0.4rem 0.55rem;
 }
 
-.receiving-compact-frame :deep(.table > :not(caption) > * > *) {
-  padding: 0.35rem 0.45rem;
+.receiving-iar-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
 }
 
-.receiving-compact-frame :deep(.badge) {
-  padding: 0.25em 0.45em;
-  font-size: 0.66rem;
+.receiving-iar-summary__item {
+  min-height: 62px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--receiving-border);
+  border-radius: 8px;
+  background: var(--receiving-soft);
+}
+
+.receiving-compact-frame {
+  border-radius: 8px;
+  overflow: auto;
+  border: 1px solid var(--receiving-border);
+  max-height: 56vh;
+}
+
+.receiving-modal-table {
+  --bs-table-bg: var(--receiving-surface);
+  --bs-table-color: var(--bs-body-color);
+  --bs-table-border-color: var(--receiving-border);
+  min-width: 760px;
+}
+
+.receiving-modal-table :deep(thead th) {
+  padding: 0.6rem 0.7rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--bs-light-bg-subtle, #f8f9fa);
+  border-bottom: 1px solid var(--receiving-border);
+  white-space: nowrap;
+}
+
+.receiving-modal-table :deep(tbody td) {
+  padding: 0.65rem 0.7rem;
+  border-color: var(--receiving-border);
+  vertical-align: middle;
 }
 
 @media (max-width: 991.98px) {
@@ -1410,6 +1493,16 @@ export default {
 
   .receiving-search {
     width: 100%;
+  }
+
+  .receiving-iar-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .receiving-iar-summary {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1421,9 +1514,19 @@ export default {
 
 [data-bs-theme="dark"] .receiving-stat,
 [data-bs-theme="dark"] .receiving-card,
+[data-bs-theme="dark"] .receiving-iar-summary__item,
+[data-bs-theme="dark"] .receiving-compact-frame,
 [data-bs-theme="dark"] .card-footer {
   background: var(--receiving-surface) !important;
   border-color: var(--receiving-border) !important;
+}
+
+[data-bs-theme="dark"] .receiving-table :deep(thead th) {
+  background: #202937;
+}
+
+[data-bs-theme="dark"] .receiving-modal-table :deep(thead th) {
+  background: #202937;
 }
 
 [data-bs-theme="dark"] .receiving-tab-btn.active {

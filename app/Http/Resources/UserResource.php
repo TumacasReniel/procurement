@@ -28,6 +28,7 @@ class UserResource extends JsonResource
             'birthdate' => $this->profile->birthdate,
             'profile_id' => $this->profile->id,
             'position' => $this->organization->position->name,
+            'designation' => $this->org_chart?->designation?->name,
             'organization' => [
                 'division_id' => $this->organization?->division_id,
                 'division' => $this->organization?->division?->name,

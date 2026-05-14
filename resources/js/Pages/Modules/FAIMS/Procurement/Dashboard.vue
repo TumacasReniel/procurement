@@ -238,36 +238,12 @@
     <section v-show="activeDashboardTab === 'overview'" class="dashboard-metric-section mb-3">
       <div class="dashboard-metric-section__header">
         <div>
-          <span class="section-kicker">Attention Queue</span>
-          <h5 class="mb-0">Work that needs the next move</h5>
+          <span class="section-kicker">Libraries</span>
+          <h5 class="mb-0">Settings and lists</h5>
         </div>
-        <BBadge class="bg-warning-subtle text-warning rounded-pill">
-          {{ urgentAttentionCount }} Priority
-        </BBadge>
+  
       </div>
 
-      <div class="attention-queue">
-        <button
-          v-for="item in attentionQueue"
-          :key="item.key"
-          type="button"
-          class="attention-card"
-          :class="`is-${item.tone}`"
-          @click="openModule(item.route)"
-        >
-          <span class="attention-card__icon">
-            <i :class="item.icon"></i>
-          </span>
-
-          <span class="attention-card__content">
-            <span class="attention-card__label">{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.note }}</small>
-          </span>
-
-          <i class="ri-arrow-right-s-line attention-card__arrow"></i>
-        </button>
-      </div>
     </section>
 
 
@@ -1442,9 +1418,7 @@ export default {
 
 			return queue.filter((item) => this.hasAnyRole(item.roles));
 		},
-		urgentAttentionCount() {
-			return this.attentionQueue.reduce((sum, item) => sum + (Number(item.priority) > 0 ? 1 : 0), 0);
-		},
+
 		completionRate() {
 			if (!this.dashboard.total_procurements) {
 				return 0;
@@ -1839,28 +1813,25 @@ export default {
   --proc-brand: #6d5dfc;
   --proc-brand-dark: #3e63f4;
   --proc-accent: #14d4d8;
-  --proc-ink: #182039;
-  --proc-muted: #6f7895;
-  --proc-border: rgba(91, 105, 153, 0.13);
+  --proc-ink: var(--vz-body-color, var(--bs-body-color, #182039));
+  --proc-muted: var(--vz-secondary-color, var(--bs-secondary-color, #6f7895));
+  --proc-border: var(--vz-border-color, var(--bs-border-color, rgba(91, 105, 153, 0.13)));
   --proc-soft: rgba(109, 93, 252, 0.1);
-  --proc-surface: rgba(255, 255, 255, .88);
-  --proc-card: #ffffff;
-  --proc-card-soft: #f5f7ff;
-  --proc-card-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  --proc-panel-header: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
-  --proc-chart-bg: linear-gradient(180deg, rgba(247, 249, 255, .92), #ffffff 34%), #ffffff;
-  --proc-table-row: #ffffff;
+  --proc-surface: var(--vz-card-bg, var(--bs-card-bg, rgba(255, 255, 255, .88)));
+  --proc-card: var(--vz-card-bg, var(--bs-card-bg, #ffffff));
+  --proc-card-soft: var(--vz-tertiary-bg, var(--bs-tertiary-bg, #f5f7ff));
+  --proc-card-gradient: var(--proc-card);
+  --proc-panel-header: var(--vz-tertiary-bg, var(--bs-tertiary-bg, #fbfcff));
+  --proc-chart-bg: var(--proc-card);
+  --proc-table-row: var(--proc-card);
   --proc-table-hover: rgba(109, 93, 252, 0.06);
-  --proc-input: #ffffff;
+  --proc-input: var(--vz-input-bg, var(--bs-body-bg, #ffffff));
   --proc-shadow: rgba(31, 45, 92, .09);
-  --proc-chart-text: #475569;
-  --proc-chart-grid: #e2e8f0;
+  --proc-chart-text: var(--vz-secondary-color, var(--bs-secondary-color, #475569));
+  --proc-chart-grid: var(--vz-border-color, var(--bs-border-color, #e2e8f0));
   min-height: 100vh;
   padding: .55rem .55rem 1.25rem;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(20, 212, 216, 0.13), transparent 30%),
-    radial-gradient(circle at 86% 8%, rgba(255, 119, 151, 0.12), transparent 28%),
-    #f3f6ff;
+  background: var(--vz-body-bg, var(--bs-body-bg, #f3f6ff));
 }
 
 .procurement-hero {
@@ -2751,6 +2722,53 @@ export default {
 :global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.apexcharts-yaxis-label) {
   color: var(--proc-chart-text) !important;
   fill: var(--proc-chart-text) !important;
+}
+
+:global([data-bs-theme="dark"] .procurement-dashboard-page),
+:global([data-layout-mode="dark"] .procurement-dashboard-page) {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(53, 215, 217, 0.09), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(255, 119, 151, 0.08), transparent 28%),
+    #0b1220 !important;
+}
+
+:global([data-bs-theme="dark"] .procurement-dashboard-page .card:not(.procurement-hero)),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .card:not(.procurement-hero) > .card-body),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .card:not(.procurement-hero) > .card-header),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .dashboard-filter-card),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .dashboard-tabs),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .panel-card),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .module-card),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .attention-card),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .unit-breakdown-stat),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .insight-item),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .insight-highlight),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .card:not(.procurement-hero)),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .card:not(.procurement-hero) > .card-body),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .card:not(.procurement-hero) > .card-header),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .dashboard-filter-card),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .dashboard-tabs),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .panel-card),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .module-card),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .attention-card),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .unit-breakdown-stat),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .insight-item),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .insight-highlight) {
+  background: var(--proc-card) !important;
+  border-color: var(--proc-border) !important;
+  color: var(--proc-ink) !important;
+  box-shadow: none !important;
+}
+
+:global([data-bs-theme="dark"] .procurement-dashboard-page .bg-white),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .bg-light),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .bg-light-subtle),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .bg-white),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .bg-light),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .bg-light-subtle) {
+  background: var(--proc-card) !important;
+  background-color: var(--proc-card) !important;
+  color: var(--proc-ink) !important;
 }
 
 .empty-state {

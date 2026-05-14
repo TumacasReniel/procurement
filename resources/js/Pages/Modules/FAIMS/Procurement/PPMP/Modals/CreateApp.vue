@@ -32,7 +32,7 @@
 
         <BCol lg="12" class="mt-3">
           <div class="alert alert-info mb-0 fs-13">
-            This creates one APP register for the selected year using PPMP entries marked For Approval.
+            This creates one APP register for the selected year using PPMP entries marked Submitted/For Consolidation.
           </div>
         </BCol>
       </BRow>
@@ -46,7 +46,7 @@
         :disabled="form.processing || !form.year || yearHasExisting"
         block
       >
-        {{ form.processing ? "Creating..." : "Create APP" }}
+        {{ form.processing ? "Consolidating..." : "Consolidate APP" }}
       </b-button>
     </template>
   </b-modal>

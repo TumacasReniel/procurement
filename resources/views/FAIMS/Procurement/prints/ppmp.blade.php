@@ -5,7 +5,7 @@
         'Supplemental Procurement Plan' => 'SPP',
         default => 'PPMP',
     };
-    $preparedUser = $prepared_user ?? auth()->user();
+    $preparedUser = $procurement->created_by ?? $prepared_user ?? auth()->user();
     $preparedName = strtoupper(
         $preparedUser?->profile?->fullname
             ?? $preparedUser?->profile?->full_name
@@ -35,9 +35,9 @@
         default => 'PROJECT PROCUREMENT MANAGEMENT PLAN (PPMP) NO.',
     };
     $isFinal = $planName !== 'PPMP' || in_array($procurement->status?->name, ['Reviewed', 'Approved'], true);
-    $submittedUser = $isFinal && $procurement->approved_by
+    $submittedUser = ($procurement->status?->name === 'Approved' || $planName !== 'PPMP') && $procurement->approved_by
         ? $procurement->approved_by
-        : $procurement->requested_by;
+        : null;
     $submittedName = strtoupper(
         $submittedUser?->profile?->fullname
             ?? $submittedUser?->profile?->full_name
@@ -58,15 +58,27 @@
     $sourceOfFunds = $procurement->source_of_funds_override ?: ($procurement->fund_cluster?->name ?? '-');
     $startDate = $procurement->start_date_override ?: $procurement->date;
     $printItems = $items->values();
-    $rowspansFor = function ($resolver) use ($printItems) {
+    $cleanText = function ($value, $fallback = '-') {
+        $text = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) $value))));
+
+        return $text !== '' ? $text : $fallback;
+    };
+    $formatPrintDate = function ($value) {
+        if (!$value || strtotime((string) $value) === false) {
+            return '-';
+        }
+
+        return date('M d', strtotime((string) $value));
+    };
+    $rowspansFor = function ($resolver, $mergeBlankValues = true) use ($printItems, $cleanText) {
         $rowspans = [];
         $lastValue = null;
         $lastIndex = null;
 
         foreach ($printItems as $index => $item) {
-            $value = trim((string) $resolver($item));
+            $value = $cleanText($resolver($item), '');
 
-            if ($lastIndex !== null && $value === $lastValue) {
+            if ($lastIndex !== null && $value === $lastValue && ($mergeBlankValues || !in_array($value, ['', '-'], true))) {
                 $rowspans[$lastIndex]++;
                 $rowspans[$index] = 0;
                 continue;
@@ -81,8 +93,53 @@
     };
     $generalDescriptionRowspans = $rowspansFor(fn ($item) => $item->print_general_description ?: ($procurement->title ?: $procurement->purpose));
     $projectTypeRowspans = $rowspansFor(fn ($item) => $item->project_type ?: ($item->print_classification_name ?: $classificationName));
-    $supportingDocumentsRowspans = $rowspansFor(fn ($item) => $item->attached_supporting_documents ?: '-');
-    $remarksRowspans = $rowspansFor(fn ($item) => $item->remarks ?: '-');
+    $supportingDocumentsRowspans = $rowspansFor(fn ($item) => $item->attached_supporting_documents, false);
+    $estimatedRowsPerPrintPage = 9;
+    $mergeCellClass = function ($rowspans, $index, $showValue = false) use ($estimatedRowsPerPrintPage) {
+        $span = $rowspans[$index] ?? 1;
+        $isEstimatedPageEnd = (($index + 1) % $estimatedRowsPerPrintPage) === 0;
+
+        if ($span > 1) {
+            return 'visual-merge-start';
+        }
+
+        if ($span === 0 && $showValue) {
+            return (($rowspans[$index + 1] ?? 1) === 0)
+                ? 'visual-merge-repeat'
+                : 'visual-merge-repeat-last';
+        }
+
+        if ($span === 0) {
+            if ($isEstimatedPageEnd) {
+                return 'visual-merge-page-end';
+            }
+
+            return (($rowspans[$index + 1] ?? 1) === 0)
+                ? 'visual-merge-middle'
+                : 'visual-merge-end';
+        }
+
+        return '';
+    };
+    $showMergeCellValue = function ($rowspans, $index) use ($estimatedRowsPerPrintPage) {
+        $span = $rowspans[$index] ?? 1;
+
+        if ($span > 0) {
+            return true;
+        }
+
+        $groupStartIndex = $index - 1;
+
+        while ($groupStartIndex >= 0 && ($rowspans[$groupStartIndex] ?? 1) === 0) {
+            $groupStartIndex--;
+        }
+
+        $offset = $index - $groupStartIndex;
+
+        return $groupStartIndex >= 0
+            && $offset > 1
+            && $index % $estimatedRowsPerPrintPage === 0;
+    };
 @endphp
 <!DOCTYPE html>
 <html>
@@ -249,10 +306,30 @@
         .ppmp-table {
             table-layout: fixed;
             border: 1.8px solid #000;
+            page-break-inside: auto;
         }
 
         thead {
             display: table-header-group;
+        }
+
+        tbody {
+            display: table-row-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .ppmp-table tbody tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .ppmp-table tbody td {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .ppmp-table th,
@@ -261,6 +338,8 @@
             padding: 3px 4px;
             vertical-align: top;
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
 
         .ppmp-table th {
@@ -294,6 +373,43 @@
 
         .item-description {
             line-height: 1.25;
+            white-space: normal;
+        }
+
+        .compact-cell {
+            font-size: 7.2px;
+            line-height: 1.16;
+        }
+
+        .amount-cell {
+            font-size: 7.4px;
+        }
+
+        .visual-merge-start {
+            border-bottom-color: transparent !important;
+        }
+
+        .visual-merge-middle {
+            border-top-color: transparent !important;
+            border-bottom-color: transparent !important;
+        }
+
+        .visual-merge-end {
+            border-top-color: transparent !important;
+        }
+
+        .visual-merge-page-end {
+            border-top-color: transparent !important;
+            border-bottom: 1px solid #000 !important;
+        }
+
+        .visual-merge-repeat {
+            border-top: 1px solid #000 !important;
+            border-bottom-color: transparent !important;
+        }
+
+        .visual-merge-repeat-last {
+            border-top: 1px solid #000 !important;
         }
 
         .item-list {
@@ -308,6 +424,8 @@
         .total-row td {
             font-weight: bold;
             background: #fff;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .signatory-table {
@@ -380,18 +498,18 @@
 
     <table class="ppmp-table">
         <colgroup>
-            <col style="width: 15%;">
-            <col style="width: 10%;">
+            <col style="width: 14%;">
+            <col style="width: 9%;">
             <col style="width: 18%;">
             <col style="width: 8%;">
             <col style="width: 6%;">
             <col style="width: 7%;">
             <col style="width: 7%;">
             <col style="width: 7%;">
+            <col style="width: 7%;">
             <col style="width: 8%;">
-            <col style="width: 8%;">
-            <col style="width: 6%;">
-            <col style="width: 6%;">
+            <col style="width: 5%;">
+            <col style="width: 4%;">
         </colgroup>
         <thead>
             <tr class="group-header">
@@ -436,38 +554,50 @@
                         $itemEndDate = $item->end_of_procurement_activity;
                         $itemExpectedDeliveryDate = $item->expected_delivery_date;
                         $itemGeneralDescription = $item->print_general_description ?: ($procurement->title ?: $procurement->purpose);
+                        $itemDescription = $cleanText($item->item_description, '');
+                        $showGeneralDescription = $showMergeCellValue($generalDescriptionRowspans, $itemIndex);
+                        $showProjectType = $showMergeCellValue($projectTypeRowspans, $itemIndex);
+                        $showSupportingDocuments = $showMergeCellValue($supportingDocumentsRowspans, $itemIndex);
                     @endphp
                     <tr>
-                        @if (($generalDescriptionRowspans[$itemIndex] ?? 1) > 0)
-                            <td rowspan="{{ $generalDescriptionRowspans[$itemIndex] }}">
-                                <div class="item-description">{{ $itemGeneralDescription ?: '-' }}</div>
-                            </td>
-                        @endif
-                        @if (($projectTypeRowspans[$itemIndex] ?? 1) > 0)
-                            <td rowspan="{{ $projectTypeRowspans[$itemIndex] }}" class="text-center">{{ $itemClassificationName ?: '-' }}</td>
-                        @endif
+                        <td class="compact-cell {{ $mergeCellClass($generalDescriptionRowspans, $itemIndex, $showGeneralDescription) }}">
+                            @if ($showGeneralDescription)
+                                <div class="item-description">{{ $cleanText($itemGeneralDescription) }}</div>
+                            @else
+                                &nbsp;
+                            @endif
+                        </td>
+                        <td class="text-center compact-cell {{ $mergeCellClass($projectTypeRowspans, $itemIndex, $showProjectType) }}">
+                            @if ($showProjectType)
+                                {{ $cleanText($itemClassificationName) }}
+                            @else
+                                &nbsp;
+                            @endif
+                        </td>
                         <td>
                             <div class="item-description">
                                 &bull; {{ rtrim(rtrim(number_format($quantity, 2), '0'), '.') }} {{ $unitName }}
-                                {{ $item->item_name ?: 'Item ' . $loop->iteration }}
+                                {{ $cleanText($item->item_name, 'Item ' . $loop->iteration) }}
                             </div>
-                            @if ($item->item_description)
-                                <div class="item-description">{!! $item->item_description !!}</div>
+                            @if ($itemDescription)
+                                <div class="item-description">{{ $itemDescription }}</div>
                             @endif
                         </td>
-                        <td>{{ $itemModeOfProcurement ?: '-' }}</td>
-                        <td class="text-center">{{ $itemPreProcurementConference }}</td>
-                        <td class="text-center">{{ $itemStartDate ? date('M-d', strtotime($itemStartDate)) : '-' }}</td>
-                        <td class="text-center">{{ $itemEndDate ? date('M-d', strtotime($itemEndDate)) : '-' }}</td>
-                        <td class="text-center">{{ $itemExpectedDeliveryDate ? date('M-d', strtotime($itemExpectedDeliveryDate)) : '-' }}</td>
-                        <td class="text-center">{{ $itemSourceOfFunds ?: '-' }}</td>
-                        <td class="text-right nowrap">{{ number_format($lineTotal, 2) }}</td>
-                        @if (($supportingDocumentsRowspans[$itemIndex] ?? 1) > 0)
-                            <td rowspan="{{ $supportingDocumentsRowspans[$itemIndex] }}" class="text-center">{{ $item->attached_supporting_documents ?: '-' }}</td>
-                        @endif
-                        @if (($remarksRowspans[$itemIndex] ?? 1) > 0)
-                            <td rowspan="{{ $remarksRowspans[$itemIndex] }}" class="text-center">{{ $item->remarks ?: '-' }}</td>
-                        @endif
+                        <td class="compact-cell">{{ $cleanText($itemModeOfProcurement) }}</td>
+                        <td class="text-center compact-cell">{{ $cleanText($itemPreProcurementConference) }}</td>
+                        <td class="text-center compact-cell">{{ $formatPrintDate($itemStartDate) }}</td>
+                        <td class="text-center compact-cell">{{ $formatPrintDate($itemEndDate) }}</td>
+                        <td class="text-center compact-cell">{{ $formatPrintDate($itemExpectedDeliveryDate) }}</td>
+                        <td class="text-center compact-cell">{{ $cleanText($itemSourceOfFunds) }}</td>
+                        <td class="text-right nowrap amount-cell">{{ number_format($lineTotal, 2) }}</td>
+                        <td class="text-center compact-cell {{ $mergeCellClass($supportingDocumentsRowspans, $itemIndex, $showSupportingDocuments) }}">
+                            @if ($showSupportingDocuments)
+                                {{ $cleanText($item->attached_supporting_documents) }}
+                            @else
+                                &nbsp;
+                            @endif
+                        </td>
+                        <td class="text-center compact-cell">{{ $cleanText($item->remarks) }}</td>
                     </tr>
                 @endforeach
             @else

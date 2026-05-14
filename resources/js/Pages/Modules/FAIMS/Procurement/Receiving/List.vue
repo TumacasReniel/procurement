@@ -70,10 +70,11 @@
       </div>
     </div>
 
-    <b-card no-body class="border-0 shadow-sm receiving-list-card">
-      <div class="table-responsive">
-        <table class="table align-middle mb-0">
-          <thead class="table-light">
+    <b-card no-body class="receiving-list-card">
+      <div class="receiving-list-table-shell">
+      <div class="table-responsive receiving-list-table-wrap">
+        <table class="table align-middle table-hover mb-0 receiving-list-table">
+          <thead class="table-light thead-fixed">
             <tr>
               <th style="width: 12%">RCV No.</th>
               <th style="width: 12%">PO No.</th>
@@ -84,7 +85,7 @@
               <th style="width: 12%" class="text-center">Action</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="table-group-divider">
             <tr v-if="loading">
               <td colspan="7" class="text-center text-muted py-5">Loading receiving records...</td>
             </tr>
@@ -145,6 +146,7 @@
             </tr>
           </tbody>
         </table>
+      </div>
       </div>
 
       <div class="card-footer bg-white">
@@ -433,8 +435,54 @@ export default {
 }
 
 .receiving-list-card {
+  border: 0;
   border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+
+.receiving-list-table-shell {
+  padding: 0.35rem 0.65rem 0;
+  background: var(--receiving-list-surface);
+}
+
+.receiving-list-table-wrap {
+  max-height: calc(100vh - 430px);
+  min-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--receiving-list-border);
+  border-radius: 8px;
+}
+
+.receiving-list-table {
+  --bs-table-bg: var(--receiving-list-surface);
+  --bs-table-color: var(--bs-body-color);
+  --bs-table-border-color: var(--receiving-list-border);
+}
+
+.receiving-list-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.62rem 0.75rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  background: var(--bs-light-bg-subtle, #f8f9fa);
+  border-bottom: 1px solid var(--receiving-list-border);
+  white-space: nowrap;
+}
+
+.receiving-list-table tbody td {
+  padding: 0.68rem 0.75rem;
+  border-color: var(--receiving-list-border);
+  vertical-align: middle;
+}
+
+.receiving-list-table tbody tr:hover td {
+  background: rgba(var(--bs-primary-rgb), 0.04);
 }
 
 .receiving-list-status-badge {
@@ -481,5 +529,9 @@ export default {
 [data-bs-theme="dark"] .card-footer {
   background: var(--receiving-list-surface) !important;
   border-color: var(--receiving-list-border) !important;
+}
+
+[data-bs-theme="dark"] .receiving-list-table thead th {
+  background: #202937;
 }
 </style>

@@ -55,7 +55,15 @@
           />
         </BCol>
 
-      
+        
+        <BCol lg="4" class="mt-3">
+          <InputLabel value="Start of Procurement Activity" :message="form.errors.start_of_procurement_activity" />
+          <TextInput
+            v-model="form.start_of_procurement_activity"
+            type="date"
+            class="form-control"
+          />
+        </BCol>
 
         <BCol lg="4" class="mt-3">
           <InputLabel value="End of Procurement Activity" :message="form.errors.end_of_procurement_activity" />
@@ -75,8 +83,17 @@
           />
         </BCol>
 
-        
-        <BCol lg="4" class="mt-3">
+        <BCol lg="6" class="mt-3">
+          <InputLabel value="Attached Supporting Document Name" :message="form.errors.attached_supporting_documents" />
+          <TextInput
+            v-model="form.attached_supporting_documents"
+            type="text"
+            class="form-control"
+            placeholder="Document name or type"
+          />
+        </BCol>
+
+        <BCol lg="6" class="mt-3">
           <InputLabel value="Pre-Procurement Conference" :message="form.errors.pre_procurement_conference" />
           <Multiselect
             :options="preProcurementConferenceOptions"
@@ -88,15 +105,7 @@
           />
         </BCol>
 
-        <BCol lg="12" class="mt-3">
-          <InputLabel value="Attached Supporting Document Name" :message="form.errors.attached_supporting_documents" />
-          <TextInput
-            v-model="form.attached_supporting_documents"
-            type="text"
-            class="form-control"
-            placeholder="Document name or type"
-          />
-        </BCol>
+   
 
 
         <BCol lg="12" class="mt-3">
@@ -319,6 +328,7 @@ export default {
         item_unit_type_id: null,
         item_unit_cost: null,
         items: [],
+        start_of_procurement_activity: null,
         end_of_procurement_activity: null,
         expected_delivery_date: null,
         attached_supporting_documents: "",

@@ -58,6 +58,7 @@ class ViewClass
                 'items.ppmp_item.ppmp'
             )
                 ->withCount('comments')
+                ->where('code', 'not like', 'PPMP-%')
                 ->when($request->keyword, function ($query, $keyword) {
                     $query->where(function ($searchQuery) use ($keyword) {
                         $searchQuery->where('code', 'LIKE', "%{$keyword}%")

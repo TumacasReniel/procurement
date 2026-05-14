@@ -201,6 +201,7 @@ class PrintClass
             'reference_app',
             'codes.procurement_code.mode_of_procurement',
             'items.item_unit_type',
+            'items.item_category',
             'items.status',
             'created_by.profile',
             'created_by.org_chart.designation',
@@ -249,6 +250,7 @@ class PrintClass
             'reference_app',
             'codes.procurement_code.mode_of_procurement',
             'items.item_unit_type',
+            'items.item_category',
             'items.status',
             'created_by.profile',
             'created_by.org_chart.designation',
@@ -342,7 +344,6 @@ class PrintClass
 
         return $representative;
     }
-
 
     public function printQuotations($id){
         $quotation = ProcurementQuotation::with('supplier.address', 'supplier.attachments', 'supply_officer.profile', 'items' , 'procurement')->findOrFail($id); 

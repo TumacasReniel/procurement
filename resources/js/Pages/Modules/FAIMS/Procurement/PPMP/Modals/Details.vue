@@ -75,7 +75,7 @@
             <tr v-for="(item, itemIndex) in ppmpItems" :key="item.id">
               <td class="text-center">{{ itemIndex + 1 }}</td>
               <td>{{ item.name || "-" }}</td>
-              <td>{{ item.description || "-" }}</td>
+              <td>{{ plainText(item.description) }}</td>
               <td class="text-end">{{ formatQuantity(item.quantity) }}</td>
               <td>{{ item.unit || "-" }}</td>
               <td class="text-end">{{ formatCurrency(item.unit_price) }}</td>
@@ -146,6 +146,16 @@ export default {
     formatQuantity(value) {
       const amount = Number(value || 0);
       return Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
+    },
+    plainText(value) {
+      if (!value) {
+        return "-";
+      }
+
+      const element = document.createElement("div");
+      element.innerHTML = String(value);
+
+      return element.textContent?.trim() || "-";
     },
   },
 };

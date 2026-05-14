@@ -38,6 +38,11 @@ class ProcurementPpmpItem extends Model
         return $this->belongsTo(ProcurementPpmp::class, 'procurement_ppmp_id');
     }
 
+    public function pr_items()
+    {
+        return $this->hasMany(ProcurementItem::class, 'ppmp_item_id');
+    }
+
     public function item_unit_type()
     {
         return $this->belongsTo(UnitType::class, 'item_unit_type_id');

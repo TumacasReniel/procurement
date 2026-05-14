@@ -28,23 +28,23 @@
         <div class="card-body ppmp-filter-panel border-bottom shadow-none">
           <div class="px-3 pt-3">
             <ul class="nav nav-tabs nav-tabs-custom" role="tablist">
-              <li class="nav-item" role="presentation">
+              <li class="nav-item" role="presentation" >
                 <button
                   type="button"
                   class="nav-link"
-                  :class="{ active: filter.plan_type === 'all' }"
-                  @click="setPlanTab('all')"
+                  :class="{ active: filter.plan_type === 'PPMP' }"
+                  @click="setPlanTab('PPMP')"
                 >
                   <i class="ri-table-line align-bottom me-1"></i>
-                  All
+                  PPMP
                 </button>
               </li>
-              <li class="nav-item" role="presentation">
+              <li class="nav-item" role="presentation" v-if="$page.props.roles.includes('Procurement Officer')">
                 <button
                   type="button"
                   class="nav-link"
-                  :class="{ active: filter.plan_type === 'annual' }"
-                  @click="setPlanTab('annual')"
+                  :class="{ active: filter.plan_type === 'APP' }"
+                  @click="setPlanTab('APP')"
                 >
                   <i class="ri-file-list-3-line align-bottom me-1"></i>
                   APP
@@ -54,8 +54,8 @@
                 <button
                   type="button"
                   class="nav-link"
-                  :class="{ active: filter.plan_type === 'supplemental' }"
-                  @click="setPlanTab('supplemental')"
+                  :class="{ active: filter.plan_type === 'SPP' }"
+                  @click="setPlanTab('SPP')"
                 >
                   <i class="ri-add-circle-line align-bottom me-1"></i>
                   SPP
@@ -75,10 +75,10 @@
                   v-model="filter.keyword"
                   :placeholder="`Search ${activePlanLabel}`"
                   class="form-control"
-                  :style="{ width: filter.plan_type === 'annual' || filter.plan_type === 'supplemental' ? '52%' : '37%' }"
+                  :style="{ width: filter.plan_type === 'APP' || filter.plan_type === 'SPP' ? '52%' : '37%' }"
                 />
                 <Multiselect
-                  v-if="filter.plan_type === 'all' && canManagePPMP"
+                  v-if="filter.plan_type === 'PPMP' && canManagePPMP"
                   class="white"
                   style="width: 15%"
                   :options="unitOptions"
@@ -103,8 +103,8 @@
                 <select v-model="filter.sort" class="form-select" style="width: 14%">
                   <option value="latest">Latest Date</option>
                   <option value="oldest">Oldest Date</option>
-                  <option v-if="filter.plan_type === 'all'" value="pr_asc">PR Number A-Z</option>
-                  <option v-if="filter.plan_type === 'all'" value="pr_desc">PR Number Z-A</option>
+                  <option v-if="filter.plan_type === 'PPMP'" value="pr_asc">PR Number A-Z</option>
+                  <option v-if="filter.plan_type === 'PPMP'" value="pr_desc">PR Number Z-A</option>
                 </select>
                 <span
                   @click="refresh()"
@@ -116,7 +116,7 @@
                   <i class="bx bx-refresh search-icon"></i>
                 </span>
                 <b-button
-                  v-if="filter.plan_type === 'all'"
+                  v-if="filter.plan_type === 'PPMP'"
                   variant="primary"
                   @click="openCreatePpmpModal"
                 >
@@ -124,7 +124,7 @@
                   Create PPMP
                 </b-button>
                 <b-button
-                  v-if="filter.plan_type === 'annual' && canApprovePPMPPlans"
+                  v-if="filter.plan_type === 'APP' && canApprovePPMPPlans"
                   variant="primary"
                   @click="openCreateAppModal"
                 >
@@ -132,7 +132,7 @@
                   Create APP
                 </b-button>
                 <b-button
-                  v-if="filter.plan_type === 'supplemental' && canApprovePPMPPlans"
+                  v-if="filter.plan_type === 'SPP' && canApprovePPMPPlans"
                   variant="warning"
                   @click="openCreateSppModal"
                 >
@@ -176,10 +176,19 @@
                     <td>
                       <div class="fw-semibold text-primary">{{ list.ppmp_no || "-" }}</div>
                     </td>
-                  
+                    <td>
+                      <div 
+                        class="text-truncate fw-medium"
+                        style="max-width: 260px"
+                        v-b-tooltip.hover
+                        :title="list.general_description_objective"
+                      >
+                        {{ list.general_description_objective || "-" }}
+                      </div>
+                    </td>
                     <td>
                       <div class="fw-medium">{{ list.unit?.name || "-" }}</div>
-                      <small class="text-muted">{{ list.plan_type === "ppmp" ? list.division?.name || "-" : "All end-user units" }}</small>
+                      <small class="text-muted">{{ normalizedPlanType(list.plan_type) === "PPMP" ? list.division?.name || "-" : "All end-user units" }}</small>
                       <small class="d-block text-muted">{{ list.plan_name || "PPMP" }}</small>
                     </td>
                     <td class="text-end">
@@ -201,7 +210,7 @@
                     <td class="text-center">
                       <div class="ppmp-action-group">
                         <b-button
-                          @click.stop="goPPMPPage(list)"
+                          @click.stop="goViewPage(list, filter.plan_type)"
                           size="sm"
                           variant="info"
                           class="btn-icon"
@@ -219,7 +228,7 @@
                           variant="success"
                           class="btn-icon"
                           v-b-tooltip.hover
-                          title="Submit PPMP for Budget Officer approval"
+                          :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
                           :disabled="approveFinalForm.processing"
                         >
@@ -232,7 +241,7 @@
                           variant="success"
                           class="btn-icon"
                           v-b-tooltip.hover
-                          title="Approve PPMP"
+                          title="Consolidate PPMP to APP"
                           style="border-radius: 8px"
                           :disabled="approveAppForm.processing"
                         >
@@ -281,7 +290,7 @@
     :ppmp="approveFinalModal.data"
     :processing="approveFinalForm.processing"
     @cancel="closeApproveFinalModal"
-    @confirm="approveFinal"
+    @confirm="updateStatus"
   />
 
   <ApproveToAppModal
@@ -365,7 +374,7 @@ export default {
         keyword: null,
         status: null,
         unit: null,
-        plan_type: "all",
+        plan_type: "PPMP",
         sort: "latest",
       },
       createPpmpModal: {
@@ -379,16 +388,18 @@ export default {
         show: false,
       },
       createPpmpForm: useForm({
-        option: "create_unit_ppmp",
+        option: "create_ppmp",
         unit_id: null,
         year: new Date().getFullYear(),
+        plan_type: "PPMP",
       }),
       createAppForm: useForm({
         year: new Date().getFullYear(),
-        plan_type: "annual",
+        plan_type: "APP",
       }),
       approveAppForm: useForm({
         option: "approve_to_app",
+        plan_type: "PPMP",
       }),
       approveAppModal: {
         show: false,
@@ -396,7 +407,7 @@ export default {
       },
       createSppForm: useForm({
         year: new Date().getFullYear(),
-        plan_type: "supplemental",
+        plan_type: "SPP",
         unit_id: null,
         item_name: "",
         item_description: "",
@@ -420,7 +431,8 @@ export default {
         data: null,
       },
       approveFinalForm: useForm({
-        option: "submit_final",
+        option: "update_status",
+        plan_type: "PPMP",
       }),
       approveFinalModal: {
         show: false,
@@ -436,10 +448,14 @@ export default {
       return this.currentRoles.some((role) => ["Procurement Officer", "Administrator"].includes(role));
     },
     canApprovePPMPPlans() {
-      return this.currentRoles.some((role) => ["Budget Officer", "Administrator"].includes(role));
+      const bacDesignations = ["BAC Chairperson", "BAC Vice Chairperson", "BAC Member"];
+      const designation = this.$page.props.user?.data?.designation;
+
+      return this.currentRoles.some((role) => ["BAC User", ...bacDesignations, "Administrator"].includes(role))
+        || bacDesignations.includes(designation);
     },
     isPlanRegister() {
-      return ["annual", "supplemental"].includes(this.filter.plan_type);
+      return ["APP", "SPP"].includes(this.filter.plan_type);
     },
     unitOptions() {
       return this.normalizeOptions(this.dropdowns?.units);
@@ -452,7 +468,9 @@ export default {
     statusOptions() {
       return this.normalizeOptions(this.dropdowns?.statuses).map((status) => ({
         ...status,
-        name: status.name === "Reviewed" ? "For Approval" : status.name,
+        name: status.name === "Reviewed"
+          ? "Reviewed/For Submission"
+          : (status.name === "Approved" ? "Submitted/For Consolidation" : status.name),
       }));
     },
     yearOptions() {
@@ -479,45 +497,45 @@ export default {
       return this.annualAppYears.includes(Number(this.createAppForm.year));
     },
     activePlanTitle() {
-      if (this.filter.plan_type === "annual") {
+      if (this.filter.plan_type === "APP") {
         return "Annual Procurement Plan";
       }
 
-      if (this.filter.plan_type === "supplemental") {
+      if (this.filter.plan_type === "SPP") {
         return "Supplemental Procurement Plan";
       }
 
       return "Project Procurement Management Plans";
     },
     activePlanDescription() {
-      if (this.filter.plan_type === "annual") {
-        return "This is the agency-wide consolidated plan built from PPMPs reviewed by Procurement Officer and approved by Budget Officer.";
+      if (this.filter.plan_type === "APP") {
+        return "This is the agency-wide consolidated plan built from submitted PPMPs ready for BAC consolidation.";
       }
 
-      if (this.filter.plan_type === "supplemental") {
+      if (this.filter.plan_type === "SPP") {
         return "SPP is prepared by the agency after APP approval to add or change items due to new needs or budget.";
       }
 
       return "PPMP entries are organized per end-user unit and become the source for purchase request items.";
     },
     activePlanLabel() {
-      if (this.filter.plan_type === "supplemental") {
+      if (this.filter.plan_type === "SPP") {
         return "SPP";
       }
 
-      if (this.filter.plan_type === "annual") {
+      if (this.filter.plan_type === "APP") {
         return "agency-wide APP";
       }
 
       return "PPMP";
     },
     emptyStateHint() {
-      if (this.filter.plan_type === "annual") {
-        return "Submit unit PPMPs for approval first, then Budget Officer approval creates the APP list by year.";
+      if (this.filter.plan_type === "APP") {
+        return "Move unit PPMPs through review and submission first, then approve the consolidated APP list by year.";
       }
 
-      if (this.filter.plan_type === "supplemental") {
-        return "Approve the APP first, then submit new or changed PPMP entries for the SPP update.";
+      if (this.filter.plan_type === "SPP") {
+        return "Consolidate the APP first, then submit new or changed PPMP entries for the SPP update.";
       }
 
       return "Create PPMP items first from purchase planning.";
@@ -547,28 +565,29 @@ export default {
   },
   methods: {
     canApprovePPMP(item) {
-      if (!this.currentRoles.some((role) => ["Procurement Officer"].includes(role))) {
-        return false;
-      }
-
-      if (!item || item.is_final || ["for approval", "approved"].includes((item.ppmp_status || "").toLowerCase())) {
+      if (!item || item.is_final || ["submitted/for consolidation", "consolidated/added to app", "consolidated/added to spp"].includes((item.ppmp_status || "").toLowerCase())) {
         return false;
       }
 
       const statusName = typeof item.status === "string"
         ? item.status
         : item.status?.name;
+      const displayStatus = String(item.ppmp_status || "").toLowerCase();
 
       const isPending = [statusName, item.ppmp_status]
         .filter(Boolean)
         .some((status) => String(status).toLowerCase() === "pending");
+      const isReviewed = String(statusName || "").toLowerCase() === "reviewed"
+        || displayStatus === "reviewed/for submission";
+      const canReview = this.currentRoles.some((role) => ["Budget Officer", "Administrator"].includes(role));
+      const canSubmit = this.currentRoles.some((role) => ["Procurement Officer", "Administrator"].includes(role));
 
-      return Boolean(item.can_submit_final) || isPending;
+      return Boolean(item.can_submit_final) || (isPending && canReview) || (isReviewed && canSubmit);
     },
     canApproveToApp(item) {
       return this.canApprovePPMPPlans
         && Boolean(item?.can_approve_to_app)
-        && (item?.ppmp_status || "").toLowerCase() === "for approval";
+        && (item?.ppmp_status || "").toLowerCase() === "submitted/for consolidation";
     },
     normalizeOptions(options) {
       if (Array.isArray(options)) {
@@ -628,12 +647,30 @@ export default {
 
       return Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
     },
+    normalizedPlanType(planType) {
+      switch (planType) {
+        case "APP":
+        case "annual":
+          return "APP";
+
+        case "SPP":
+        case "supplemental":
+          return "SPP";
+
+        case "PPMP":
+        case "ppmp":
+        default:
+          return "PPMP";
+      }
+    },
     planShortName(item) {
-      if (item?.plan_type === "annual") {
+      const planType = this.normalizedPlanType(item?.plan_type);
+
+      if (planType === "APP") {
         return "APP";
       }
 
-      if (item?.plan_type === "supplemental") {
+      if (planType === "SPP") {
         return "SPP";
       }
 
@@ -646,8 +683,12 @@ export default {
         return "success";
       }
 
-      if (status === "for approval") {
+      if (status === "reviewed/for submission" || status === "submitted/for consolidation") {
         return "warning";
+      }
+
+      if (status === "consolidated/added to app" || status === "consolidated/added to spp") {
+        return "success";
       }
 
       return "secondary";
@@ -660,17 +701,27 @@ export default {
       }
 
       if (item?.reviewed_by) {
-        return `Reviewed by ${item.reviewed_by}`;
+        const reviewedAt = item.reviewed_at ? ` on ${this.formatDate(item.reviewed_at)}` : "";
+
+        return `Reviewed by ${item.reviewed_by}${reviewedAt}`;
       }
 
       return null;
     },
-    goViewPage(data) {
-      router.get(`/faims/procurements/${data.id}`, { option: "view" });
+    advanceActionTitle(item) {
+      const status = (item?.ppmp_status || "").toLowerCase();
+
+      if (status === "reviewed/for submission") {
+        return "Submit PPMP for consolidation";
+      }
+
+      return "Review PPMP";
     },
-    goPPMPPage(data) {
+
+    goViewPage(data, plan_type) {
       router.get(`/faims/procurement-ppmp/${data.id}`, {
-        plan_type: data?.plan_type || "ppmp",
+        option: 'view',
+        plan_type: plan_type,
       });
     },
     openApproveFinalModal(data) {
@@ -679,6 +730,8 @@ export default {
       }
 
       this.approveFinalForm.clearErrors();
+      this.approveFinalForm.option = "update_status";
+      this.approveFinalForm.plan_type = this.filter.plan_type;
       this.approveFinalModal.data = data;
       this.approveFinalModal.show = true;
     },
@@ -691,7 +744,7 @@ export default {
       this.approveFinalModal.data = null;
       this.approveFinalForm.clearErrors();
     },
-    approveFinal() {
+    updateStatus() {
       const data = this.approveFinalModal.data;
       if (!data?.id || this.approveFinalForm.processing) {
         return;
@@ -718,7 +771,16 @@ export default {
         return;
       }
 
-      window.open(`/faims/procurement-ppmp/${data.id}?option=print&type=ppmp`, "_blank");
+      const planType = ["APP", "SPP"].includes(this.filter.plan_type)
+        ? this.filter.plan_type
+        : "ppmp";
+      const params = new URLSearchParams({
+        option: "print",
+        type: "ppmp",
+        plan_type: planType,
+      });
+
+      window.open(`/faims/procurement-ppmp/${data.id}?${params.toString()}`, "_blank");
       return;
 
       const rows = (data.item_details || [])
@@ -885,7 +947,7 @@ export default {
       this.createAppForm.year = currentYearAvailable
         ? currentYear
         : (this.availableAppYearOptions[0]?.value || null);
-      this.createAppForm.plan_type = "annual";
+      this.createAppForm.plan_type = "APP";
       this.createAppModal.show = true;
     },
     openApproveToAppModal(data) {
@@ -913,12 +975,13 @@ export default {
       }
 
       this.approveAppForm.option = "approve_to_app";
+      this.approveAppForm.plan_type = data?.plan_type || "PPMP";
       this.approveAppForm.patch(`/faims/procurement-ppmp/${data.id}`, {
         preserveScroll: true,
         onSuccess: () => {
           this.approveAppModal.show = false;
           this.approveAppModal.data = null;
-          this.filter.plan_type = "all";
+          this.filter.plan_type = "PPMP";
           this.fetch();
         },
       });
@@ -930,7 +993,7 @@ export default {
     openCreateSppModal() {
       this.createSppForm.clearErrors();
       this.createSppForm.year = this.currentYear;
-      this.createSppForm.plan_type = "supplemental";
+      this.createSppForm.plan_type = "SPP";
       this.createSppForm.unit_id = this.defaultUnitExistsInOptions() ? this.defaultUserUnitId : null;
       this.createSppForm.item_name = "";
       this.createSppForm.item_description = "";
@@ -987,14 +1050,14 @@ export default {
         });
     },
     submitCreatePpmp() {
-      this.createPpmpForm.option = "create_unit_ppmp";
+      this.createPpmpForm.option = "create_ppmp";
 
       this.createPpmpForm.post("/faims/procurement-ppmp", {
         preserveScroll: true,
         onSuccess: () => {
           this.closeCreatePpmpModal();
           this.filter.unit = null;
-          this.filter.plan_type = "all";
+          this.filter.plan_type = "PPMP";
           this.fetch();
         },
       });
@@ -1005,13 +1068,13 @@ export default {
         return;
       }
 
-      this.createAppForm.plan_type = "annual";
+      this.createAppForm.plan_type = "APP";
 
       this.createAppForm.post("/faims/procurement-ppmp", {
         preserveScroll: true,
         onSuccess: () => {
           this.closeCreateAppModal();
-          this.filter.plan_type = "annual";
+          this.filter.plan_type = "APP";
           this.filter.unit = null;
           this.fetch();
         },
@@ -1019,14 +1082,14 @@ export default {
     },
     submitCreateSpp() {
       this.createSppForm.year = this.currentYear;
-      this.createSppForm.plan_type = "supplemental";
+      this.createSppForm.plan_type = "SPP";
 
       this.createSppForm.post("/faims/procurement-ppmp", {
         forceFormData: true,
         preserveScroll: true,
         onSuccess: () => {
           this.closeCreateSppModal();
-          this.filter.plan_type = "supplemental";
+          this.filter.plan_type = "SPP";
           this.filter.unit = null;
           this.fetch();
         },

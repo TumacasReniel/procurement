@@ -2,7 +2,7 @@
   <b-modal
     v-model="modalShow"
     header-class="p-3"
-    title="Submit PPMP for Approval"
+    :title="modalTitle"
     size="md"
     class="v-modal-custom"
     modal-class="zoomIn"
@@ -14,9 +14,9 @@
         <i class="ri-check-double-line"></i>
       </div>
       <div>
-        <h5 class="mb-1">Submit this PPMP for approval?</h5>
+        <h5 class="mb-1">{{ heading }}</h5>
         <p class="text-muted mb-3">
-          This will move the plan to For Approval for Budget Officer approval.
+          {{ description }}
         </p>
       </div>
 
@@ -47,7 +47,7 @@
         block
       >
         <i class="ri-check-double-line align-bottom me-1"></i>
-        {{ processing ? "Submitting..." : "Submit for Approval" }}
+        {{ processing ? "Processing..." : confirmLabel }}
       </b-button>
     </template>
   </b-modal>
@@ -62,6 +62,23 @@ export default {
   },
   emits: ["update:show", "cancel", "confirm"],
   computed: {
+    isReviewed() {
+      return String(this.ppmp?.ppmp_status || "").toLowerCase() === "reviewed/for submission";
+    },
+    modalTitle() {
+      return this.isReviewed ? "Submit PPMP for Consolidation" : "Review PPMP";
+    },
+    heading() {
+      return this.isReviewed ? "Submit this PPMP for consolidation?" : "Mark this PPMP as reviewed?";
+    },
+    description() {
+      return this.isReviewed
+        ? "This will mark the reviewed unit plan as submitted and ready for BAC consolidation."
+        : "This will move the pending unit plan to Reviewed/For Submission.";
+    },
+    confirmLabel() {
+      return this.isReviewed ? "Submit for Consolidation" : "Mark as Reviewed";
+    },
     modalShow: {
       get() {
         return this.show;

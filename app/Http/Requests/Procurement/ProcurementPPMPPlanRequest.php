@@ -13,9 +13,9 @@ class ProcurementPPMPPlanRequest extends FormRequest
 
     public function rules(): array
     {
-        if ($this->option === 'create_unit_ppmp') {
+        if ($this->option === 'create_ppmp') {
             return [
-                'option' => ['required', 'in:create_unit_ppmp'],
+                'option' => ['required', 'in:create_ppmp'],
                 'unit_id' => ['required', 'integer', 'exists:list_units,id'],
                 'year' => ['required', 'integer', 'min:2000', 'max:' . (date('Y') + 10)],
             ];
@@ -25,10 +25,10 @@ class ProcurementPPMPPlanRequest extends FormRequest
             'option' => ['nullable', 'string', 'max:50'],
             'unit_id' => ['nullable', 'integer', 'exists:list_units,id'],
             'year' => ['required', 'integer', 'min:2000', 'max:' . (date('Y') + 10)],
-            'plan_type' => ['required', 'in:annual,supplemental'],
+            'plan_type' => ['required', 'in:APP,SPP'],
         ];
 
-        if ($this->plan_type === 'supplemental') {
+        if ($this->plan_type === 'APP') {
             $rules['unit_id'] = ['required', 'integer', 'exists:list_units,id'];
             $rules['item_name'] = ['required', 'string', 'max:255'];
             $rules['item_description'] = ['required', 'string'];
@@ -51,7 +51,7 @@ class ProcurementPPMPPlanRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->plan_type === 'supplemental') {
+        if ($this->plan_type === 'SPP') {
             $this->merge(['year' => date('Y')]);
         }
     }

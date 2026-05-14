@@ -76,8 +76,4 @@ class ProcurementPPMPController extends Controller
         return inertia('Modules/FAIMS/Procurement/PPMP/View', $this->ppmp->showPageProps($id, $request));
     }
 
-    public function destroy($id)
-    {
-        abort(404);
-    }
 }
