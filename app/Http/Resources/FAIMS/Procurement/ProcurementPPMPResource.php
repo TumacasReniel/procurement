@@ -612,10 +612,6 @@ class ProcurementPPMPResource extends JsonResource
             return false;
         }
 
-        if ($user->hasRole('Administrator')) {
-            return true;
-        }
-
         return match ($this->status?->name) {
             'Pending' => $user->hasRole('Budget Officer'),
             'Reviewed' => $user->hasRole('Procurement Officer'),
