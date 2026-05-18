@@ -209,7 +209,7 @@ export default {
       return "Review each generated report here, print it, complete it when ready, edit it while it is still generated, or revert it back to Generated when allowed.";
     },
     can_show_generate_button() {
-      return this.can_manage_iar_reports && this.can_generate_iar_report;
+      return this.can_generate_iar_report;
     },
     action_column_label() {
       return this.is_employee_only_role ? "Available Copy" : "Actions";

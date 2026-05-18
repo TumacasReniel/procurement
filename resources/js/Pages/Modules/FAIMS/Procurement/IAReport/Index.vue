@@ -86,7 +86,7 @@
       </div>
 
       <div class="row g-2 mb-2">
-        <div class="col-md-6 col-xl-3">
+        <div class="col-md-6 col-xl-3 d-flex">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-primary"><i class="ri-file-list-3-line"></i></span>
             <div>
@@ -95,7 +95,7 @@
             </div>
           </div>
         </div>
-        <div class="col-md-6 col-xl-3">
+        <div class="col-md-6 col-xl-3 d-flex">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-warning"><i class="ri-truck-line"></i></span>
             <div>
@@ -105,7 +105,7 @@
             </div>
           </div>
         </div>
-        <div class="col-md-6 col-xl-3">
+        <div class="col-md-6 col-xl-3 d-flex">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-success"><i class="ri-checkbox-circle-line"></i></span>
             <div>
@@ -115,7 +115,7 @@
             </div>
           </div>
         </div>
-        <div class="col-md-6 col-xl-3">
+        <div class="col-md-6 col-xl-3 d-flex">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-info"><i class="ri-file-paper-2-line"></i></span>
             <div>
@@ -186,20 +186,14 @@
                 <div class="fw-semibold">{{ po.procurement_title || "-" }}</div>
                 <div class="small text-muted">{{ po.procurement_code || "No PR code" }}</div>
                 <div class="receiving-items-preview mt-1">
-                  <span
-                    v-for="item in previewItems(po)"
-                    :key="item.id"
-                    class="badge rounded-pill text-bg-danger"
+                  <button
+                    v-if="is_iar_mode && shouldShowItemsLeftBadge(po)"
+                    type="button"
+                    class="badge rounded-pill text-bg-warning receiving-badge-button"
+                    @click="open_items_left_to_receive(po)"
                   >
-                    Item {{ item.item_no }}: {{ formatQuantity(item.remaining_quantity) }} left
-                  </span>
-                  <span
-                    v-for="item in deliveredPreviewItems(po)"
-                    :key="`delivered-${item.id}`"
-                    class="badge rounded-pill text-bg-info"
-                  >
-                    Item {{ item.item_no }}: {{ formatQuantity(item.delivered_quantity) }} delivered
-                  </span>
+                    {{ po.remaining_items_count || 0 }} item(s) left to receive
+                  </button>
                 </div>
               </td>
               <td>{{ po.supplier_name || "-" }}</td>
@@ -213,7 +207,8 @@
                     Needs Receiving: {{ po.remaining_items_count || 0 }}
                   </span>
                   <span class="badge rounded-pill" :class="is_receiving_mode ? 'text-bg-success' : 'text-bg-danger'">
-                    {{ is_receiving_mode ? "Received Already" : "Delivered" }}: {{ po.delivered_items_count || 0 }}
+                    {{ is_receiving_mode ? "Received Already" : "Items Received Not Yet in IAR" }}:
+                    {{ is_receiving_mode ? po.delivered_items_count || 0 : receivedItemsPendingIar(po).length }}
                   </span>
                   <span v-if="is_receiving_mode && po.partial_items_count" class="badge rounded-pill text-bg-info">
                     Partial: {{ po.partial_items_count }}
@@ -470,6 +465,12 @@
     @edit-record="edit_received_items_from_view"
   />
 
+  <ItemsLeftToReceive
+    :model-value="show_items_left_modal"
+    :po="selected_items_left_po"
+    @update:modelValue="handle_items_left_visibility"
+  />
+
   <b-modal
     v-model="show_iar_reports_modal"
     header-class="p-3 bg-light"
@@ -634,10 +635,11 @@ import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import IARItemSelection from "../Modals/IARItemSelection.vue";
 import ReceivedPOItems from "../Modals/ReceivedPOItems.vue";
+import ItemsLeftToReceive from "../Modals/ItemsLeftToReceive.vue";
 import ReceivingList from "../Receiving/List.vue";
 
 export default {
-  components: { Head, PageHeader, Pagination, IARItemSelection, ReceivedPOItems, ReceivingList },
+  components: { Head, PageHeader, Pagination, IARItemSelection, ReceivedPOItems, ItemsLeftToReceive, ReceivingList },
   props: {
     mode: {
       type: String,
@@ -651,6 +653,7 @@ export default {
       links: {},
       loading: false,
       show_received_items_modal: false,
+      show_items_left_modal: false,
       show_iar_reports_modal: false,
       active_receiving_tab: "deliveries",
       active_iar_tab: "purchase_orders",
@@ -660,6 +663,7 @@ export default {
       pending_inspect_po: null,
       selected_po: null,
       selected_iar_po: null,
+      selected_items_left_po: null,
       filter: {
         keyword: null,
         count: 10,
@@ -955,6 +959,17 @@ export default {
       this.show_received_items_modal = false;
       this.selected_po = null;
     },
+    open_items_left_to_receive(po) {
+      this.selected_items_left_po = po;
+      this.show_items_left_modal = true;
+    },
+    handle_items_left_visibility(value) {
+      this.show_items_left_modal = value;
+
+      if (!value) {
+        this.selected_items_left_po = null;
+      }
+    },
     open_iar_reports(po) {
       this.selected_iar_po = po;
       this.show_iar_reports_modal = true;
@@ -1148,6 +1163,7 @@ export default {
     },
     canGenerateIar(po) {
       return Boolean(po)
+        && Boolean(po?.can_generate_iar_report)
         && this.receivedItemsPendingIar(po).length > 0
         && ["Conformed", "Items Delivered"].includes(this.normalizedPurchaseOrderStatus(po));
     },
@@ -1263,15 +1279,29 @@ export default {
     },
     previewItems(po) {
       return (po.delivery_monitoring_items || [])
-        .filter((item) => Number(item.remaining_quantity || 0) > 0)
+        .filter((item) => Number(item.remaining_quantity || 0) > 0 && this.shouldShowPreviewItem(item))
         .slice(0, 3);
     },
     deliveredPreviewItems(po) {
       const remainingIds = new Set(this.previewItems(po).map((item) => Number(item.id)));
 
       return (po.delivery_monitoring_items || [])
-        .filter((item) => Number(item.delivered_quantity || 0) > 0 && !remainingIds.has(Number(item.id)))
+        .filter((item) =>
+          Number(item.delivered_quantity || 0) > 0 &&
+          !remainingIds.has(Number(item.id)) &&
+          this.shouldShowPreviewItem(item)
+        )
         .slice(0, 3);
+    },
+    shouldShowPreviewItem(item) {
+      const itemNo = Number(item?.item_no);
+
+      return !Number.isFinite(itemNo) || itemNo <= 10;
+    },
+    shouldShowItemsLeftBadge(po) {
+      const remainingItems = Number(po?.remaining_items_count || 0);
+
+      return remainingItems > 0 && remainingItems <= 10;
     },
     deliveryPercent(po) {
       const total = Number(po.total_items_count || 0);
@@ -1358,6 +1388,8 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  width: 100%;
+  min-height: 68px;
   padding: 0.42rem 0.55rem;
   border: 1px solid var(--receiving-border);
   border-radius: 8px;
@@ -1475,6 +1507,17 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 0.2rem;
+}
+
+.receiving-badge-button {
+  border: 0;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.receiving-badge-button:hover {
+  filter: brightness(0.96);
+  text-decoration: underline;
 }
 
 .receiving-progress {

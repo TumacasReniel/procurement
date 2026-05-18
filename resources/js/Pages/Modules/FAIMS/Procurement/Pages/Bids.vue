@@ -102,7 +102,7 @@
         <div>
           <div
             class="w-100 pt-0 pb-0 aob-scroll-area"
-            style="height: calc(100vh - 305px); overflow-y: auto; overflow-x: hidden"
+            style="height: calc(100vh - 365px); overflow-y: auto; overflow-x: hidden"
             ref="box"
           >
             <div>
@@ -111,8 +111,7 @@
                 <thead class="table-light thead-fixed">
                   <tr>
                     <th class="aob-col-item-no">Item No</th>
-                    <th class="aob-col-status">Status</th>
-                    <th class="aob-col-description">Description</th>
+                    <th class="aob-col-status">Status/Description</th>
                     <th class="aob-col-qty">Quantity / Unit</th>
                     <th class="aob-col-money">Unit Cost</th>
                     <th class="aob-col-money">ABC</th>
@@ -157,8 +156,6 @@
                         <i v-if="item.status.name == 'Awarded'" class="ri-check-line"></i>
                       </b-badge>
                       <span v-else class="aob-muted-text">No status</span>
-                    </td>
-                    <td class="aob-cell-action">
                       <button
                         type="button"
                         class="btn btn-outline-secondary btn-sm aob-action-btn aob-action-btn-muted"
@@ -276,15 +273,16 @@
               </table>
               </div>
 
-              <Pagination
-                class="ms-2 me-2 mt-2"
-                v-if="bidItemsPagination(bid).total > aobPerPage"
-                @fetch="(page) => changeBidItemsPage(bid, page)"
-                :lists="paginatedBidItems(bid).length"
-                :links="bidItemsPaginationLinks(bid)"
-                :pagination="bidItemsPagination(bid)"
-              />
             </div>
+          </div>
+          <div v-if="bidItemsPagination(bid).total" class="card-footer aob-pagination-footer">
+            <Pagination
+              class="ms-2 me-2 mt-n1"
+              @fetch="(page) => changeBidItemsPage(bid, page)"
+              :lists="paginatedBidItems(bid).length"
+              :links="bidItemsPaginationLinks(bid)"
+              :pagination="bidItemsPagination(bid)"
+            />
           </div>
         </div>
       </b-tab>
@@ -294,7 +292,7 @@
   <div v-else class="bg-white">
     <div
       class="w-100 pt-0 pb-0 aob-scroll-area"
-      style="height: calc(100vh - 305px); overflow-y: auto; overflow-x: hidden"
+      style="height: calc(100vh - 365px); overflow-y: auto; overflow-x: hidden"
     >
       <div class="table-responsive table-card aob-table-wrap">
       <table class="table align-middle table-hover mb-0 mt-3 aob-table aob-items-table">
@@ -351,9 +349,10 @@
         </tbody>
       </table>
       </div>
+    </div>
+    <div v-if="allBidItemsPagination.total" class="card-footer aob-pagination-footer">
       <Pagination
-        class="ms-2 me-2 mt-2"
-        v-if="allBidItemsPagination.total > aobPerPage"
+        class="ms-2 me-2 mt-n1"
         @fetch="changeAllItemsPage"
         :lists="paginatedAllBidItems.length"
         :links="allBidItemsPaginationLinks"
@@ -389,11 +388,11 @@
     centered
     hide-footer
   >
-    <div class="offer-modal-content">
-      <div class="mb-2 fw-semibold">
+    <div class="offer-modal-content offer-details-content">
+      <div class="offer-details-title fw-semibold">
         {{ selectedItemName || "-" }}
       </div>
-      <div v-if="selectedOfferDetails" class="offer-detail-summary mb-3">
+      <div v-if="selectedOfferDetails" class="offer-detail-summary offer-details-summary">
         <div class="offer-detail-grid">
           <div class="offer-detail-card">
             <span class="offer-detail-label">Supplier</span>
@@ -1363,6 +1362,54 @@ export default {
   text-align: left;
 }
 
+.offer-details-content {
+  margin: -0.25rem 0;
+}
+
+.offer-details-title {
+  margin-bottom: 0.45rem;
+  line-height: 1.25;
+}
+
+.offer-details-content .offer-detail-summary {
+  border-radius: 10px;
+  padding: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.offer-details-content .offer-detail-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.45rem;
+}
+
+.offer-details-content .offer-detail-card {
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  gap: 0.1rem;
+}
+
+.offer-details-content .offer-detail-label {
+  font-size: 0.66rem;
+}
+
+.offer-details-content .offer-detail-value {
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.offer-details-content .offer-detail-section-label {
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+}
+
+.offer-details-content .offer-modal-content {
+  line-height: 1.45;
+}
+
+.offer-details-content .offer-modal-content p {
+  margin-bottom: 0.45rem;
+}
+
 .offer-modal-content p:last-child,
 .offer-modal-content ul:last-child,
 .offer-modal-content ol:last-child {
@@ -1636,6 +1683,12 @@ export default {
   padding: 1rem 0;
 }
 
+.aob-pagination-footer {
+  background: var(--aob-table-wrap-bg);
+  border-top: 1px solid var(--aob-table-border);
+  padding: 0.75rem 0;
+}
+
 .aob-table-wrap {
   border: 1px solid var(--aob-table-border);
   border-radius: 0;
@@ -1791,6 +1844,11 @@ export default {
 .aob-cell-action,
 .aob-cell-check {
   vertical-align: middle;
+}
+
+.aob-cell-status .aob-action-btn {
+  display: inline-block;
+  margin-top: 0.35rem;
 }
 
 .aob-award-checkbox {

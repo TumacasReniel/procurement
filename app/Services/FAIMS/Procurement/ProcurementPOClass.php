@@ -111,6 +111,7 @@ class ProcurementPOClass
         $po->setAttribute('delivery_monitoring_summary', $deliveryMonitoring['summary']);
         $po->setAttribute('resolved_actual_delivery_date', $deliveryMonitoring['actual_delivery_date']);
         $po->setAttribute('resolved_actual_delivery_date_display', $deliveryMonitoring['actual_delivery_date_display']);
+        $po->setAttribute('can_generate_iar_report', $this->canCurrentUserManageIarInspection());
 
         return $po;
     }
@@ -182,6 +183,8 @@ class ProcurementPOClass
                 'unit' => $procurementItem?->item_unit_type?->name_short
                     ?? $procurementItem?->item_unit_type?->name_long
                     ?? '',
+                'unit_short' => $procurementItem?->item_unit_type?->name_short ?? '',
+                'unit_long' => $procurementItem?->item_unit_type?->name_long ?? '',
                 'unit_cost' => $unitCost,
                 'amount' => round($unitCost * $deliveredQuantity, 2),
                 'available_amount' => round($unitCost * $availableQuantity, 2),
@@ -499,6 +502,15 @@ class ProcurementPOClass
         $invoiceNo = trim((string) $request->input('invoice_no', ''));
         $invoiceNo = $invoiceNo !== '' ? $invoiceNo : null;
         $invoiceDate = $request->filled('invoice_date') ? $request->input('invoice_date') : null;
+
+        if (!$this->canCurrentUserManageIarInspection()) {
+            return [
+                'data' => null,
+                'message' => 'IAR generation permission denied.',
+                'info' => 'Only active IAR committee members can generate or edit an IAR report.',
+                'status' => 'warning',
+            ];
+        }
 
         if ($iarId > 0 && !$editingIar) {
             return [
@@ -1107,6 +1119,8 @@ class ProcurementPOClass
                 'unit' => $procurementItem?->item_unit_type?->name_short
                     ?? $procurementItem?->item_unit_type?->name_long
                     ?? '',
+                'unit_short' => $procurementItem?->item_unit_type?->name_short ?? '',
+                'unit_long' => $procurementItem?->item_unit_type?->name_long ?? '',
                 'expected_delivery_date' => $expectedDeliveryDate?->toDateString(),
                 'expected_delivery_date_display' => $expectedDeliveryDate?->format('F j, Y'),
                 'actual_delivery_date' => $deliveredQuantity > 0 && ($itemActualDeliveryDate ?: $actualDeliveryDate)
