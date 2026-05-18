@@ -150,7 +150,7 @@
           <div class="text-uppercase fw-semibold text-primary small mb-1">
             Ordered Items
           </div>
-          <h4 class="h6 fw-bold mb-1">Items Included in This Purchase Order</h4>
+          <h4 class="h6 fw-bold mb-1">Item/s included in this Purchase Order</h4>
           <p class="text-muted small mb-0">
             Use this table to review quantity, unit, and amount for every ordered item.
           </p>

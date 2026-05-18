@@ -1,7 +1,7 @@
 <template>
   <Head :title="pageTitle" />
 
-  <div class="pap-profile-page container-fluid py-1 px-1">
+  <div class="pap-profile-page container-fluid py-3 px-3">
     <div class="pap-profile-shell">
       <b-alert
         v-if="flashFeedback.message"
@@ -20,9 +20,9 @@
           <div class="pap-profile-main-stack d-flex flex-column gap-2">
             <b-card
               class="pap-profile-card pap-profile-hero-card border shadow-sm bg-body"
-              body-class="p-2"
+              body-class="p-0"
             >
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <div class="pap-profile-hero-head">
               <div class="d-flex flex-wrap align-items-center gap-2">
                 <b-button
                   variant="outline-secondary"
@@ -53,21 +53,58 @@
                 </b-badge>
               </div>
 
+              <b-button
+                v-if="canRequestBudgetIncrease"
+                type="button"
+                variant="primary"
+                size="sm"
+                class="pap-profile-hero-action"
+                @click="openBudgetRequestModal"
+              >
+                <i class="ri-add-circle-fill align-bottom me-1"></i>
+                Request Budget
+              </b-button>
             </div>
 
-            <div class="row g-2">
-              <div class="col-12">
-                <h1 class="h4 mb-1 text-body">
+            <div class="pap-profile-hero-content">
+              <div class="pap-profile-title-block">
+                <div class="pap-profile-eyebrow">PAP Code Profile</div>
+                <h1 class="pap-profile-title text-body">
                   {{ papCode.title || "Untitled Procurement code" }}
                 </h1>
-
-                <p class="text-body-secondary mb-0 pap-profile-lead">
-                  Review the budget standing, request additional funding, and track all
-                  deductions and top-ups for this PAP code from one page.
-                </p>
+                <div class="pap-profile-subline">
+                  <span>{{ papCode.mode_of_procurement?.name || "No mode" }}</span>
+                  <span>{{ papCode.app_type?.name || "No APP type" }}</span>
+                  <span>{{ papCode.year || "No year" }}</span>
+                </div>
               </div>
 
-              <div class="col-12">
+              <div class="pap-profile-budget-panel">
+                <div class="small text-uppercase text-body-secondary mb-1">
+                  Remaining Balance
+                </div>
+                <div class="pap-profile-balance-value" :class="remainingBudgetClass">
+                  {{ formatCurrency(papCode.remaining_budget) }}
+                </div>
+                <div class="d-flex justify-content-between small text-body-secondary mt-2 mb-1">
+                  <span>Used</span>
+                  <span>{{ budgetUsagePercent }}%</span>
+                </div>
+                <div class="progress pap-profile-progress">
+                  <div
+                    class="progress-bar"
+                    :class="budgetUsageBarClass"
+                    role="progressbar"
+                    :style="{ width: `${budgetUsagePercentDisplay}%` }"
+                    :aria-valuenow="budgetUsagePercentDisplay"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pap-profile-hero-meta">
                 <div class="row g-2">
                   <div
                     v-for="fact in overviewFacts"
@@ -87,16 +124,13 @@
                     </div>
                   </div>
                 </div>
-              </div>
+            </div>
 
-              <div class="col-12">
-                <div class="pap-profile-inline-card border p-2">
+            <div class="pap-profile-end-users">
+                <div class="pap-profile-inline-card border p-3">
                   <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                     <div>
                       <h6 class="mb-1 text-body">End Users</h6>
-                      <div class="small text-body-secondary">
-                        Units currently associated with this PAP code.
-                      </div>
                     </div>
 
                     <b-badge class="bg-primary-subtle text-primary px-2 py-1">
@@ -118,7 +152,6 @@
                     No end users are assigned to this PAP code yet.
                   </b-alert>
                 </div>
-              </div>
             </div>
             </b-card>
 
@@ -166,10 +199,18 @@
           <div class="pap-profile-side-stack d-flex flex-column gap-2">
             <b-card
               class="pap-profile-card pap-profile-balance-card border shadow-sm bg-body"
-              body-class="p-2"
+              body-class="p-3"
             >
-              <div class="small text-uppercase text-body-secondary mb-2">
-                Budget Utilization
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                <div>
+                  <div class="small text-uppercase text-body-secondary mb-1">
+                    Budget Utilization
+                  </div>
+                  <div class="fw-semibold text-body">Usage Goal</div>
+                </div>
+                <div class="pap-profile-ring" :style="{ '--usage': `${budgetUsagePercentDisplay}%` }">
+                  <span>{{ budgetUsagePercent }}%</span>
+                </div>
               </div>
               <div class="row g-2 mt-2">
                 <div
@@ -188,7 +229,7 @@
                 </div>
               </div>
 
-              <div class="mt-2">
+              <div class="mt-3">
                 <div class="d-flex justify-content-between small text-body-secondary mb-1">
                   <span>Budget used</span>
                   <span>{{ budgetUsagePercent }}%</span>
@@ -894,8 +935,11 @@ export default {
       this.processingLogId = log.id;
 
       router.patch(
-        `/faims/procurement-codes/${this.papCode.id}/budget-increase-requests/${log.id}/${action}`,
-        {},
+        `/faims/procurement-codes/${this.papCode.id}`,
+        {
+          option: action === "approve" ? "approve_budget_increase" : "reject_budget_increase",
+          budget_log_id: log.id,
+        },
         {
           preserveScroll: true,
           preserveState: true,
@@ -976,20 +1020,26 @@ export default {
 
 <style scoped>
 .pap-profile-page {
-  --pap-page-bg: linear-gradient(180deg, #f5f7fb 0%, #eef3f9 100%);
+  --pap-page-bg: #f4f7fb;
   --pap-surface: #ffffff;
-  --pap-surface-alt: #f7f9fc;
-  --pap-border: rgba(148, 163, 184, 0.22);
-  --pap-border-strong: rgba(148, 163, 184, 0.34);
-  --pap-text: #1e293b;
-  --pap-muted: #64748b;
-  --pap-primary: #2563eb;
-  --pap-progress-track: #e2e8f0;
-  --pap-row-hover: rgba(37, 99, 235, 0.05);
-  --pap-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
-  --pap-shadow-soft: 0 6px 16px rgba(15, 23, 42, 0.05);
+  --pap-surface-alt: #f8faff;
+  --pap-panel-strong: #eef3ff;
+  --pap-border: rgba(68, 86, 132, 0.12);
+  --pap-border-strong: rgba(68, 86, 132, 0.22);
+  --pap-text: #172033;
+  --pap-muted: #66728f;
+  --pap-primary: #04bdd4;
+  --pap-green: #0fb981;
+  --pap-purple: #6f3df4;
+  --pap-orange: #ff7337;
+  --pap-pink: #ef3f73;
+  --pap-progress-track: #dbe4f5;
+  --pap-row-hover: rgba(4, 189, 212, 0.06);
+  --pap-shadow: 0 18px 42px rgba(26, 40, 82, 0.1);
+  --pap-shadow-soft: 0 10px 24px rgba(26, 40, 82, 0.07);
   background: var(--pap-page-bg);
   min-height: 100vh;
+  color: var(--pap-text);
 }
 
 .pap-profile-shell {
@@ -1001,9 +1051,10 @@ export default {
 .pap-profile-card,
 .pap-profile-history {
   border-color: var(--pap-border) !important;
-  border-radius: 12px;
+  border-radius: 18px;
   overflow: hidden;
   box-shadow: var(--pap-shadow-soft) !important;
+  background: var(--pap-surface) !important;
 }
 
 .pap-profile-hero-card {
@@ -1011,23 +1062,123 @@ export default {
   box-shadow: var(--pap-shadow) !important;
 }
 
-.pap-profile-hero-card::before {
+.pap-profile-hero-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--pap-border);
+  background: var(--pap-surface-alt);
+}
+
+.pap-profile-hero-action {
+  min-width: 136px;
+}
+
+.pap-profile-hero-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 1rem;
+  padding: 1rem;
+  align-items: stretch;
+}
+
+.pap-profile-title-block {
+  min-width: 0;
+}
+
+.pap-profile-eyebrow {
+  color: var(--pap-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.pap-profile-title {
+  font-size: clamp(1.25rem, 1.8vw, 1.8rem);
+  line-height: 1.18;
+  margin-bottom: 0.65rem;
+  letter-spacing: 0;
+  color: var(--pap-text) !important;
+}
+
+.pap-profile-subline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.pap-profile-subline span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid var(--pap-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--pap-muted);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+.pap-profile-budget-panel {
+  border: 1px solid var(--pap-border);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(4, 189, 212, 0.16) 0%, rgba(111, 61, 244, 0.1) 100%),
+    #ffffff;
+  padding: 1.15rem;
+  min-height: 132px;
+  color: var(--pap-text);
+  box-shadow: 0 16px 34px rgba(4, 189, 212, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.pap-profile-budget-panel::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #2563eb, #0ea5e9, #10b981);
+  right: -34px;
+  top: -42px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgba(4, 189, 212, 0.16);
+}
+
+.pap-profile-budget-panel::after {
+  content: "";
+  position: absolute;
+  right: 34px;
+  bottom: -54px;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  background: rgba(111, 61, 244, 0.11);
+}
+
+.pap-profile-balance-value {
+  font-size: clamp(1.35rem, 2vw, 2rem);
+  font-weight: 800;
+  line-height: 1.08;
+  color: #04a5bb !important;
+  position: relative;
+  z-index: 1;
+}
+
+.pap-profile-hero-meta,
+.pap-profile-end-users {
+  padding: 0 1rem 1rem;
 }
 
 .pap-profile-mini-card,
 .pap-profile-inline-card,
 .pap-profile-balance-stat,
 .pap-profile-guidance-card {
-  background: var(--pap-surface-alt) !important;
+  background: var(--pap-panel-strong) !important;
   border-color: var(--pap-border) !important;
-  border-radius: 10px;
+  border-radius: 16px;
 }
 
 .pap-profile-lead {
@@ -1041,8 +1192,13 @@ export default {
 }
 
 .pap-profile-fact-card {
-  padding: 0.55rem 0.65rem;
-  min-height: 64px;
+  padding: 0.75rem;
+  min-height: 76px;
+  border-radius: 16px;
+  background: var(--pap-panel-strong);
+  border-color: var(--pap-border) !important;
+  box-shadow: inset 0 0 0 1px rgba(4, 189, 212, 0.04);
+  color: var(--pap-text);
 }
 
 .pap-profile-inline-card,
@@ -1054,7 +1210,7 @@ export default {
 .pap-profile-guidance-icon {
   width: 2rem;
   height: 2rem;
-  background: rgba(37, 99, 235, 0.12);
+  background: rgba(4, 189, 212, 0.12);
   color: var(--pap-primary);
   font-size: 1.05rem;
   flex-shrink: 0;
@@ -1083,11 +1239,12 @@ export default {
 
 .pap-profile-summary-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  min-height: 82px;
+  min-height: 104px;
+  background: var(--pap-surface) !important;
 }
 
 :deep(.pap-profile-summary-body) {
-  padding: 0.5rem 0.6rem !important;
+  padding: 0.8rem !important;
 }
 
 .pap-profile-summary-card .small {
@@ -1095,8 +1252,9 @@ export default {
 }
 
 .pap-profile-summary-card .h5 {
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   line-height: 1.08;
+  color: var(--pap-text);
 }
 
 .pap-profile-summary-card .badge {
@@ -1121,7 +1279,7 @@ export default {
 .pap-profile-history__toolbar,
 :deep(.pap-profile-card__header),
 :deep(.pap-profile-history .card-footer) {
-  background: var(--pap-surface-alt) !important;
+  background: var(--pap-surface) !important;
 }
 
 :deep(.pap-profile-history__body) {
@@ -1136,6 +1294,44 @@ export default {
 :deep(.pap-profile-page .bg-light-subtle),
 :deep(.pap-profile-page .bg-body-tertiary) {
   background: var(--pap-surface-alt) !important;
+}
+
+:deep(.pap-profile-page .text-body),
+:deep(.pap-profile-page .text-dark) {
+  color: var(--pap-text) !important;
+}
+
+:deep(.pap-profile-page .text-body-secondary),
+:deep(.pap-profile-page .text-muted) {
+  color: var(--pap-muted) !important;
+}
+
+:deep(.pap-profile-page .bg-primary-subtle) {
+  background: rgba(111, 61, 244, 0.12) !important;
+}
+
+:deep(.pap-profile-page .text-primary) {
+  color: var(--pap-primary) !important;
+}
+
+:deep(.pap-profile-page .bg-success-subtle) {
+  background: rgba(15, 185, 129, 0.12) !important;
+}
+
+:deep(.pap-profile-page .text-success) {
+  color: var(--pap-green) !important;
+}
+
+:deep(.pap-profile-page .text-warning) {
+  color: #ffb86c !important;
+}
+
+:deep(.pap-profile-page .text-info) {
+  color: #4fddff !important;
+}
+
+:deep(.pap-profile-page .badge) {
+  border-radius: 10px;
 }
 
 @media (min-width: 1200px) {
@@ -1153,7 +1349,7 @@ export default {
 }
 
 .pap-profile-history__toolbar {
-  padding: 0.55rem !important;
+  padding: 0.75rem !important;
 }
 
 :deep(.pap-profile-history__search .input-group-text),
@@ -1163,14 +1359,14 @@ export default {
 }
 
 :deep(.pap-profile-history__search .input-group-text) {
-  background: var(--pap-surface-alt) !important;
+  background: var(--pap-panel-strong) !important;
   border-color: var(--pap-border) !important;
   color: var(--pap-muted) !important;
 }
 
 :deep(.pap-profile-history__search .form-control),
 :deep(.pap-profile-history__search .form-select) {
-  background: var(--pap-surface) !important;
+  background: var(--pap-panel-strong) !important;
   border-color: var(--pap-border) !important;
   color: var(--pap-text) !important;
 }
@@ -1207,7 +1403,7 @@ export default {
   border: 1px solid var(--pap-border);
   border-radius: 10px;
   background: var(--pap-surface);
-  max-height: 640px;
+  max-height: 680px;
   overflow: auto;
 }
 
@@ -1217,14 +1413,14 @@ export default {
 
 :deep(.pap-profile-history__table thead th),
 :deep(.pap-profile-history__table tbody td) {
-  padding: 0.45rem 0.55rem;
+  padding: 0.7rem 0.75rem;
 }
 
 :deep(.pap-profile-history__table thead th) {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--pap-surface-alt) !important;
+  background: #f3f6fc !important;
   color: var(--pap-muted) !important;
   border-bottom: 1px solid var(--pap-border) !important;
 }
@@ -1249,9 +1445,30 @@ export default {
   overflow: hidden;
 }
 
+.pap-profile-ring {
+  --usage: 0%;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, var(--pap-surface) 0 53%, transparent 54%),
+    conic-gradient(var(--pap-primary) var(--usage), var(--pap-purple) 0 100%);
+  box-shadow: inset 0 0 0 1px var(--pap-border), 0 14px 26px rgba(4, 189, 212, 0.16);
+  flex-shrink: 0;
+}
+
+.pap-profile-ring span {
+  color: var(--pap-primary);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
 :deep(.pap-profile-page .btn-outline-secondary) {
   border-color: var(--pap-border-strong);
   color: var(--pap-text);
+  background: #ffffff;
 }
 
 :deep(.pap-profile-page .btn-outline-secondary:hover) {
@@ -1261,11 +1478,12 @@ export default {
 
 :deep(.pap-profile-page .btn-primary) {
   border: none;
-  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.12);
+  background: linear-gradient(135deg, var(--pap-purple), #3d7dff) !important;
+  box-shadow: 0 10px 22px rgba(122, 53, 244, 0.25);
 }
 
 :deep(.pap-profile-page .alert-secondary) {
-  background: var(--pap-surface-alt);
+  background: var(--pap-panel-strong);
   border-color: var(--pap-border);
   color: var(--pap-muted);
 }
@@ -1275,40 +1493,16 @@ export default {
   padding: 0.5rem 0.75rem;
 }
 
-[data-bs-theme="dark"] .pap-profile-page {
-  --pap-page-bg: linear-gradient(180deg, #101826 0%, #0f172a 100%);
-  --pap-surface: #131d2b;
-  --pap-surface-alt: #182235;
-  --pap-border: rgba(148, 163, 184, 0.18);
-  --pap-border-strong: rgba(148, 163, 184, 0.28);
-  --pap-text: #e5edf7;
-  --pap-muted: #9fb0c7;
-  --pap-primary: #8cb4ff;
-  --pap-progress-track: #243247;
-  --pap-row-hover: rgba(96, 165, 250, 0.12);
-  --pap-shadow: 0 22px 46px rgba(2, 6, 23, 0.42);
-  --pap-shadow-soft: 0 16px 34px rgba(2, 6, 23, 0.3);
-}
-
-[data-bs-theme="dark"] .pap-profile-hero-card::before {
-  background: linear-gradient(90deg, #60a5fa, #38bdf8, #34d399);
-}
-
-[data-bs-theme="dark"] .pap-profile-inline-card,
-[data-bs-theme="dark"] .pap-profile-balance-stat,
-[data-bs-theme="dark"] .pap-profile-guidance-card {
-  box-shadow: inset 0 0 0 1px rgba(140, 180, 255, 0.08);
-}
-
-[data-bs-theme="dark"] .pap-profile-guidance-icon {
-  background: rgba(140, 180, 255, 0.12);
-}
-
-[data-bs-theme="dark"] :deep(.pap-profile-page .btn-primary) {
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
-}
-
 @media (max-width: 991px) {
+  .pap-profile-hero-content {
+    grid-template-columns: 1fr;
+  }
+
+  .pap-profile-hero-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   :deep(.pap-profile-history__search-input),
   :deep(.pap-profile-history__search-filter),
   :deep(.pap-profile-history__search-sort) {

@@ -105,17 +105,16 @@ Route::prefix('faims')->group(function () {
         ->middleware(['auth', 'verified']);
     Route::patch('/procurement-mention-notifications/{notification}/read', [App\Http\Controllers\FAIMS\Procurement\ProcurementNotificationController::class, 'update'])
         ->middleware(['auth', 'verified']);
+    Route::get('/procurements/create-by-category', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'createByCategory']);
     Route::resource('/procurements', App\Http\Controllers\FAIMS\Procurement\ProcurementController::class)->names([
         'index' => 'procurement.index',
     ]);
     Route::get('/procurement-reports', [App\Http\Controllers\FAIMS\Procurement\ProcurementReportController::class, 'index'])
         ->name('procurement.reports');
     Route::resource('/procurement-assignments', App\Http\Controllers\FAIMS\Procurement\ProcurementAssignmentController::class);
+    Route::resource('/procurement-ppmp', App\Http\Controllers\FAIMS\Procurement\ProcurementPPMPController::class)
+        ->only(['index', 'store', 'show', 'update']);
     Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
-    Route::get('/procurement-code-budget-requests', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'budgetRequests']);
-    Route::post('/procurement-codes/{id}/budget-increase-requests', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'requestBudgetIncrease']);
-    Route::patch('/procurement-codes/{id}/budget-increase-requests/{budgetLog}/approve', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'approveBudgetIncrease']);
-    Route::patch('/procurement-codes/{id}/budget-increase-requests/{budgetLog}/reject', [App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class, 'rejectBudgetIncrease']);
     Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementDashboardController::class, 'index'])->name('procurement.dashboard');
     Route::get('/procurements/create', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'create']);
     Route::post('/procurements/{id}/comments', [App\Http\Controllers\FAIMS\Procurement\ProcurementCommentController::class, 'store']);

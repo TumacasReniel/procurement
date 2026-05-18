@@ -4,6 +4,7 @@ namespace App\Services\FAIMS\Procurement;
 
 use App\Services\DropdownClass;
 use App\Models\Procurement;
+use App\Models\ProcurementPpmp;
 use App\Models\ProcurementQuotation;
 use App\Models\ProcurementBac;
 use App\Models\ProcurementBacNoa;
@@ -56,6 +57,9 @@ class PrintClass
             break;
             case 'iar':
                 return $this->printIAR($id, $request);
+            break;
+            case 'ppmp':
+                return $this->printPPMP($id);
             break;
         }
     }
@@ -187,6 +191,159 @@ class PrintClass
 
     }
 
+    public function printPPMP($id)
+    {
+        $procurement = ProcurementPpmp::with(
+            'division',
+            'unit.responsibility_center',
+            'fund_cluster',
+            'classification',
+            'reference_app',
+            'codes.procurement_code.mode_of_procurement',
+            'items.item_unit_type',
+            'items.item_category',
+            'items.status',
+            'created_by.profile',
+            'created_by.org_chart.designation',
+            'created_by.organization.position',
+            'requested_by.profile',
+            'approved_by.profile'
+        )->findOrFail($id);
+
+        $procurement = $this->aggregatePPMPForPrint($procurement);
+        $items = $procurement->items;
+        $totalAmount = $items->sum(function ($item) {
+            return (float) ($item->total_cost ?? ((float) $item->item_quantity * (float) $item->item_unit_cost));
+        });
+
+        $array = [
+            'procurement' => $procurement,
+            'items' => $items,
+            'totalAmount' => $totalAmount,
+            'regional_director' => $this->dropdown->regional_director(),
+            'prepared_user' => Auth::user()?->loadMissing('profile', 'org_chart.designation', 'organization.position'),
+        ];
+
+        $pdf = \PDF::loadView('FAIMS.Procurement.prints.ppmp', $array)
+            ->setPaper('A4', 'landscape')
+            ->setOption([
+                'isPhpEnabled' => true,
+                'isRemoteEnabled' => true,
+            ]);
+
+        $year = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y', strtotime((string) $procurement->created_at));
+        $ppmpNo = $procurement->ppmp_no_override ?: 'PPMP-' . $year . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT);
+
+        return $pdf->stream($ppmpNo . '.pdf');
+    }
+
+    protected function aggregatePPMPForPrint(ProcurementPpmp $procurement): ProcurementPpmp
+    {
+        $planName = $procurement->reference_app?->name;
+        $year = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y');
+
+        $procurements = ProcurementPpmp::with(
+            'division',
+            'unit.responsibility_center',
+            'fund_cluster',
+            'classification',
+            'reference_app',
+            'codes.procurement_code.mode_of_procurement',
+            'items.item_unit_type',
+            'items.item_category',
+            'items.status',
+            'created_by.profile',
+            'created_by.org_chart.designation',
+            'created_by.organization.position',
+            'requested_by.profile',
+            'approved_by.profile'
+        )
+            ->when($planName === 'Annual Procurement Plan', function ($query) use ($year) {
+                $query->whereYear('date', $year)
+                    ->whereHas('reference_app', function ($referenceQuery) {
+                        $referenceQuery->where('name', 'Annual Procurement Plan');
+                    });
+            })
+            ->when($planName === 'Supplemental Procurement Plan', function ($query) use ($year) {
+                $query->whereYear('date', $year)
+                    ->whereHas('reference_app', function ($referenceQuery) {
+                        $referenceQuery->where('name', 'Supplemental Procurement Plan');
+                    });
+            })
+            ->when(!$planName, function ($query) use ($procurement, $year) {
+                $query->where('unit_id', $procurement->unit_id)
+                    ->whereYear('date', $year)
+                    ->whereNull('reference_app_id');
+            })
+            ->get();
+
+        if ($procurements->isEmpty()) {
+            return $procurement;
+        }
+
+        $representative = $procurements->first();
+        $items = $procurements
+            ->flatMap(function ($sourceProcurement) {
+                $sourceMode = $sourceProcurement->codes
+                    ?->pluck('procurement_code.mode_of_procurement.name')
+                    ->filter()
+                    ->unique()
+                    ->implode(', ');
+
+                return ($sourceProcurement->items ?? collect())->map(function ($item) use ($sourceProcurement, $sourceMode) {
+                    $item->setAttribute('print_general_description', $sourceProcurement->title ?: $sourceProcurement->purpose);
+                    $item->setAttribute('print_classification_name', $sourceProcurement->classification?->name);
+                    $item->setAttribute('print_mode_of_procurement', $sourceMode);
+                    $item->setAttribute('print_source_of_funds', $sourceProcurement->fund_cluster?->name);
+                    $item->setAttribute('print_start_date', $sourceProcurement->date);
+
+                    return $item;
+                });
+            })
+            ->values();
+        $codes = $procurements
+            ->flatMap(fn ($item) => $item->codes ?? collect())
+            ->unique('procurement_code_id')
+            ->values();
+        $prNos = $procurements
+            ->pluck('code')
+            ->filter()
+            ->unique()
+            ->values();
+        $classificationNames = $procurements
+            ->pluck('classification.name')
+            ->filter()
+            ->unique()
+            ->values();
+        $fundSources = $procurements
+            ->pluck('fund_cluster.name')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $representative->setRelation('items', $items);
+        $representative->setRelation('codes', $codes);
+        $representative->setAttribute('pr_no_override', $prNos->implode(', '));
+        $representative->setAttribute('aggregated_ppmp_count', $procurements->count());
+        $representative->setAttribute('classification_override', $classificationNames->implode(', '));
+        $representative->setAttribute('source_of_funds_override', $fundSources->implode(', '));
+        $representative->setAttribute('start_date_override', $procurements->pluck('date')->filter()->sort()->first());
+
+        if ($planName === 'Annual Procurement Plan') {
+            $representative->setAttribute('ppmp_no_override', 'APP-' . $year);
+            $representative->setAttribute('plan_name_override', 'Annual Procurement Plan');
+            $representative->setAttribute('unit_name_override', 'Agency-wide');
+        } elseif ($planName === 'Supplemental Procurement Plan') {
+            $representative->setAttribute('ppmp_no_override', 'SPP-' . $year);
+            $representative->setAttribute('plan_name_override', 'Supplemental Procurement Plan');
+            $representative->setAttribute('unit_name_override', 'Agency-wide');
+        } else {
+            $representative->setAttribute('ppmp_no_override', 'PPMP-' . $year . '-UNIT-' . str_pad((string) $representative->unit_id, 3, '0', STR_PAD_LEFT));
+            $representative->setAttribute('plan_name_override', 'PPMP');
+        }
+
+        return $representative;
+    }
 
     public function printQuotations($id){
         $quotation = ProcurementQuotation::with('supplier.address', 'supplier.attachments', 'supply_officer.profile', 'items' , 'procurement')->findOrFail($id); 
@@ -545,9 +702,19 @@ class PrintClass
             })
             ->first();
 
-        $assistantRegionalDirector = OrgChart::with('user.profile', 'designation')
+        $assistantRegionalDirector = OrgChart::with('user.profile', 'oic.profile', 'designation', 'assigned')
             ->where('designation_id', ListDropdown::getID('Assistant Regional Director', 'Designation'))
+            ->whereHas('assigned', function ($query) {
+                $query->where('others', 'FASS')
+                    ->orWhere('name', 'like', '%Finance and Administrative Support Services%');
+            })
+            ->orderByDesc('is_active')
+            ->orderBy('order')
             ->first();
+        $notedByUser = $assistantRegionalDirector?->is_oic
+            ? ($assistantRegionalDirector?->oic ?: $assistantRegionalDirector?->user)
+            : ($assistantRegionalDirector?->user ?: $assistantRegionalDirector?->oic);
+        $notedByDesignation = $assistantRegionalDirector?->is_oic ? 'OIC ARD-FASS' : 'ARD-FASS';
 
         return [
             'prepared_by' => array_slice($procurementStaff, 0, 2),
@@ -555,9 +722,9 @@ class PrintClass
                 'name' => strtoupper($supplyOfficer->profile?->full_name ?? ('USER #' . $supplyOfficer->id)),
                 'role' => 'Supply Officer',
             ] : null,
-            'noted_by' => $assistantRegionalDirector ? [
-                'name' => strtoupper($assistantRegionalDirector->user?->profile?->full_name ?? ''),
-                'designation' => 'ARD-FASS',
+            'noted_by' => $notedByUser ? [
+                'name' => strtoupper($notedByUser->profile?->full_name ?? ''),
+                'designation' => $notedByDesignation,
             ] : null,
         ];
     }

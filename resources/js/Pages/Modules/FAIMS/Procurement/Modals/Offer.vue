@@ -1,17 +1,18 @@
 <template>
   <b-modal
     v-model="showModal"
-    header-class="p-3"
+    header-class="p-3 bg-light"
     title="Edit Bid Offer"
     size="xl"
     class="v-modal-custom"
     modal-class="zoomIn"
+    body-class="offer-edit-modal-body"
     centered
     no-close-on-backdrop
   >
-    <form class="customform">
-      <BRow>
-        <BCol lg="12" class="mt-2">
+    <form class="customform offer-edit-form">
+      <BRow class="g-3">
+        <BCol lg="12">
           <div class="offer-edit-summary">
             <div class="offer-edit-summary__header">
               <div>
@@ -73,96 +74,100 @@
           </div>
         </BCol>
 
-        <BCol lg="6" class="mt-2">
-          <InputLabel value="Bid Price" :message="form.errors.bid_price" />
-          <Amount @amount="amount" ref="amountComponent" :readonly="isBidPriceLocked" />
-          <div class="d-flex flex-wrap gap-3 mt-2">
-            <div class="form-check">
-              <input
-                id="is-free-offer"
-                v-model="isFree"
-                class="form-check-input"
-                type="checkbox"
-                @change="onToggleOfferState('free')"
-              />
-              <label class="form-check-label" for="is-free-offer">
-                Free
-              </label>
+        <BCol lg="6">
+          <div class="offer-edit-section h-100">
+            <InputLabel value="Bid Price" :message="form.errors.bid_price" />
+            <Amount @amount="amount" ref="amountComponent" :readonly="isBidPriceLocked" />
+            <div class="offer-edit-checks">
+              <div class="form-check mb-0">
+                <input
+                  id="is-free-offer"
+                  v-model="isFree"
+                  class="form-check-input"
+                  type="checkbox"
+                  @change="onToggleOfferState('free')"
+                />
+                <label class="form-check-label" for="is-free-offer">
+                  Free
+                </label>
+              </div>
+              <div class="form-check mb-0">
+                <input
+                  id="is-no-offer"
+                  v-model="isNoOffer"
+                  class="form-check-input"
+                  type="checkbox"
+                  @change="onToggleOfferState('no_offer')"
+                />
+                <label class="form-check-label" for="is-no-offer">
+                  No Offer
+                </label>
+              </div>
+              <div class="form-check mb-0">
+                <input
+                  id="is-not-applicable-offer"
+                  v-model="isNotApplicable"
+                  class="form-check-input"
+                  type="checkbox"
+                  @change="onToggleOfferState('not_applicable')"
+                />
+                <label class="form-check-label" for="is-not-applicable-offer">
+                  Not Applicable
+                </label>
+              </div>
             </div>
-            <div class="form-check">
-              <input
-                id="is-no-offer"
-                v-model="isNoOffer"
-                class="form-check-input"
-                type="checkbox"
-                @change="onToggleOfferState('no_offer')"
-              />
-              <label class="form-check-label" for="is-no-offer">
-                No Offer
-              </label>
-            </div>
-            <div class="form-check">
-              <input
-                id="is-not-applicable-offer"
-                v-model="isNotApplicable"
-                class="form-check-input"
-                type="checkbox"
-                @change="onToggleOfferState('not_applicable')"
-              />
-              <label class="form-check-label" for="is-not-applicable-offer">
-                Not Applicable
-              </label>
-            </div>
+            <small class="text-muted d-block mt-2">
+              Leave blank or enter 0 to keep this bid not set. Use the checkboxes for Free, No Offer, or Not Applicable when needed.
+            </small>
           </div>
-         
         </BCol>
     
-        <BCol lg="6" class="mt-2">
-          <InputLabel value="Delivery Term (Supplier / RFQ)" />
-          <TextInput
-            v-model="form.delivery_term"
-            type="text"
-            class="form-control"
-            :light="true"
-          />
-          <small class="text-muted d-block mt-1">
-            This delivery term is shared by the selected supplier/RFQ across its offered items.
-          </small>
-        </BCol>
-
-           <BCol lg="12" class="mt-2">
-           <small class="text-muted mt-1">
-            Leave blank or enter 0 to keep this bid not set. Use the checkboxes for Free, No Offer, or Not Applicable when needed.
-          </small>
-        </BCol>
-        <BCol lg="12" class="mt-2">
-          <InputLabel value="Technical Proposal" />
-          <CustomEditorMini
-            v-model="form.technical_proposal"
-            :modal-size="modal_size"
-            :disabled="isTechnicalProposalLocked"
-          />
-          <small v-if="isTechnicalProposalLocked" class="text-muted d-block mt-2">
-            Technical proposal is cleared automatically when the offer is marked as No Offer or Not Applicable.
-          </small>
-        </BCol>
-
-        <BCol lg="12"><hr class="text-muted mt-4 mb-0" /></BCol>
-        <BCol lg="12" class="mt-3">
-          <div class="form-check">
-            <input
-              id="confirm-final-offer"
-              v-model="confirmFinalOffer"
-              class="form-check-input"
-              type="checkbox"
+        <BCol lg="6">
+          <div class="offer-edit-section h-100">
+            <InputLabel value="Delivery Term (Supplier / RFQ)" />
+            <TextInput
+              v-model="form.delivery_term"
+              type="text"
+              class="form-control"
+              :light="true"
             />
-            <label class="form-check-label fw-semibold" for="confirm-final-offer">
-              I confirm this edited offer has been reviewed and is final.
-            </label>
+            <small class="text-muted d-block mt-2">
+              This delivery term is shared by the selected supplier/RFQ across its offered items.
+            </small>
           </div>
-          <small class="text-muted d-block mt-1">
-            This confirmation helps ensure the procurement officer or encoder is saving the final version of the offer.
-          </small>
+        </BCol>
+
+        <BCol lg="12">
+          <div class="offer-edit-section">
+            <InputLabel value="Technical Proposal" />
+            <CustomEditorMini
+              v-model="form.technical_proposal"
+              :modal-size="modal_size"
+              :disabled="isTechnicalProposalLocked"
+            />
+            <small v-if="isTechnicalProposalLocked" class="text-muted d-block mt-2">
+              Technical proposal is cleared automatically when the offer is marked as No Offer or Not Applicable.
+            </small>
+          </div>
+        </BCol>
+
+        <BCol lg="12">
+          <div class="offer-edit-confirm">
+            <div class="form-check mb-0">
+              <input
+                id="confirm-final-offer"
+                v-model="confirmFinalOffer"
+                class="form-check-input"
+                type="checkbox"
+              />
+              <label class="form-check-label fw-semibold" for="confirm-final-offer">
+                I confirm this edited offer has been reviewed and is final.
+              </label>
+            </div>
+            <small class="text-muted d-block mt-1">
+              This confirmation helps ensure the procurement officer or encoder is saving the final version of the offer.
+            </small>
+          </div>
         </BCol>
       </BRow>
     </form>
@@ -578,26 +583,36 @@ export default {
 </script>
 
 <style scoped>
-.offer-edit-summary {
-  background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
-  border: 1px solid #dbe4f0;
-  border-radius: 16px;
+:deep(.offer-edit-modal-body) {
+  max-height: calc(100vh - 11rem);
+  overflow-y: auto;
   padding: 1rem;
+}
+
+.offer-edit-form {
+  margin: 0;
+}
+
+.offer-edit-summary {
+  background: #f8fafc;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  padding: 0.85rem;
 }
 
 .offer-edit-summary__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .offer-edit-summary__eyebrow {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   color: #64748b;
 }
 
@@ -609,12 +624,12 @@ export default {
 }
 
 .offer-edit-summary__status {
-  padding: 0.45rem 0.75rem;
+  padding: 0.32rem 0.6rem;
   border-radius: 999px;
   background: #ffffff;
   border: 1px solid #dbe4f0;
   color: #334155;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -622,40 +637,40 @@ export default {
 .offer-edit-summary__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .offer-edit-summary__card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0.85rem 0.95rem;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.18rem;
 }
 
 .offer-edit-summary__label {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   color: #64748b;
 }
 
 .offer-edit-summary__value {
-  font-size: 0.96rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: #1e293b;
   word-break: break-word;
 }
 
 .offer-edit-summary__description {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0.95rem;
+  border-radius: 8px;
+  padding: 0.75rem;
   color: #334155;
 }
 
@@ -667,12 +682,31 @@ export default {
 }
 
 .offer-edit-summary__description-body {
-  margin-top: 0.9rem;
+  margin-top: 0.75rem;
 }
 
 .offer-edit-summary__toggle {
   flex-shrink: 0;
-  border-radius: 999px;
+  border-radius: 6px;
+}
+
+.offer-edit-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 0.85rem;
+}
+
+.offer-edit-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.offer-edit-confirm {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.85rem;
 }
 
 .offer-edit-summary__description :deep(p:last-child),
@@ -692,10 +726,16 @@ export default {
 }
 
 [data-bs-theme="dark"] .offer-edit-summary__card,
+[data-bs-theme="dark"] .offer-edit-section,
+[data-bs-theme="dark"] .offer-edit-confirm,
 [data-bs-theme="dark"] .offer-edit-summary__description,
 [data-bs-theme="dark"] .offer-edit-summary__status {
   background: #232c3a;
   border-color: rgba(148, 163, 184, 0.18);
+}
+
+[data-bs-theme="dark"] .offer-edit-confirm {
+  background: transparent;
 }
 
 [data-bs-theme="dark"] .offer-edit-summary__eyebrow,

@@ -19,108 +19,74 @@
       </b-button>
 
       <b-button
-        @click="createPO()"
-        v-if="!purchase_order"
+        v-if="editPOActions.length === 1"
+        :variant="editPOActions[0].variant"
+        class="btn-modern shadow-sm"
+        size="sm"
+        @click="runPOAction(editPOActions[0])"
+      >
+        <i :class="[editPOActions[0].icon, 'align-bottom me-1']"></i>
+        {{ editPOActions[0].label }}
+      </b-button>
+
+      <b-dropdown
+        v-else-if="editPOActions.length > 1"
         variant="success"
-        class="btn-modern shadow-sm"
         size="sm"
-        v-b-tooltip.hover
-        title="Create Purchase Order"
+        class="po-actions-dropdown"
+        toggle-class="btn-modern shadow-sm"
+        menu-class="po-actions-menu"
+        right
       >
-        <i class="ri-add-fill align-bottom me-1"></i>
-        Create PO
-      </b-button>
+        <template #button-content>
+          <i class="ri-pencil-fill align-bottom me-1"></i>
+          Edit
+        </template>
+
+        <b-dropdown-item
+          v-for="action in editPOActions"
+          :key="action.key"
+          @click="runPOAction(action)"
+        >
+          <i :class="[action.icon, 'align-bottom me-2', action.iconClass]"></i>
+          {{ action.label }}
+        </b-dropdown-item>
+      </b-dropdown>
 
       <b-button
-        v-if="purchase_order && canEditPO"
-        variant="outline-success"
+        v-if="printPOActions.length === 1"
+        :variant="printPOActions[0].variant"
         class="btn-modern shadow-sm"
         size="sm"
-        v-b-tooltip.hover
-        title="Edit Purchase Order"
-        @click="editPO()"
+        @click="runPOAction(printPOActions[0])"
       >
-        <i class="ri-pencil-fill align-bottom me-1"></i>
-        Edit PO
+        <i :class="[printPOActions[0].icon, 'align-bottom me-1']"></i>
+        {{ printPOActions[0].label }}
       </b-button>
 
-      <b-button
-        v-if="canUpdatePOStatus"
-        variant="outline-info"
-        class="btn-modern shadow-sm"
+      <b-dropdown
+        v-else-if="printPOActions.length > 1"
+        variant="dark"
         size="sm"
-        v-b-tooltip.hover
-        title="Update Status"
-        @click="updateStatus(purchase_order)"
+        class="po-actions-dropdown"
+        toggle-class="btn-modern shadow-sm"
+        menu-class="po-actions-menu"
+        right
       >
-        <i class="ri-edit-fill align-bottom me-1"></i>
-        Update Status
-      </b-button>
+        <template #button-content>
+          <i class="ri-printer-fill align-bottom me-1"></i>
+          Print
+        </template>
 
-      <b-button
-        variant="outline-warning"
-        class="btn-modern shadow-sm"
-        size="sm"
-        v-if="purchase_order && canRevertPOStatus"
-        @click="revertStatus(purchase_order)"
-        v-b-tooltip.hover
-        title="Revert Status"
-      >
-        <i class="ri-arrow-go-back-line align-bottom me-1"></i>
-        Revert
-      </b-button>
-
-      <b-button
-        variant="outline-danger"
-        class="btn-modern shadow-sm"
-        size="sm"
-        v-if="purchase_order && purchase_order.status.name == 'Issued'"
-        @click="notConformed(purchase_order)"
-        v-b-tooltip.hover
-        title="Not Conformed"
-      >
-        <i class="ri-close-circle-fill align-bottom me-1"></i>
-        Not Conformed
-      </b-button>
-
-      <b-button
-        variant="outline-primary"
-        class="btn-modern shadow-sm"
-        size="sm"
-        v-if="canEditNTP"
-        @click="editNTP()"
-        v-b-tooltip.hover
-        title="Edit Notice to Proceed"
-      >
-        <i class="ri-file-edit-line align-bottom me-1"></i>
-        Edit NTP
-      </b-button>
-
-      <b-button
-        variant="outline-success"
-        class="btn-modern shadow-sm"
-        size="sm"
-        v-if="purchase_order && canPrintNTP"
-        @click="printNTP(purchase_order)"
-        v-b-tooltip.hover
-        title="Notice to Proceed"
-      >
-        <i class="ri-file-fill align-bottom me-1"></i>
-        Notice to Proceed
-      </b-button>
-
-      <b-button
-        variant="outline-dark"
-        class="btn-modern shadow-sm"
-        v-if="purchase_order"
-        @click="printPO(purchase_order)"
-        size="sm"
-        v-b-tooltip.hover
-        title="Print Purchase Order"
-      >
-        <i class="ri-printer-fill align-bottom me-1"></i>
-        Print PO
-      </b-button>
+        <b-dropdown-item
+          v-for="action in printPOActions"
+          :key="action.key"
+          @click="runPOAction(action)"
+        >
+          <i :class="[action.icon, 'align-bottom me-2', action.iconClass]"></i>
+          {{ action.label }}
+        </b-dropdown-item>
+      </b-dropdown>
     </div>
   </div>
 
@@ -336,6 +302,104 @@ export default {
     canAccessInspectionTab() {
       return this.canAccessProgressTabs;
     },
+    editPOActions() {
+      const actions = [];
+
+      if (!this.purchase_order) {
+        actions.push({
+          key: "create-po",
+          label: "Create PO",
+          icon: "ri-add-fill",
+          iconClass: "text-success",
+          variant: "success",
+          handler: () => this.createPO(),
+        });
+      }
+
+      if (this.purchase_order && this.canEditPO) {
+        actions.push({
+          key: "edit-po",
+          label: "Edit PO",
+          icon: "ri-pencil-fill",
+          iconClass: "text-success",
+          variant: "outline-success",
+          handler: () => this.editPO(),
+        });
+      }
+
+      if (this.canUpdatePOStatus) {
+        actions.push({
+          key: "update-status",
+          label: "Update Status",
+          icon: "ri-edit-fill",
+          iconClass: "text-info",
+          variant: "outline-info",
+          handler: () => this.updateStatus(this.purchase_order),
+        });
+      }
+
+      if (this.purchase_order && this.canRevertPOStatus) {
+        actions.push({
+          key: "revert-status",
+          label: "Revert",
+          icon: "ri-arrow-go-back-line",
+          iconClass: "text-warning",
+          variant: "outline-warning",
+          handler: () => this.revertStatus(this.purchase_order),
+        });
+      }
+
+      if (this.purchase_order && this.purchase_order.status.name == "Issued") {
+        actions.push({
+          key: "not-conformed",
+          label: "Not Conformed",
+          icon: "ri-close-circle-fill",
+          iconClass: "text-danger",
+          variant: "outline-danger",
+          handler: () => this.notConformed(this.purchase_order),
+        });
+      }
+
+      if (this.canEditNTP) {
+        actions.push({
+          key: "edit-ntp",
+          label: "Edit NTP",
+          icon: "ri-file-edit-line",
+          iconClass: "text-primary",
+          variant: "outline-primary",
+          handler: () => this.editNTP(),
+        });
+      }
+
+      return actions;
+    },
+    printPOActions() {
+      const actions = [];
+
+      if (this.purchase_order && this.canPrintNTP) {
+        actions.push({
+          key: "print-ntp",
+          label: "Print Notice to Proceed",
+          icon: "ri-file-fill",
+          iconClass: "text-success",
+          variant: "outline-success",
+          handler: () => this.printNTP(this.purchase_order),
+        });
+      }
+
+      if (this.purchase_order) {
+        actions.push({
+          key: "print-po",
+          label: "Print PO",
+          icon: "ri-printer-fill",
+          iconClass: "text-dark",
+          variant: "outline-dark",
+          handler: () => this.printPO(this.purchase_order),
+        });
+      }
+
+      return actions;
+    },
     canEditNTP() {
       return this.isNormalizedPOStatus("Conformed");
     },
@@ -459,6 +523,7 @@ export default {
     canGenerateIARReport() {
       return (
         Boolean(this.purchase_order)
+        && Boolean(this.purchase_order?.can_generate_iar_report)
         && this.receivedItemsPendingIar.length > 0
         && ["Conformed", "Items Delivered"].includes(this.normalizedPurchaseOrderStatus)
       );
@@ -493,6 +558,11 @@ export default {
   },
 
   methods: {
+    runPOAction(action) {
+      if (action && typeof action.handler === "function") {
+        action.handler();
+      }
+    },
     fetch(page_url) {
       page_url = "/faims/purchase-orders";
       return axios
@@ -800,6 +870,29 @@ export default {
 .btn-modern:hover {
   transform: translateY(-1px);
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12) !important;
+}
+
+.po-actions-dropdown :deep(.dropdown-toggle) {
+  min-width: 112px;
+}
+
+.po-actions-dropdown :deep(.dropdown-menu) {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+  padding: 0.4rem;
+  min-width: 220px;
+}
+
+.po-actions-dropdown :deep(.dropdown-item) {
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.5rem 0.65rem;
+}
+
+.po-actions-dropdown :deep(.dropdown-divider) {
+  margin: 0.35rem 0;
 }
 
 /* Main Content Wrapper */

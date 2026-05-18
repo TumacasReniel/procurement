@@ -75,6 +75,7 @@ class ReceivingDeliveryResource extends JsonResource
             'total_items_count' => (int) data_get($summary, 'total_items', 0),
             'can_receive_delivery' => (int) data_get($summary, 'needs_delivery_items', 0) > 0,
             'can_edit_received_items' => $receivedDeliveries->isNotEmpty() && $this->iars->isEmpty() && !$this->iar,
+            'can_generate_iar_report' => (bool) $this->getAttribute('can_generate_iar_report'),
         ];
     }
 }

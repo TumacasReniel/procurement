@@ -24,6 +24,7 @@ class ProcurementResource extends JsonResource
             'unit' =>  $this->unit,
             'division' =>  $this->division,
             'fund_cluster' =>  $this->fund_cluster,
+            'fund_cluster_name' => $this->fund_cluster?->name,
             'classification_id' => $this->classification_id,
             'classification' => $this->classification,
             'reference_app_id' => $this->reference_app_id,
@@ -36,6 +37,8 @@ class ProcurementResource extends JsonResource
             'approved_by_id' => $this->approved_by_id,
             'codes' =>  $this->codes,
             'items' =>  $this->items,
+            'is_create_by_category' => $this->isCreateByCategory(),
+            'total_amount' => round((float) $this->items->sum('total_cost'), 2),
             'quotation_count'  => $this->quotation_count,
             'reawarded_count'  => $this->reawarded_count,
             'rebidded_count'  => $this->rebidded_count,
@@ -43,5 +46,16 @@ class ProcurementResource extends JsonResource
             'status' =>  $this->status,
             'sub_status' =>  $this->sub_status,
         ];
+    }
+
+    protected function isCreateByCategory(): bool
+    {
+        if (!$this->unit_id) {
+            return false;
+        }
+
+        return $this->items
+            ->contains(fn ($item) => $item->ppmp_item?->ppmp?->unit_id
+                && (int) $item->ppmp_item->ppmp->unit_id !== (int) $this->unit_id);
     }
 }

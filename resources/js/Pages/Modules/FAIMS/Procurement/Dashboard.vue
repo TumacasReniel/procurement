@@ -149,8 +149,29 @@
       </div>
     </section>
 
+    <section class="dashboard-tabs mb-3">
+      <button
+        type="button"
+        class="dashboard-tab"
+        :class="{ active: activeDashboardTab === 'overview' }"
+        @click="activeDashboardTab = 'overview'"
+      >
+        <i class="ri-dashboard-line"></i>
+        Overview
+      </button>
+      <button
+        type="button"
+        class="dashboard-tab"
+        :class="{ active: activeDashboardTab === 'graphs' }"
+        @click="activeDashboardTab = 'graphs'"
+      >
+        <i class="ri-line-chart-line"></i>
+        Graphs
+      </button>
+    </section>
+
     <!-- Metrics -->
-    <section class="dashboard-metric-section mt-2">
+    <section v-show="activeDashboardTab === 'overview'" class="dashboard-metric-section mt-2">
       <div class="dashboard-metric-section__header">
         <div>
           <span class="section-kicker">Workflow Status</span>
@@ -159,7 +180,7 @@
         <BBadge class="bg-primary-subtle text-primary rounded-pill">{{ filteredPeriodLabel }}</BBadge>
       </div>
 
-      <BRow class="g-2 mb-3">
+      <BRow class="g-2 mb-2 dashboard-card-grid">
         <BCol xl="3" md="6" v-for="(metric, i) in workflowMetrics" :key="`workflow-${i}`">
           <BCard class="metric-card h-100" :style="{ '--metric-accent': metric.accentColor || '#405189' }">
             <BCardBody>
@@ -182,7 +203,7 @@
       </BRow>
     </section>
 
-    <section class="dashboard-metric-section">
+    <section v-show="activeDashboardTab === 'overview'" class="dashboard-metric-section mb-4">
       <div class="dashboard-metric-section__header">
         <div>
           <span class="section-kicker">Budget Snapshot</span>
@@ -191,7 +212,7 @@
         <BBadge class="bg-success-subtle text-success rounded-pill">Financial</BBadge>
       </div>
 
-      <BRow class="g-2 mb-3">
+      <BRow class="g-2 mb-2 dashboard-card-grid">
         <BCol xl="3" md="6" v-for="(metric, i) in financialMetrics" :key="`financial-${i}`">
           <BCard class="metric-card h-100" :style="{ '--metric-accent': metric.accentColor || '#405189' }">
             <BCardBody>
@@ -214,8 +235,19 @@
       </BRow>
     </section>
 
+    <section v-show="activeDashboardTab === 'overview'" class="dashboard-metric-section mb-3">
+      <div class="dashboard-metric-section__header">
+        <div>
+          <span class="section-kicker">Libraries</span>
+          <h5 class="mb-0">Settings and lists</h5>
+        </div>
+  
+      </div>
 
-    <BRow class="g-2">
+    </section>
+
+
+    <BRow v-show="activeDashboardTab === 'overview'" class="g-2 dashboard-card-grid">
       <BCol  v-for="module in workspaceModules" :key="module.key" xl="4" md="6">
         <BCard class="module-card" :style="{ '--module-accent': module.accentColor || '#405189' }">
           <BCardBody>
@@ -247,12 +279,40 @@
     </BRow>
 
     <!-- Charts -->
-    <BRow class="g-2 mb-2">
+    <BRow v-show="activeDashboardTab === 'graphs'" class="g-2 mb-2">
+      <BCol xl="8">
+        <BCard class="panel-card h-100">
+          <BCardHeader>
+            <h5><i class="ri-line-chart-line me-2"></i>Procurement Line Trend</h5>
+            <p>Request movement across {{ filteredPeriodLabel }}</p>
+          </BCardHeader>
+
+          <BCardBody class="chart-body">
+            <apexchart type="line" height="330" :options="lineTrendChartOptions" :series="lineTrendChartSeries" />
+          </BCardBody>
+        </BCard>
+      </BCol>
+
+      <BCol xl="4">
+        <BCard class="panel-card h-100">
+          <BCardHeader>
+            <h5><i class="ri-pie-chart-2-line me-2"></i>Status Pie Chart</h5>
+            <p>Workflow share for {{ filteredPeriodLabel }}</p>
+          </BCardHeader>
+
+          <BCardBody class="chart-body">
+            <apexchart type="donut" height="330" :options="statusPieChartOptions" :series="statusPieChartSeries" />
+          </BCardBody>
+        </BCard>
+      </BCol>
+    </BRow>
+
+    <BRow v-show="activeDashboardTab === 'graphs'" class="g-2 mb-2">
       <BCol xl="12">
         <BCard class="panel-card h-100">
           <BCardHeader>
-            <h5><i class="ri-bar-chart-line me-2"></i>Procurement Trends</h5>
-            <p>Request volume for {{ filteredPeriodLabel }}</p>
+            <h5><i class="ri-bar-chart-line me-2"></i>Procurement Volume</h5>
+            <p>Monthly request volume for {{ filteredPeriodLabel }}</p>
           </BCardHeader>
 
           <BCardBody class="chart-body">
@@ -260,12 +320,10 @@
           </BCardBody>
         </BCard>
       </BCol>
-
-
     </BRow>
 
     <!-- Unit Breakdown -->
-    <BCard class="panel-card mb-2">
+    <BCard v-show="activeDashboardTab === 'graphs'" class="panel-card mb-2">
       <BCardHeader class="d-flex justify-content-between align-items-center">
         <div>
           <h5><i class="ri-bar-chart-horizontal-line me-2"></i>Unit Breakdown</h5>
@@ -334,7 +392,7 @@
     </BCard>
 
     <!-- Recent + Insights -->
-    <BRow class="g-2 mb-2">
+    <BRow v-show="activeDashboardTab === 'overview'" class="g-2 mb-2">
       <BCol xl="7">
         <BCard class="panel-card h-100">
           <BCardHeader class="d-flex justify-content-between align-items-center">
@@ -528,6 +586,7 @@ export default {
         start_date: null,
         end_date: null,
       },
+      activeDashboardTab: 'overview',
       periodOptions: [
         { value: 'all', label: 'All Time' },
         { value: 'today', label: 'Today' },
@@ -596,6 +655,164 @@ export default {
         name: 'Procurements',
         data: [],
       }],
+      lineTrendChartOptions: {
+        chart: {
+          type: 'line',
+          height: 330,
+          toolbar: {
+            show: false,
+          },
+          fontFamily: 'inherit',
+          foreColor: 'var(--proc-chart-text)',
+          zoom: {
+            enabled: false,
+          },
+        },
+        colors: ['#6d5dfc', '#14d4d8'],
+        dataLabels: {
+          enabled: false,
+        },
+        stroke: {
+          curve: 'smooth',
+          width: [4, 3],
+        },
+        markers: {
+          size: 4,
+          strokeWidth: 3,
+          strokeColors: 'var(--proc-card)',
+          hover: {
+            size: 6,
+          },
+        },
+        grid: {
+          borderColor: 'var(--proc-chart-grid)',
+          strokeDashArray: 5,
+        },
+        xaxis: {
+          categories: [],
+          labels: {
+            style: {
+              colors: 'var(--proc-chart-text)',
+            },
+          },
+        },
+        yaxis: {
+          min: 0,
+          max: 20,
+          stepSize: 20,
+          tickAmount: 1,
+          decimalsInFloat: 0,
+          title: {
+            text: 'Requests',
+            style: {
+              color: 'var(--proc-muted)',
+            },
+          },
+          labels: {
+            formatter: function (value) {
+              const tick = Math.round(Number(value) || 0);
+              return tick === 0 ? '' : tick.toLocaleString();
+            },
+            style: {
+              colors: 'var(--proc-chart-text)',
+            },
+          },
+        },
+        fill: {
+          type: 'gradient',
+          gradient: {
+            shadeIntensity: 0.45,
+            opacityFrom: 0.32,
+            opacityTo: 0.05,
+            stops: [0, 90, 100],
+          },
+        },
+        legend: {
+          position: 'top',
+          horizontalAlign: 'right',
+          labels: {
+            colors: 'var(--proc-chart-text)',
+          },
+        },
+        tooltip: {
+          theme: 'light',
+          y: {
+            formatter: function (val) {
+              return `${Number(val || 0).toLocaleString()} procurements`;
+            },
+          },
+        },
+      },
+      lineTrendChartSeries: [{
+        name: 'Requests',
+        data: [],
+      }, {
+        name: 'Completed',
+        data: [],
+      }],
+      statusPieChartOptions: {
+        chart: {
+          type: 'donut',
+          height: 330,
+          fontFamily: 'inherit',
+          foreColor: 'var(--proc-chart-text)',
+        },
+        labels: ['Completed', 'For Review', 'For Approval', 'Other Open'],
+        colors: ['#0ab39c', '#f7b84b', '#299cdb', '#6d5dfc'],
+        stroke: {
+          width: 3,
+          colors: ['var(--proc-card)'],
+        },
+        dataLabels: {
+          enabled: true,
+          formatter: function (value) {
+            return `${Math.round(value)}%`;
+          },
+        },
+        legend: {
+          position: 'bottom',
+          labels: {
+            colors: 'var(--proc-chart-text)',
+          },
+        },
+        plotOptions: {
+          pie: {
+            donut: {
+              size: '68%',
+              labels: {
+                show: true,
+                name: {
+                  color: 'var(--proc-muted)',
+                },
+                value: {
+                  color: 'var(--proc-ink)',
+                  fontWeight: 800,
+                  formatter: function (value) {
+                    return Number(value || 0).toLocaleString();
+                  },
+                },
+                total: {
+                  show: true,
+                  label: 'Total',
+                  color: 'var(--proc-muted)',
+                  formatter: function (w) {
+                    return w.globals.seriesTotals.reduce((sum, value) => sum + value, 0).toLocaleString();
+                  },
+                },
+              },
+            },
+          },
+        },
+        tooltip: {
+          theme: 'light',
+          y: {
+            formatter: function (value) {
+              return `${Number(value || 0).toLocaleString()} requests`;
+            },
+          },
+        },
+      },
+      statusPieChartSeries: [0, 0, 0, 0],
       unitSummaryChartOptions: {
         chart: {
           type: 'treemap',
@@ -1151,6 +1368,57 @@ export default {
 
 			return modules.filter((module) => this.hasAnyRole(module.roles));
 		},
+		attentionQueue() {
+			const queue = [
+				{
+					key: 'for_reviews',
+					label: 'For Review',
+					value: this.dashboard.for_reviews,
+					note: this.dashboard.for_reviews ? 'Requests waiting for reviewer action' : 'No review backlog',
+					route: '/faims/procurements',
+					icon: 'ri-search-eye-line',
+					tone: this.dashboard.for_reviews ? 'warning' : 'muted',
+					priority: Number(this.dashboard.for_reviews) || 0,
+					roles: ['Procurement Staff', 'Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'for_approvals',
+					label: 'For Approval',
+					value: this.dashboard.for_approvals,
+					note: this.dashboard.for_approvals ? 'Approvals ready for sign-off' : 'No approval queue',
+					route: '/faims/procurements',
+					icon: 'ri-shield-check-line',
+					tone: this.dashboard.for_approvals ? 'info' : 'muted',
+					priority: Number(this.dashboard.for_approvals) || 0,
+					roles: ['Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'pending_suppliers',
+					label: 'Supplier Approval',
+					value: this.dashboard.pending_supplier_approvals,
+					note: this.dashboard.pending_supplier_approvals ? 'Supplier records need validation' : 'Supplier approvals are clear',
+					route: '/faims/suppliers',
+					icon: 'ri-truck-line',
+					tone: this.dashboard.pending_supplier_approvals ? 'danger' : 'muted',
+					priority: Number(this.dashboard.pending_supplier_approvals) || 0,
+					roles: ['Procurement Officer', 'Administrator'],
+				},
+				{
+					key: 'pap_balance',
+					label: 'PAP Balance',
+					value: this.formatCompactCurrency(this.dashboard.total_remaining_pap_budget),
+					note: 'Remaining allocated PAP budget',
+					route: '/faims/procurement-codes',
+					icon: 'ri-wallet-3-line',
+					tone: Number(this.dashboard.total_remaining_pap_budget) > 0 ? 'success' : 'muted',
+					priority: Number(this.dashboard.total_remaining_pap_budget) > 0 ? 1 : 0,
+					roles: ['Budget Officer', 'Procurement Officer', 'Administrator'],
+				},
+			];
+
+			return queue.filter((item) => this.hasAnyRole(item.roles));
+		},
+
 		completionRate() {
 			if (!this.dashboard.total_procurements) {
 				return 0;
@@ -1309,7 +1577,34 @@ export default {
           ...this.monthlyChartSeries[0],
           data: this.dashboard.monthly_trends.map(item => Number(item.count) || 0),
         }];
+        this.lineTrendChartOptions = {
+          ...this.lineTrendChartOptions,
+          xaxis: {
+            ...this.lineTrendChartOptions.xaxis,
+            categories: this.dashboard.monthly_trends.map(item => item.label || item.month),
+          },
+          yaxis: {
+            ...this.lineTrendChartOptions.yaxis,
+            max: axisMax,
+            stepSize: axisStep,
+            tickAmount: axisMax / axisStep,
+          },
+        };
+        this.lineTrendChartSeries = [{
+          name: 'Requests',
+          data: this.dashboard.monthly_trends.map(item => Number(item.count) || 0),
+        }, {
+          name: 'Completed',
+          data: this.dashboard.monthly_trends.map(item => Number(item.completed_count ?? item.completed ?? 0) || 0),
+        }];
       }
+
+      const completed = Number(this.dashboard.completed_procurements) || 0;
+      const forReview = Number(this.dashboard.for_reviews) || 0;
+      const forApproval = Number(this.dashboard.for_approvals) || 0;
+      const total = Number(this.dashboard.total_procurements) || 0;
+      const otherOpen = Math.max(total - completed - forReview - forApproval, 0);
+      this.statusPieChartSeries = [completed, forReview, forApproval, otherOpen];
 
       // Update unit summary chart
       if (this.dashboard && this.dashboard.division_distribution && Array.isArray(this.dashboard.division_distribution)) {
@@ -1515,59 +1810,33 @@ export default {
 
 <style scoped>
 .procurement-dashboard-page {
-  --proc-brand: #405189;
-  --proc-brand-dark: #344272;
-  --proc-accent: #0ab39c;
-  --proc-ink: #0f172a;
-  --proc-muted: #64748b;
-  --proc-border: #e8edf5;
-  --proc-soft: rgba(64, 81, 137, 0.1);
-  --proc-surface: rgba(255, 255, 255, .86);
-  --proc-card: #ffffff;
-  --proc-card-soft: #f8fafc;
-  --proc-card-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  --proc-panel-header: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
-  --proc-chart-bg: linear-gradient(180deg, rgba(248, 250, 252, .72), #ffffff 28%), #ffffff;
-  --proc-table-row: #ffffff;
-  --proc-table-hover: rgba(64, 81, 137, 0.06);
-  --proc-input: #ffffff;
-  --proc-shadow: rgba(15, 23, 42, .05);
-  padding-bottom: 1.5rem;
-}
-
-:global([data-bs-theme="dark"]) .procurement-dashboard-page {
-  --proc-brand: #93c5fd;
-  --proc-brand-dark: #60a5fa;
-  --proc-accent: #5eead4;
-  --proc-ink: #e5edf7;
-  --proc-muted: #9fb0c7;
-  --proc-border: rgba(148, 163, 184, 0.18);
-  --proc-soft: rgba(96, 165, 250, 0.14);
-  --proc-surface: rgba(19, 29, 43, 0.92);
-  --proc-card: #131d2b;
-  --proc-card-soft: #182235;
-  --proc-card-gradient: linear-gradient(180deg, #172235 0%, #101827 100%);
-  --proc-panel-header: linear-gradient(180deg, #172235 0%, #131d2b 100%);
-  --proc-chart-bg: linear-gradient(180deg, rgba(24, 34, 53, .72), #101827 30%), #101827;
-  --proc-table-row: #182235;
-  --proc-table-hover: rgba(96, 165, 250, 0.12);
-  --proc-input: #101827;
-  --proc-shadow: rgba(0, 0, 0, .28);
-}
-
-:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-dark),
-:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-body) {
-  color: var(--proc-ink) !important;
-}
-
-:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-muted),
-:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.text-body-secondary) {
-  color: var(--proc-muted) !important;
+  --proc-brand: #6d5dfc;
+  --proc-brand-dark: #3e63f4;
+  --proc-accent: #14d4d8;
+  --proc-ink: var(--vz-body-color, var(--bs-body-color, #182039));
+  --proc-muted: var(--vz-secondary-color, var(--bs-secondary-color, #6f7895));
+  --proc-border: var(--vz-border-color, var(--bs-border-color, rgba(91, 105, 153, 0.13)));
+  --proc-soft: rgba(109, 93, 252, 0.1);
+  --proc-surface: var(--vz-card-bg, var(--bs-card-bg, rgba(255, 255, 255, .88)));
+  --proc-card: var(--vz-card-bg, var(--bs-card-bg, #ffffff));
+  --proc-card-soft: var(--vz-tertiary-bg, var(--bs-tertiary-bg, #f5f7ff));
+  --proc-card-gradient: var(--proc-card);
+  --proc-panel-header: var(--vz-tertiary-bg, var(--bs-tertiary-bg, #fbfcff));
+  --proc-chart-bg: var(--proc-card);
+  --proc-table-row: var(--proc-card);
+  --proc-table-hover: rgba(109, 93, 252, 0.06);
+  --proc-input: var(--vz-input-bg, var(--bs-body-bg, #ffffff));
+  --proc-shadow: rgba(31, 45, 92, .09);
+  --proc-chart-text: var(--vz-secondary-color, var(--bs-secondary-color, #475569));
+  --proc-chart-grid: var(--vz-border-color, var(--bs-border-color, #e2e8f0));
+  min-height: 100vh;
+  padding: .55rem .55rem 1.25rem;
+  background: var(--vz-body-bg, var(--bs-body-bg, #f3f6ff));
 }
 
 .procurement-hero {
   position: relative;
-  border-radius: 22px;
+  border-radius: 24px;
   background:
     radial-gradient(circle at 8% 10%, rgba(255, 255, 255, .22), transparent 32%),
     radial-gradient(circle at 88% 22%, rgba(10, 179, 156, .32), transparent 28%),
@@ -1590,13 +1859,13 @@ export default {
 .procurement-hero .card-body {
   position: relative;
   z-index: 1;
-  padding: 1.35rem 1.5rem;
+  padding: 1rem 1.15rem;
 }
 
 .procurement-hero .row {
-  min-height: 180px;
-  --bs-gutter-x: 1.5rem;
-  --bs-gutter-y: .75rem;
+  min-height: 148px;
+  --bs-gutter-x: 1rem;
+  --bs-gutter-y: .55rem;
 }
 
 .procurement-hero h3 {
@@ -1614,15 +1883,49 @@ export default {
 }
 
 .compact-card {
-  padding: .8rem;
+  padding: .62rem;
 }
 
 .dashboard-filter-card {
-  border-radius: 14px !important;
+  border-radius: 18px !important;
   background: var(--proc-surface);
   border: 1px solid var(--proc-border) !important;
-  box-shadow: 0 14px 34px var(--proc-shadow) !important;
+  box-shadow: 0 16px 36px var(--proc-shadow) !important;
   backdrop-filter: blur(12px);
+}
+
+.dashboard-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .35rem;
+  border: 1px solid var(--proc-border);
+  border-radius: 18px;
+  background: var(--proc-surface);
+  box-shadow: 0 12px 28px var(--proc-shadow);
+}
+
+.dashboard-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 38px;
+  padding: .45rem .9rem;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--proc-muted);
+  font-weight: 800;
+}
+
+.dashboard-tab.active {
+  background: linear-gradient(135deg, #6d5dfc, #14d4d8);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(109, 93, 252, .18);
+}
+
+.dashboard-tab i {
+  font-size: 1rem;
 }
 
 .dashboard-filter-row {
@@ -1654,7 +1957,7 @@ export default {
   height: 100%;
   padding: .45rem .55rem;
   border: 1px solid var(--proc-border);
-  border-radius: 9px;
+  border-radius: 14px;
   background: var(--proc-card-soft);
 }
 
@@ -1694,6 +1997,12 @@ export default {
   color: var(--proc-ink);
 }
 
+.filter-field :deep(.multiselect-option.is-pointed),
+.filter-field :deep(.multiselect-option.is-selected) {
+  background: var(--proc-soft);
+  color: var(--proc-ink);
+}
+
 .filter-field :deep(.multiselect.is-active) {
   border-color: rgba(64, 81, 137, .4);
   box-shadow: 0 0 0 .2rem rgba(64, 81, 137, .1);
@@ -1725,13 +2034,7 @@ export default {
   font-weight: 700;
   padding: .5rem .85rem;
   border-radius: 999px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
-}
-
-:global([data-bs-theme="dark"]) .hero-pill {
-  background: rgba(15, 23, 42, .58);
-  border: 1px solid rgba(255, 255, 255, .16);
-  color: #dbeafe;
+  box-shadow: 0 10px 24px rgba(31, 45, 92, .12);
 }
 
 .hero-pill i {
@@ -1750,18 +2053,6 @@ export default {
   color: #1f2937;
 }
 
-:global([data-bs-theme="dark"]) .hero-pill.is-success {
-  color: #99f6e4;
-}
-
-:global([data-bs-theme="dark"]) .hero-pill.is-warning {
-  color: #fde68a;
-}
-
-:global([data-bs-theme="dark"]) .hero-pill.is-dark {
-  color: #e5edf7;
-}
-
 .hero-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1773,7 +2064,7 @@ export default {
   isolation: isolate;
   min-height: 88px;
   padding: .72rem;
-  border-radius: 10px;
+  border-radius: 18px;
   color: #fff;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .08));
@@ -1836,7 +2127,7 @@ export default {
 }
 
 .dashboard-metric-section {
-  margin-bottom: .85rem;
+  margin-bottom: .55rem;
 }
 
 .dashboard-metric-section__header {
@@ -1844,7 +2135,7 @@ export default {
   align-items: end;
   justify-content: space-between;
   gap: .75rem;
-  margin: .2rem .15rem .45rem;
+  margin: .1rem .1rem .32rem;
 }
 
 .dashboard-metric-section__header h5 {
@@ -1870,30 +2161,48 @@ export default {
 .panel-card {
   position: relative;
   border: 0;
-  border-radius: 10px;
+  border-radius: 20px;
   background: var(--proc-card);
   color: var(--proc-ink);
-  box-shadow: 0 6px 16px var(--proc-shadow);
+  box-shadow: 0 16px 36px var(--proc-shadow);
   overflow: hidden;
 }
 
 .metric-card::before,
 .module-card::before {
   position: absolute;
-  inset: 0 0 auto;
-  height: 4px;
+  inset: auto 1rem 1rem auto;
+  width: 96px;
+  height: 42px;
   content: "";
-  background: var(--metric-accent, var(--module-accent, var(--proc-brand)));
+  background:
+    radial-gradient(ellipse at 20% 65%, rgba(255,255,255,.46), transparent 36%),
+    linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.04));
+  border-radius: 50%;
+  transform: rotate(-8deg);
+  opacity: .75;
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: .85rem;
+  height: 34px;
+  border-bottom: 7px solid rgba(255, 255, 255, .46);
+  border-radius: 50%;
+  opacity: .5;
 }
 
 .metric-card .card-body,
 .module-card .card-body,
 .panel-card .card-body {
-  padding: .75rem;
+  padding: .58rem;
 }
 
 .module-card .card-body {
-  padding: .7rem;
+  padding: .5rem;
 }
 
 .metric-card {
@@ -1902,24 +2211,183 @@ export default {
 
 .metric-card:hover,
 .module-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px var(--proc-shadow);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 42px rgba(31, 45, 92, .12);
 }
 
 .metric-card h4 {
   color: var(--proc-ink);
+  font-size: 1.55rem;
+}
+
+.metric-card p {
+  color: var(--proc-muted) !important;
+}
+
+.dashboard-card-grid {
+  --bs-gutter-x: .42rem;
+  --bs-gutter-y: .42rem;
+}
+
+.attention-queue {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .45rem;
+}
+
+.attention-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .58rem;
+  min-height: 92px;
+  padding: .68rem .72rem;
+  border: 1px solid var(--proc-border);
+  border-radius: 18px;
+  background: var(--proc-card);
+  color: var(--proc-ink);
+  text-align: left;
+  box-shadow: 0 14px 30px var(--proc-shadow);
+  overflow: hidden;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.attention-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--attention-accent, var(--proc-brand));
+}
+
+.attention-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(109, 93, 252, .22);
+  box-shadow: 0 18px 38px rgba(31, 45, 92, .12);
+}
+
+.attention-card__icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--attention-accent, var(--proc-brand)) 14%, transparent);
+  color: var(--attention-accent, var(--proc-brand));
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.attention-card__content {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+.attention-card__label {
+  display: block;
+  color: var(--proc-muted);
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.attention-card strong {
+  display: block;
+  color: var(--proc-ink);
   font-size: 1.2rem;
+  line-height: 1.18;
+  margin: .16rem 0;
+}
+
+.attention-card small {
+  display: block;
+  color: var(--proc-muted);
+  font-size: .76rem;
+  line-height: 1.3;
+}
+
+.attention-card__arrow {
+  color: var(--attention-accent, var(--proc-brand));
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.attention-card.is-warning {
+  --attention-accent: #f7b84b;
+}
+
+.attention-card.is-info {
+  --attention-accent: #299cdb;
+}
+
+.attention-card.is-danger {
+  --attention-accent: #f06548;
+}
+
+.attention-card.is-success {
+  --attention-accent: #0ab39c;
+}
+
+.attention-card.is-muted {
+  --attention-accent: #94a3b8;
+}
+
+.metric-card {
+  min-height: 88px;
+}
+
+.dashboard-metric-section:first-of-type .metric-card {
+  min-height: 92px;
+  color: #fff;
+}
+
+.dashboard-metric-section:first-of-type .metric-card h4 {
+  color: #ffffff;
+}
+
+.dashboard-metric-section:first-of-type .metric-card p {
+  color: rgba(255,255,255,.88) !important;
+}
+
+.dashboard-metric-section:first-of-type .row > [class*="col"]:nth-child(1) .metric-card {
+  background: linear-gradient(135deg, #8157ff 0%, #5536df 100%);
+}
+
+.dashboard-metric-section:first-of-type .row > [class*="col"]:nth-child(2) .metric-card {
+  background: linear-gradient(135deg, #28d8d9 0%, #4e8ff7 100%);
+}
+
+.dashboard-metric-section:first-of-type .row > [class*="col"]:nth-child(3) .metric-card {
+  background: linear-gradient(135deg, #ffd1a8 0%, #ff6f8f 100%);
+}
+
+.dashboard-metric-section:first-of-type .row > [class*="col"]:nth-child(4) .metric-card {
+  background: linear-gradient(135deg, #f3a2ee 0%, #6e74ff 100%);
+}
+
+.dashboard-metric-section:first-of-type .metric-icon {
+  background: rgba(255,255,255,.2) !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
+}
+
+.dashboard-metric-section:first-of-type .metric-card::before,
+.dashboard-metric-section:first-of-type .metric-card::after {
+  pointer-events: none;
 }
 
 .metric-icon,
 .module-icon {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
-  font-size: .98rem;
+  border-radius: 10px;
+  font-size: .84rem;
   flex-shrink: 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5);
 }
@@ -1931,7 +2399,16 @@ export default {
 
 .module-note {
   min-height: 0;
-  line-height: 1.32;
+  line-height: 1.28;
+  font-size: .76rem;
+}
+
+.module-card {
+  min-height: 116px;
+}
+
+.module-card p {
+  font-size: .82rem;
 }
 
 .module-value.fs-2 {
@@ -1944,12 +2421,12 @@ export default {
   justify-content: space-between;
   gap: .5rem;
   border: 1px solid rgba(64, 81, 137, .12);
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(64, 81, 137, .08);
-  padding: .34rem .5rem;
+  padding: .22rem .38rem;
   color: var(--proc-brand);
   font-weight: 700;
-  font-size: .82rem;
+  font-size: .76rem;
 }
 
 .module-action:hover {
@@ -1965,7 +2442,7 @@ export default {
 .panel-card .card-header {
   background: var(--proc-panel-header);
   border-bottom: 1px solid var(--proc-border);
-  padding: .65rem .75rem;
+  padding: .72rem .82rem;
 }
 
 .panel-card .card-header h5 {
@@ -2019,8 +2496,8 @@ export default {
 .unit-breakdown-stat,
 .insight-item,
 .insight-highlight {
-  padding: .6rem;
-  border-radius: 9px;
+  padding: .54rem;
+  border-radius: 14px;
   background: var(--proc-card-gradient);
   border: 1px solid var(--proc-border);
 }
@@ -2054,7 +2531,7 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 16px;
   background: var(--proc-soft);
   color: var(--proc-brand);
   font-size: 1rem;
@@ -2097,18 +2574,201 @@ export default {
 
 .recent-table-body tbody td:first-child {
   border-left: 1px solid var(--proc-border);
-  border-top-left-radius: 10px;
-  border-bottom-left-radius: 10px;
+  border-top-left-radius: 14px;
+  border-bottom-left-radius: 14px;
 }
 
 .recent-table-body tbody td:last-child {
   border-right: 1px solid var(--proc-border);
-  border-top-right-radius: 10px;
-  border-bottom-right-radius: 10px;
+  border-top-right-radius: 14px;
+  border-bottom-right-radius: 14px;
 }
 
 .chart-body {
   background: var(--proc-chart-bg);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page {
+  --proc-brand: #8ea4ff;
+  --proc-brand-dark: #6d8cff;
+  --proc-accent: #35d7d9;
+  --proc-ink: #e8edf9;
+  --proc-muted: #9aa8c7;
+  --proc-border: rgba(170, 184, 220, .16);
+  --proc-soft: rgba(142, 164, 255, .14);
+  --proc-surface: rgba(20, 28, 48, .88);
+  --proc-card: #151e33;
+  --proc-card-soft: #10192c;
+  --proc-card-gradient: linear-gradient(180deg, #182238 0%, #111a2e 100%);
+  --proc-panel-header: linear-gradient(180deg, #172136 0%, #121b30 100%);
+  --proc-chart-bg: linear-gradient(180deg, rgba(23, 33, 54, .94), #111a2e 42%), #111a2e;
+  --proc-table-row: #151e33;
+  --proc-table-hover: rgba(142, 164, 255, .1);
+  --proc-input: #0f1728;
+  --proc-shadow: rgba(0, 0, 0, .22);
+  --proc-chart-text: #aab7d5;
+  --proc-chart-grid: rgba(170, 184, 220, .16);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(53, 215, 217, 0.09), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(255, 119, 151, 0.08), transparent 28%),
+    #0b1220;
+}
+
+:global([data-bs-theme="dark"]) .procurement-hero {
+  background:
+    radial-gradient(circle at 8% 10%, rgba(255, 255, 255, .12), transparent 32%),
+    radial-gradient(circle at 88% 22%, rgba(53, 215, 217, .2), transparent 28%),
+    linear-gradient(135deg, #243152 0%, #17213a 52%, #0d1426 100%);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, .3);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .card:not(.procurement-hero),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .card:not(.procurement-hero) > .card-body,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .card:not(.procurement-hero) > .card-header,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .panel-card,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .dashboard-filter-card,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .dashboard-tabs {
+  --bs-card-bg: var(--proc-card);
+  --bs-card-cap-bg: var(--proc-panel-header);
+  --bs-card-color: var(--proc-ink);
+  background: var(--proc-card) !important;
+  color: var(--proc-ink);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .panel-card > .card-header {
+  background: var(--proc-panel-header) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .chart-body,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .recent-table-body {
+  background: var(--proc-chart-bg) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-white,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-light,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-light-subtle {
+  background-color: rgba(142, 164, 255, .12) !important;
+  color: var(--proc-ink) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .text-white-50 {
+  color: rgba(232, 237, 249, .68) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .text-dark,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .text-primary {
+  color: var(--proc-ink) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .text-muted {
+  color: var(--proc-muted) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-primary-subtle,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-success-subtle,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-warning-subtle,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-info-subtle,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-secondary-subtle,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .bg-dark-subtle {
+  background-color: rgba(142, 164, 255, .14) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .module-action {
+  border-color: var(--proc-border);
+  background: rgba(142, 164, 255, .12);
+  color: var(--proc-brand);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .recent-table-body tbody tr:hover td {
+  background: var(--proc-table-hover);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .table,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .table > :not(caption) > * > * {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--proc-ink);
+  --bs-table-hover-bg: var(--proc-table-hover);
+  --bs-table-hover-color: var(--proc-ink);
+  color: var(--proc-ink);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .table-light {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--proc-muted);
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .filter-field,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page .form-control,
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.multiselect),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.multiselect-dropdown),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.multiselect-options),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.multiselect-search),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.multiselect-single-label) {
+  background: var(--proc-input) !important;
+  border-color: var(--proc-border) !important;
+  color: var(--proc-ink) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.apexcharts-tooltip),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.apexcharts-tooltip-title) {
+  border-color: var(--proc-border) !important;
+  background: #111a2e !important;
+  color: var(--proc-ink) !important;
+}
+
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.apexcharts-tooltip-text),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.apexcharts-legend-text),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.apexcharts-xaxis-label),
+:global([data-bs-theme="dark"]) .procurement-dashboard-page :deep(.apexcharts-yaxis-label) {
+  color: var(--proc-chart-text) !important;
+  fill: var(--proc-chart-text) !important;
+}
+
+:global([data-bs-theme="dark"] .procurement-dashboard-page),
+:global([data-layout-mode="dark"] .procurement-dashboard-page) {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(53, 215, 217, 0.09), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(255, 119, 151, 0.08), transparent 28%),
+    #0b1220 !important;
+}
+
+:global([data-bs-theme="dark"] .procurement-dashboard-page .card:not(.procurement-hero)),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .card:not(.procurement-hero) > .card-body),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .card:not(.procurement-hero) > .card-header),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .dashboard-filter-card),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .dashboard-tabs),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .panel-card),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .module-card),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .attention-card),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .unit-breakdown-stat),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .insight-item),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .insight-highlight),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .card:not(.procurement-hero)),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .card:not(.procurement-hero) > .card-body),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .card:not(.procurement-hero) > .card-header),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .dashboard-filter-card),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .dashboard-tabs),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .panel-card),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .module-card),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .attention-card),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .unit-breakdown-stat),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .insight-item),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .insight-highlight) {
+  background: var(--proc-card) !important;
+  border-color: var(--proc-border) !important;
+  color: var(--proc-ink) !important;
+  box-shadow: none !important;
+}
+
+:global([data-bs-theme="dark"] .procurement-dashboard-page .bg-white),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .bg-light),
+:global([data-bs-theme="dark"] .procurement-dashboard-page .bg-light-subtle),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .bg-white),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .bg-light),
+:global([data-layout-mode="dark"] .procurement-dashboard-page .bg-light-subtle) {
+  background: var(--proc-card) !important;
+  background-color: var(--proc-card) !important;
+  color: var(--proc-ink) !important;
 }
 
 .empty-state {
@@ -2144,7 +2804,7 @@ export default {
   .module-card .card-body,
   .panel-card .card-body,
   .panel-card .card-header {
-    padding: .75rem;
+    padding: .65rem;
   }
 
   .procurement-hero h3 {
@@ -2152,6 +2812,7 @@ export default {
   }
 
   .hero-stat-grid,
+  .attention-queue,
   .unit-breakdown-footer,
   .insight-grid {
     grid-template-columns: 1fr;

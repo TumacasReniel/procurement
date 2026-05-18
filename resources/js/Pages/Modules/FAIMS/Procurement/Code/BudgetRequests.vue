@@ -174,7 +174,7 @@
                         </b-button>
                         <b-button
                           v-if="canReviewBudgetRequests && isPending(list)"
-                          @click.stop="reviewRequest(list, 'approve')"
+                          @click.stop="openApproveModal(list)"
                           size="sm"
                           variant="success"
                           class="btn-icon"
@@ -228,6 +228,14 @@
       </div>
     </div>
   </BRow>
+
+  <ApproveBudgetRequestModal
+    v-model:show="approveModal.show"
+    :request="approveModal.data"
+    :processing="processingLogId === approveModal.data?.id"
+    @cancel="closeApproveModal"
+    @confirm="approveRequest"
+  />
 </template>
 
 <script>
@@ -235,11 +243,13 @@ import _ from "lodash";
 import { router } from "@inertiajs/vue3";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
+import ApproveBudgetRequestModal from "./Modals/ApproveBudgetRequest.vue";
 
 export default {
   components: {
     Pagination,
     PageHeader,
+    ApproveBudgetRequestModal,
   },
   data() {
     return {
@@ -252,6 +262,10 @@ export default {
       },
       selectedRow: null,
       processingLogId: null,
+      approveModal: {
+        show: false,
+        data: null,
+      },
     };
   },
   watch: {
@@ -278,13 +292,13 @@ export default {
       this.fetch();
     }, 300),
     fetch(pageUrl) {
-      const url = pageUrl || "/faims/procurement-code-budget-requests";
+      const url = pageUrl || "/faims/procurement-codes";
       axios
         .get(url, {
           params: {
             keyword: this.filter.keyword,
             status: this.filter.status,
-            option: "lists",
+            option: "budget_request_lists",
           },
         })
         .then((response) => {
@@ -302,17 +316,47 @@ export default {
       this.processingLogId = log.id;
 
       router.patch(
-        `/faims/procurement-codes/${log.procurement_code.id}/budget-increase-requests/${log.id}/${action}`,
-        {},
+        `/faims/procurement-codes/${log.procurement_code.id}`,
+        {
+          option: action === "approve" ? "approve_budget_increase" : "reject_budget_increase",
+          budget_log_id: log.id,
+        },
         {
           preserveScroll: true,
           preserveState: true,
-          onSuccess: () => this.fetch(),
+          onSuccess: () => {
+            this.approveModal.show = false;
+            this.approveModal.data = null;
+            this.fetch();
+          },
           onFinish: () => {
             this.processingLogId = null;
           },
         }
       );
+    },
+    openApproveModal(log) {
+      if (!this.canReviewBudgetRequests || !this.isPending(log) || this.processingLogId) {
+        return;
+      }
+
+      this.approveModal.data = log;
+      this.approveModal.show = true;
+    },
+    closeApproveModal() {
+      if (this.processingLogId) {
+        return;
+      }
+
+      this.approveModal.show = false;
+      this.approveModal.data = null;
+    },
+    approveRequest() {
+      if (!this.approveModal.data) {
+        return;
+      }
+
+      this.reviewRequest(this.approveModal.data, "approve");
     },
     openProfile(log) {
       if (log.procurement_code?.id) {

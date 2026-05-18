@@ -4,8 +4,8 @@
 
   <BRow class="supplier-index-page g-0">
     <div class="col-12">
-      <div class="card supplier-directory-card bg-light-subtle shadow-none border">
-        <div class="card-header supplier-directory-card__header bg-light-subtle">
+      <div class="card supplier-directory-card shadow-none border">
+        <div class="card-header supplier-directory-card__header">
           <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
             <div class="flex-shrink-0 me-3">
               <div style="height: 2.5rem; width: 2.5rem">
@@ -31,7 +31,7 @@
           </div>
         </div>
 
-        <div class="card-body supplier-toolbar bg-white border-bottom shadow-none">
+        <div class="card-body supplier-toolbar border-bottom shadow-none">
           <b-row>
             <b-col lg>
               <div class="supplier-toolbar__group input-group">
@@ -75,7 +75,7 @@
         </div>
 
         <b-card no-body class="border-0 rounded-0 shadow-none bg-transparent">
-          <div class="card-body supplier-table-body bg-white rounded-bottom">
+          <div class="card-body supplier-table-body rounded-bottom">
             <div
               class="supplier-table-wrap table-responsive table-card"
             >
@@ -523,12 +523,12 @@ export default {
 
 <style scoped>
 .supplier-index-page {
-  --supplier-surface: #ffffff;
-  --supplier-surface-soft: #f7f9fc;
-  --supplier-border: rgba(148, 163, 184, 0.24);
-  --supplier-border-strong: rgba(148, 163, 184, 0.34);
-  --supplier-text: #1e293b;
-  --supplier-muted: #64748b;
+  --supplier-surface: var(--vz-card-bg, var(--bs-card-bg, #ffffff));
+  --supplier-surface-soft: var(--vz-tertiary-bg, var(--bs-tertiary-bg, #f7f9fc));
+  --supplier-border: var(--vz-border-color, var(--bs-border-color, rgba(148, 163, 184, 0.24)));
+  --supplier-border-strong: var(--vz-border-color-translucent, var(--bs-border-color-translucent, rgba(148, 163, 184, 0.34)));
+  --supplier-text: var(--vz-body-color, var(--bs-body-color, #1e293b));
+  --supplier-muted: var(--vz-secondary-color, var(--bs-secondary-color, #64748b));
   --supplier-row-hover: rgba(37, 99, 235, 0.05);
   --supplier-row-active: rgba(37, 99, 235, 0.08);
   --supplier-shadow: rgba(15, 23, 42, 0.05);
@@ -749,6 +749,87 @@ export default {
 
 :global([data-bs-theme="dark"]) .v-modal-custom .text-muted {
   color: #9fb0c7 !important;
+}
+
+:global([data-layout-mode="dark"] .supplier-index-page) {
+  --supplier-surface: #131d2b;
+  --supplier-surface-soft: #182235;
+  --supplier-border: rgba(148, 163, 184, 0.18);
+  --supplier-border-strong: rgba(148, 163, 184, 0.28);
+  --supplier-text: #e5edf7;
+  --supplier-muted: #9fb0c7;
+  --supplier-row-hover: rgba(96, 165, 250, 0.12);
+  --supplier-row-active: rgba(96, 165, 250, 0.18);
+  --supplier-shadow: rgba(0, 0, 0, 0.28);
+}
+
+:global([data-bs-theme="dark"] .supplier-index-page),
+:global([data-layout-mode="dark"] .supplier-index-page) {
+  color: var(--supplier-text) !important;
+}
+
+:global([data-bs-theme="dark"] .supplier-index-page .supplier-directory-card),
+:global([data-bs-theme="dark"] .supplier-index-page .supplier-directory-card__header),
+:global([data-bs-theme="dark"] .supplier-index-page .supplier-toolbar),
+:global([data-bs-theme="dark"] .supplier-index-page .supplier-table-body),
+:global([data-bs-theme="dark"] .supplier-index-page .supplier-table-wrap),
+:global([data-bs-theme="dark"] .supplier-index-page .card),
+:global([data-bs-theme="dark"] .supplier-index-page .card-body),
+:global([data-bs-theme="dark"] .supplier-index-page .card-header),
+:global([data-bs-theme="dark"] .supplier-index-page .card-footer),
+:global([data-bs-theme="dark"] .supplier-index-page .bg-white),
+:global([data-bs-theme="dark"] .supplier-index-page .bg-light-subtle),
+:global([data-layout-mode="dark"] .supplier-index-page .supplier-directory-card),
+:global([data-layout-mode="dark"] .supplier-index-page .supplier-directory-card__header),
+:global([data-layout-mode="dark"] .supplier-index-page .supplier-toolbar),
+:global([data-layout-mode="dark"] .supplier-index-page .supplier-table-body),
+:global([data-layout-mode="dark"] .supplier-index-page .supplier-table-wrap),
+:global([data-layout-mode="dark"] .supplier-index-page .card),
+:global([data-layout-mode="dark"] .supplier-index-page .card-body),
+:global([data-layout-mode="dark"] .supplier-index-page .card-header),
+:global([data-layout-mode="dark"] .supplier-index-page .card-footer),
+:global([data-layout-mode="dark"] .supplier-index-page .bg-white),
+:global([data-layout-mode="dark"] .supplier-index-page .bg-light-subtle) {
+  background: var(--supplier-surface) !important;
+  background-color: var(--supplier-surface) !important;
+  border-color: var(--supplier-border) !important;
+  color: var(--supplier-text) !important;
+  box-shadow: none !important;
+}
+
+:global([data-bs-theme="dark"] .supplier-index-page .supplier-directory-card__header),
+:global([data-bs-theme="dark"] .supplier-index-page .card-header),
+:global([data-bs-theme="dark"] .supplier-index-page .card-footer),
+:global([data-bs-theme="dark"] .supplier-index-page .supplier-table-wrap thead th),
+:global([data-bs-theme="dark"] .supplier-index-page .table-light),
+:global([data-layout-mode="dark"] .supplier-index-page .supplier-directory-card__header),
+:global([data-layout-mode="dark"] .supplier-index-page .card-header),
+:global([data-layout-mode="dark"] .supplier-index-page .card-footer),
+:global([data-layout-mode="dark"] .supplier-index-page .supplier-table-wrap thead th),
+:global([data-layout-mode="dark"] .supplier-index-page .table-light) {
+  background: var(--supplier-surface-soft) !important;
+  background-color: var(--supplier-surface-soft) !important;
+  color: var(--supplier-muted) !important;
+}
+
+:global([data-bs-theme="dark"] .supplier-index-page .supplier-table-wrap tbody td),
+:global([data-layout-mode="dark"] .supplier-index-page .supplier-table-wrap tbody td) {
+  background: var(--supplier-surface) !important;
+  color: var(--supplier-text) !important;
+  border-color: var(--supplier-border) !important;
+}
+
+:global([data-bs-theme="dark"] .supplier-index-page .form-control),
+:global([data-bs-theme="dark"] .supplier-index-page .input-group-text),
+:global([data-bs-theme="dark"] .supplier-index-page .multiselect),
+:global([data-bs-theme="dark"] .supplier-index-page .multiselect-wrapper),
+:global([data-layout-mode="dark"] .supplier-index-page .form-control),
+:global([data-layout-mode="dark"] .supplier-index-page .input-group-text),
+:global([data-layout-mode="dark"] .supplier-index-page .multiselect),
+:global([data-layout-mode="dark"] .supplier-index-page .multiselect-wrapper) {
+  background: var(--supplier-surface) !important;
+  border-color: var(--supplier-border) !important;
+  color: var(--supplier-text) !important;
 }
 
 @media (max-width: 991px) {

@@ -43,6 +43,8 @@ class ReceivingRecordResource extends JsonResource
             'invoice_date' => $this->invoice_date?->format('M d, Y'),
             'invoice_date_raw' => $this->invoice_date?->toDateString(),
             'received_at' => $this->created_at?->format('M d, Y h:i A'),
+            'received_at_raw' => $this->created_at?->toDateTimeString(),
+            'received_date_raw' => $this->created_at?->toDateString(),
             'received_by' => data_get($this, 'received_by.profile.fullname')
                 ?: data_get($this, 'received_by.profile.full_name')
                 ?: data_get($this, 'received_by.name')

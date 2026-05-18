@@ -25,8 +25,8 @@
                             </h5>
                             <p class="text-muted text-truncate-two-lines fs-12">
                                 A detailed list of submitted purchase
-                                requests including code, purpose, title, and
-                                status.
+                                requests including code, purpose, total amount,
+                                fund source, and status.
                             </p>
                         </div>
                         <div class="flex-shrink-0" style="width: 45%"></div>
@@ -87,6 +87,17 @@
                                     ></i>
                                     Create
                                 </b-button>
+                                <b-button
+                                    v-if="canCreateByCategory"
+                                    type="button"
+                                    variant="success"
+                                    @click="goCreateByCategoryPage"
+                                >
+                                    <i
+                                        class="ri-list-check-2 align-bottom me-1"
+                                    ></i>
+                                    Create by Category
+                                </b-button>
                             </div>
                         </b-col>
                     </b-row>
@@ -112,13 +123,14 @@
                                         </th>
                                         <th style="width: 12%">Code</th>
                                         <th style="width: 18%">Purpose</th>
-                                        <th style="width: 12%">Division</th>
-                                        <th style="width: 12%">
+                                        <th style="width: 10%">Division</th>
+                                        <th style="width: 11%">Total Amount/Fund Source</th>
+                                        <th style="width: 11%">
                                             Created By/Date
                                         </th>
-                                        <th style="width: 12%">Requested By</th>
+                                        <th style="width: 10%">Requested By</th>
                                         <th style="width: 10%">PAP Code</th>
-                                        <th style="width: 14%">Status / Sub-status</th>
+                                        <th style="width: 12%">Status / Sub-status</th>
                                         <th
                                             style="width: 10%"
                                             class="text-center"
@@ -165,7 +177,16 @@
                                                 {{ list.purpose }}
                                             </div>
                                         </td>
-                                        <td>{{ list.division?.name }}</td>
+                                        <td>{{ list.division?.name || '-' }}</td>
+                                       
+                                        <td>
+                                            <span>{{ formatCurrency(list.total_amount) }}</span>
+                                            <span
+                                                class="badge bg-soft-info text-info px-2 py-1 fs-12 fw-medium rounded-pill"
+                                            >
+                                                {{ fundClusterLabel(list) }}
+                                            </span>
+                                        </td>
                                         <td>
                                             {{ list.created_by }}
                                             <p class="text-muted">
@@ -200,7 +221,7 @@
                                                 <b-badge
                                                     :class="list.sub_status?.bg"
                                                     class="fs-11"
-                                                    v-if="list.sub_status"
+                                                    v-if="shouldShowSubStatus(list)"
                                                 >
                                                     {{ list.sub_status?.name }}
                                                 </b-badge>
@@ -405,6 +426,12 @@ export default {
             pendingChatRequestId: this.comment_request_id ? Number(this.comment_request_id) : null,
         };
     },
+    computed: {
+        canCreateByCategory() {
+            const roles = this.$page.props.roles || [];
+            return roles.includes("Procurement Encoder") || roles.includes("Administrator");
+        },
+    },
     watch: {
         comment_request_id: {
             handler(newValue) {
@@ -433,6 +460,12 @@ export default {
         this.fetchChatRequests();
     },
     methods: {
+        shouldShowSubStatus(list) {
+            const statusName = String(list?.status?.name || "").trim().toLowerCase();
+            const subStatusName = String(list?.sub_status?.name || "").trim().toLowerCase();
+
+            return Boolean(subStatusName && subStatusName !== statusName);
+        },
         canCancelProcurement(list) {
             const currentUserId = Number(this.$page.props.user?.data?.id || 0);
             const createdById = Number(list?.created_by_id || 0);
@@ -536,6 +569,19 @@ export default {
 
             const year = startDate.getFullYear(); // assume same year
             return `${startStr}-${endStr}, ${year}`;
+        },
+
+        formatCurrency(value) {
+            return new Intl.NumberFormat("en-PH", {
+                style: "currency",
+                currency: "PHP",
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(Number(value) || 0);
+        },
+
+        fundClusterLabel(list) {
+            return list?.fund_cluster_name || list?.fund_cluster?.name || "-";
         },
 
         formatPapCode(codeGroup) {
@@ -654,6 +700,10 @@ export default {
             router.get("/faims/procurements/create", { option: "create" });
         },
 
+        goCreateByCategoryPage() {
+            router.get("/faims/procurements/create-by-category");
+        },
+
         goViewPage(data) {
             router.get("/faims/procurements/" + data.id, {
                 option: "view",
@@ -665,10 +715,26 @@ export default {
         },
 
         goReviewPage(data) {
+            if (data.is_create_by_category) {
+                router.get("/faims/procurements/create-by-category", {
+                    id: data.id,
+                    option: "review",
+                });
+                return;
+            }
+
             router.get("/faims/procurements/" + data.id, { option: "review" });
         },
 
         goApprovePage(data) {
+            if (data.is_create_by_category) {
+                router.get("/faims/procurements/create-by-category", {
+                    id: data.id,
+                    option: "approve",
+                });
+                return;
+            }
+
             router.get("/faims/procurements/" + data.id, { option: "approve" });
         },
 

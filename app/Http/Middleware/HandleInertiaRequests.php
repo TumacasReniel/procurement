@@ -82,7 +82,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
-            'user' => (\Auth::check()) ? new UserResource(User::with('profile','organization.position')->where('id',\Auth::user()->id)->first()) : null,
+            'user' => (\Auth::check()) ? new UserResource(User::with('profile','organization.position','organization.division','organization.unit','org_chart.designation')->where('id',\Auth::user()->id)->first()) : null,
             'roles' => (\Auth::check()) ? \Auth::user()->roles()->where('user_roles.is_active', 1)->pluck('name') : null,
             'approvals' => [
                 'has_access' => $approvalAccess,
@@ -154,11 +154,11 @@ class HandleInertiaRequests extends Middleware
     private function procurementNotificationVisibleToUser($notification, User $user): bool
     {
         if ($notification->type === PendingSupplierApprovalNotification::class) {
-            return $user->hasRole('Procurement Officer') || $user->hasRole('Administrator');
+            return $user->hasActiveRole(['Procurement Officer', 'Administrator']);
         }
 
         if ($notification->type === PendingProcurementCodeBudgetRequestNotification::class) {
-            return $user->hasRole('Budget Officer');
+            return $user->hasActiveRole('Budget Officer');
         }
 
         if ($notification->type === ProcurementCommentMentioned::class) {

@@ -1,6 +1,6 @@
 <template>
   
-  <div >
+  <div class="procurement-bids-page">
   <div>
   <PageHeader class="pt-2" title="Abstract of Bids"/>
     <div >
@@ -102,17 +102,16 @@
         <div>
           <div
             class="w-100 pt-0 pb-0 aob-scroll-area"
-            style="height: calc(100vh - 305px); overflow-y: auto; overflow-x: hidden"
+            style="height: calc(100vh - 365px); overflow-y: auto; overflow-x: hidden"
             ref="box"
           >
             <div>
-              <div class="aob-table-wrap">
-              <table class="aob-table aob-supplier-table">
-                <thead>
+              <div class="table-responsive table-card aob-table-wrap">
+              <table class="table align-middle table-hover mb-0 mt-3 aob-table aob-supplier-table">
+                <thead class="table-light thead-fixed">
                   <tr>
                     <th class="aob-col-item-no">Item No</th>
-                    <th class="aob-col-status">Status</th>
-                    <th class="aob-col-description">Description</th>
+                    <th class="aob-col-status">Status/Description</th>
                     <th class="aob-col-qty">Quantity / Unit</th>
                     <th class="aob-col-money">Unit Cost</th>
                     <th class="aob-col-money">ABC</th>
@@ -130,9 +129,14 @@
                   </tr>
                 </thead>
 
-                <tbody>
-                  <tr v-for="(item, itemIndex) in bid.items" :key="item.item_id">
-                    <td class="aob-cell-index">{{ itemIndex + 1 }}</td>
+                <tbody class="table-group-divider">
+                  <tr
+                    v-for="(item, localItemIndex) in paginatedBidItems(bid)"
+                    :key="item.item_id"
+                  >
+                    <td class="aob-cell-index">
+                      {{ bidItemAbsoluteIndex(localItemIndex, bid) + 1 }}
+                    </td>
                     <td class="aob-cell-status">
                       <b-badge
                         v-if="item.status"
@@ -152,8 +156,6 @@
                         <i v-if="item.status.name == 'Awarded'" class="ri-check-line"></i>
                       </b-badge>
                       <span v-else class="aob-muted-text">No status</span>
-                    </td>
-                    <td class="aob-cell-action">
                       <button
                         type="button"
                         class="btn btn-outline-secondary btn-sm aob-action-btn aob-action-btn-muted"
@@ -231,7 +233,7 @@
                         not set
                       </span>
                       <span v-else>
-                        {{ formatCurrency(item.item.item_quantity * item.bid_price) }}
+                        {{ formatCurrency(calculateTotalBidPrice(item)) }}
                       </span>
                     </td>
 
@@ -258,11 +260,11 @@
                           type="checkbox"
                           class="form-check-input aob-award-checkbox bg-primary"
                           :disabled="
-                            isOtherSupplierChecked(itemIndex, bid) ||
+                            isOtherSupplierChecked(bidItemAbsoluteIndex(localItemIndex, bid), bid) ||
                             !hasAwardableOffer(item) ||
                             isBidPriceOverUnitCost(item)
                           "
-                          @change="handleCheckboxChange(itemIndex, bid)"
+                          @change="handleCheckboxChange(bidItemAbsoluteIndex(localItemIndex, bid), bid)"
                         />
                       </span>
                     </td>
@@ -271,15 +273,16 @@
               </table>
               </div>
 
-              <Pagination
-                class="ms-2 me-2"
-                v-if="meta"
-                @fetch="fetch"
-                :lists="lists.length"
-                :links="links"
-                :pagination="meta"
-              />
             </div>
+          </div>
+          <div v-if="bidItemsPagination(bid).total" class="card-footer aob-pagination-footer">
+            <Pagination
+              class="ms-2 me-2 mt-n1"
+              @fetch="(page) => changeBidItemsPage(bid, page)"
+              :lists="paginatedBidItems(bid).length"
+              :links="bidItemsPaginationLinks(bid)"
+              :pagination="bidItemsPagination(bid)"
+            />
           </div>
         </div>
       </b-tab>
@@ -289,11 +292,11 @@
   <div v-else class="bg-white">
     <div
       class="w-100 pt-0 pb-0 aob-scroll-area"
-      style="height: calc(100vh - 305px); overflow-y: auto; overflow-x: hidden"
+      style="height: calc(100vh - 365px); overflow-y: auto; overflow-x: hidden"
     >
-      <div class="aob-table-wrap">
-      <table class="aob-table aob-items-table">
-        <thead>
+      <div class="table-responsive table-card aob-table-wrap">
+      <table class="table align-middle table-hover mb-0 mt-3 aob-table aob-items-table">
+        <thead class="table-light thead-fixed">
           <tr>
             <th class="aob-col-item-no">Item No</th>
             <th class="aob-col-item-name">Item Name</th>
@@ -303,8 +306,8 @@
             <th class="aob-col-money">ABC</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="item in allBidItems" :key="item.id">
+        <tbody class="table-group-divider">
+          <tr v-for="item in paginatedAllBidItems" :key="item.id">
             <td class="aob-cell-index">{{ item.item_no || "-" }}</td>
             <td class="aob-cell-item">
               <div class="aob-item-title">{{ item.item_name || "-" }}</div>
@@ -347,6 +350,15 @@
       </table>
       </div>
     </div>
+    <div v-if="allBidItemsPagination.total" class="card-footer aob-pagination-footer">
+      <Pagination
+        class="ms-2 me-2 mt-n1"
+        @fetch="changeAllItemsPage"
+        :lists="paginatedAllBidItems.length"
+        :links="allBidItemsPaginationLinks"
+        :pagination="allBidItemsPagination"
+      />
+    </div>
   </div>
   </template>
 
@@ -376,11 +388,11 @@
     centered
     hide-footer
   >
-    <div class="offer-modal-content">
-      <div class="mb-2 fw-semibold">
+    <div class="offer-modal-content offer-details-content">
+      <div class="offer-details-title fw-semibold">
         {{ selectedItemName || "-" }}
       </div>
-      <div v-if="selectedOfferDetails" class="offer-detail-summary mb-3">
+      <div v-if="selectedOfferDetails" class="offer-detail-summary offer-details-summary">
         <div class="offer-detail-grid">
           <div class="offer-detail-card">
             <span class="offer-detail-label">Supplier</span>
@@ -430,7 +442,7 @@
     centered
     hide-footer
   >
-    <div class="offer-compare-summary mb-3">
+    <div class="offer-compare-summary mb-2">
       <div class="offer-compare-title">{{ selectedItemName || "-" }}</div>
       <div class="offer-compare-meta">
         <div class="offer-meta-pill">
@@ -460,15 +472,15 @@
         </button>
         <div
           v-if="isAllOffersDescriptionExpanded"
-          class="offer-compare-description mt-3"
+          class="offer-compare-description mt-2"
           v-html="selectedItemDescription"
         ></div>
       </div>
     </div>
 
-    <div class="table-responsive offer-compare-table-wrap">
-      <table class="table align-middle mb-0 offer-compare-table">
-        <thead>
+    <div class="table-responsive table-card offer-compare-table-wrap">
+      <table class="table align-middle table-hover mb-0 offer-compare-table">
+        <thead class="table-light thead-fixed">
           <tr>
             <th>Supplier</th>
             <th>Bid Price</th>
@@ -478,7 +490,7 @@
             <th>Status</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="table-group-divider">
           <template v-for="offer in allOffersForSelectedItem" :key="offer.supplier_id">
             <tr>
               <td class="fw-semibold">{{ offer.supplier_name }}</td>
@@ -594,6 +606,7 @@ import Award from "../Modals/Award.vue";
 import BACResolution from "../Modals/BACResolution.vue";
 import Offer from "../Modals/Offer.vue";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
+import Pagination from "@/Shared/Components/Pagination.vue";
 
 export default {
   components: {
@@ -605,7 +618,8 @@ export default {
     Offer,
     Award,
     BACResolution,
-    PageHeader
+    PageHeader,
+    Pagination,
   },
   props: ["procurement", "dropdowns", "option"],
   data() {
@@ -623,6 +637,9 @@ export default {
       showBACResoForm: false,
       activeBidTab: 0,
       aobViewMode: "supplier",
+      aobPerPage: 10,
+      allItemsPage: 1,
+      bidItemsPages: {},
       showItemDescriptionModal: false,
       showOfferModal: false,
       showAllOffersModal: false,
@@ -655,6 +672,17 @@ export default {
       return (this.procurement?.items || []).slice().sort((a, b) => {
         return (Number(a.item_no) || 0) - (Number(b.item_no) || 0);
       });
+    },
+    paginatedAllBidItems() {
+      const start = (this.allItemsPage - 1) * this.aobPerPage;
+
+      return this.allBidItems.slice(start, start + this.aobPerPage);
+    },
+    allBidItemsPagination() {
+      return this.buildPagination(this.allItemsPage, this.allBidItems.length);
+    },
+    allBidItemsPaginationLinks() {
+      return this.buildPaginationLinks(this.allBidItemsPagination);
     },
     itemDescriptionModalSize() {
       const plainText = (this.selectedItemDescription || "")
@@ -787,11 +815,67 @@ export default {
   },
 
   methods: {
+    buildPagination(currentPage, total) {
+      const lastPage = Math.max(Math.ceil(total / this.aobPerPage), 1);
+      const normalizedCurrentPage = Math.min(Math.max(Number(currentPage) || 1, 1), lastPage);
+
+      return {
+        current_page: normalizedCurrentPage,
+        last_page: lastPage,
+        per_page: this.aobPerPage,
+        total,
+      };
+    },
+    buildPaginationLinks(pagination) {
+      return {
+        first: pagination.current_page > 1 ? 1 : null,
+        prev: pagination.current_page > 1 ? pagination.current_page - 1 : null,
+        next: pagination.current_page < pagination.last_page ? pagination.current_page + 1 : null,
+        last: pagination.current_page < pagination.last_page ? pagination.last_page : null,
+      };
+    },
+    bidPageKey(bid) {
+      return String(bid?.id ?? this.availableBids.indexOf(bid));
+    },
+    bidItemsPage(bid) {
+      return Number(this.bidItemsPages[this.bidPageKey(bid)] || 1);
+    },
+    bidItemsPagination(bid) {
+      return this.buildPagination(this.bidItemsPage(bid), (bid?.items || []).length);
+    },
+    bidItemsPaginationLinks(bid) {
+      return this.buildPaginationLinks(this.bidItemsPagination(bid));
+    },
+    paginatedBidItems(bid) {
+      const pagination = this.bidItemsPagination(bid);
+      const start = (pagination.current_page - 1) * this.aobPerPage;
+
+      return (bid?.items || []).slice(start, start + this.aobPerPage);
+    },
+    bidItemAbsoluteIndex(localItemIndex, bid) {
+      const pagination = this.bidItemsPagination(bid);
+
+      return ((pagination.current_page - 1) * this.aobPerPage) + localItemIndex;
+    },
+    changeBidItemsPage(bid, page) {
+      const pagination = this.buildPagination(page, (bid?.items || []).length);
+
+      this.bidItemsPages = {
+        ...this.bidItemsPages,
+        [this.bidPageKey(bid)]: pagination.current_page,
+      };
+    },
+    changeAllItemsPage(page) {
+      this.allItemsPage = this.buildPagination(page, this.allBidItems.length).current_page;
+    },
     isPendingBid(bid) {
       return bid?.status?.name === "Pending" || Number(bid?.status_id) === 46;
     },
     setAobViewMode(mode) {
       this.aobViewMode = mode;
+      if (mode === "items") {
+        this.allItemsPage = 1;
+      }
     },
     toggleAllOffersDescription() {
       this.isAllOffersDescriptionExpanded = !this.isAllOffersDescriptionExpanded;
@@ -829,10 +913,26 @@ export default {
     },
 
     formatCurrency(value) {
+      const amount = Number(value);
+
+      if (!Number.isFinite(amount)) {
+        return "-";
+      }
+
       return new Intl.NumberFormat("en-PH", {
         style: "currency",
         currency: "PHP",
-      }).format(value);
+      }).format(amount);
+    },
+    calculateTotalBidPrice(item) {
+      const quantity = Number(item?.item?.item_quantity);
+      const bidPrice = Number(item?.bid_price);
+
+      if (!Number.isFinite(quantity) || !Number.isFinite(bidPrice)) {
+        return null;
+      }
+
+      return quantity * bidPrice;
     },
     isBidPriceOverUnitCost(item) {
       if (item?.is_free || item?.is_no_offer || item?.is_not_applicable) {
@@ -1117,41 +1217,41 @@ export default {
 }
 
 .offer-compare-summary {
-  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 1rem 1.1rem;
+  border-radius: 0;
+  padding: 0.75rem;
 }
 
 .offer-compare-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #1e293b;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
 .offer-compare-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
 }
 
 .offer-meta-pill {
   background: #ffffff;
   border: 1px solid #dbe3f0;
-  border-radius: 999px;
-  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  padding: 0.42rem 0.6rem;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
 }
 
 .offer-meta-label {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   color: #64748b;
 }
 
@@ -1162,7 +1262,7 @@ export default {
 
 .offer-compare-description {
   color: #475569;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
 }
 
 .offer-compare-description p:last-child,
@@ -1172,35 +1272,42 @@ export default {
 }
 
 .offer-compare-section {
-  margin-top: 0.25rem;
+  margin-top: 0.15rem;
 }
 
 .offer-compare-table-wrap {
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  overflow: hidden;
+  border-radius: 0;
+  overflow: auto;
 }
 
 .offer-compare-table thead th {
-  background: #f8fafc;
-  color: #334155;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bs-light-bg-subtle, #f8f9fa);
+  color: var(--bs-secondary-color, #6c757d);
   font-weight: 700;
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0;
 }
 
 .offer-compare-table td,
 .offer-compare-table th {
-  padding: 0.9rem 1rem;
-  vertical-align: top;
-}
-
-.offer-compare-table tbody tr:not(:last-child) td {
-  border-bottom: 1px solid #eef2f7;
+  padding: 0.68rem 0.75rem;
+  vertical-align: middle;
+  border-color: #e2e8f0;
 }
 
 .offer-compare-table tbody td {
   color: #1f2937;
+}
+
+.offer-compare-table tbody tr:hover td {
+  background: rgba(var(--bs-primary-rgb), 0.04) !important;
 }
 
 .offer-detail-summary {
@@ -1253,6 +1360,54 @@ export default {
 .offer-modal-content {
   color: #334155;
   text-align: left;
+}
+
+.offer-details-content {
+  margin: -0.25rem 0;
+}
+
+.offer-details-title {
+  margin-bottom: 0.45rem;
+  line-height: 1.25;
+}
+
+.offer-details-content .offer-detail-summary {
+  border-radius: 10px;
+  padding: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.offer-details-content .offer-detail-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.45rem;
+}
+
+.offer-details-content .offer-detail-card {
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  gap: 0.1rem;
+}
+
+.offer-details-content .offer-detail-label {
+  font-size: 0.66rem;
+}
+
+.offer-details-content .offer-detail-value {
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.offer-details-content .offer-detail-section-label {
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+}
+
+.offer-details-content .offer-modal-content {
+  line-height: 1.45;
+}
+
+.offer-details-content .offer-modal-content p {
+  margin-bottom: 0.45rem;
 }
 
 .offer-modal-content p:last-child,
@@ -1515,11 +1670,11 @@ export default {
 .procurement-bids-page {
   --aob-table-wrap-bg: #ffffff;
   --aob-table-border: #e2e8f0;
-  --aob-table-head-bg: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
-  --aob-table-head-text: #334155;
+  --aob-table-head-bg: var(--bs-light-bg-subtle, #f8f9fa);
+  --aob-table-head-text: var(--bs-secondary-color, #6c757d);
   --aob-table-cell-bg: #ffffff;
-  --aob-table-cell-bg-alt: #fbfdff;
-  --aob-table-cell-hover: #f5f8ff;
+  --aob-table-cell-bg-alt: #ffffff;
+  --aob-table-cell-hover: rgba(var(--bs-primary-rgb), 0.04);
   --aob-table-text: #1e293b;
   --aob-table-index: #475569;
 }
@@ -1528,13 +1683,19 @@ export default {
   padding: 1rem 0;
 }
 
+.aob-pagination-footer {
+  background: var(--aob-table-wrap-bg);
+  border-top: 1px solid var(--aob-table-border);
+  padding: 0.75rem 0;
+}
+
 .aob-table-wrap {
   border: 1px solid var(--aob-table-border);
-  border-radius: 16px;
+  border-radius: 0;
   overflow: auto;
   max-width: 100%;
   background: var(--aob-table-wrap-bg);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 #eef2f7;
 }
@@ -1556,12 +1717,16 @@ export default {
 
 .aob-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
+  --bs-table-bg: var(--aob-table-cell-bg);
+  --bs-table-color: var(--aob-table-text);
+  --bs-table-border-color: var(--aob-table-border);
+  --bs-table-hover-bg: var(--aob-table-cell-hover);
+  --bs-table-hover-color: var(--aob-table-text);
 }
 
 .aob-supplier-table {
-  min-width: 1220px;
+  min-width: 1480px;
 }
 
 .aob-items-table {
@@ -1571,33 +1736,30 @@ export default {
 
 .aob-table th,
 .aob-table td {
-  padding: 0.9rem 0.85rem;
-  vertical-align: top;
+  padding: 0.42rem 0.5rem;
+  vertical-align: middle;
   text-align: center;
-  border-right: 1px solid var(--aob-table-border);
-  border-bottom: 1px solid var(--aob-table-border);
-}
-
-.aob-table th:last-child,
-.aob-table td:last-child {
-  border-right: 0;
-}
-
-.aob-table tbody tr:last-child td {
-  border-bottom: 0;
+  border-color: var(--aob-table-border);
 }
 
 .aob-table thead th {
   position: sticky;
   top: 0;
   z-index: 2;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
   background: var(--aob-table-head-bg);
   color: var(--aob-table-head-text);
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1.45;
+  letter-spacing: 0;
+  line-height: 1.35;
+  border-bottom: 1px solid var(--aob-table-border);
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .aob-table tbody td {
@@ -1610,7 +1772,7 @@ export default {
 }
 
 .aob-table tbody tr:hover td {
-  background: var(--aob-table-cell-hover);
+  background: var(--aob-table-cell-hover) !important;
 }
 
 .aob-col-item-no {
@@ -1618,7 +1780,7 @@ export default {
 }
 
 .aob-col-status {
-  width: 140px;
+  width: 130px;
 }
 
 .aob-col-item-name {
@@ -1626,7 +1788,7 @@ export default {
 }
 
 .aob-col-description {
-  width: 170px;
+  width: 150px;
 }
 
 .aob-col-qty {
@@ -1634,19 +1796,19 @@ export default {
 }
 
 .aob-col-money {
-  width: 150px;
+  width: 135px;
 }
 
 .aob-col-offer {
-  width: 170px;
+  width: 220px;
 }
 
 .aob-col-delivery {
-  width: 170px;
+  width: 150px;
 }
 
 .aob-col-check {
-  width: 120px;
+  width: 150px;
 }
 
 .aob-items-table .aob-col-item-no {
@@ -1684,6 +1846,11 @@ export default {
   vertical-align: middle;
 }
 
+.aob-cell-status .aob-action-btn {
+  display: inline-block;
+  margin-top: 0.35rem;
+}
+
 .aob-award-checkbox {
   width: 1.1rem;
   height: 1.1rem;
@@ -1705,15 +1872,15 @@ export default {
 .aob-item-title {
   font-weight: 700;
   color: #1e293b;
-  line-height: 1.45;
+  line-height: 1.25;
   word-break: break-word;
 }
 
 .aob-item-actions {
-  margin-top: 0.7rem;
+  margin-top: 0.4rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .aob-cell-qty {
@@ -1726,8 +1893,8 @@ export default {
 }
 
 .aob-qty-unit {
-  margin-top: 0.15rem;
-  font-size: 0.82rem;
+  margin-top: 0.08rem;
+  font-size: 0.76rem;
   color: #64748b;
 }
 
@@ -1789,24 +1956,25 @@ export default {
 
 .aob-delivery-pill {
   display: inline-block;
-  padding: 0.45rem 0.7rem;
+  padding: 0.28rem 0.45rem;
   border-radius: 999px;
   background: #f8fafc;
   border: 1px solid #dbe4f0;
   color: #334155;
-  line-height: 1.4;
+  line-height: 1.2;
   text-align: center;
 }
 
 .aob-action-btn {
-  border-radius: 10px;
-  padding: 0.42rem 0.78rem;
+  border-radius: 8px;
+  padding: 0.24rem 0.48rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  min-width: 138px;
+  min-width: 112px;
 }
 
 .aob-items-table .aob-action-btn {
-  min-width: 118px;
+  min-width: 100px;
 }
 
 .aob-action-btn-muted {
@@ -1821,14 +1989,15 @@ export default {
 }
 
 .aob-status-badge {
-  padding: 0.45rem 0.62rem;
+  padding: 0.28rem 0.45rem;
   border-radius: 999px;
+  font-size: 0.68rem;
   font-weight: 700;
 }
 
 .aob-muted-text {
   color: #94a3b8;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
 }
 
 .aob-empty-row {

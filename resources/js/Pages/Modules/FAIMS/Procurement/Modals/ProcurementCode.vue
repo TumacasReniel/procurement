@@ -139,6 +139,17 @@ export default {
             return parseFloat(cleaned);
         },
 
+        setAmountDisplay(value = 0) {
+            const amount = Number(value ?? 0);
+            const safeAmount = Number.isFinite(amount) ? amount : 0;
+
+            this.form.allocated_budget = safeAmount;
+
+            this.$nextTick(() => {
+                this.$refs.amountComponent?.emitValue(safeAmount.toFixed(2));
+            });
+        },
+
 
         generateYearOptions() {
             const currentYear = new Date().getFullYear();
@@ -160,6 +171,7 @@ export default {
             this.editable = false;
             this.form.reset();
             this.selectedYear = this.yearOptions.find(option => option.value === new Date().getFullYear());
+            this.setAmountDisplay(0);
             this.showModal = true;
         },
 
@@ -169,8 +181,7 @@ export default {
             this.form.id = data.id;
             this.form.title = data.title;
             this.form.code = data.code;
-            this.form.allocated_budget = data.allocated_budget;
-            this.$refs.amountComponent.emitValue(this.form.allocated_budget);
+            this.setAmountDisplay(data.allocated_budget);
             this.form.year = data.year;
             this.form.end_user_ids = data.end_users.map(e => e.end_user_id);
             this.form.app_type_id = data.app_type?.id;
@@ -179,8 +190,7 @@ export default {
         },
       
         hide(){
-             this.$refs.amountComponent.emitValue(0);
-             this.form.allocated_budget = 0;
+            this.setAmountDisplay(0);
             this.form.reset();
             this.form.errors = {};
             this.showModal = false;

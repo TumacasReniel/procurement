@@ -226,7 +226,7 @@ class IAReportClass
     {
         $sortDirection = $request->sort === 'oldest' ? 'ASC' : 'DESC';
 
-        $paginator = ProcurementPoDelivery::query()
+        $query = ProcurementPoDelivery::query()
             ->with([
                 'received_by.profile',
                 'po.status',
@@ -260,8 +260,24 @@ class IAReportClass
                     }
                 });
             })
-            ->orderBy('created_at', $sortDirection)
-            ->paginate($request->count ?? 10);
+            ->orderBy('created_at', $sortDirection);
+
+        $today = now()->toDateString();
+        $todayCount = (clone $query)
+            ->reorder()
+            ->whereDate('created_at', $today)
+            ->count();
+
+        $latestDelivery = (clone $query)
+            ->reorder()
+            ->latest('created_at')
+            ->first();
+
+        $query->when($request->delivery_date, function ($deliveryQuery, $deliveryDate) {
+            $deliveryQuery->whereDate('created_at', $deliveryDate);
+        });
+
+        $paginator = $query->paginate($request->count ?? 10);
 
         $paginator->getCollection()->each(function (ProcurementPoDelivery $delivery) {
             if ($delivery->po) {
@@ -269,7 +285,17 @@ class IAReportClass
             }
         });
 
-        return ReceivingRecordResource::collection($paginator);
+        return ReceivingRecordResource::collection($paginator)->additional([
+            'summary' => [
+                'today_count' => $todayCount,
+                'today_date' => $today,
+                'latest_received_at' => $latestDelivery?->created_at?->toDateTimeString(),
+                'latest_received_at_display' => $latestDelivery?->created_at?->format('M d, Y h:i A'),
+                'latest_code' => $latestDelivery
+                    ? 'RCV-' . str_pad((string) $latestDelivery->id, 6, '0', STR_PAD_LEFT)
+                    : null,
+            ],
+        ]);
     }
 
     public function receive($id, $request): array

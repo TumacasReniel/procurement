@@ -86,7 +86,7 @@
       </div>
 
       <div class="row g-2 mb-2">
-        <div class="col-md-6 col-xl-3">
+        <div class="col-md-6 col-xl-3 d-flex">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-primary"><i class="ri-file-list-3-line"></i></span>
             <div>
@@ -95,25 +95,27 @@
             </div>
           </div>
         </div>
-        <div class="col-md-6 col-xl-3">
+        <div class="col-md-6 col-xl-3 d-flex">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-warning"><i class="ri-truck-line"></i></span>
             <div>
               <div class="small text-muted fw-semibold text-uppercase">{{ secondary_stat_label }}</div>
               <div class="fw-bold fs-5">{{ totalRemainingItems }}</div>
+              <div v-if="is_receiving_mode" class="receiving-stat-note">item(s) still to receive</div>
             </div>
           </div>
         </div>
-        <div class="col-md-6 col-xl-3">
+        <div class="col-md-6 col-xl-3 d-flex">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-success"><i class="ri-checkbox-circle-line"></i></span>
             <div>
-              <div class="small text-muted fw-semibold text-uppercase">Delivered Items</div>
+              <div class="small text-muted fw-semibold text-uppercase">{{ received_stat_label }}</div>
               <div class="fw-bold fs-5">{{ totalDeliveredItems }}</div>
+              <div v-if="is_receiving_mode" class="receiving-stat-note">item(s) recorded received</div>
             </div>
           </div>
         </div>
-        <div class="col-md-6 col-xl-3">
+        <div class="col-md-6 col-xl-3 d-flex">
           <div class="receiving-stat">
             <span class="receiving-stat-icon text-info"><i class="ri-file-paper-2-line"></i></span>
             <div>
@@ -124,10 +126,33 @@
         </div>
       </div>
 
-      <b-card no-body class="border-0 shadow-sm receiving-card">
-      <div class="table-responsive">
-        <table class="table align-middle mb-0">
-          <thead class="table-light">
+      <div v-if="is_receiving_mode" class="receiving-workload mb-2">
+        <div class="receiving-workload-main">
+          <span class="receiving-workload-icon">
+            <i :class="totalRemainingItems > 0 ? 'ri-inbox-unarchive-line' : 'ri-checkbox-circle-line'"></i>
+          </span>
+          <div>
+            <div class="fw-bold">{{ receivingWorkloadTitle }}</div>
+            <div class="small text-muted">{{ receivingWorkloadMessage }}</div>
+          </div>
+        </div>
+        <div class="receiving-workload-counts">
+          <div class="receiving-workload-count">
+            <span class="text-warning">{{ totalRemainingItems }}</span>
+            <small>Needs Receiving</small>
+          </div>
+          <div class="receiving-workload-count">
+            <span class="text-success">{{ totalDeliveredItems }}</span>
+            <small>Received Already</small>
+          </div>
+        </div>
+      </div>
+
+      <b-card no-body class="receiving-card">
+      <div class="receiving-table-shell">
+      <div class="table-responsive receiving-table-wrap">
+        <table class="table align-middle table-hover mb-0 receiving-table">
+          <thead class="table-light thead-fixed">
             <tr>
               <th style="width: 12%">PO No.</th>
               <th>Procurement</th>
@@ -137,7 +162,7 @@
               <th style="width: 12%" class="text-center">Action</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="table-group-divider">
             <tr v-if="loading">
               <td colspan="6" class="text-center text-muted py-5">
                 {{ loading_message }}
@@ -161,20 +186,14 @@
                 <div class="fw-semibold">{{ po.procurement_title || "-" }}</div>
                 <div class="small text-muted">{{ po.procurement_code || "No PR code" }}</div>
                 <div class="receiving-items-preview mt-1">
-                  <span
-                    v-for="item in previewItems(po)"
-                    :key="item.id"
-                    class="badge rounded-pill text-bg-danger"
+                  <button
+                    v-if="is_iar_mode && shouldShowItemsLeftBadge(po)"
+                    type="button"
+                    class="badge rounded-pill text-bg-warning receiving-badge-button"
+                    @click="open_items_left_to_receive(po)"
                   >
-                    Item {{ item.item_no }}: {{ formatQuantity(item.remaining_quantity) }} left
-                  </span>
-                  <span
-                    v-for="item in deliveredPreviewItems(po)"
-                    :key="`delivered-${item.id}`"
-                    class="badge rounded-pill text-bg-info"
-                  >
-                    Item {{ item.item_no }}: {{ formatQuantity(item.delivered_quantity) }} delivered
-                  </span>
+                    {{ po.remaining_items_count || 0 }} item(s) left to receive
+                  </button>
                 </div>
               </td>
               <td>{{ po.supplier_name || "-" }}</td>
@@ -185,10 +204,11 @@
               <td>
                 <div class="d-flex flex-wrap gap-1 mb-1">
                   <span v-if="is_receiving_mode" class="badge rounded-pill text-bg-warning">
-                    Remaining: {{ po.remaining_items_count || 0 }}
+                    Needs Receiving: {{ po.remaining_items_count || 0 }}
                   </span>
-                  <span class="badge rounded-pill text-bg-danger">
-                    Delivered: {{ po.delivered_items_count || 0 }}
+                  <span class="badge rounded-pill" :class="is_receiving_mode ? 'text-bg-success' : 'text-bg-danger'">
+                    {{ is_receiving_mode ? "Received Already" : "Items Received Not Yet in IAR" }}:
+                    {{ is_receiving_mode ? po.delivered_items_count || 0 : receivedItemsPendingIar(po).length }}
                   </span>
                   <span v-if="is_receiving_mode && po.partial_items_count" class="badge rounded-pill text-bg-info">
                     Partial: {{ po.partial_items_count }}
@@ -237,6 +257,7 @@
             </tr>
           </tbody>
         </table>
+      </div>
       </div>
 
       <div class="card-footer bg-white">
@@ -323,10 +344,11 @@
         </div>
       </div>
 
-      <b-card no-body class="border-0 shadow-sm receiving-card">
-        <div class="table-responsive">
-          <table class="table align-middle mb-0 ">
-            <thead class="table-light">
+      <b-card no-body class="receiving-card">
+        <div class="receiving-table-shell">
+        <div class="table-responsive receiving-table-wrap">
+          <table class="table align-middle table-hover mb-0 receiving-table">
+            <thead class="table-light thead-fixed">
               <tr>
                 <th style="width: 14%">IAR No.</th>
                 <th style="width: 14%">PO No.</th>
@@ -338,7 +360,7 @@
                 <th style="width: 14%" class="text-center">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="table-group-divider">
               <tr v-if="loading">
                 <td colspan="8" class="text-center text-muted py-5">
                   Loading inspection and acceptance reports...
@@ -417,6 +439,7 @@
             </tbody>
           </table>
         </div>
+        </div>
 
         <div class="card-footer bg-white">
           <Pagination
@@ -442,36 +465,42 @@
     @edit-record="edit_received_items_from_view"
   />
 
+  <ItemsLeftToReceive
+    :model-value="show_items_left_modal"
+    :po="selected_items_left_po"
+    @update:modelValue="handle_items_left_visibility"
+  />
+
   <b-modal
     v-model="show_iar_reports_modal"
     header-class="p-3 bg-light"
     title="Inspection and Acceptance Reports"
-    size="lg"
+    size="xl"
     class="v-modal-custom"
-    modal-class="zoomIn"
+    modal-class="zoomIn receiving-iar-modal"
     centered
     @hidden="handle_iar_reports_visibility(false)"
   >
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-      <div>
+    <div class="receiving-iar-summary mb-3">
+      <div class="receiving-iar-summary__item">
         <div class="text-muted fs-12">Purchase Order</div>
         <div class="fw-semibold">{{ selected_iar_po?.code || "-" }}</div>
       </div>
-      <div>
+      <div class="receiving-iar-summary__item">
         <div class="text-muted fs-12">Supplier</div>
         <div class="fw-semibold">{{ selected_iar_po?.supplier_name || "-" }}</div>
       </div>
-      <div class="text-md-end">
+      <div class="receiving-iar-summary__item">
         <div class="text-muted fs-12">Available for IAR</div>
         <div class="fw-semibold text-success">{{ receivedItemsPendingIar(selected_iar_po).length }}</div>
       </div>
-    </div>
-
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-      <div>
+      <div class="receiving-iar-summary__item">
         <div class="text-muted fs-12">Generated Reports</div>
         <div class="fw-semibold">{{ iarCount(selected_iar_po) }} report(s)</div>
       </div>
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-2">
       <b-button
         v-if="canGenerateIar(selected_iar_po)"
         type="button"
@@ -484,8 +513,8 @@
       </b-button>
     </div>
 
-    <div class="table-responsive border rounded receiving-compact-frame">
-      <table class="table align-middle mb-0">
+    <div class="table-responsive receiving-compact-frame">
+      <table class="table align-middle table-hover mb-0 receiving-modal-table">
         <thead class="table-light">
           <tr class="fs-11">
             <th style="width: 18%">IAR No.</th>
@@ -495,7 +524,7 @@
             <th style="width: 14%" class="text-center">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="table-group-divider">
           <tr v-for="report in iarReports(selected_iar_po)" :key="report.id">
             <td class="fw-semibold text-primary">{{ report.code || "IAR" }}</td>
             <td>{{ formatDateTime(report.created_at) }}</td>
@@ -543,7 +572,7 @@
             </td>
           </tr>
           <tr v-if="!iarReports(selected_iar_po).length">
-                <td colspan="5" class="text-center text-muted py-3">
+            <td colspan="5" class="text-center text-muted py-4">
               No IAR has been generated for this Purchase Order yet.
             </td>
           </tr>
@@ -606,10 +635,11 @@ import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import IARItemSelection from "../Modals/IARItemSelection.vue";
 import ReceivedPOItems from "../Modals/ReceivedPOItems.vue";
+import ItemsLeftToReceive from "../Modals/ItemsLeftToReceive.vue";
 import ReceivingList from "../Receiving/List.vue";
 
 export default {
-  components: { Head, PageHeader, Pagination, IARItemSelection, ReceivedPOItems, ReceivingList },
+  components: { Head, PageHeader, Pagination, IARItemSelection, ReceivedPOItems, ItemsLeftToReceive, ReceivingList },
   props: {
     mode: {
       type: String,
@@ -623,6 +653,7 @@ export default {
       links: {},
       loading: false,
       show_received_items_modal: false,
+      show_items_left_modal: false,
       show_iar_reports_modal: false,
       active_receiving_tab: "deliveries",
       active_iar_tab: "purchase_orders",
@@ -632,6 +663,7 @@ export default {
       pending_inspect_po: null,
       selected_po: null,
       selected_iar_po: null,
+      selected_items_left_po: null,
       filter: {
         keyword: null,
         count: 10,
@@ -670,7 +702,10 @@ export default {
       return this.is_receiving_mode ? "/faims/receiving-deliveries" : "/faims/ia-reports";
     },
     secondary_stat_label() {
-      return this.is_receiving_mode ? "Need Delivery" : "Pending Items";
+      return this.is_receiving_mode ? "Needs Receiving" : "Pending Items";
+    },
+    received_stat_label() {
+      return this.is_receiving_mode ? "Received Already" : "Delivered Items";
     },
     iar_stat_label() {
       return this.is_receiving_mode ? "Total Received PO" : "Total Received PO";
@@ -696,6 +731,22 @@ export default {
     },
     totalDeliveredItems() {
       return this.lists.reduce((sum, po) => sum + Number(po.delivered_items_count || 0), 0);
+    },
+    receivingWorkloadTitle() {
+      if (this.totalRemainingItems > 0) {
+        return `${this.totalRemainingItems} item${this.totalRemainingItems === 1 ? "" : "s"} still need receiving`;
+      }
+
+      return "All visible delivered items are received";
+    },
+    receivingWorkloadMessage() {
+      const received = `${this.totalDeliveredItems} item${this.totalDeliveredItems === 1 ? "" : "s"} received already`;
+
+      if (this.totalRemainingItems > 0) {
+        return `${received}. Open a PO to review the items and record the remaining delivery quantities.`;
+      }
+
+      return `${received}. Refresh the list to check for newly delivered items.`;
     },
     totalIars() {
       return this.lists.reduce((sum, po) => sum + this.iarCount(po), 0);
@@ -908,6 +959,17 @@ export default {
       this.show_received_items_modal = false;
       this.selected_po = null;
     },
+    open_items_left_to_receive(po) {
+      this.selected_items_left_po = po;
+      this.show_items_left_modal = true;
+    },
+    handle_items_left_visibility(value) {
+      this.show_items_left_modal = value;
+
+      if (!value) {
+        this.selected_items_left_po = null;
+      }
+    },
     open_iar_reports(po) {
       this.selected_iar_po = po;
       this.show_iar_reports_modal = true;
@@ -1101,6 +1163,7 @@ export default {
     },
     canGenerateIar(po) {
       return Boolean(po)
+        && Boolean(po?.can_generate_iar_report)
         && this.receivedItemsPendingIar(po).length > 0
         && ["Conformed", "Items Delivered"].includes(this.normalizedPurchaseOrderStatus(po));
     },
@@ -1216,15 +1279,29 @@ export default {
     },
     previewItems(po) {
       return (po.delivery_monitoring_items || [])
-        .filter((item) => Number(item.remaining_quantity || 0) > 0)
+        .filter((item) => Number(item.remaining_quantity || 0) > 0 && this.shouldShowPreviewItem(item))
         .slice(0, 3);
     },
     deliveredPreviewItems(po) {
       const remainingIds = new Set(this.previewItems(po).map((item) => Number(item.id)));
 
       return (po.delivery_monitoring_items || [])
-        .filter((item) => Number(item.delivered_quantity || 0) > 0 && !remainingIds.has(Number(item.id)))
+        .filter((item) =>
+          Number(item.delivered_quantity || 0) > 0 &&
+          !remainingIds.has(Number(item.id)) &&
+          this.shouldShowPreviewItem(item)
+        )
         .slice(0, 3);
+    },
+    shouldShowPreviewItem(item) {
+      const itemNo = Number(item?.item_no);
+
+      return !Number.isFinite(itemNo) || itemNo <= 10;
+    },
+    shouldShowItemsLeftBadge(po) {
+      const remainingItems = Number(po?.remaining_items_count || 0);
+
+      return remainingItems > 0 && remainingItems <= 10;
     },
     deliveryPercent(po) {
       const total = Number(po.total_items_count || 0);
@@ -1311,6 +1388,8 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  width: 100%;
+  min-height: 68px;
   padding: 0.42rem 0.55rem;
   border: 1px solid var(--receiving-border);
   border-radius: 8px;
@@ -1330,15 +1409,115 @@ export default {
   font-size: 0.85rem;
 }
 
+.receiving-stat-note {
+  color: var(--bs-secondary-color);
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+.receiving-workload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(var(--bs-warning-rgb), 0.28);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(var(--bs-warning-rgb), 0.08), var(--receiving-surface) 58%);
+}
+
+.receiving-workload-main {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.receiving-workload-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--bs-warning);
+  background: rgba(var(--bs-warning-rgb), 0.14);
+  border: 1px solid rgba(var(--bs-warning-rgb), 0.28);
+}
+
+.receiving-workload-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.receiving-workload-count {
+  min-width: 118px;
+  padding: 0.38rem 0.55rem;
+  border: 1px solid var(--receiving-border);
+  border-radius: 8px;
+  background: var(--receiving-surface);
+  text-align: center;
+}
+
+.receiving-workload-count span {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.receiving-workload-count small {
+  display: block;
+  color: var(--bs-secondary-color);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .receiving-card {
-  border-radius: 6px;
+  border: 0;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+
+.receiving-table-shell {
+  padding: 0.35rem 0.65rem 0;
+  background: var(--receiving-surface);
+}
+
+.receiving-table-wrap {
+  max-height: calc(100vh - 430px);
+  min-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--receiving-border);
+  border-radius: 8px;
+}
+
+.receiving-table {
+  --bs-table-bg: var(--receiving-surface);
+  --bs-table-color: var(--bs-body-color);
+  --bs-table-border-color: var(--receiving-border);
 }
 
 .receiving-items-preview {
   display: flex;
   flex-wrap: wrap;
   gap: 0.2rem;
+}
+
+.receiving-badge-button {
+  border: 0;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.receiving-badge-button:hover {
+  filter: brightness(0.96);
+  text-decoration: underline;
 }
 
 .receiving-progress {
@@ -1373,11 +1552,33 @@ export default {
   line-height: 1;
 }
 
-.receiving-card :deep(.table > :not(caption) > * > *) {
-  padding: 0.35rem 0.45rem;
+.receiving-table :deep(thead th) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.62rem 0.75rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  background: var(--bs-light-bg-subtle, #f8f9fa);
+  border-bottom: 1px solid var(--receiving-border);
+  white-space: nowrap;
 }
 
-.receiving-card :deep(.badge) {
+.receiving-table :deep(tbody td) {
+  padding: 0.68rem 0.75rem;
+  border-color: var(--receiving-border);
+  vertical-align: middle;
+}
+
+.receiving-table :deep(tbody tr:hover td) {
+  background: rgba(var(--bs-primary-rgb), 0.04);
+}
+
+.receiving-card :deep(.badge),
+.receiving-compact-frame :deep(.badge) {
   padding: 0.28em 0.5em;
   font-size: 0.68rem;
 }
@@ -1394,13 +1595,49 @@ export default {
   padding: 0.4rem 0.55rem;
 }
 
-.receiving-compact-frame :deep(.table > :not(caption) > * > *) {
-  padding: 0.35rem 0.45rem;
+.receiving-iar-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
 }
 
-.receiving-compact-frame :deep(.badge) {
-  padding: 0.25em 0.45em;
-  font-size: 0.66rem;
+.receiving-iar-summary__item {
+  min-height: 62px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--receiving-border);
+  border-radius: 8px;
+  background: var(--receiving-soft);
+}
+
+.receiving-compact-frame {
+  border-radius: 8px;
+  overflow: auto;
+  border: 1px solid var(--receiving-border);
+  max-height: 56vh;
+}
+
+.receiving-modal-table {
+  --bs-table-bg: var(--receiving-surface);
+  --bs-table-color: var(--bs-body-color);
+  --bs-table-border-color: var(--receiving-border);
+  min-width: 760px;
+}
+
+.receiving-modal-table :deep(thead th) {
+  padding: 0.6rem 0.7rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--bs-light-bg-subtle, #f8f9fa);
+  border-bottom: 1px solid var(--receiving-border);
+  white-space: nowrap;
+}
+
+.receiving-modal-table :deep(tbody td) {
+  padding: 0.65rem 0.7rem;
+  border-color: var(--receiving-border);
+  vertical-align: middle;
 }
 
 @media (max-width: 991.98px) {
@@ -1410,6 +1647,30 @@ export default {
 
   .receiving-search {
     width: 100%;
+  }
+
+  .receiving-workload {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .receiving-workload-counts {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .receiving-workload-count {
+    flex: 1 1 140px;
+  }
+
+  .receiving-iar-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .receiving-iar-summary {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1421,9 +1682,19 @@ export default {
 
 [data-bs-theme="dark"] .receiving-stat,
 [data-bs-theme="dark"] .receiving-card,
+[data-bs-theme="dark"] .receiving-iar-summary__item,
+[data-bs-theme="dark"] .receiving-compact-frame,
 [data-bs-theme="dark"] .card-footer {
   background: var(--receiving-surface) !important;
   border-color: var(--receiving-border) !important;
+}
+
+[data-bs-theme="dark"] .receiving-table :deep(thead th) {
+  background: #202937;
+}
+
+[data-bs-theme="dark"] .receiving-modal-table :deep(thead th) {
+  background: #202937;
 }
 
 [data-bs-theme="dark"] .receiving-tab-btn.active {

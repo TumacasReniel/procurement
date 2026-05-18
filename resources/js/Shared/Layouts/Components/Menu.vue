@@ -56,6 +56,27 @@
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Dashboard</span>
                 </Link>
             </li>
+               <li
+                class="nav-item"
+                v-if="
+                $page.props.roles.includes('Procurement Staff') ||
+                $page.props.roles.includes('Procurement Officer') ||
+                $page.props.roles.includes('Budget Officer') ||
+                $page.props.roles.includes('Administrator') || 
+                $page.props.roles.includes('Employee')
+                "
+            >
+                <Link
+                href="/faims/procurement-ppmp"
+                class="nav-link menu-link"
+                :class="{
+                    active: $page.component.startsWith('Modules/FAIMS/Procurement/PPMP'),
+                }"
+                >
+                <i class="ri-file-list-2-line"></i>
+                <span class="fw-semibold fs-14" data-key="t-dashboards">PPMP</span>
+                </Link>
+            </li>
             <li class="nav-item">
                 <Link
                 href="/faims/procurements"
@@ -111,7 +132,7 @@
                 <Link
                     v-if=" $page.props.roles.includes('Budget Officer') ||
                             $page.props.roles.includes('Administrator')"
-                    href="/faims/procurement-code-budget-requests"
+                    href="/faims/procurement-codes?option=budget_requests"
                     class="nav-link menu-link"
                     :class="{
                         active: $page.component.startsWith('Modules/FAIMS/Procurement/Code/BudgetRequests'),
@@ -224,7 +245,7 @@
                     active: $page.url.startsWith('/faims/receiving-deliveries'),
                 }"
                 >
-                <i class="ri-file-paper-2-line"></i>
+                <i class="ri-inbox-archive-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Receiving Deliveries </span>
                 </Link>
             </li>
@@ -244,7 +265,7 @@
                     active: $page.component.startsWith('Modules/HumanResource/Employees'),
                 }"
                 >
-                <i class="ri-file-paper-2-line"></i>
+                <i class="ri-file-search-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Inspection and Acceptance Reports </span>
                 </Link>
             </li>
@@ -264,7 +285,7 @@
                     active: $page.component.startsWith('Modules/HumanResource/Employees'),
                 }"
                 >
-                <i class="ri-file-paper-2-line"></i>
+                <i class="ri-shopping-bag-3-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Purchase Orders</span>
                 </Link>
             </li>
@@ -284,12 +305,12 @@
                     active: $page.component.startsWith('Modules/FAIMS/Procurement/Reports'),
                 }"
                 >
-                <i class="ri-file-paper-2-line"></i>
+                <i class="ri-pie-chart-2-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Procurement Reports</span>
                 </Link>
             </li>
   
-            <li class="menu-title">
+            <!-- <li class="menu-title">
                 <i class="ri-more-fill" aria-expanded="false"></i>
                 <span data-key="t-menu">Finance</span>
             </li>
@@ -413,14 +434,12 @@
                 <i class="ri-user-star-line"></i>
                 <span class="fw-semibold fs-14" data-key="t-dashboards">Creditors</span>
                 </Link>
-            </li>
+            </li> -->
 
             <template 
             v-if="
                 $page.props.roles.includes('Supply Officer') ||
                 $page.props.roles.includes('Supply Staff') ||
-                $page.props.roles.includes('Supply') ||
-                $page.props.roles.includes('Employee') ||
                 $page.props.roles.includes('Administrator')
             ">
                 <li class="menu-title">
@@ -440,7 +459,12 @@
                     </Link>
                 </li>
 
-                <li class="nav-item">
+                <li class="nav-item"
+                v-if="
+                    $page.props.roles.includes('Supply Officer') ||
+                    $page.props.roles.includes('Supply Staff') ||
+                    $page.props.roles.includes('Administrator')
+                ">
                 <Link
                         href="/inventory-stocks"
                         class="nav-link menu-link"

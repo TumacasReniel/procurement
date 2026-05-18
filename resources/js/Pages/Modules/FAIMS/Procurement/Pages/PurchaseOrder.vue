@@ -144,6 +144,7 @@
                         <button
                           @click="viewPO(list)"
                           class="btn btn-primary btn-sm purchase-order-action-btn"
+                          size="small"
                           v-b-tooltip.hover
                           title="View"
                         >
@@ -154,6 +155,7 @@
                           @click="updateStatus(list)"
                           class="btn btn-warning btn-sm purchase-order-action-btn"
                           v-b-tooltip.hover
+                          size="small"
                           title="Update Status"
                         >
                           <i class="ri-edit-circle-fill"></i>
@@ -163,6 +165,7 @@
                           @click="revertStatus(list)"
                           class="btn btn-outline-warning btn-sm purchase-order-action-btn"
                           v-b-tooltip.hover
+                          size="small"
                           title="Revert Status"
                         >
                           <i class="ri-arrow-go-back-line"></i>
@@ -172,6 +175,7 @@
                           class="btn btn-dark btn-sm purchase-order-action-btn"
                           v-b-tooltip.hover
                           title="Print PO"
+                          size="small"
                         >
                           <i class="ri-printer-line"></i>
                         </button>
