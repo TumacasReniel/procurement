@@ -123,14 +123,14 @@
                   <i class="ri-add-circle-line align-bottom me-1"></i>
                   Create PPMP
                 </b-button>
-                <b-button
+                <!-- <b-button
                   v-if="filter.plan_type === 'APP' && canApprovePPMPPlans"
                   variant="primary"
                   @click="openCreateAppModal"
                 >
                   <i class="ri-file-add-line align-bottom me-1"></i>
                   Create APP
-                </b-button>
+                </b-button> -->
                 <b-button
                   v-if="filter.plan_type === 'SPP' && canApprovePPMPPlans"
                   variant="warning"
@@ -579,8 +579,8 @@ export default {
         .some((status) => String(status).toLowerCase() === "pending");
       const isReviewed = String(statusName || "").toLowerCase() === "reviewed"
         || displayStatus === "reviewed/for submission";
-      const canReview = this.currentRoles.some((role) => ["Budget Officer", "Administrator"].includes(role));
-      const canSubmit = this.currentRoles.some((role) => ["Procurement Officer", "Administrator"].includes(role));
+      const canReview = this.currentRoles.includes("Budget Officer");
+      const canSubmit = this.currentRoles.includes("Procurement Officer");
 
       return Boolean(item.can_submit_final) || (isPending && canReview) || (isReviewed && canSubmit);
     },

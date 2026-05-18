@@ -64,7 +64,11 @@ class ProcurementPPMPClass
     {
         return match ($request->option) {
             'create_ppmp' => $this->createPpmp($request),
-            default => abort(404),
+            default => match ($this->normalizePlanType($request->plan_type)) {
+                self::PLAN_TYPE_APP => $this->createApp($request),
+                self::PLAN_TYPE_SPP => $this->createSpp($request),
+                default => abort(404),
+            },
         };
     }
 
@@ -205,6 +209,46 @@ class ProcurementPPMPClass
             'data' => $this->show($procurement->id, (object) ['plan_type' => self::PLAN_TYPE_SPP]),
             'message' => 'Supplemental plan item added successfully!',
             'info' => "{$request->item_name} was added to {$unit->name}'s SPP for {$year}.",
+            'status' => true,
+        ];
+    }
+
+    public function createApp($request): array
+    {
+        $year = (int) $request->year;
+        $app_type_id = ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type');
+        $approved_status_id = $this->statusId(self::STATUS_APPROVED);
+
+        $this->validateAppSetup($app_type_id, $approved_status_id);
+        $this->ensureAppDoesNotExist($year);
+
+        $source_query = ProcurementPpmp::query()
+            ->whereYear('date', $year)
+            ->whereNull('reference_app_id')
+            ->where('status_id', $approved_status_id);
+
+        $representative = (clone $source_query)
+            ->with($this->relations())
+            ->orderBy('date')
+            ->orderBy('id')
+            ->first();
+
+        if (! $representative) {
+            throw ValidationException::withMessages([
+                'year' => 'No PPMP entries are Submitted/For Consolidation for the selected year.',
+            ]);
+        }
+
+        $updated = $source_query->update([
+            'reference_app_id' => $app_type_id,
+            'approved_by_id' => Auth::id(),
+            'updated_at' => now(),
+        ]);
+
+        return [
+            'data' => $this->show($representative->id, (object) ['plan_type' => self::PLAN_TYPE_APP]),
+            'message' => 'APP created successfully!',
+            'info' => "{$updated} PPMP ".($updated === 1 ? 'entry was' : 'entries were')." consolidated into the {$year} APP.",
             'status' => true,
         ];
     }
@@ -586,6 +630,22 @@ class ProcurementPPMPClass
         if (! $has_approved_app) {
             throw ValidationException::withMessages([
                 'plan_type' => 'APP must be approved for the current year before creating an SPP update.',
+            ]);
+        }
+    }
+
+    protected function ensureAppDoesNotExist(int $year): void
+    {
+        $exists = ProcurementPpmp::query()
+            ->whereYear('date', $year)
+            ->whereHas('reference_app', function ($reference_query) {
+                $reference_query->where('name', self::PLAN_NAME_APP);
+            })
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'year' => 'An APP already exists for the selected year.',
             ]);
         }
     }

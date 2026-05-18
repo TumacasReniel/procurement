@@ -28,7 +28,7 @@ class ProcurementPPMPPlanRequest extends FormRequest
             'plan_type' => ['required', 'in:APP,SPP'],
         ];
 
-        if ($this->plan_type === 'APP') {
+        if ($this->plan_type === 'SPP') {
             $rules['unit_id'] = ['required', 'integer', 'exists:list_units,id'];
             $rules['item_name'] = ['required', 'string', 'max:255'];
             $rules['item_description'] = ['required', 'string'];
