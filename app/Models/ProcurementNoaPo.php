@@ -38,12 +38,12 @@ class ProcurementNoaPo extends Model
 
     public function place_of_delivery()
     {
-        return $this->belongsTo('App\Models\ListDropdown', 'place_of_delivery_id' );
+        return $this->belongsTo(ListDropdown::class, 'place_of_delivery_id' );
     }
 
     public function noa()
     {
-        return $this->belongsTo('App\Models\procurementBacNoa', 'noa_id' );
+        return $this->belongsTo(ProcurementBacNoa::class, 'noa_id' );
     }
 
     public function iar()
@@ -67,7 +67,7 @@ class ProcurementNoaPo extends Model
       
     public function status()
     {
-        return $this->belongsTo('App\Models\ListStatus', 'status_id');
+        return $this->belongsTo(ListStatus::class, 'status_id');
     }
 
     public function ntp()

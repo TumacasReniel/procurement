@@ -1482,6 +1482,8 @@ export default {
 }
 
 .ppmp-list-scroll {
+  margin-left: 1rem;
+  margin-right: 1rem;
   min-height: 360px;
   max-height: calc(100vh - 306px);
   overflow: auto;
@@ -1708,6 +1710,8 @@ export default {
   }
 
   .ppmp-list-scroll {
+    margin-left: .5rem;
+    margin-right: .5rem;
     max-height: none;
   }
 

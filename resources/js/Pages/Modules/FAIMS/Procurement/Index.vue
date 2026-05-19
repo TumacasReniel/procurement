@@ -112,7 +112,17 @@
                                 overflow: auto;
                             "
                         >
-                            <table class="table align-middle table-hover mb-0">
+                            <div v-if="!lists.length" class="procurement-empty-state">
+                                <div class="procurement-empty-state__icon">
+                                    <i class="ri-inbox-2-line"></i>
+                                </div>
+                                <h6 class="procurement-empty-state__title">No data yet added</h6>
+                                <p class="procurement-empty-state__text">
+                                    Purchase requests will appear here once they are created.
+                                </p>
+                            </div>
+
+                            <table v-else class="table align-middle table-hover mb-0">
                                 <thead class="table-light thead-fixed">
                                     <tr class="fs-12 fw-semibold">
                                         <th
@@ -345,7 +355,7 @@
                                     </tr>
                                 </tbody>
                             </table>
-                            <div class="card-footer">
+                            <div v-if="lists.length" class="card-footer">
                                 <Pagination
                                     class="ms-2 me-2 mt-n1"
                                     v-if="meta"
@@ -930,3 +940,55 @@ export default {
     },
 };
 </script>
+
+<style scoped>
+.procurement-empty-state {
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    color: #64748b;
+}
+
+.procurement-empty-state__icon {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.8rem;
+    border-radius: 14px;
+    background: #eef4ff;
+    color: #405189;
+    font-size: 1.6rem;
+}
+
+.procurement-empty-state__title {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.procurement-empty-state__text {
+    max-width: 360px;
+    margin: 0.35rem 0 0;
+    font-size: 0.9rem;
+}
+
+:global([data-bs-theme="dark"]) .procurement-empty-state {
+    color: #9fb0c7;
+}
+
+:global([data-bs-theme="dark"]) .procurement-empty-state__icon {
+    background: #232c3a;
+    color: #9cb7ff;
+}
+
+:global([data-bs-theme="dark"]) .procurement-empty-state__title {
+    color: #e5edf7;
+}
+</style>
