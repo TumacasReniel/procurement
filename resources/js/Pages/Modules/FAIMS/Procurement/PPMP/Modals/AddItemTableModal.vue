@@ -57,9 +57,9 @@
             :options="normalizedUnitTypeOptions"
             v-model="form.item_unit_type_id"
             :searchable="true"
-            label="name_short"
+            label="display_name"
             valueProp="value"
-            trackBy="name_short"
+            trackBy="display_name"
             placeholder="Unit"
           />
         </BCol>
@@ -155,6 +155,7 @@ export default {
         .map((option) => ({
           ...option,
           value: option.value ?? option.id,
+          display_name: this.unitTypeLabel(option, this.form.item_quantity),
           name_short: option.name_short || option.name || option.name_long || option.label || "Unit",
           name_long: option.name_long || option.name || option.name_short || option.label || "Unit",
         }))
@@ -229,6 +230,13 @@ export default {
 
       const cleaned = value.toString().replace(/[^0-9.]/g, "");
       return parseFloat(cleaned || 0);
+    },
+    unitTypeLabel(unitType, quantity) {
+      const amount = Number(quantity || 0);
+
+      return amount > 1
+        ? unitType.name_long || unitType.name_short || unitType.name || unitType.label || "Unit"
+        : unitType.name_short || unitType.name_long || unitType.name || unitType.label || "Unit";
     },
     handleItemNameFocus() {
       clearTimeout(this.itemNameBlurTimeout);

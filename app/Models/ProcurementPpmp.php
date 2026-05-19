@@ -17,6 +17,7 @@ class ProcurementPpmp extends Model
         'fund_cluster_id',
         'classification_id',
         'reference_app_id',
+        'procurement_app_id',
         'created_by_id',
         'requested_by_id',
         'approved_by_id',
@@ -54,6 +55,11 @@ class ProcurementPpmp extends Model
         return $this->belongsTo(ListDropdown::class, 'reference_app_id');
     }
 
+    public function procurement_app()
+    {
+        return $this->belongsTo(ProcurementApp::class, 'procurement_app_id');
+    }
+
     public function created_by()
     {
         return $this->belongsTo(User::class, 'created_by_id')->with('profile');
@@ -88,5 +94,15 @@ class ProcurementPpmp extends Model
     public function sub_status()
     {
         return $this->belongsTo(ListStatus::class, 'sub_status_id');
+    }
+
+    public function comments()
+    {
+        return $this->morphMany(RequestComment::class, 'commentable');
+    }
+
+    public function latest_comment()
+    {
+        return $this->morphOne(RequestComment::class, 'commentable')->latestOfMany();
     }
 }

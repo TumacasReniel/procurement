@@ -48,6 +48,11 @@
                 <span class="employee-meta-chip__value">
                   {{ procurement.code || "-" }}
                 </span>
+
+                <span class="employee-meta-chip__label mt-2">Reference APP</span>
+                <span class="fw-bold">
+                 {{ referenceAppLabel }}
+                 </span>
               </span>
             </span>
 
@@ -60,6 +65,8 @@
                 </span>
               </span>
             </span>
+
+
 
             <span class="employee-meta-chip">
               <i class="ri-building-line"></i>
@@ -215,7 +222,7 @@
           </div>
 
           <div class="employee-panel__header-copy">
-            <h5 class="employee-panel__title">Procurement Items</h5>
+            <h5 class="employee-panel__title">Items</h5>
             <p class="employee-panel__subtitle">
               Requested items with linked purchase orders and delivery dates.
             </p>
@@ -433,6 +440,20 @@ export default {
     },
     displayProcurementDate() {
       return this.formatDisplayDate(this.procurement?.date);
+    },
+    referenceAppLabel() {
+      const currentApp = this.procurement?.procurement_app;
+      const legacyReferenceApp = this.procurement?.reference_app;
+
+      if (currentApp?.code) {
+        return currentApp.code;
+      }
+
+      if (currentApp?.year) {
+        return `APP-${currentApp.year}`;
+      }
+
+      return legacyReferenceApp?.name || legacyReferenceApp?.code || "-";
     },
     assignedPersonnelCount() {
       return [
@@ -853,6 +874,10 @@ export default {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(12px);
+}
+
+.employee-meta-chip--wide {
+  grid-column: span 2;
 }
 
 .employee-meta-chip i {

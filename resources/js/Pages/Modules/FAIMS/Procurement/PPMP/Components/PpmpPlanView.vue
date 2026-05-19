@@ -26,30 +26,6 @@
       </div>
     </div>
 
-    <div class="row g-3 mb-3">
-      <div class="col-xl-4 col-md-6">
-        <div class="overview-box">
-          <i class="ri-file-text-line overview-icon"></i>
-          <span class="overview-label">PR No.</span>
-          <span class="overview-value">{{ ppmp.pr_no || ppmp.code || "-" }}</span>
-        </div>
-      </div>
-      <div class="col-xl-4 col-md-6">
-        <div class="overview-box">
-          <i class="ri-list-check-3 overview-icon"></i>
-          <span class="overview-label">Items</span>
-          <span class="overview-value">{{ ppmp.items_count || 0 }}</span>
-        </div>
-      </div>
-      <div class="col-xl-4 col-md-6">
-        <div class="overview-box">
-          <i class="ri-money-dollar-circle-line overview-icon"></i>
-          <span class="overview-label">Total ABC</span>
-          <span class="overview-value text-primary">{{ formatCurrency(ppmp.estimated_budget) }}</span>
-        </div>
-      </div>
-    </div>
-
     <div class="row g-3">
       <div class="col-lg-8">
         <div class="section-panel">
@@ -81,10 +57,10 @@
           </div>
           <div class="signatory-list">
             <div v-if="showReviewAction">
-              <span>{{ ppmp.ppmp_status === "Reviewed/For Submission" ? "Reviewed By" : "Latest Action By" }}</span>
-              <strong>{{ ppmp.reviewed_by || "-" }}</strong>
-              <small v-if="ppmp.reviewed_at" class="text-muted">
-                {{ formatDate(ppmp.reviewed_at) }}
+              <span>{{ reviewActionLabel }}</span>
+              <strong>{{ reviewActionUser }}</strong>
+              <small v-if="reviewActionDate" class="text-muted">
+                {{ formatDate(reviewActionDate) }}
               </small>
             </div>
             <div v-if="showFinalAction">
@@ -420,6 +396,7 @@
         </div>
       </div>
     </b-modal>
+
   </div>
 </template>
 
@@ -461,6 +438,7 @@ export default {
 
         prNumbers.forEach((prNo) => {
         const request = requests.get(prNo) || {
+          pr_id: this.itemPurchaseRequestId(item, prNo),
           pr_no: prNo,
           item_names: [],
           items: [],
@@ -473,6 +451,7 @@ export default {
         }
 
         request.items.push(item);
+        request.pr_id = request.pr_id || this.itemPurchaseRequestId(item, prNo);
         request.items_count += 1;
         request.total_amount += Number(item.abc || 0);
         requests.set(prNo, request);
@@ -487,20 +466,34 @@ export default {
     currentRoles() {
       return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
     },
+    currentRoleNames() {
+      return this.currentRoles
+        .map((role) => typeof role === "string" ? role : role?.name)
+        .filter(Boolean);
+    },
     isBudgetOfficer() {
-      return this.currentRoles.includes("Budget Officer");
+      return this.currentRoleNames.includes("Budget Officer") || this.isAdministrator;
     },
     isAdministrator() {
-      return this.currentRoles.includes("Administrator");
+      return this.currentRoleNames.includes("Administrator");
     },
     isProcurementOfficer() {
-      return this.currentRoles.includes("Procurement Officer");
+      return this.currentRoleNames.includes("Procurement Officer") || this.isAdministrator;
+    },
+    isProcurementUser() {
+      return this.currentRoleNames.some((role) => ["Procurement Officer", "Procurement Staff"].includes(role)) || this.isAdministrator;
     },
     isPendingPpmp() {
       return this.ppmp.ppmp_status === "Pending";
     },
+    isForReview() {
+      return this.ppmp.ppmp_status === "For Review";
+    },
     isReviewedForSubmission() {
       return this.ppmp.ppmp_status === "Reviewed/For Submission";
+    },
+    hasPpmpItems() {
+      return Number(this.ppmp?.items_count || 0) > 0;
     },
     canShowAdvanceAction() {
       if (!this.ppmp.can_submit_final) {
@@ -515,8 +508,12 @@ export default {
         return this.isProcurementOfficer;
       }
 
-      if (this.isPendingPpmp) {
+      if (this.isForReview) {
         return this.isBudgetOfficer;
+      }
+
+      if (this.isPendingPpmp) {
+        return this.isProcurementUser || this.ppmp.created_by_id === this.$page?.props?.user?.data?.id;
       }
 
       return false;
@@ -526,14 +523,22 @@ export default {
         return "Submit this reviewed PPMP for BAC consolidation when the unit plan is ready.";
       }
 
-      return "Review this pending PPMP to move it to Reviewed/For Submission.";
+      if (this.isForReview) {
+        return "Review this PPMP to move it to Reviewed/For Submission.";
+      }
+
+      return "Submit this pending PPMP to move it to For Review.";
     },
     advanceActionLabel() {
       if (this.isReviewedForSubmission) {
         return "Submit for Consolidation";
       }
 
-      return "Review";
+      if (this.isForReview) {
+        return "Mark Reviewed";
+      }
+
+      return "Submit for Review";
     },
 
     finalActionLabel() {
@@ -562,10 +567,31 @@ export default {
       return ["Consolidated/Added to APP", "Consolidated/Added to SPP", "Consolidated/Added to PPMP"].includes(this.ppmp.ppmp_status);
     },
     showReviewAction() {
-      return ["Reviewed/For Submission", "Submitted/For Consolidation", "Consolidated/Added to APP", "Consolidated/Added to SPP", "Consolidated/Added to PPMP"].includes(this.ppmp.ppmp_status);
+      return ["For Review", "Reviewed/For Submission", "Submitted/For Consolidation", "Submitted/For Implementation", "Consolidated/Added to APP", "Consolidated/Added to SPP", "Consolidated/Added to PPMP"].includes(this.ppmp.ppmp_status);
+    },
+    reviewActionLabel() {
+      if (this.isForReview) {
+        return "Submitted For Review By";
+      }
+
+      return this.ppmp.ppmp_status === "Reviewed/For Submission" ? "Reviewed By" : "Latest Action By";
+    },
+    reviewActionUser() {
+      if (this.isForReview) {
+        return this.ppmp.submitted_for_review_by || "-";
+      }
+
+      return this.ppmp.reviewed_by || "-";
+    },
+    reviewActionDate() {
+      if (this.isForReview) {
+        return this.ppmp.submitted_for_review_at;
+      }
+
+      return this.ppmp.reviewed_at;
     },
     showFinalAction() {
-      return ["Submitted/For Consolidation", "Consolidated/Added to APP", "Consolidated/Added to SPP", "Consolidated/Added to PPMP"].includes(this.ppmp.ppmp_status);
+      return ["Submitted/For Consolidation", "Submitted/For Implementation", "Consolidated/Added to APP", "Consolidated/Added to SPP", "Consolidated/Added to PPMP"].includes(this.ppmp.ppmp_status);
     },
     groupedItemRows() {
       const rows = this.ppmp.item_details || [];
@@ -666,10 +692,30 @@ export default {
       return this.optionText(item.status?.name ?? item.status ?? item.approval_status) || "Pending";
     },
     itemPrNumbers(item) {
-      return String(item.pr_no || "")
+      return [
+        String(item.pr_no || ""),
+        ...(Array.isArray(item.purchase_requests)
+          ? item.purchase_requests.map((request) => request.code)
+          : []),
+      ]
+        .join(",")
         .split(",")
         .map((prNo) => prNo.trim())
-        .filter(Boolean);
+        .filter(Boolean)
+        .filter((prNo, index, values) => values.indexOf(prNo) === index);
+    },
+    itemPurchaseRequestId(item, prNo) {
+      if (Array.isArray(item.purchase_requests)) {
+        const request = item.purchase_requests.find((purchaseRequest) =>
+          String(purchaseRequest.code || "").trim() === String(prNo || "").trim()
+        );
+
+        if (request?.id) {
+          return request.id;
+        }
+      }
+
+      return item.pr_id || null;
     },
     itemStatusVariant(item) {
       const status = this.itemStatus(item).toLowerCase();

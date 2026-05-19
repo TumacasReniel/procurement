@@ -28,6 +28,7 @@ class ProcurementRequest extends FormRequest
         return [
             'procurement_code_ids' => ['required', 'array', 'min:1'],
             'procurement_code_ids.*' => ['integer', 'distinct', 'exists:procurement_codes,id'],
+            'procurement_app_id' => ['nullable', 'integer', 'exists:procurement_apps,id'],
             'unit_id' => ['nullable', 'integer'],
             'items' => ['nullable', 'array'],
             'items.*.ppmp_item_id' => ['nullable', 'integer', 'exists:procurement_ppmp_items,id'],
@@ -71,18 +72,29 @@ class ProcurementRequest extends FormRequest
 
             if (!$isCreateByCategory && $this->filled('unit_id')) {
                 $invalidEndUserCodes = ProcurementCode::query()
+                    ->with('end_users.end_user')
                     ->whereIn('id', $procurementCodeIds)
                     ->whereDoesntHave('end_users', function ($query) {
                         $query->where('end_user_id', (int) $this->unit_id);
                     })
-                    ->pluck('code')
+                    ->get()
+                    ->map(function ($code) {
+                        $assignedUnits = $code->end_users
+                            ->map(fn ($endUser) => $endUser->end_user?->name ?: $endUser->end_user?->short)
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->implode(', ');
+
+                        return trim($code->code . ($assignedUnits ? ' - change unit to ' . $assignedUnits : ''));
+                    })
                     ->filter()
                     ->values();
 
                 if ($invalidEndUserCodes->isNotEmpty()) {
                     $validator->errors()->add(
                         'procurement_code_ids',
-                        'Selected PAP code(s) are not assigned to the selected end user/unit: ' . $invalidEndUserCodes->implode(', ') . '.'
+                        'Selected PAP code(s) are not assigned to the selected unit. ' . $invalidEndUserCodes->implode('; ') . '.'
                     );
                 }
             }

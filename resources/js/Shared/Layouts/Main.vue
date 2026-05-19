@@ -217,6 +217,14 @@ export default {
                 return `${actor} submitted a PAP budget request`;
             }
 
+            if (notification?.notification_type === "procurement_plan_comment_notification") {
+                if (notification?.reason === "owner") {
+                    return `${actor} commented on your procurement plan`;
+                }
+
+                return `${actor} mentioned you in a plan comment`;
+            }
+
             if (notification?.reason === "owner") {
                 return `${actor} commented on your PR`;
             }

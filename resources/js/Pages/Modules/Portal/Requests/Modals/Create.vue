@@ -73,16 +73,15 @@
     <Travel @success="fetch()" :dropdowns="travel_dropdowns" ref="travel"/>
     <Leave @success="fetch()" :dropdowns="leave_dropdowns" ref="leave"/>
     <Overtime @success="fetch()" :dropdowns="leave_dropdowns" ref="overtime"/>
-    <Procurement @success="fetch()" :dropdowns="procurement_dropdowns" ref="procurement"/>
 </template>
 <script>
+import { router } from "@inertiajs/vue3";
 import Travel from './Travel.vue';
 import Vehicle from './Vehicle.vue';
 import Leave from './Leave.vue';
 import Overtime from './Overtime.vue';
-import Procurement from './Procurement.vue';
 export default {
-    components : { Travel, Vehicle, Leave, Overtime, Procurement },
+    components : { Travel, Vehicle, Leave, Overtime },
     props: ['leave_dropdowns','travel_dropdowns','vehicle_dropdowns','procurement_dropdowns'],
     data(){
         return {
@@ -107,7 +106,7 @@ export default {
             } else if (this.selectedType === 'overtime') {
                 this.$refs.overtime.show();
             } else if (this.selectedType === 'procurement') {
-                this.$refs.procurement.show();
+                router.get("/faims/procurements/create", { option: "create" });
             }
             this.hide();
         },

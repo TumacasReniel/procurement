@@ -9,6 +9,18 @@ class ListStatus extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
+    protected $fillable = [
+        'name',
+        'classification',
+        'type',
+        'color',
+        'bg',
+        'icon',
+        'is_active',
+    ];
+
     protected static function displayAliases(): array
     {
         return [

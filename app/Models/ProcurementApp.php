@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class ProcurementApp extends Model
+{
+    protected $fillable = [
+        'code',
+        'year',
+        'title',
+        'app_type_id',
+        'created_by_id',
+        'requested_by_id',
+        'reviewed_by_id',
+        'approved_by_id',
+        'status_id',
+        'sub_status_id',
+    ];
+
+    public function app_type()
+    {
+        return $this->belongsTo(ListDropdown::class, 'app_type_id');
+    }
+
+    public function created_by()
+    {
+        return $this->belongsTo(User::class, 'created_by_id')->with('profile');
+    }
+
+    public function requested_by()
+    {
+        return $this->belongsTo(User::class, 'requested_by_id')->with('profile');
+    }
+
+    public function approved_by()
+    {
+        return $this->belongsTo(User::class, 'approved_by_id')->with('profile');
+    }
+
+    public function reviewed_by()
+    {
+        return $this->belongsTo(User::class, 'reviewed_by_id')->with('profile');
+    }
+
+    public function status()
+    {
+        return $this->belongsTo(ListStatus::class, 'status_id');
+    }
+
+    public function source_ppmps()
+    {
+        return $this->hasMany(ProcurementPpmp::class, 'procurement_app_id');
+    }
+
+    public function comments()
+    {
+        return $this->morphMany(RequestComment::class, 'commentable');
+    }
+}

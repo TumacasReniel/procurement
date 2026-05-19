@@ -112,9 +112,9 @@
                               </div>
                             </div>
 
-                            <div class="col-12">
+                            <div class="col-6">
                               <div class="form-group compact-form-group">
-                                <InputLabel for="Mode Procurement " value="PAP Codes" :message="form.errors.procurement_code_ids" />
+                                <InputLabel for="Mode Procurement " value="PAP Codes"  />
                                 <Multiselect
                                   :options="availableProcurementCodes"
                                   v-model="form.procurement_code_ids"
@@ -122,7 +122,7 @@
                                   label="label"
                                   valueProp="value"
                                   trackBy="label"
-                                  placeholder="Select PAP Codes"
+                                  placeholder="Select Procurement Codes"
                                   mode="tags"
                                   :close-on-select="false"
                                   class="modern-select"
@@ -138,28 +138,6 @@
                             </div>
 
                             <div
-                              v-if="showClassificationField"
-                              class="col-lg-6"
-                            >
-                              <div class="form-group compact-form-group">
-                                <InputLabel
-                                  for="classification"
-                                  value="Classification"
-                                  :message="form.errors.classification_id"
-                                />
-                                <Multiselect
-                                  :options="classificationOptions"
-                                  v-model="form.classification_id"
-                                  :searchable="true"
-                                  label="name"
-                                  placeholder="Select Classification"
-                                  class="modern-select"
-                                  :append-to-body="true"
-                                />
-                              </div>
-                            </div>
-
-                            <div
                               v-if="showReferenceAppField"
                               class="col-lg-6"
                             >
@@ -167,16 +145,17 @@
                                 <InputLabel
                                   for="reference_app"
                                   value="Reference APP"
-                                  :message="form.errors.reference_app_id"
+                                  :message="form.errors.procurement_app_id"
                                 />
                                 <Multiselect
-                                  :options="referenceAppOptions"
-                                  v-model="form.reference_app_id"
+                                  :options="currentAppOptions"
+                                  v-model="form.procurement_app_id"
                                   :searchable="true"
                                   label="name"
+                                  valueProp="value"
                                   placeholder="Select Reference APP"
                                   class="modern-select"
-                                   :append-to-body="true"
+                                  :append-to-body="true"
                                 />
                               </div>
                             </div>
@@ -486,6 +465,7 @@ export default {
         fund_cluster_id: null,
         classification_id: null,
         reference_app_id: null,
+        procurement_app_id: null,
         items: null,
         requested_by_id: null,
         approved_by_id: null,
@@ -515,6 +495,10 @@ export default {
       this.fetchPpmpItems();
     },
 
+    "form.date"() {
+      this.applyAutomaticCurrentApp(true);
+    },
+
     "form.procurement_code_ids": function (value) {
       this.fetchPpmpItems();
 
@@ -542,9 +526,11 @@ export default {
         this.form.fund_cluster_id = this.procurement.fund_cluster_id;
         this.form.classification_id = this.procurement.classification_id;
         this.form.reference_app_id = this.procurement.reference_app_id;
+        this.form.procurement_app_id = this.procurement.procurement_app_id;
         this.form.procurement_code_ids = this.procurement.codes.map(
           (code) => code.procurement_code_id
         );
+        this.applyAutomaticCurrentApp();
         this.form.requested_by_id = this.procurement.requested_by_id;
         this.form.approved_by_id = this.procurement.approved_by_id;
         this.form.items = this.procurement.items;
@@ -564,19 +550,8 @@ export default {
         return sum + (parseFloat(item.total_cost) || 0);
       }, 0);
     },
-    showClassificationField() {
-      return ["review", "approve"].includes(this.option) || Boolean(this.form.classification_id);
-    },
     showReferenceAppField() {
-      return ["review", "approve"].includes(this.option) || Boolean(this.form.reference_app_id);
-    },
-    classificationOptions() {
-      const options =
-        this.dropdowns?.classifications ??
-        this.dropdowns?.procurement_classifications ??
-        [];
-
-      return Array.isArray(options) ? options : Object.values(options);
+      return ["review", "approve"].includes(this.option) || Boolean(this.form.procurement_app_id);
     },
     referenceAppOptions() {
       const options =
@@ -584,6 +559,32 @@ export default {
         [];
 
       return Array.isArray(options) ? options : Object.values(options);
+    },
+    currentAppOptions() {
+      const options = this.dropdowns?.current_apps ?? [];
+
+      return Array.isArray(options) ? options : Object.values(options);
+    },
+    currentAppDisplay() {
+      if (this.currentApp) {
+        return this.currentApp.code || `APP-${this.currentApp.year}`;
+      }
+
+      const year = this.prYear;
+
+      return year ? `APP-${year} not found` : "APP not found";
+    },
+    currentApp() {
+      if (!this.form.procurement_app_id) {
+        return null;
+      }
+
+      return this.currentAppOptions.find((app) => Number(app.value) === Number(this.form.procurement_app_id)) || null;
+    },
+    prYear() {
+      const date = this.form.date ? new Date(this.form.date) : new Date();
+
+      return Number.isNaN(date.getTime()) ? null : Number(date.getFullYear());
     },
     normalizedProcurementCodes() {
       const options = Array.isArray(this.dropdowns?.procurement_codes)
@@ -784,7 +785,7 @@ export default {
       return `The selected PAP codes only have ${this.formatCurrency(this.selectedProcurementCodeBalance)} remaining, which is not enough for the request total of ${this.formatCurrency(this.totalCostSum)}. You cannot create this procurement request until the selected balance is enough.`;
     },
     canReviewRequest() {
-      return Boolean(this.form.classification_id  && this.form.reference_app_id );
+      return Boolean(this.form.procurement_app_id);
     },
     canCreateRequest() {
       return this.isFormValid && this.hasEnoughSelectedProcurementCodeBalance;
@@ -814,6 +815,9 @@ export default {
     }
     if (this.option === "create") {
       this.prefillUserDivisionAndUnit();
+    }
+    if (this.option === "review") {
+      this.applyAutomaticCurrentApp();
     }
     try {
       this.isRightCollapsed = JSON.parse(localStorage.getItem("isRightCollapsed")) ?? true;
@@ -853,6 +857,26 @@ export default {
     toggleRightSidebar() {
       this.isRightCollapsed = !this.isRightCollapsed;
       localStorage.setItem("isRightCollapsed", this.isRightCollapsed);
+    },
+
+    applyAutomaticCurrentApp(force = false) {
+      if (this.option !== "review" || (this.form.procurement_app_id && !force)) {
+        return;
+      }
+
+      const currentAppId = this.resolveCurrentAppId();
+
+      this.form.procurement_app_id = currentAppId;
+    },
+
+    resolveCurrentAppId() {
+      if (!this.currentAppOptions.length) {
+        return null;
+      }
+
+      const matchingApp = this.currentAppOptions.find((app) => Number(app.year) === this.prYear);
+
+      return matchingApp ? Number(matchingApp.value) : null;
     },
 
     prefillUserDivisionAndUnit() {
@@ -1037,6 +1061,7 @@ export default {
     },
 
     review(data) {
+      this.applyAutomaticCurrentApp();
       this.form.option = this.action;
       this.form.put("/faims/procurements/" + data.id);
       this.form.reset();

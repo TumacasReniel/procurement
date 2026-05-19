@@ -58,6 +58,21 @@
         </div>
       </div>
 
+      <div v-if="showSubmittedForReview" class="row g-2 mb-3">
+        <div class="col-md-6">
+          <div class="border rounded p-2 h-100">
+            <small class="text-muted d-block">Submitted For Review By</small>
+            <span class="fw-semibold">{{ ppmp.submitted_for_review_by || "-" }}</span>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="border rounded p-2 h-100">
+            <small class="text-muted d-block">Submitted For Review Date</small>
+            <span class="fw-semibold">{{ formatDate(ppmp.submitted_for_review_at) }}</span>
+          </div>
+        </div>
+      </div>
+
       <div class="table-responsive">
         <table class="table table-bordered align-middle mb-0">
           <thead class="table-light">
@@ -135,6 +150,9 @@ export default {
     ppmpItems() {
       return Array.isArray(this.ppmp?.item_details) ? this.ppmp.item_details : [];
     },
+    showSubmittedForReview() {
+      return Boolean(this.ppmp?.submitted_for_review_by || this.ppmp?.submitted_for_review_at);
+    },
   },
   methods: {
     formatCurrency(value) {
@@ -146,6 +164,17 @@ export default {
     formatQuantity(value) {
       const amount = Number(value || 0);
       return Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
+    },
+    formatDate(value) {
+      if (!value) {
+        return "-";
+      }
+
+      return new Date(value).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
     },
     plainText(value) {
       if (!value) {

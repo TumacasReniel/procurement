@@ -25,11 +25,12 @@ class ProcurementCommentController extends Controller
             return $this->comments->addComment($id, $request);
         });
 
+        if ($request->expectsJson()) {
+            return response()->json($result);
+        }
+
         return back()->with([
             'data' => $result['data'],
-            'message' => $result['message'],
-            'info' => $result['info'],
-            'status' => $result['status'],
         ]);
     }
 }

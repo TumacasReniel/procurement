@@ -88,7 +88,7 @@
                 <BCol lg="12" class="mt-2">
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="fs-11 text-muted">
-                            Procurement Items <span class="text-danger">{{ form.errors.items }}</span>
+                            Items <span class="text-danger">{{ form.errors.items }}</span>
                         </span>
                         <b-button
                             :disabled="!form.division_id || !form.unit_id || !form.fund_cluster_id || !form.purpose"
@@ -170,7 +170,7 @@
                                     </table>
                     </div>
                     <div v-else class="alert alert-secondary text-center fs-12 mb-0" role="alert">
-                        No items added. Click <b>Add Item</b> to start adding procurement items.
+                        No items added. Click <b>Add Item</b> to start adding items.
                     </div>
                 </BCol>
 

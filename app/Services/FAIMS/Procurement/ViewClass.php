@@ -5,6 +5,7 @@ namespace App\Services\FAIMS\Procurement;
 use App\Services\DropdownClass;
 use App\Models\OrgSignatory;
 use App\Models\Procurement;
+use App\Models\ProcurementApp;
 use App\Models\ProcurementQuotation;
 use App\Models\ProcurementBac;
 use App\Models\ProcurementBacNoa;
@@ -532,6 +533,8 @@ class ViewClass
             'division',
             'unit',
             'classification',
+            'reference_app',
+            'procurement_app',
             'codes',
             'items',
             'approved_by.profile',
@@ -662,6 +665,7 @@ class ViewClass
                     'unit',
                     'classification',
                     'reference_app',
+                    'procurement_app',
                     'codes',
                     'items',
                     'approved_by.profile',
@@ -690,6 +694,7 @@ class ViewClass
                         'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
                         'classifications' => $this->dropdown->dropdowns('Classification'),
                         'reference_apps' => $this->dropdown->dropdowns('Reference APP'),
+                        'current_apps' => $this->currentAppDropdowns(),
                         'procurement_codes' => $this->dropdown->procurement_codes(),
                         'unit_types' => $this->dropdown->unit_types(),
                         'requesters' => $this->dropdown->requesters(),
@@ -775,6 +780,25 @@ class ViewClass
 
 
         }
+    }
+
+    protected function currentAppDropdowns(): array
+    {
+        return ProcurementApp::query()
+            ->with('status')
+            ->orderByDesc('year')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (ProcurementApp $app) => [
+                'value' => $app->id,
+                'name' => $app->code ?: 'APP-' . $app->year,
+                'code' => $app->code,
+                'title' => $app->title,
+                'year' => (int) $app->year,
+                'status' => $app->status?->name,
+            ])
+            ->values()
+            ->all();
     }
 
 

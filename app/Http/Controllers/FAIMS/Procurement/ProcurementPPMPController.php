@@ -2,14 +2,21 @@
 
 namespace App\Http\Controllers\FAIMS\Procurement;
 
+use App\Events\CommentAdded;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Procurement\ProcurementPPMPListRequest;
 use App\Http\Requests\Procurement\ProcurementPPMPPlanRequest;
 use App\Http\Requests\Procurement\ProcurementPPMPUpdateRequest;
+use App\Models\ProcurementApp;
+use App\Models\ProcurementPpmp;
+use App\Models\User;
+use App\Notifications\ProcurementPlanCommentMentioned;
 use App\Services\FAIMS\Procurement\PrintClass;
 use App\Services\FAIMS\Procurement\ProcurementPPMPClass;
 use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class ProcurementPPMPController extends Controller
 {
@@ -33,6 +40,9 @@ class ProcurementPPMPController extends Controller
 
             case 'available_units':
                 return $this->ppmp->availablePpmpUnits($request);
+
+            case 'available_spp_units':
+                return $this->ppmp->availableSppUnits($request);
 
             default:
                 return inertia('Modules/FAIMS/Procurement/PPMP/Index', $this->ppmp->indexPageProps());
@@ -73,7 +83,186 @@ class ProcurementPPMPController extends Controller
             return $this->print->print($id, $request);
         }
 
+        if ($request->option === 'comments') {
+            return $this->comments($id);
+        }
+
         return inertia('Modules/FAIMS/Procurement/PPMP/View', $this->ppmp->showPageProps($id, $request));
+    }
+
+    public function comments($id)
+    {
+        if ($this->isAppCommentRequest(request())) {
+            $app = ProcurementApp::with([
+                'app_type',
+                'created_by.profile',
+                'requested_by.profile',
+                'reviewed_by.profile',
+                'approved_by.profile',
+                'status',
+                'comments.user.profile',
+                'comments.replies.user.profile',
+            ])
+                ->withCount('comments')
+                ->findOrFail($id);
+
+            return response()->json([
+                'data' => $app,
+            ]);
+        }
+
+        $ppmp = ProcurementPpmp::with([
+            'unit',
+            'division',
+            'status',
+            'created_by.profile',
+            'requested_by.profile',
+            'approved_by.profile',
+            'comments.user.profile',
+            'comments.replies.user.profile',
+        ])
+            ->withCount('comments')
+            ->findOrFail($id);
+
+        return response()->json([
+            'data' => $ppmp,
+        ]);
+    }
+
+    public function storeComment($id, Request $request)
+    {
+        $validated = $request->validate([
+            'content' => ['required', 'string', 'max:5000'],
+        ]);
+
+        if ($this->isAppCommentRequest($request)) {
+            $app = ProcurementApp::findOrFail($id);
+            $comment = $app->comments()->create([
+                'user_id' => auth()->id(),
+                'content' => $validated['content'],
+            ]);
+
+            $comment->load('user.profile');
+            $this->notifyMentionedUsers($app, $comment);
+            broadcast(new CommentAdded($comment))->toOthers();
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'data' => $comment,
+                ]);
+            }
+
+            return back()->with([
+                'data' => $comment,
+            ]);
+        }
+
+        $ppmp = ProcurementPpmp::findOrFail($id);
+        $comment = $ppmp->comments()->create([
+            'user_id' => auth()->id(),
+            'content' => $validated['content'],
+        ]);
+
+        $comment->load('user.profile');
+        $this->notifyMentionedUsers($ppmp, $comment);
+        broadcast(new CommentAdded($comment))->toOthers();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $comment,
+            ]);
+        }
+
+        return back()->with([
+            'data' => $comment,
+        ]);
+    }
+
+    protected function notifyMentionedUsers(ProcurementPpmp|ProcurementApp $ppmp, $comment): void
+    {
+        if (!Schema::hasTable('notifications')) {
+            return;
+        }
+
+        $author = $comment->user ?: User::with('profile')->find($comment->user_id);
+
+        if (!$author) {
+            return;
+        }
+
+        $this->commentNotificationRecipients($ppmp, $comment, $author)
+            ->each(fn (array $recipient) => $recipient['user']->notify(
+                new ProcurementPlanCommentMentioned($ppmp, $comment, $author, $recipient['reason'])
+            ));
+    }
+
+    protected function commentNotificationRecipients(ProcurementPpmp|ProcurementApp $ppmp, $comment, User $author): Collection
+    {
+        $recipients = collect();
+
+        if ($ppmp->created_by_id && (int) $ppmp->created_by_id !== (int) $author->id) {
+            $owner = User::with('profile')->find($ppmp->created_by_id);
+
+            if ($owner) {
+                $recipients->push([
+                    'user' => $owner,
+                    'reason' => 'owner',
+                ]);
+            }
+        }
+
+        $this->mentionedUsers((string) $comment->content, (int) $author->id)
+            ->each(fn (User $user) => $recipients->push([
+                'user' => $user,
+                'reason' => 'mention',
+            ]));
+
+        return $recipients
+            ->filter(fn ($recipient) => isset($recipient['user']) && $recipient['user'] instanceof User)
+            ->groupBy(fn ($recipient) => (int) $recipient['user']->id)
+            ->map(function (Collection $group) {
+                $selected = $group
+                    ->sortByDesc(fn ($recipient) => $recipient['reason'] === 'mention' ? 2 : 1)
+                    ->first();
+
+                return [
+                    'user' => $selected['user'],
+                    'reason' => $selected['reason'],
+                ];
+            })
+            ->values();
+    }
+
+    protected function isAppCommentRequest(Request $request): bool
+    {
+        return in_array($request->input('plan_type'), ['APP', 'annual'], true);
+    }
+
+    protected function mentionedUsers(string $content, int $excludedUserId): Collection
+    {
+        preg_match_all('/@([A-Za-z0-9._-]+)/', $content, $matches);
+
+        $usernames = collect($matches[1] ?? [])
+            ->map(fn ($username) => strtolower((string) $username))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($usernames->isEmpty()) {
+            return collect();
+        }
+
+        return User::query()
+            ->with('profile')
+            ->where('id', '!=', $excludedUserId)
+            ->where(function ($query) use ($usernames) {
+                foreach ($usernames as $username) {
+                    $query->orWhereRaw('LOWER(username) = ?', [$username]);
+                }
+            })
+            ->get()
+            ->unique('id')
+            ->values();
     }
 
 }

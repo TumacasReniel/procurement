@@ -264,13 +264,7 @@
                                                 </b-button>
 
                                                 <b-button
-                                                    v-if="
-                                                        list.status.name ==
-                                                            'Pending' &&
-                                                        $page.props.roles.includes(
-                                                            'Procurement Officer',
-                                                        )
-                                                    "
+                                                    v-if="canReviewProcurement(list)"
                                                     @click="goReviewPage(list)"
                                                     size="sm"
                                                     variant="success"
@@ -471,6 +465,18 @@ export default {
             const createdById = Number(list?.created_by_id || 0);
 
             return list?.status?.name === "Pending" && currentUserId > 0 && createdById === currentUserId;
+        },
+        canReviewProcurement(list) {
+            const currentUserId = Number(this.$page.props.user?.data?.id || 0);
+            const createdById = Number(list?.created_by_id || 0);
+            const roles = this.$page.props.roles || [];
+
+            return (
+                list?.status?.name === "Pending" &&
+                roles.includes("Procurement Officer") &&
+                currentUserId > 0 &&
+                createdById !== currentUserId
+            );
         },
         canApproveProcurement(list) {
             const roles = this.$page.props.roles || [];

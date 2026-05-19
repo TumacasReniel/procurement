@@ -2,7 +2,7 @@
   <b-modal
     v-model="showModal"
     header-class="p-3 bg-light"
-    :title="isEditing ? 'Change PPMP Item' : 'Select PPMP Items'"
+    :title="isEditing ? 'Change PPMP Item' : 'Select Items'"
     size="xl"
     class="v-modal-custom"
     modal-class="zoomIn"
@@ -59,7 +59,7 @@
       <table class="table align-middle mb-0 ppmp-selection-table">
         <thead>
           <tr class="fs-11">
-            <th style="width: 6%" class="text-center">Pick</th>
+            <th style="width: 6%" class="text-center">Select</th>
             <th>Item</th>
             <th style="width: 10%" class="text-center">Qty</th>
             <th style="width: 10%" class="text-center">Unit</th>

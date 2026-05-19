@@ -121,6 +121,7 @@
             <input
               ref="supportingDocumentInput"
               type="file"
+              accept="application/pdf,.pdf"
               class="d-none"
               @change="handleSupportingDocumentSelect"
             />
@@ -131,7 +132,7 @@
               <div class="supporting-document-dropzone__title">
                 {{ supportingDocumentName || "Drop attachment here or click to browse" }}
               </div>
-              <div class="supporting-document-dropzone__hint">PDF, image, Word, or spreadsheet files up to 10 MB</div>
+              <div class="supporting-document-dropzone__hint">PDF files only, up to 10 MB</div>
             </div>
           </div>
           <div v-if="supportingDocumentName" class="supporting-document-file">
@@ -157,7 +158,7 @@
         <BCol lg="12" class="mt-3">
           <div class="items-table-toolbar">
             <div>
-              <h6 class="items-table-title">Procurement Items</h6>
+              <h6 class="items-table-title">Items</h6>
               <span class="items-table-subtitle">
                 {{ itemRows.length }} item{{ itemRows.length === 1 ? "" : "s" }} {{ isEditing ? "selected" : "queued" }}
               </span>
@@ -196,7 +197,7 @@
                   </td>
                   <td class="item-description text-muted small" v-html="row.item_description"></td>
                   <td class="item-unit">
-                    <span class="unit-badge">{{ unitTypeName(row.item_unit_type_id) }}</span>
+                    <span class="unit-badge">{{ unitTypeName(row.item_unit_type_id, row.item_quantity) }}</span>
                   </td>
                   <td class="text-end item-quantity">{{ formatQuantity(row.item_quantity) }}</td>
                   <td class="text-end item-cost">{{ formatCurrency(row.item_unit_cost) }}</td>
@@ -316,6 +317,7 @@ export default {
       editingItem: null,
       form: useForm({
         option: "add_item",
+        plan_type: null,
         item_id: null,
         item_name: "",
         item_description: "",
@@ -383,7 +385,7 @@ export default {
       ];
     },
     itemUnitTypeLabel() {
-      return "name_short";
+      return "display_name";
     },
     itemTableError() {
       return this.form.errors.item_name ||
@@ -461,6 +463,7 @@ export default {
       this.form.reset();
       this.itemRows = [];
       this.editingItem = editingItem;
+      this.form.plan_type = this.ppmp?.plan_type || null;
 
       if (editingItem) {
         this.form.option = "update_item";
@@ -631,14 +634,16 @@ export default {
     removeItemRow(index) {
       this.itemRows.splice(index, 1);
     },
-    unitTypeName(unitTypeId) {
+    unitTypeName(unitTypeId, quantity = 1) {
       const unitType = this.unitTypeOptions.find((option) => Number(option.value ?? option.id) === Number(unitTypeId));
 
       if (!unitType) {
         return "-";
       }
 
-      return unitType.name_short || unitType.name || unitType.name_long || "-";
+      return Number(quantity || 0) > 1
+        ? unitType.name_long || unitType.name_short || unitType.name || unitType.label || "-"
+        : unitType.name_short || unitType.name_long || unitType.name || unitType.label || "-";
     },
     openSupportingDocumentPicker() {
       this.$refs.supportingDocumentInput?.click();
@@ -655,6 +660,15 @@ export default {
         return;
       }
 
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+      if (!isPdf) {
+        this.form.setError("supporting_document_file", "Please attach a PDF file only.");
+        this.removeSupportingDocument();
+        return;
+      }
+
+      this.form.clearErrors("supporting_document_file");
       this.form.supporting_document_file = file;
     },
     removeSupportingDocument() {

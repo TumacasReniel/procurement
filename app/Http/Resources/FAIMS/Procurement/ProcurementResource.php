@@ -29,6 +29,8 @@ class ProcurementResource extends JsonResource
             'classification' => $this->classification,
             'reference_app_id' => $this->reference_app_id,
             'reference_app' => $this->reference_app,
+            'procurement_app_id' => $this->procurement_app_id,
+            'procurement_app' => $this->procurement_app,
             'created_by' => $this->created_by->profile->full_name ,
             'created_by_id' => $this->created_by_id,
             'requested_by' => $this->requested_by->profile->full_name ,

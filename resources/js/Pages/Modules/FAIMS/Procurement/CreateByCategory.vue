@@ -99,30 +99,14 @@
 
             <div v-if="isLockedMode" class="col-lg-6">
               <div class="form-group compact-form-group">
-                <InputLabel value="Classification" :message="form.errors.classification_id" />
+                <InputLabel value="Current APP" :message="form.errors.procurement_app_id" />
                 <Multiselect
-                  v-model="form.classification_id"
-                  :options="classificationOptions"
+                  v-model="form.procurement_app_id"
+                  :options="currentAppOptions"
                   :searchable="true"
                   label="name"
                   valueProp="value"
-                  placeholder="Select classification"
-                  class="modern-select"
-                  :append-to-body="true"
-                />
-              </div>
-            </div>
-
-            <div v-if="isLockedMode" class="col-lg-6">
-              <div class="form-group compact-form-group">
-                <InputLabel value="Reference APP" :message="form.errors.reference_app_id" />
-                <Multiselect
-                  v-model="form.reference_app_id"
-                  :options="referenceAppOptions"
-                  :searchable="true"
-                  label="name"
-                  valueProp="value"
-                  placeholder="Select reference APP"
+                  placeholder="Select current APP"
                   class="modern-select"
                   :append-to-body="true"
                 />
@@ -316,6 +300,7 @@ export default {
         fund_cluster_id: null,
         classification_id: null,
         reference_app_id: null,
+        procurement_app_id: null,
         requested_by_id: null,
         approved_by_id: null,
         procurement_code_ids: [],
@@ -381,15 +366,15 @@ export default {
       const options = ppmpCategories.length > 0 ? ppmpCategories : (this.dropdowns.item_categories || []);
       return this.normalizeDropdownOptions(options);
     },
-    classificationOptions() {
-      return this.normalizeDropdownOptions(this.dropdowns?.classifications);
-    },
     referenceAppOptions() {
       const options = this.normalizeList(this.dropdowns?.reference_apps);
       const fallbackOptions = this.normalizeList(this.dropdowns?.app_types);
       const source = options.length ? options : fallbackOptions;
 
       return this.normalizeDropdownOptions(source);
+    },
+    currentAppOptions() {
+      return this.normalizeDropdownOptions(this.dropdowns?.current_apps);
     },
     selectedItems() {
       return this.items.filter((item) => this.selectedIds.includes(item.value));
@@ -401,6 +386,10 @@ export default {
       return this.items.length > 0 && this.items.every((item) => this.selectedIds.includes(item.value));
     },
     canSubmit() {
+      if (this.isReviewMode && !this.form.procurement_app_id) {
+        return false;
+      }
+
       return Boolean(
         this.form.date &&
         this.form.fund_cluster_id &&
@@ -419,6 +408,9 @@ export default {
     },
     "form.procurement_code_ids"() {
       this.refreshTitleFromCodes();
+    },
+    "form.date"() {
+      this.applyAutomaticCurrentApp(true);
     },
   },
   mounted() {
@@ -448,6 +440,8 @@ export default {
       this.form.fund_cluster_id = this.procurement.fund_cluster_id;
       this.form.classification_id = this.procurement.classification_id;
       this.form.reference_app_id = this.procurement.reference_app_id;
+      this.form.procurement_app_id = this.procurement.procurement_app_id;
+      this.applyAutomaticCurrentApp();
       this.form.requested_by_id = this.procurement.requested_by_id;
       this.form.approved_by_id = this.procurement.approved_by_id;
       const codes = this.normalizeList(this.procurement.codes);
@@ -489,6 +483,18 @@ export default {
           label: option.label ?? normalizedLabel,
         };
       });
+    },
+    applyAutomaticCurrentApp(force = false) {
+      if (!this.isReviewMode || (this.form.procurement_app_id && !force) || !this.currentAppOptions.length) {
+        return;
+      }
+
+      const prYear = this.form.date
+        ? Number(new Date(this.form.date).getFullYear())
+        : Number(new Date().getFullYear());
+      const matchingApp = this.currentAppOptions.find((app) => Number(app.year) === prYear);
+
+      this.form.procurement_app_id = matchingApp ? Number(matchingApp.value) : null;
     },
     normalizeDate(value) {
       if (!value) return this.getCurrentDate();
@@ -601,6 +607,7 @@ export default {
       }));
     },
     submit() {
+      this.applyAutomaticCurrentApp();
       this.syncFormItems();
       this.form.option = this.isApproveMode
         ? "approve"
