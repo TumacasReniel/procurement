@@ -337,7 +337,7 @@
 </template>
 
 <script>
-import { router, useForm } from "@inertiajs/vue3";
+import { useForm } from "@inertiajs/vue3";
 import axios from "axios";
 
 export default {
@@ -470,8 +470,13 @@ export default {
     },
     filteredMentionUsers() {
       const keyword = this.mentionQuery.trim().toLowerCase();
+      const currentUserId = Number(this.currentUser?.id || this.$page?.props?.user?.data?.id || 0);
 
       return this.mentionUsers.filter((user) => {
+        if (currentUserId && Number(user?.id || 0) === currentUserId) {
+          return false;
+        }
+
         if (!keyword) {
           return true;
         }
@@ -994,28 +999,23 @@ export default {
       this.commentSubmitting = true;
       this.form.clearErrors();
 
-      router.post(
-        `/faims/procurements/${this.procurement.id}/comments`,
-        { content },
-        {
-          preserveScroll: true,
-          onSuccess: (page) => {
-            if (page.props.flash?.data) {
-              this.addIncomingComment(page.props.flash.data);
-            }
-
-            this.newComment = "";
-            this.resetMentionState();
-            this.form.reset();
-          },
-          onError: (errors) => {
-            this.form.setError(errors || {});
-          },
-          onFinish: () => {
-            this.commentSubmitting = false;
+      axios
+        .post(`/faims/procurements/${this.procurement.id}/comments`, { content })
+        .then((response) => {
+          if (response.data?.data) {
+            this.addIncomingComment(response.data.data);
           }
-        }
-      );
+
+          this.newComment = "";
+          this.resetMentionState();
+          this.form.reset();
+        })
+        .catch((error) => {
+          this.form.setError(error?.response?.data?.errors || {});
+        })
+        .finally(() => {
+          this.commentSubmitting = false;
+        });
     },
     addIncomingComment(comment) {
       if (comment.commentable_type === 'App\\Models\\ProcurementBac') {

@@ -34,6 +34,10 @@
           <strong>{{ formatCurrency(ppmp.estimated_budget) }}</strong>
         </div>
       </div>
+
+      <div v-if="error" class="alert alert-danger mb-0 ppmp-confirm__error">
+        {{ error }}
+      </div>
     </div>
 
     <template v-slot:footer>
@@ -58,25 +62,105 @@ export default {
   props: {
     show: { type: Boolean, default: false },
     ppmp: { type: Object, default: null },
+    planType: { type: String, default: "" },
     processing: { type: Boolean, default: false },
+    error: { type: String, default: "" },
   },
   emits: ["update:show", "cancel", "confirm"],
   computed: {
+    normalizedPlanType() {
+      switch (this.planType || this.ppmp?.plan_type) {
+        case "APP":
+        case "annual":
+          return "APP";
+
+        case "SPP":
+        case "supplemental":
+          return "SPP";
+
+        case "PPMP":
+        case "ppmp":
+        default:
+          return "PPMP";
+      }
+    },
+    isApp() {
+      return this.normalizedPlanType === "APP";
+    },
+    planShortName() {
+      return this.normalizedPlanType === "SPP" ? "SPP" : this.normalizedPlanType;
+    },
+    isForReview() {
+      return String(this.ppmp?.ppmp_status || "").toLowerCase() === "for review";
+    },
+    isPending() {
+      return String(this.ppmp?.ppmp_status || "").toLowerCase() === "pending";
+    },
     isReviewed() {
       return String(this.ppmp?.ppmp_status || "").toLowerCase() === "reviewed/for submission";
     },
     modalTitle() {
-      return this.isReviewed ? "Submit PPMP for Consolidation" : "Review PPMP";
+      if (this.isApp) {
+        if (this.isReviewed) {
+          return "Submit APP for Implementation";
+        }
+
+        return this.isForReview ? "Review APP" : "Move APP to For Review";
+      }
+
+      if (this.isPending) {
+        return `Submit ${this.planShortName} for Review`;
+      }
+
+      return this.isReviewed ? `Submit ${this.planShortName} for Consolidation` : `Review ${this.planShortName}`;
     },
     heading() {
-      return this.isReviewed ? "Submit this PPMP for consolidation?" : "Mark this PPMP as reviewed?";
+      if (this.isApp) {
+        if (this.isReviewed) {
+          return "Submit this APP for implementation?";
+        }
+
+        return this.isForReview ? "Mark this APP as reviewed?" : "Move this APP to For Review?";
+      }
+
+      if (this.isPending) {
+        return `Submit this ${this.planShortName} for review?`;
+      }
+
+      return this.isReviewed ? `Submit this ${this.planShortName} for consolidation?` : `Mark this ${this.planShortName} as reviewed?`;
     },
     description() {
+      if (this.isApp) {
+        if (this.isReviewed) {
+          return "This will submit the reviewed APP for implementation.";
+        }
+
+        return this.isForReview
+          ? "This will move the APP to Reviewed/For Submission."
+          : "This will move the pending APP to For Review.";
+      }
+
+      if (this.isPending) {
+        return "This will move the pending unit plan to For Review.";
+      }
+
       return this.isReviewed
         ? "This will mark the reviewed unit plan as submitted and ready for BAC consolidation."
-        : "This will move the pending unit plan to Reviewed/For Submission.";
+        : "This will move the unit plan to Reviewed/For Submission.";
     },
     confirmLabel() {
+      if (this.isApp) {
+        if (this.isReviewed) {
+          return "Submit for Implementation";
+        }
+
+        return this.isForReview ? "Mark Reviewed/For Submission" : "Move to For Review";
+      }
+
+      if (this.isPending) {
+        return "Submit for Review";
+      }
+
       return this.isReviewed ? "Submit for Consolidation" : "Mark as Reviewed";
     },
     modalShow: {
@@ -123,6 +207,10 @@ export default {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+}
+
+.ppmp-confirm__error {
+  grid-column: 1 / -1;
 }
 
 .ppmp-confirm__summary > div {

@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Procurement;
+use App\Models\ProcurementApp;
+use App\Models\ProcurementPpmp;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -15,4 +18,16 @@ use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
+});
+
+Broadcast::channel('procurement.{id}', function ($user, $id) {
+    return $user && Procurement::query()->whereKey($id)->exists();
+});
+
+Broadcast::channel('procurement-plan.{id}', function ($user, $id) {
+    return $user && ProcurementPpmp::query()->whereKey($id)->exists();
+});
+
+Broadcast::channel('procurement-plan-app.{id}', function ($user, $id) {
+    return $user && ProcurementApp::query()->whereKey($id)->exists();
 });

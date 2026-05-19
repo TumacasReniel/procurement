@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Notifications\PendingProcurementCodeBudgetRequestNotification;
 use App\Notifications\PendingSupplierApprovalNotification;
 use App\Notifications\ProcurementCommentMentioned;
+use App\Notifications\ProcurementPlanCommentMentioned;
 use Illuminate\Support\Facades\Schema;
 
 class NotificationClass
@@ -91,6 +92,7 @@ class NotificationClass
     {
         return [
             ProcurementCommentMentioned::class,
+            ProcurementPlanCommentMentioned::class,
             PendingProcurementCodeBudgetRequestNotification::class,
             PendingSupplierApprovalNotification::class,
         ];
@@ -107,6 +109,10 @@ class NotificationClass
         }
 
         if ($notification->type === ProcurementCommentMentioned::class) {
+            return in_array(data_get($notification->data, 'reason', 'mention'), ['mention', 'owner'], true);
+        }
+
+        if ($notification->type === ProcurementPlanCommentMentioned::class) {
             return in_array(data_get($notification->data, 'reason', 'mention'), ['mention', 'owner'], true);
         }
 
@@ -176,6 +182,39 @@ class NotificationClass
             ];
         }
 
+        if ($notification->type === ProcurementPlanCommentMentioned::class) {
+            $planId = data_get($notification->data, 'procurement_plan.id');
+            $planType = $this->normalizePlanType(data_get($notification->data, 'procurement_plan.plan_type'));
+            $reason = data_get($notification->data, 'reason', 'mention');
+
+            return [
+                'id' => $notification->id,
+                'notification_type' => data_get($notification->data, 'type', 'procurement_plan_comment_notification'),
+                'reason' => $reason,
+                'procurement_id' => $planId,
+                'procurement_code' => data_get($notification->data, 'procurement_plan.ppmp_no')
+                    ?: data_get($notification->data, 'procurement_plan.code'),
+                'procurement_purpose' => data_get($notification->data, 'procurement_plan.purpose')
+                    ?: data_get($notification->data, 'procurement_plan.title'),
+                'comment_id' => data_get($notification->data, 'comment.id'),
+                'comment_content' => data_get($notification->data, 'comment.content'),
+                'actor' => $actor,
+                'mentioned_by' => $actor,
+                'created_at' => $notification->created_at,
+                'created_ago' => $notification->created_at?->diffForHumans(),
+                'context_label' => $reason === 'owner' ? 'Your Plan' : 'Plan Mention',
+                'action_label' => 'Open plan chat',
+                'target' => [
+                    'route' => '/faims/procurement-ppmp',
+                    'query' => array_filter([
+                        'comment_plan_id' => $planId,
+                        'comment_id' => data_get($notification->data, 'comment.id'),
+                        'plan_type' => $planType,
+                    ]),
+                ],
+            ];
+        }
+
         $procurementId = data_get($notification->data, 'procurement.id');
         $reason = data_get($notification->data, 'reason', 'mention');
 
@@ -201,5 +240,15 @@ class NotificationClass
                 ],
             ],
         ];
+    }
+
+    protected function normalizePlanType(?string $planType): ?string
+    {
+        return match ($planType) {
+            'APP', 'annual', 'Annual Procurement Plan' => 'APP',
+            'SPP', 'supplemental', 'Supplemental Procurement Plan' => 'SPP',
+            'PPMP', 'ppmp', 'Project Procurement Management Plan' => 'PPMP',
+            default => $planType,
+        };
     }
 }

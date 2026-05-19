@@ -44,13 +44,22 @@
                 v-if="canShowAdvanceAction"
                 variant="primary"
                 :disabled="submitFinalForm.processing"
-                @click="submitFinalModal.show = true"
+                @click="openSubmitFinalModal"
               >
                 <i class="ri-check-double-line align-bottom me-1"></i>
                 {{ advanceActionLabel }}
               </b-button>
               <b-button
-                v-if="ppmp.can_approve_to_app"
+                v-if="canAddSppItem"
+                variant="success"
+                class="spp-add-item-button"
+                @click="openAddItemModal"
+              >
+                <i class="ri-add-line align-bottom me-1"></i>
+                Add Item
+              </b-button>
+              <b-button
+                v-if="canShowConsolidateAction"
                 variant="success"
                 :disabled="approveAppForm.processing"
                 @click="approveAppModal.show = true"
@@ -89,7 +98,9 @@
   <SubmitForApprovalModal
     v-model:show="submitFinalModal.show"
     :ppmp="ppmp"
+    :plan-type="normalizedPlanType"
     :processing="submitFinalForm.processing"
+    :error="submitFinalModal.error"
     @cancel="closeSubmitFinalModal"
     @confirm="updateStatus"
   />
@@ -101,6 +112,8 @@
     @cancel="closeApproveAppModal"
     @confirm="approveToApp"
   />
+
+  <FloatingPlanChat :plan="ppmp" :show-trigger="true" />
 </template>
 
 <script>
@@ -113,6 +126,7 @@ import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
 import AppPlanView from "./Components/AppPlanView.vue";
 import SppPlanView from "./Components/SppPlanView.vue";
 import PpmpPlanView from "./Components/PpmpPlanView.vue";
+import FloatingPlanChat from "./Components/FloatingPlanChat.vue";
 
 export default {
   props: ["ppmp", "dropdowns"],
@@ -125,6 +139,7 @@ export default {
     AppPlanView,
     SppPlanView,
     PpmpPlanView,
+    FloatingPlanChat,
   },
   data() {
     return {
@@ -134,6 +149,7 @@ export default {
       }),
       submitFinalModal: {
         show: false,
+        error: "",
       },
       approveAppForm: useForm({
         option: "approve_to_app",
@@ -167,6 +183,10 @@ export default {
         && this.normalizedPlanType === "PPMP"
         && (this.ppmp.can_add_items || is_pending);
     },
+    canAddSppItem() {
+      return this.normalizedPlanType === "SPP"
+        && (this.isPpmpCreator || this.isProcurementUser || this.isAdministrator);
+    },
     normalizedPlanType() {
       switch (this.ppmp.plan_type) {
         case "APP":
@@ -186,14 +206,22 @@ export default {
     currentRoles() {
       return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
     },
+    currentRoleNames() {
+      return this.currentRoles
+        .map((role) => typeof role === "string" ? role : role?.name)
+        .filter(Boolean);
+    },
     isBudgetOfficer() {
-      return this.currentRoles.includes("Budget Officer");
+      return this.currentRoleNames.includes("Budget Officer") || this.isAdministrator;
     },
     isAdministrator() {
-      return this.currentRoles.includes("Administrator");
+      return this.currentRoleNames.includes("Administrator");
     },
     isProcurementOfficer() {
-      return this.currentRoles.includes("Procurement Officer");
+      return this.currentRoleNames.includes("Procurement Officer") || this.isAdministrator;
+    },
+    isProcurementUser() {
+      return this.currentRoleNames.some((role) => ["Procurement Officer", "Procurement Staff"].includes(role));
     },
     isPendingPpmp() {
       return String(this.ppmp.ppmp_status || "").trim().toLowerCase() === "pending";
@@ -201,7 +229,40 @@ export default {
     isReviewedForSubmission() {
       return String(this.ppmp.ppmp_status || "").trim().toLowerCase() === "reviewed/for submission";
     },
+    isForReview() {
+      return String(this.ppmp.ppmp_status || "").trim().toLowerCase() === "for review";
+    },
+    isConsolidatedToApp() {
+      return String(this.ppmp.ppmp_status || "").trim().toLowerCase() === "consolidated/added to app";
+    },
+    canShowConsolidateAction() {
+      return Boolean(this.ppmp.can_approve_to_app) && !this.isConsolidatedToApp;
+    },
     canShowAdvanceAction() {
+      if (this.normalizedPlanType === "APP") {
+        if (this.isReviewedForSubmission && this.isProcurementOfficer) {
+          return true;
+        }
+
+        if (this.isPendingPpmp) {
+          return this.canSubmitPendingPpmp;
+        }
+
+        return this.isForReview && this.isBudgetOfficer;
+      }
+
+      if (this.isReviewedForSubmission && this.isProcurementOfficer) {
+        return true;
+      }
+
+      if (this.isPendingPpmp && this.canSubmitPendingPpmp) {
+        return true;
+      }
+
+      if (this.isForReview && this.isBudgetOfficer) {
+        return true;
+      }
+
       if (!this.ppmp.can_submit_final) {
         return false;
       }
@@ -219,6 +280,15 @@ export default {
       }
 
       return false;
+    },
+    canSubmitPendingPpmp() {
+      return this.isPpmpCreator || this.isProcurementUser || this.isAdministrator;
+    },
+    hasPpmpItems() {
+      return Number(this.ppmp?.items_count || 0) > 0;
+    },
+    requiresItemsBeforeAdvance() {
+      return ["PPMP", "SPP"].includes(this.normalizedPlanType);
     },
 
     planShortName() {
@@ -245,7 +315,7 @@ export default {
     },
     planScope() {
       if (this.normalizedPlanType === "SPP") {
-        return "Agency update to approved APP";
+        return "Unit supplemental plan";
       }
 
       if (this.normalizedPlanType === "APP") {
@@ -272,7 +342,7 @@ export default {
         return "success";
       }
 
-      if (status === "reviewed/for submission" || status === "submitted/for consolidation") {
+      if (status === "for review" || status === "reviewed/for submission" || status === "submitted/for consolidation" || status === "submitted/for implementation") {
         return "warning";
       }
 
@@ -295,14 +365,30 @@ export default {
       }
 
       if (this.normalizedPlanType === "SPP") {
-        return "Agency-prepared update to the approved APP for new needs or budget changes";
+        return `Supplemental procurement plan for ${this.ppmp.unit?.name || "unit"}`;
       }
 
       return `Project procurement management plan for ${this.ppmp.unit?.name || "unit"}`;
     },
     advanceActionLabel() {
+      if (this.normalizedPlanType === "APP") {
+        if (this.isReviewedForSubmission) {
+          return "Submit for Implementation";
+        }
+
+        return this.isForReview ? "Mark Reviewed/For Submission" : "Move to For Review";
+      }
+
+      if (this.isForReview) {
+        return "Mark Reviewed";
+      }
+
       if (this.isReviewedForSubmission) {
         return "Submit for Consolidation";
+      }
+
+      if (this.isPendingPpmp) {
+        return "Submit for Review";
       }
 
       return "Review";
@@ -347,15 +433,26 @@ export default {
         return;
       }
 
+      this.submitFinalModal.error = "";
       this.submitFinalModal.show = true;
     },
     updateStatus() {
+      if (this.requiresItemsBeforeAdvance && !this.hasPpmpItems) {
+        this.submitFinalModal.error = this.emptyPpmpItemsMessage();
+        return;
+      }
+
+      this.submitFinalModal.error = "";
       this.submitFinalForm.option = "update_status";
       this.submitFinalForm.plan_type = this.normalizedPlanType;
       this.submitFinalForm.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
         preserveScroll: true,
         onSuccess: () => {
           this.submitFinalModal.show = false;
+          this.submitFinalModal.error = "";
+        },
+        onError: (errors) => {
+          this.submitFinalModal.error = this.firstFormError(errors);
         },
       });
     },
@@ -365,6 +462,7 @@ export default {
       }
 
       this.submitFinalModal.show = false;
+      this.submitFinalModal.error = "";
       this.submitFinalForm.clearErrors();
     },
     approveToApp() {
@@ -393,6 +491,14 @@ export default {
     },
     openDeleteItemModal(item) {
       this.$refs.deleteItemModal?.show(item);
+    },
+    emptyPpmpItemsMessage() {
+      return "Please add at least one item before updating or submitting this PPMP for review.";
+    },
+    firstFormError(errors) {
+      const firstError = Object.values(errors || {}).flat().find(Boolean);
+
+      return firstError || "Unable to update this plan status.";
     },
   },
 };
@@ -442,6 +548,29 @@ export default {
   border: 1px solid var(--ppmp-border);
   border-radius: 8px;
   font-size: 23px;
+}
+
+.spp-add-item-button {
+  min-height: 34px;
+  padding: 6px 14px;
+  border-color: #0ab39c !important;
+  background-color: #0ab39c !important;
+  color: #ffffff !important;
+  font-weight: 500;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.spp-add-item-button:hover,
+.spp-add-item-button:focus {
+  border-color: #099885 !important;
+  background-color: #099885 !important;
+  color: #ffffff !important;
+}
+
+.spp-add-item-button i {
+  color: inherit !important;
+  font-size: 13px;
 }
 
 .ppmp-title {
@@ -756,6 +885,52 @@ export default {
   color: var(--ppmp-text);
   font-size: 13px;
   font-weight: 700;
+}
+
+[data-bs-theme="dark"] .ppmp-view-page {
+  --ppmp-surface: #151e33;
+  --ppmp-surface-soft: #10192c;
+  --ppmp-surface-softer: #1d2942;
+  --ppmp-border: rgba(170, 184, 220, .18);
+  --ppmp-border-soft: rgba(170, 184, 220, .12);
+  --ppmp-text: #f4f7ff;
+  --ppmp-muted: #c5cde0;
+  --ppmp-primary: #9bb2ff;
+  background: #0b1220;
+  color: var(--ppmp-text);
+}
+
+[data-bs-theme="dark"] .ppmp-view-page .text-muted {
+  color: var(--ppmp-muted) !important;
+}
+
+[data-bs-theme="dark"] .ppmp-view-page .text-body,
+[data-bs-theme="dark"] .ppmp-view-page .text-primary,
+[data-bs-theme="dark"] .ppmp-view-page h1,
+[data-bs-theme="dark"] .ppmp-view-page h2,
+[data-bs-theme="dark"] .ppmp-view-page h3,
+[data-bs-theme="dark"] .ppmp-view-page h4,
+[data-bs-theme="dark"] .ppmp-view-page h5,
+[data-bs-theme="dark"] .ppmp-view-page h6,
+[data-bs-theme="dark"] .ppmp-view-page strong {
+  color: var(--ppmp-text) !important;
+}
+
+[data-bs-theme="dark"] .ppmp-view-page .table:not(.ppmp-document-items-table),
+[data-bs-theme="dark"] .ppmp-view-page .table:not(.ppmp-document-items-table) > :not(caption) > * > * {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--ppmp-text);
+  --bs-table-hover-bg: rgba(142, 164, 255, .1);
+  --bs-table-hover-color: var(--ppmp-text);
+  color: var(--ppmp-text);
+  border-color: var(--ppmp-border);
+}
+
+[data-bs-theme="dark"] .ppmp-view-page .table-light {
+  --bs-table-bg: var(--ppmp-surface-soft);
+  --bs-table-color: var(--ppmp-text);
+  background-color: var(--ppmp-surface-soft) !important;
+  color: var(--ppmp-text) !important;
 }
 
 @media (max-width: 992px) {

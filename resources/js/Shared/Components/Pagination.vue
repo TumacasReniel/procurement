@@ -4,10 +4,10 @@
             <div class="text-muted">
                 Showing
                 <span class="fw-semibold">
-                    {{ (pagination.current_page == 1) ? '1' : ((pagination.current_page - 1) * pagination.per_page) + 1 }}-{{ (pagination.last_page == pagination.current_page) ? pagination.total : pagination.current_page * pagination.per_page }}
+                    {{ resultFrom }}-{{ resultTo }}
                 </span>
                 of
-                <span class="fw-semibold">{{ pagination.total }}</span>
+                <span class="fw-semibold">{{ totalResults }}</span>
                 Results
             </div>
         </div>
@@ -36,7 +36,44 @@ export default {
             count: 0
         };
     },
+    computed: {
+        currentPage() {
+            return this.numberOrDefault(this.pagination?.current_page, 1);
+        },
+        perPage() {
+            return this.numberOrDefault(this.pagination?.per_page, this.lists || 0);
+        },
+        lastPage() {
+            return this.numberOrDefault(this.pagination?.last_page, 1);
+        },
+        totalResults() {
+            return this.numberOrDefault(this.pagination?.total, this.lists || 0);
+        },
+        resultFrom() {
+            if (this.totalResults <= 0 || this.perPage <= 0) {
+                return 0;
+            }
+
+            return ((this.currentPage - 1) * this.perPage) + 1;
+        },
+        resultTo() {
+            if (this.totalResults <= 0 || this.perPage <= 0) {
+                return 0;
+            }
+
+            if (this.lastPage === this.currentPage) {
+                return this.totalResults;
+            }
+
+            return Math.min(this.currentPage * this.perPage, this.totalResults);
+        },
+    },
     methods: {
+        numberOrDefault(value, fallback = 0) {
+            const number = Number(value);
+
+            return Number.isFinite(number) ? number : fallback;
+        },
         fetch(data) {
             if (!data) return;
 

@@ -861,34 +861,65 @@ export default {
 }
 
 .btn-modern {
-  border-radius: 14px;
-  font-weight: 700;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 6px;
+  font-weight: 600;
+  letter-spacing: 0;
+  padding: 0.45rem 0.9rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   border: none;
 }
 
 .btn-modern:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12) !important;
+  box-shadow: none !important;
 }
 
 .po-actions-dropdown :deep(.dropdown-toggle) {
-  min-width: 112px;
+  min-width: 104px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.po-actions-dropdown :deep(.dropdown-toggle::after) {
+  margin-left: 0.45rem;
+}
+
+.po-actions-dropdown :deep(.btn-success) {
+  background: #13b8a6;
+  border-color: #13b8a6;
+}
+
+.po-actions-dropdown :deep(.btn-success:hover),
+.po-actions-dropdown :deep(.btn-success:focus) {
+  background: #0ea493;
+  border-color: #0ea493;
+}
+
+.po-actions-dropdown :deep(.btn-dark) {
+  background: #181d24;
+  border-color: #181d24;
+}
+
+.po-actions-dropdown :deep(.btn-dark:hover),
+.po-actions-dropdown :deep(.btn-dark:focus) {
+  background: #10141a;
+  border-color: #10141a;
 }
 
 .po-actions-dropdown :deep(.dropdown-menu) {
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 12px;
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
-  padding: 0.4rem;
-  min-width: 220px;
+  border-radius: 6px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  padding: 0.25rem;
+  min-width: 190px;
 }
 
 .po-actions-dropdown :deep(.dropdown-item) {
-  border-radius: 8px;
+  border-radius: 4px;
   font-size: 0.82rem;
-  font-weight: 600;
-  padding: 0.5rem 0.65rem;
+  font-weight: 500;
+  padding: 0.45rem 0.6rem;
 }
 
 .po-actions-dropdown :deep(.dropdown-divider) {

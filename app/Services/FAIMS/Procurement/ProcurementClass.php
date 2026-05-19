@@ -6,6 +6,7 @@ use App\Models\Request;
 use App\Models\OrgChart;
 use App\Models\OrgSignatory;
 use App\Models\Procurement;
+use App\Models\ProcurementApp;
 use App\Models\ProcurementCode;
 use App\Models\ProcurementCodeGroup;
 use App\Models\ProcurementCodeBudgetLog;
@@ -64,6 +65,7 @@ class ProcurementClass
                 'fund_clusters' => $this->dropdown->dropdowns('Fund Cluster'),
                 'classifications' => $this->dropdown->dropdowns('Classification'),
                 'reference_apps' => $this->referenceAppDropdowns(),
+                'current_apps' => $this->currentAppDropdowns(),
                 'app_types' => $this->dropdown->dropdowns('APP Type'),
                 'procurement_codes' => $this->dropdown->procurement_codes(),
                 'unit_types' => $this->dropdown->unit_types(),
@@ -87,6 +89,25 @@ class ProcurementClass
         return $this->dropdown->dropdowns('APP Type')->all();
     }
 
+    protected function currentAppDropdowns(): array
+    {
+        return ProcurementApp::query()
+            ->with('status')
+            ->orderByDesc('year')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (ProcurementApp $app) => [
+                'value' => $app->id,
+                'name' => $app->code ?: 'APP-' . $app->year,
+                'code' => $app->code,
+                'title' => $app->title,
+                'year' => (int) $app->year,
+                'status' => $app->status?->name,
+            ])
+            ->values()
+            ->all();
+    }
+
     public function createByCategoryPageProps($request): array
     {
         $props = $this->createPageProps($request);
@@ -101,6 +122,7 @@ class ProcurementClass
                 'unit',
                 'classification',
                 'reference_app',
+                'procurement_app',
                 'codes',
                 'items.item_unit_type',
                 'items.ppmp_item.item_category',
@@ -342,15 +364,12 @@ class ProcurementClass
         ]);
 
         try {
-            if (!$request->filled('classification_id')) {
-                $procurement = Procurement::findOrFail($id);
+            if (!$request->filled('procurement_app_id')) {
+                $currentAppId = $this->currentAppIdForRequest($request);
 
-                return [
-                    'data' => new ProcurementResource($procurement),
-                    'message' => 'Procurement classification is required.',
-                    'info' => 'Please select whether this PR is for Goods and Services, Infrastructure Projects, or Consulting Services before reviewing.',
-                    'status' => false,
-                ];
+                if ($currentAppId) {
+                    $request->merge(['procurement_app_id' => $currentAppId]);
+                }
             }
 
             // update Procurement
@@ -477,7 +496,7 @@ class ProcurementClass
     protected function updatePR($id, $request ){
         $data = Procurement::findOrFail($id);
 
-        $data->update(array_merge($request->only(
+        $fields = [
             'date',
             'purpose',
             'title',
@@ -488,9 +507,31 @@ class ProcurementClass
             'reference_app_id',
             'requested_by_id',
             'approved_by_id'
-        )));
+        ];
+
+        if (Schema::hasColumn('procurements', 'procurement_app_id')) {
+            $fields[] = 'procurement_app_id';
+        }
+
+        $data->update($request->only($fields));
 
         return  $data;
+    }
+
+    protected function currentAppIdForRequest($request): ?int
+    {
+        if (!Schema::hasTable('procurement_apps')) {
+            return null;
+        }
+
+        $year = $request->filled('date')
+            ? (int) date('Y', strtotime($request->date))
+            : (int) now()->year;
+
+        return ProcurementApp::query()
+            ->where('year', $year)
+            ->orderByDesc('id')
+            ->value('id');
     }
 
     protected function syncProcurementCodes($procurement_id, $procurementCodeIds = []): void

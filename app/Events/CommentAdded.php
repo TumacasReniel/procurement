@@ -3,9 +3,7 @@
 namespace App\Events;
 
 use App\Models\RequestComment;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -33,8 +31,17 @@ class CommentAdded implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('procurement.' . $this->comment->commentable_id),
+            new PrivateChannel($this->channelName()),
         ];
+    }
+
+    protected function channelName(): string
+    {
+        return match ($this->comment->commentable_type) {
+            'App\\Models\\ProcurementApp' => 'procurement-plan-app.' . $this->comment->commentable_id,
+            'App\\Models\\ProcurementPpmp' => 'procurement-plan.' . $this->comment->commentable_id,
+            default => 'procurement.' . $this->comment->commentable_id,
+        };
     }
 
     /**

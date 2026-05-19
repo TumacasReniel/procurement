@@ -206,6 +206,10 @@
       <div v-else class="ppmp-average-empty">
         No same-spec items with different unit costs were found for averaging.
       </div>
+
+      <div v-if="error" class="alert alert-danger mb-0 ppmp-confirm__error">
+        {{ error }}
+      </div>
     </div>
 
     <template v-slot:footer>
@@ -239,6 +243,10 @@ export default {
     processing: {
       type: Boolean,
       default: false,
+    },
+    error: {
+      type: String,
+      default: "",
     },
   },
   emits: ["update:show", "cancel", "confirm"],
@@ -312,6 +320,10 @@ export default {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+}
+
+.ppmp-confirm__error {
+  grid-column: 1 / -1;
 }
 
 .ppmp-match-preview,

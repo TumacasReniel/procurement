@@ -13,20 +13,19 @@
         <button
           type="button"
           class="app-view-tab"
+          :class="{ active: activeTab === 'ppmps' }"
+          @click="activeTab = 'ppmps'"
+        >
+          PPMPs
+        </button>
+        <button
+          type="button"
+          class="app-view-tab"
           :class="{ active: activeTab === 'prs' }"
           @click="activeTab = 'prs'"
         >
           Purchase Requests
         </button>
-      </div>
-
-      <div class="app-view-filters">
-        <select v-model="selectedPpmp" class="form-select form-select-sm">
-          <option value="">All PPMPs</option>
-          <option v-for="source in filteredPpmpOptions" :key="source.value" :value="source.value">
-            {{ source.label }}
-          </option>
-        </select>
       </div>
     </div>
 
@@ -44,7 +43,7 @@
 
       <div class="app-table-meta">
         <div>Fiscal Year : {{ fiscalYear }}</div>
-        <div>End-User or Implementing Unit: {{ ppmp.unit?.name || "Agency-wide" }}</div>
+        <div>End-User or Implementing Unit: {{ implementingUnitLabel }}</div>
       </div>
 
       <div class="table-responsive ppmp-table-wrap">
@@ -175,6 +174,63 @@
       </div>
     </div>
 
+    <div v-else-if="activeTab === 'ppmps'" class="app-ppmp-list-view">
+      <div class="section-heading">
+        <h6 class="mb-0 fs-14"></h6>
+        <span class="text-muted fs-12">
+          {{ visibleSourcePpmps.length }} PPMP{{ visibleSourcePpmps.length === 1 ? "" : "s" }}
+        </span>
+      </div>
+      <div class="table-responsive ppmp-table-wrap">
+        <table class="table align-middle table-hover mb-0">
+          <thead class="table-light">
+            <tr class="fs-12">
+              <th style="width: 4%" class="text-center">#</th>
+              <th style="width: 18%">PPMP No.</th>
+              <th>Unit</th>
+              <th style="width: 18%">PR No.</th>
+              <th style="width: 12%" class="text-end">Items</th>
+              <th style="width: 14%" class="text-end">Total ABC</th>
+              <th style="width: 18%" class="text-center">Status</th>
+              <th style="width: 90px" class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(source, index) in visibleSourcePpmps" :key="source.id || source.ppmp_no || index">
+              <td class="text-center fw-semibold">{{ index + 1 }}</td>
+              <td class="fw-semibold text-primary">{{ source.ppmp_no || "-" }}</td>
+              <td>
+                <div class="fw-medium">{{ sourceLabel(source.unit) || "-" }}</div>
+                <small class="text-muted">{{ sourceLabel(source.division) || "End-user unit" }}</small>
+              </td>
+              <td>{{ source.pr_no || "-" }}</td>
+              <td class="text-end">{{ Number(source.items_count || 0).toLocaleString() }}</td>
+              <td class="text-end fw-semibold">{{ formatCurrency(source.total_amount) }}</td>
+              <td class="text-center">
+                <b-badge :variant="sourceStatusVariant(source)">
+                  {{ source.approval_status || "Consolidated/Added to APP" }}
+                </b-badge>
+              </td>
+              <td class="text-center">
+                <b-button
+                  variant="soft-primary"
+                  size="sm"
+                  :disabled="!source.id"
+                  title="View PPMP"
+                  @click="viewSourcePpmp(source)"
+                >
+                  <i class="ri-eye-line align-bottom"></i>
+                </b-button>
+              </td>
+            </tr>
+            <tr v-if="!visibleSourcePpmps.length">
+              <td colspan="8" class="text-center text-muted py-4">No PPMPs found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div v-else class="app-pr-list-view">
       <div class="section-heading">
         <h6 class="mb-0 fs-14"></h6>
@@ -287,10 +343,13 @@
         </div>
       </div>
     </b-modal>
+
   </div>
 </template>
 
 <script>
+import { router } from "@inertiajs/vue3";
+
 export default {
   props: {
     ppmp: { type: Object, required: true },
@@ -300,7 +359,6 @@ export default {
   data() {
     return {
       activeTab: "document",
-      selectedPpmp: "",
       selectedRequest: null,
       showPrItemsModal: false,
     };
@@ -309,20 +367,11 @@ export default {
     sourcePpmps() {
       return this.ppmp.source_ppmps || [];
     },
-    ppmpOptions() {
-      return this.sourcePpmps
-        .map((source) => ({
-          value: source.ppmp_no,
-          label: [source.ppmp_no, this.optionText(source.unit)].filter(Boolean).join(" - "),
-          unitValue: this.optionText(source.unit_id || source.unit || ""),
-        }))
-        .filter((source) => source.value);
-    },
-    filteredPpmpOptions() {
-      return this.ppmpOptions;
+    visibleSourcePpmps() {
+      return this.sourcePpmps;
     },
     consolidatedItems() {
-      return (this.ppmp.item_details || []).filter((item) => this.matchesSelectedSource(item));
+      return this.ppmp.item_details || [];
     },
     groupedItemRows() {
       const rows = this.consolidatedItems;
@@ -372,37 +421,43 @@ export default {
       const requests = new Map();
 
       (this.ppmp.raw_item_details || this.ppmp.item_details || [])
-        .filter((item) => this.matchesSelectedSource(item))
         .forEach((item) => {
-        const prNo = item.pr_no || "-";
-        const request = requests.get(prNo) || {
-          pr_no: prNo,
-          ppmp_nos: new Set(),
-          item_names: [],
-          items: [],
-          items_count: 0,
-          total_amount: 0,
-        };
+          this.itemPurchaseRequests(item).forEach((purchaseRequest) => {
+            const prNo = purchaseRequest.code || "-";
+            const request = requests.get(prNo) || {
+              pr_id: purchaseRequest.id || null,
+              pr_no: prNo,
+              ppmp_nos: new Set(),
+              item_names: [],
+              items: [],
+              items_count: 0,
+              total_amount: 0,
+            };
 
-        if (item.ppmp_no) {
-          request.ppmp_nos.add(item.ppmp_no);
-        }
+            if (item.ppmp_no) {
+              request.ppmp_nos.add(item.ppmp_no);
+            }
 
-        if (item.name) {
-          request.item_names.push(item.name);
-        }
+            if (item.name) {
+              request.item_names.push(item.name);
+            }
 
-        request.items.push(item);
-        request.items_count += 1;
-        request.total_amount += Number(item.abc || 0);
-        requests.set(prNo, request);
-      });
+            request.items.push({
+              ...item,
+              pr_id: purchaseRequest.id || item.pr_id || null,
+              pr_no: prNo,
+            });
+            request.items_count += 1;
+            request.total_amount += Number(item.abc || 0);
+            requests.set(prNo, request);
+          });
+        });
 
       return Array.from(requests.values()).map((request) => ({
         ...request,
         ppmp_no: Array.from(request.ppmp_nos).join(", "),
         item_names: request.item_names.slice(0, 3).join(", ") + (request.item_names.length > 3 ? "..." : ""),
-      }));
+      })).sort((first, second) => String(first.pr_no).localeCompare(String(second.pr_no)));
     },
     planShortName() {
       return this.planKind === "SPP" ? "SPP" : "APP";
@@ -414,8 +469,11 @@ export default {
     },
     planDescription() {
       return this.planKind === "SPP"
-        ? "Agency-prepared update to the approved APP for new needs or budget changes"
+        ? `Supplemental procurement plan for ${this.implementingUnitLabel}`
         : "Agency-wide consolidated annual procurement plan";
+    },
+    implementingUnitLabel() {
+      return this.ppmp.unit?.name || (this.planKind === "SPP" ? "Unit" : "Agency-wide");
     },
     fiscalYear() {
       const value = this.ppmp.start_of_procurement_activity || this.ppmp.date;
@@ -428,6 +486,16 @@ export default {
     },
   },
   methods: {
+    viewSourcePpmp(source) {
+      if (!source?.id) {
+        return;
+      }
+
+      router.get(`/faims/procurement-ppmp/${source.id}`, {
+        option: "view",
+        plan_type: "PPMP",
+      });
+    },
     openPrItems(request) {
       this.selectedRequest = request;
       this.showPrItemsModal = true;
@@ -518,6 +586,22 @@ export default {
 
       return String(value);
     },
+    sourceLabel(value) {
+      return this.optionText(value);
+    },
+    sourceStatusVariant(source) {
+      const status = String(source?.approval_status || "").toLowerCase();
+
+      if (status.includes("consolidated") || status.includes("approved")) {
+        return "success";
+      }
+
+      if (status.includes("submitted") || status.includes("reviewed") || status.includes("for")) {
+        return "warning";
+      }
+
+      return "secondary";
+    },
     normalizeOptions(options) {
       if (Array.isArray(options)) {
         return options;
@@ -529,23 +613,24 @@ export default {
 
       return [];
     },
-    itemPpmpNumbers(item) {
-      return [
-        ...(Array.isArray(item.source_ppmp_nos) ? item.source_ppmp_nos : []),
-        item.ppmp_no,
-      ]
-        .flatMap((value) => String(value || "").split(","))
-        .map((value) => value.trim())
-        .filter(Boolean);
-    },
-    matchesSelectedSource(item) {
-      const ppmpNumbers = this.itemPpmpNumbers(item);
-
-      if (this.selectedPpmp && !ppmpNumbers.includes(this.selectedPpmp)) {
-        return false;
+    itemPurchaseRequests(item) {
+      if (Array.isArray(item.purchase_requests) && item.purchase_requests.length) {
+        return item.purchase_requests
+          .map((request) => ({
+            id: request.id,
+            code: request.code,
+          }))
+          .filter((request) => request.code);
       }
 
-      return true;
+      return String(item.pr_no || "")
+        .split(",")
+        .map((code) => code.trim())
+        .filter(Boolean)
+        .map((code) => ({
+          id: item.pr_id || null,
+          code,
+        }));
     },
   },
 };
@@ -586,16 +671,6 @@ export default {
   gap: 10px;
 }
 
-.app-view-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.app-view-filters .form-select {
-  min-width: 190px;
-}
-
 .app-pr-list-view {
   border: 1px solid var(--ppmp-border, #e9ebec);
   border-radius: 8px;
@@ -605,7 +680,9 @@ export default {
 
 .app-document-view {
   padding: 8px;
-  color: var(--ppmp-text, var(--bs-body-color, #212529));
+  background: transparent;
+  color: #000000;
+  overflow-x: auto;
 }
 
 .ppmp-title-block {
@@ -616,14 +693,24 @@ export default {
 .ppmp-line {
   display: inline-block;
   min-width: 140px;
-  border-bottom: 2px solid var(--ppmp-text, var(--bs-body-color, #212529));
+  border-bottom: 2px solid #000000;
 }
 
 .ppmp-document-items-table {
+  width: max-content;
   min-width: 1770px;
   table-layout: fixed;
   border: 1.8px solid #000;
   border-collapse: collapse;
+  background: #ffffff;
+}
+
+[data-bs-theme="dark"] .app-document-view {
+  background: #ffffff;
+}
+
+.app-document-view .ppmp-table-wrap {
+  overflow-x: visible;
 }
 
 .ppmp-col-description { width: 190px; }
@@ -650,7 +737,7 @@ export default {
 
 .app-table-meta {
   margin-bottom: 10px;
-  color: var(--ppmp-text, var(--bs-body-color, #212529));
+  color: #000000;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.8;
@@ -658,6 +745,7 @@ export default {
 
 .ppmp-document-items-table th {
   color: #000;
+  background: #f2f2f2;
   font-size: 10.5px;
   font-weight: 700;
   line-height: 1.2;
@@ -667,8 +755,18 @@ export default {
 
 .ppmp-document-items-table td {
   color: #000;
+  background: #ffffff;
   font-size: 11px;
   line-height: 1.25;
+}
+
+.ppmp-document-items-table :deep(.badge) {
+  color: #ffffff !important;
+}
+
+.ppmp-document-items-table :deep(.bg-warning),
+.ppmp-document-items-table :deep(.text-bg-warning) {
+  color: #111827 !important;
 }
 
 .ppmp-document-group-header th {
@@ -684,8 +782,8 @@ export default {
 }
 
 .ppmp-entry-cell {
-  background: var(--ppmp-surface-soft, var(--bs-tertiary-bg, #f8fafc));
-  color: var(--ppmp-text, var(--bs-body-color, #212529));
+  background: #f8fafc !important;
+  color: #000000 !important;
 }
 
 </style>

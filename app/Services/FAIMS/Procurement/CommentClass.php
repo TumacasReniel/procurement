@@ -30,9 +30,6 @@ class CommentClass
 
         return [
             'data' => $comment->load('user.profile'),
-            'message' => 'Comment added successfully',
-            'info' => 'Your comment has been added to the procurement.',
-            'status' => true,
         ];
     }
 

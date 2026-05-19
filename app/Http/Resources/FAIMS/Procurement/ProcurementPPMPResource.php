@@ -20,7 +20,10 @@ class ProcurementPPMPResource extends JsonResource
         $ppmp_status = $this->ppmp_status($plan_name);
         $is_final = $this->is_final_ppmp($plan_name);
         $is_reviewed = in_array($this->status?->name, ['Reviewed', 'Approved'], true);
+        $is_for_review = $this->status?->name === 'For Review';
         $reviewed_by = $is_reviewed ? $this->approved_by?->profile?->full_name : null;
+        $submitted_for_review_by = $is_for_review ? $this->approved_by?->profile?->full_name : null;
+        $submitted_for_review_at = $is_for_review && $this->approved_by_id ? $this->updated_at : null;
         $submitted_by = $is_final
             ? ($this->approved_by?->profile?->full_name ?? $this->requested_by?->profile?->full_name)
             : $this->requested_by?->profile?->full_name;
@@ -33,7 +36,10 @@ class ProcurementPPMPResource extends JsonResource
         $consolidated_at = $is_consolidated && $this->approved_by_id ? $this->updated_at : null;
         $can_add_items = ! $plan_name && ! $this->has_completed_status();
         $year = $this->date ? date('Y', strtotime($this->date)) : date('Y', strtotime((string) $this->created_at));
-        $ppmp_no = $this->ppmp_no_override ?: 'PPMP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
+        $ppmp_no = $this->ppmp_no_override ?: match ($plan_type) {
+            'supplemental' => $this->code ?: 'SPP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT),
+            default => 'PPMP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT),
+        };
         $start_date = $this->start_date_override ?: $this->date;
         $item_details = $this->item_details($items);
         $consolidated_item_details = $plan_type === 'ppmp'
@@ -95,6 +101,11 @@ class ProcurementPPMPResource extends JsonResource
             'reviewed_at' => $reviewed_by ? $this->updated_at : null,
             'formatted_reviewed_at' => $reviewed_by && $this->updated_at
                 ? date('F j, Y', strtotime((string) $this->updated_at))
+                : null,
+            'submitted_for_review_by' => $submitted_for_review_by,
+            'submitted_for_review_at' => $submitted_for_review_at,
+            'formatted_submitted_for_review_at' => $submitted_for_review_at
+                ? date('F j, Y', strtotime((string) $submitted_for_review_at))
                 : null,
             'prepared_by' => $this->created_by?->profile?->full_name,
             'prepared_by_designation' => $prepared_by_designation,
@@ -159,11 +170,21 @@ class ProcurementPPMPResource extends JsonResource
                     ->filter()
                     ->unique()
                     ->implode(', ');
+                $purchase_requests = $item->pr_items
+                    ?->map(fn ($pr_item) => $pr_item->procurement)
+                    ->filter()
+                    ->unique('id')
+                    ->map(fn ($procurement) => [
+                        'id' => $procurement->id,
+                        'code' => $procurement->code,
+                    ])
+                    ->values();
 
                 return [
                     'id' => $item->id,
                     'pr_id' => $item->pr_items?->pluck('procurement.id')->filter()->first(),
                     'pr_no' => $pr_no ?: null,
+                    'purchase_requests' => $purchase_requests ?? collect(),
                     'ppmp_no' => $this->item_ppmp_no($item),
                     'item_no' => $item->item_no,
                     'name' => $item->item_name,
@@ -527,8 +548,17 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function ppmp_status(?string $plan_name): string
     {
+        if ($plan_name === 'Annual Procurement Plan') {
+            return $this->ppmp_status_override ?: match ($this->status?->name) {
+                'Reviewed' => 'For Review',
+                'Approved' => 'Reviewed/For Submission',
+                default => 'Pending',
+            };
+        }
+
         return $this->ppmp_status_override
             ?: match ($this->status?->name) {
+                'For Review' => 'For Review',
                 'Reviewed' => 'Reviewed/For Submission',
                 'Approved' => $plan_name ? 'Consolidated/Added to APP' : 'Submitted/For Consolidation',
                 default => 'Pending',
@@ -537,7 +567,16 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function approval_status(?string $plan_name): string
     {
+        if ($plan_name === 'Annual Procurement Plan') {
+            return $this->approval_status_override ?: match ($this->status?->name) {
+                'Reviewed' => 'For Review',
+                'Approved' => 'Reviewed/For Submission',
+                default => 'Pending',
+            };
+        }
+
         return $this->approval_status_override ?: match ($this->status?->name) {
+            'For Review' => 'For Review',
             'Reviewed' => 'Reviewed/For Submission',
             'Approved' => $plan_name === 'Supplemental Procurement Plan'
                 ? 'Consolidated/Added to SPP'
@@ -583,6 +622,10 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function can_mark_final_ppmp(?string $plan_name, string $plan_type): bool
     {
+        if ($plan_name === 'Annual Procurement Plan') {
+            return $this->can_advance_ppmp_status();
+        }
+
         return ! $plan_name
             && $plan_type === 'ppmp'
             && $this->can_advance_ppmp_status();
@@ -601,7 +644,7 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function has_completed_status(): bool
     {
-        return in_array($this->status?->name, ['Reviewed', 'Approved'], true);
+        return in_array($this->status?->name, ['For Review', 'Reviewed', 'Approved'], true);
     }
 
     protected function can_advance_ppmp_status(): bool
@@ -613,10 +656,26 @@ class ProcurementPPMPResource extends JsonResource
         }
 
         return match ($this->status?->name) {
-            'Pending' => $user->hasRole('Budget Officer'),
-            'Reviewed' => $user->hasRole('Procurement Officer'),
+            'Pending' => $this->can_submit_pending_ppmp($user),
+            'For Review' => $user->hasRole('Budget Officer') || $user->hasRole('Administrator'),
+            'Reviewed' => $user->hasRole('Procurement Officer') || $user->hasRole('Administrator'),
             default => false,
         };
+    }
+
+    protected function can_submit_pending_ppmp($user): bool
+    {
+        if ((int) $this->created_by_id === (int) $user->id) {
+            return true;
+        }
+
+        foreach (['Procurement Staff', 'Procurement Officer', 'Administrator'] as $role) {
+            if ($user->hasRole($role)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function can_consolidate_ppmp(): bool

@@ -39,7 +39,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             $rules['end_of_procurement_activity'] = ['required', 'date'];
             $rules['expected_delivery_date'] = ['required', 'date'];
             $rules['attached_supporting_documents'] = ['required', 'string', 'max:255'];
-            $rules['supporting_document_file'] = ['required', 'file', 'max:10240'];
+            $rules['supporting_document_file'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
             $rules['remarks'] = ['required', 'string'];
         }
 
@@ -58,7 +58,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             $rules['end_of_procurement_activity'] = ['required', 'date'];
             $rules['expected_delivery_date'] = ['required', 'date'];
             $rules['attached_supporting_documents'] = ['required', 'string', 'max:255'];
-            $rules['supporting_document_file'] = ['nullable', 'file', 'max:10240'];
+            $rules['supporting_document_file'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
             $rules['remarks'] = ['required', 'string'];
         }
 
@@ -90,6 +90,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             'expected_delivery_date.required' => 'Please select the expected delivery date.',
             'attached_supporting_documents.required' => 'Please enter the supporting document name.',
             'supporting_document_file.required' => 'Please attach the supporting document file.',
+            'supporting_document_file.mimes' => 'The supporting document must be a PDF file.',
             'remarks.required' => 'Please enter remarks.',
             'item_id.required' => 'Please select an item to update.',
             'item_name.required' => 'Please enter the item name.',

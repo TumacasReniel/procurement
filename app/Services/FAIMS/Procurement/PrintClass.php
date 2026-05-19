@@ -4,6 +4,7 @@ namespace App\Services\FAIMS\Procurement;
 
 use App\Services\DropdownClass;
 use App\Models\Procurement;
+use App\Models\ProcurementApp;
 use App\Models\ProcurementPpmp;
 use App\Models\ProcurementQuotation;
 use App\Models\ProcurementBac;
@@ -59,7 +60,7 @@ class PrintClass
                 return $this->printIAR($id, $request);
             break;
             case 'ppmp':
-                return $this->printPPMP($id);
+                return $this->printPPMP($id, $request);
             break;
         }
     }
@@ -191,26 +192,53 @@ class PrintClass
 
     }
 
-    public function printPPMP($id)
+    public function printPPMP($id, $request = null)
     {
-        $procurement = ProcurementPpmp::with(
-            'division',
-            'unit.responsibility_center',
-            'fund_cluster',
-            'classification',
-            'reference_app',
-            'codes.procurement_code.mode_of_procurement',
-            'items.item_unit_type',
-            'items.item_category',
-            'items.status',
-            'created_by.profile',
-            'created_by.org_chart.designation',
-            'created_by.organization.position',
-            'requested_by.profile',
-            'approved_by.profile'
-        )->findOrFail($id);
+        if (strtoupper((string) data_get($request, 'plan_type')) === 'APP') {
+            $app = ProcurementApp::with([
+                'created_by.profile',
+                'created_by.org_chart.designation',
+                'created_by.organization.position',
+                'reviewed_by.profile',
+                'approved_by.profile',
+                'status',
+                'source_ppmps.division',
+                'source_ppmps.unit.responsibility_center',
+                'source_ppmps.fund_cluster',
+                'source_ppmps.classification',
+                'source_ppmps.reference_app',
+                'source_ppmps.codes.procurement_code.mode_of_procurement',
+                'source_ppmps.items.item_unit_type',
+                'source_ppmps.items.item_category',
+                'source_ppmps.items.status',
+                'source_ppmps.created_by.profile',
+                'source_ppmps.created_by.org_chart.designation',
+                'source_ppmps.created_by.organization.position',
+                'source_ppmps.requested_by.profile',
+                'source_ppmps.approved_by.profile',
+            ])->findOrFail($id);
 
-        $procurement = $this->aggregatePPMPForPrint($procurement);
+            $procurement = $this->aggregateAppForPrint($app);
+        } else {
+            $procurement = ProcurementPpmp::with(
+                'division',
+                'unit.responsibility_center',
+                'fund_cluster',
+                'classification',
+                'reference_app',
+                'codes.procurement_code.mode_of_procurement',
+                'items.item_unit_type',
+                'items.item_category',
+                'items.status',
+                'created_by.profile',
+                'created_by.org_chart.designation',
+                'created_by.organization.position',
+                'requested_by.profile',
+                'approved_by.profile'
+            )->findOrFail($id);
+
+            $procurement = $this->aggregatePPMPForPrint($procurement, data_get($request, 'plan_type'));
+        }
         $items = $procurement->items;
         $totalAmount = $items->sum(function ($item) {
             return (float) ($item->total_cost ?? ((float) $item->item_quantity * (float) $item->item_unit_cost));
@@ -237,9 +265,83 @@ class PrintClass
         return $pdf->stream($ppmpNo . '.pdf');
     }
 
-    protected function aggregatePPMPForPrint(ProcurementPpmp $procurement): ProcurementPpmp
+    protected function aggregateAppForPrint(ProcurementApp $app): ProcurementPpmp
+    {
+        $procurements = $app->source_ppmps ?? collect();
+        $representative = $procurements->first() ?: new ProcurementPpmp([
+            'code' => $app->code,
+            'date' => $app->year . '-01-01',
+            'title' => 'Annual Procurement Plan',
+            'created_by_id' => $app->created_by_id,
+            'approved_by_id' => $app->approved_by_id,
+            'status_id' => $app->status_id,
+        ]);
+
+        $items = $procurements
+            ->flatMap(function ($sourceProcurement) {
+                $sourceMode = $sourceProcurement->codes
+                    ?->pluck('procurement_code.mode_of_procurement.name')
+                    ->filter()
+                    ->unique()
+                    ->implode(', ');
+
+                return ($sourceProcurement->items ?? collect())->map(function ($item) use ($sourceProcurement, $sourceMode) {
+                    $item->setAttribute('print_general_description', $sourceProcurement->title ?: $sourceProcurement->purpose);
+                    $item->setAttribute('print_classification_name', $sourceProcurement->classification?->name);
+                    $item->setAttribute('print_mode_of_procurement', $sourceMode);
+                    $item->setAttribute('print_source_of_funds', $sourceProcurement->fund_cluster?->name);
+                    $item->setAttribute('print_start_date', $sourceProcurement->date);
+
+                    return $item;
+                });
+            })
+            ->values();
+
+        $codes = $procurements
+            ->flatMap(fn ($item) => $item->codes ?? collect())
+            ->unique('procurement_code_id')
+            ->values();
+        $prNos = $procurements
+            ->pluck('code')
+            ->filter()
+            ->unique()
+            ->values();
+        $classificationNames = $procurements
+            ->pluck('classification.name')
+            ->filter()
+            ->unique()
+            ->values();
+        $fundSources = $procurements
+            ->pluck('fund_cluster.name')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $representative->setRelation('items', $items);
+        $representative->setRelation('codes', $codes);
+        $representative->setRelation('created_by', $app->created_by);
+        $representative->setRelation('reviewed_by', $app->reviewed_by);
+        $representative->setRelation('approved_by', $app->approved_by);
+        $representative->setRelation('status', $app->status);
+        $representative->setAttribute('ppmp_no_override', $app->code);
+        $representative->setAttribute('pr_no_override', $prNos->implode(', '));
+        $representative->setAttribute('plan_name_override', 'Annual Procurement Plan');
+        $representative->setAttribute('unit_name_override', 'Agency-wide');
+        $representative->setAttribute('aggregated_ppmp_count', $procurements->count());
+        $representative->setAttribute('classification_override', $classificationNames->implode(', '));
+        $representative->setAttribute('source_of_funds_override', $fundSources->implode(', '));
+        $representative->setAttribute('start_date_override', $procurements->pluck('date')->filter()->sort()->first() ?: $app->year . '-01-01');
+        $representative->created_at = $app->created_at;
+        $representative->updated_at = $app->updated_at;
+        $representative->date = $app->year . '-01-01';
+
+        return $representative;
+    }
+
+    protected function aggregatePPMPForPrint(ProcurementPpmp $procurement, ?string $requestedPlanType = null): ProcurementPpmp
     {
         $planName = $procurement->reference_app?->name;
+        $isPpmpPrint = strtoupper((string) $requestedPlanType) === 'PPMP';
         $year = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y');
 
         $procurements = ProcurementPpmp::with(
@@ -258,19 +360,29 @@ class PrintClass
             'requested_by.profile',
             'approved_by.profile'
         )
-            ->when($planName === 'Annual Procurement Plan', function ($query) use ($year) {
+            ->when($isPpmpPrint, function ($query) use ($procurement, $year) {
+                $query->where('unit_id', $procurement->unit_id)
+                    ->whereYear('date', $year)
+                    ->where(function ($ppmpQuery) {
+                        $ppmpQuery->whereNull('reference_app_id')
+                            ->orWhereHas('reference_app', function ($referenceQuery) {
+                                $referenceQuery->where('name', 'Annual Procurement Plan');
+                            });
+                    });
+            })
+            ->when(! $isPpmpPrint && $planName === 'Annual Procurement Plan', function ($query) use ($year) {
                 $query->whereYear('date', $year)
                     ->whereHas('reference_app', function ($referenceQuery) {
                         $referenceQuery->where('name', 'Annual Procurement Plan');
                     });
             })
-            ->when($planName === 'Supplemental Procurement Plan', function ($query) use ($year) {
+            ->when(! $isPpmpPrint && $planName === 'Supplemental Procurement Plan', function ($query) use ($year) {
                 $query->whereYear('date', $year)
                     ->whereHas('reference_app', function ($referenceQuery) {
                         $referenceQuery->where('name', 'Supplemental Procurement Plan');
                     });
             })
-            ->when(!$planName, function ($query) use ($procurement, $year) {
+            ->when(! $isPpmpPrint && !$planName, function ($query) use ($procurement, $year) {
                 $query->where('unit_id', $procurement->unit_id)
                     ->whereYear('date', $year)
                     ->whereNull('reference_app_id');
@@ -329,7 +441,10 @@ class PrintClass
         $representative->setAttribute('source_of_funds_override', $fundSources->implode(', '));
         $representative->setAttribute('start_date_override', $procurements->pluck('date')->filter()->sort()->first());
 
-        if ($planName === 'Annual Procurement Plan') {
+        if ($isPpmpPrint) {
+            $representative->setAttribute('ppmp_no_override', 'PPMP-' . $year . '-UNIT-' . str_pad((string) $representative->unit_id, 3, '0', STR_PAD_LEFT));
+            $representative->setAttribute('plan_name_override', 'PPMP');
+        } elseif ($planName === 'Annual Procurement Plan') {
             $representative->setAttribute('ppmp_no_override', 'APP-' . $year);
             $representative->setAttribute('plan_name_override', 'Annual Procurement Plan');
             $representative->setAttribute('unit_name_override', 'Agency-wide');

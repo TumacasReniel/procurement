@@ -44,10 +44,23 @@
             ?? $submittedUser?->name
             ?? ''
     );
+    $reviewedUser = $procurement->reviewed_by
+        ?? (in_array($procurement->status?->name, ['Reviewed', 'Approved'], true) && $procurement->approved_by
+            ? $procurement->approved_by
+            : null);
+    $reviewedName = strtoupper(
+        $reviewedUser?->profile?->fullname
+            ?? $reviewedUser?->profile?->full_name
+            ?? $reviewedUser?->name
+            ?? ''
+    );
     $preparedDate = $procurement->created_at
         ? date('F d, Y', strtotime((string) $procurement->created_at))
         : date('F d, Y');
     $submittedDate = $isFinal && $procurement->updated_at
+        ? date('F d, Y', strtotime((string) $procurement->updated_at))
+        : '';
+    $reviewedDate = $reviewedUser && $procurement->updated_at
         ? date('F d, Y', strtotime((string) $procurement->updated_at))
         : '';
     $ppmpYear = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y', strtotime((string) $procurement->created_at));
@@ -68,7 +81,7 @@
             return '-';
         }
 
-        return date('M d', strtotime((string) $value));
+        return date('m/Y', strtotime((string) $value));
     };
     $rowspansFor = function ($resolver, $mergeBlankValues = true) use ($printItems, $cleanText) {
         $rowspans = [];
@@ -615,13 +628,19 @@
 
     <table class="signatory-table">
         <tr>
-            <td width="50%">
+            <td width="33.33%">
                 <div class="signature-label" style="margin-left:-120px; margin-bottom:20px">Prepared By</div>
                 <span class="signature-line"><u>{{ $preparedName }}</u></span>
                 <div class="signature-role">{{ $preparedDesignation }}</div>
                  <div style="margin-top:20px">Date: {{ $preparedDate }}</div>
             </td>
-            <td width="50%">
+            <td width="33.33%">
+                <div class="signature-label" style="margin-left:-120px;margin-bottom:20px">Reviewed By</div>
+                <span class="signature-line"><u>{{ $reviewedName }}</u></span>
+                <div class="signature-role">Budget Officer</div>
+                <div style="margin-top:20px">Date: {{ $reviewedDate ?: '______________' }}</div>
+            </td>
+            <td width="33.33%">
                 <div class="signature-label" style="margin-left:-120px;margin-bottom:20px">Submitted By</div>
                 <span class="signature-line"><u>{{ $submittedName }}</u></span>
                 <div class="signature-role">AOV/Procurement Officer</div>

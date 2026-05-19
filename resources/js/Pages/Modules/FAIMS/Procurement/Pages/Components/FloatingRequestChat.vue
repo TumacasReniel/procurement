@@ -1,5 +1,5 @@
 <template>
-  <div class="position-fixed bottom-0 end-0 p-3 p-md-4" style="z-index: 1050;">
+  <div class="position-fixed bottom-0 end-0 px-3 px-md-4 pt-3 pt-md-4 pb-0" style="z-index: 1050;">
     <BCard
       v-if="open"
       no-body
@@ -471,7 +471,7 @@
 
 <script>
 import axios from "axios";
-import { router, useForm } from "@inertiajs/vue3";
+import { useForm } from "@inertiajs/vue3";
 
 export default {
   props: [
@@ -604,8 +604,13 @@ export default {
     },
     filteredMentionUsers() {
       const keyword = this.mentionQuery.trim().toLowerCase();
+      const currentUserId = Number(this.$page?.props?.user?.data?.id || 0);
 
       return this.mentionUsers.filter((user) => {
+        if (currentUserId && Number(user?.id || 0) === currentUserId) {
+          return false;
+        }
+
         if (!keyword) {
           return true;
         }
@@ -1090,28 +1095,23 @@ export default {
       this.commentSubmitting = true;
       this.form.clearErrors();
 
-      router.post(
-        `/faims/procurements/${this.selectedRequest.id}/comments`,
-        { content },
-        {
-          preserveScroll: true,
-          onSuccess: (page) => {
-            if (page.props.flash?.data) {
-              this.$emit("comment-added", page.props.flash.data);
-            }
-
-            this.newComment = "";
-            this.resetMentionState();
-            this.form.reset();
-          },
-          onError: (errors) => {
-            this.form.setError(errors || {});
-          },
-          onFinish: () => {
-            this.commentSubmitting = false;
+      axios
+        .post(`/faims/procurements/${this.selectedRequest.id}/comments`, { content })
+        .then((response) => {
+          if (response.data?.data) {
+            this.$emit("comment-added", response.data.data);
           }
-        }
-      );
+
+          this.newComment = "";
+          this.resetMentionState();
+          this.form.reset();
+        })
+        .catch((error) => {
+          this.form.setError(error?.response?.data?.errors || {});
+        })
+        .finally(() => {
+          this.commentSubmitting = false;
+        });
     },
     syncCommentChannel(requestId) {
       this.teardownCommentChannel();
@@ -1163,6 +1163,7 @@ export default {
 }
 
 .floating-chat-panel {
+  margin-bottom: 0;
   border-radius: 1.5rem;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 253, 0.98)),
