@@ -64,16 +64,16 @@
                   :searchable="true"
                   label="name"
                   valueProp="value"
-                  placeholder="Example: ICT supplies"
+                  placeholder="Select Item Category"
                   class="modern-select"
                   :append-to-body="true"
                 />
               </div>
             </div>
 
-            <div class="col-lg-6">
+            <div class="col-lg-6" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
-                <InputLabel value="PAP Codes" :message="form.errors.procurement_code_ids" />
+                <InputLabel value="Procurement Codes" :message="form.errors.procurement_code_ids" />
                 <Multiselect
                   v-model="form.procurement_code_ids"
                   :options="procurementCodeOptions"
@@ -82,7 +82,7 @@
                   label="label"
                   valueProp="value"
                   trackBy="label"
-                  placeholder="Select PAP code/s"
+                  placeholder="Select Procurement code/s"
                   class="modern-select"
                   :append-to-body="true"
                 />
@@ -90,14 +90,14 @@
             </div>
 
 
-            <div class="col-lg-6">
+            <div class="col-lg-6" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
                 <InputLabel value="Title" :message="form.errors.title" />
                 <TextInput v-model="form.title" type="text" class="form-control modern-input" placeholder="PR title" />
               </div>
             </div>
 
-            <div v-if="isLockedMode" class="col-lg-6">
+            <div v-if="isLockedMode" class="col-lg-6" >
               <div class="form-group compact-form-group">
                 <InputLabel value="Current APP" :message="form.errors.procurement_app_id" />
                 <Multiselect
@@ -115,7 +115,7 @@
 
         
 
-            <div class="col-12">
+            <div class="col-12" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
                 <InputLabel value="Purpose" :message="form.errors.purpose" />
                 <textarea
@@ -151,15 +151,6 @@
       </div>
 
       <div class="content-card">
-        <div class="card-header-custom">
-          <i class="ri-list-check-2 card-header-icon"></i>
-          <h5 class="card-header-title">Items</h5>
-          <div class="ms-auto">
-            <b-button type="button" variant="outline-secondary" size="sm" :disabled="items.length === 0" @click="toggleAll">
-              {{ allVisibleSelected ? 'Clear Selection' : 'Select All' }}
-            </b-button>
-          </div>
-        </div>
 
         <div class="card-body-custom">
           <div class="table-responsive category-items-table">
@@ -167,11 +158,10 @@
               <thead>
                 <tr>
                   <th class="text-center" style="width: 46px">Pick</th>
-                  <th style="width: 12%">PPMP No.</th>
-                  <th style="width: 18%">Unit</th>
+                  <th style="width: 18%">Acquisition Unit</th>
                   <th style="width: 13%">Category</th>
                   <th>Item</th>
-                  <th style="width: 11%">Quantity</th>
+                  <th style="width: 11%">Quantity/Unit</th>
                   <th style="width: 12%">Unit Cost</th>
                   <th style="width: 12%">ABC</th>
                 </tr>
@@ -195,12 +185,13 @@
                       :disabled="isLockedMode"
                     />
                   </td>
-                  <td>{{ item.ppmp_no || '-' }}</td>
                   <td>{{ item.unit_name || '-' }}</td>
                   <td>{{ item.item_category || '-' }}</td>
                   <td>
                     <div class="fw-semibold">{{ item.item_name }}</div>
-                    <div v-if="item.item_description" class="text-muted small">{{ item.item_description }}</div>
+                    <div v-if="item.item_description" class="text-muted small">
+                    <span v-html="item.item_description"></span>
+                    </div>
                   </td>
                   <td>{{ item.quantity_label || item.item_quantity }}</td>
                   <td>{{ formatCurrency(item.item_unit_cost) }}</td>
@@ -344,7 +335,7 @@ export default {
     emptyItemsMessage() {
       return this.isLockedMode
         ? "No items are attached to this purchase request."
-        : "Choose an item category, then load approved PPMP items.";
+        : "Choose a fund cluster and item category, then load items.";
     },
     canLoadItems() {
       return Boolean(this.form.item_category_id && this.form.fund_cluster_id);

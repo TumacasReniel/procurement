@@ -560,7 +560,9 @@ class ProcurementPPMPResource extends JsonResource
             ?: match ($this->status?->name) {
                 'For Review' => 'For Review',
                 'Reviewed' => 'Reviewed/For Submission',
-                'Approved' => $plan_name ? 'Consolidated/Added to APP' : 'Submitted/For Consolidation',
+                'Approved' => $plan_name === 'Supplemental Procurement Plan'
+                    ? 'Submitted/For Consolidation'
+                    : ($plan_name ? 'Consolidated/Added to APP' : 'Submitted/For Consolidation'),
                 default => 'Pending',
             };
     }
@@ -579,7 +581,7 @@ class ProcurementPPMPResource extends JsonResource
             'For Review' => 'For Review',
             'Reviewed' => 'Reviewed/For Submission',
             'Approved' => $plan_name === 'Supplemental Procurement Plan'
-                ? 'Consolidated/Added to SPP'
+                ? 'Submitted/For Consolidation'
                 : ($plan_name ? 'Consolidated/Added to APP' : 'Submitted/For Consolidation'),
             default => 'Pending',
         };
@@ -623,18 +625,21 @@ class ProcurementPPMPResource extends JsonResource
     protected function can_mark_final_ppmp(?string $plan_name, string $plan_type): bool
     {
         if ($plan_name === 'Annual Procurement Plan') {
-            return $this->can_advance_ppmp_status();
+            return in_array($this->status?->name, ['Pending', 'For Review', 'Reviewed'], true);
+        }
+
+        if ($plan_name === 'Supplemental Procurement Plan') {
+            return in_array($this->status?->name, ['Pending', 'For Review', 'Reviewed'], true);
         }
 
         return ! $plan_name
             && $plan_type === 'ppmp'
-            && $this->can_advance_ppmp_status();
+            && in_array($this->status?->name, ['Pending', 'For Review', 'Reviewed'], true);
     }
 
     protected function can_approve_to_app(string $approval_status): bool
     {
-        return $approval_status === 'Submitted/For Consolidation'
-            && $this->can_consolidate_ppmp();
+        return $approval_status === 'Submitted/For Consolidation';
     }
 
     protected function is_final_ppmp(?string $plan_name): bool
@@ -647,51 +652,4 @@ class ProcurementPPMPResource extends JsonResource
         return in_array($this->status?->name, ['For Review', 'Reviewed', 'Approved'], true);
     }
 
-    protected function can_advance_ppmp_status(): bool
-    {
-        $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        return match ($this->status?->name) {
-            'Pending' => $this->can_submit_pending_ppmp($user),
-            'For Review' => $user->hasRole('Budget Officer') || $user->hasRole('Administrator'),
-            'Reviewed' => $user->hasRole('Procurement Officer') || $user->hasRole('Administrator'),
-            default => false,
-        };
-    }
-
-    protected function can_submit_pending_ppmp($user): bool
-    {
-        if ((int) $this->created_by_id === (int) $user->id) {
-            return true;
-        }
-
-        foreach (['Procurement Staff', 'Procurement Officer', 'Administrator'] as $role) {
-            if ($user->hasRole($role)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    protected function can_consolidate_ppmp(): bool
-    {
-        $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        foreach (['Administrator', 'BAC User', 'BAC Chairperson', 'BAC Vice Chairperson', 'BAC Member'] as $role) {
-            if ($user->hasRole($role)) {
-                return true;
-            }
-        }
-
-        return in_array($user->org_chart?->designation?->name, ['BAC Chairperson', 'BAC Vice Chairperson', 'BAC Member'], true);
-    }
 }

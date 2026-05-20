@@ -88,7 +88,7 @@
                     <th style="width: 11%" class="text-center">Date of delivery</th>
                     <th style="width: 14%" class="text-center">NOA Code</th>
                     <th style="width: 10%" class="text-center">Status</th>
-                    <th style="width: 10%; min-width: 152px;" class="text-center">Actions</th>
+                    <th style="width: 8%; min-width: 120px;" class="text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="table-white fs-12">
@@ -580,7 +580,7 @@ export default {
 }
 
 .purchase-order-actions-cell {
-  min-width: 152px;
+  min-width: 120px;
 }
 
 .purchase-order-actions {
@@ -589,17 +589,17 @@ export default {
 }
 
 .purchase-order-action-btn {
-  width: 2rem;
-  height: 2rem;
+  width: 1.55rem;
+  height: 1.55rem;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.65rem;
+  border-radius: 0.45rem;
 }
 
 .purchase-order-action-btn i {
-  font-size: 0.95rem;
+  font-size: 0.78rem;
 }
 
 .purchase-order-empty-state {

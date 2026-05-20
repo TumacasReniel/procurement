@@ -194,7 +194,9 @@ class PrintClass
 
     public function printPPMP($id, $request = null)
     {
-        if (strtoupper((string) data_get($request, 'plan_type')) === 'APP') {
+        $isAppPrint = strtoupper((string) data_get($request, 'plan_type')) === 'APP';
+
+        if ($isAppPrint) {
             $app = ProcurementApp::with([
                 'created_by.profile',
                 'created_by.org_chart.designation',
@@ -215,6 +217,7 @@ class PrintClass
                 'source_ppmps.created_by.org_chart.designation',
                 'source_ppmps.created_by.organization.position',
                 'source_ppmps.requested_by.profile',
+                'source_ppmps.reviewed_by.profile',
                 'source_ppmps.approved_by.profile',
             ])->findOrFail($id);
 
@@ -234,6 +237,7 @@ class PrintClass
                 'created_by.org_chart.designation',
                 'created_by.organization.position',
                 'requested_by.profile',
+                'reviewed_by.profile',
                 'approved_by.profile'
             )->findOrFail($id);
 
@@ -252,7 +256,11 @@ class PrintClass
             'prepared_user' => Auth::user()?->loadMissing('profile', 'org_chart.designation', 'organization.position'),
         ];
 
-        $pdf = \PDF::loadView('FAIMS.Procurement.prints.ppmp', $array)
+        $printView = $isAppPrint
+            ? 'FAIMS.Procurement.prints.app'
+            : 'FAIMS.Procurement.prints.ppmp';
+
+        $pdf = \PDF::loadView($printView, $array)
             ->setPaper('A4', 'landscape')
             ->setOption([
                 'isPhpEnabled' => true,
@@ -286,6 +294,7 @@ class PrintClass
                     ->implode(', ');
 
                 return ($sourceProcurement->items ?? collect())->map(function ($item) use ($sourceProcurement, $sourceMode) {
+                    $item->setAttribute('print_source_procurement_id', $sourceProcurement->id);
                     $item->setAttribute('print_general_description', $sourceProcurement->title ?: $sourceProcurement->purpose);
                     $item->setAttribute('print_classification_name', $sourceProcurement->classification?->name);
                     $item->setAttribute('print_mode_of_procurement', $sourceMode);
@@ -358,17 +367,11 @@ class PrintClass
             'created_by.org_chart.designation',
             'created_by.organization.position',
             'requested_by.profile',
+            'reviewed_by.profile',
             'approved_by.profile'
         )
             ->when($isPpmpPrint, function ($query) use ($procurement, $year) {
-                $query->where('unit_id', $procurement->unit_id)
-                    ->whereYear('date', $year)
-                    ->where(function ($ppmpQuery) {
-                        $ppmpQuery->whereNull('reference_app_id')
-                            ->orWhereHas('reference_app', function ($referenceQuery) {
-                                $referenceQuery->where('name', 'Annual Procurement Plan');
-                            });
-                    });
+                $query->whereKey($procurement->id);
             })
             ->when(! $isPpmpPrint && $planName === 'Annual Procurement Plan', function ($query) use ($year) {
                 $query->whereYear('date', $year)
@@ -377,15 +380,10 @@ class PrintClass
                     });
             })
             ->when(! $isPpmpPrint && $planName === 'Supplemental Procurement Plan', function ($query) use ($year) {
-                $query->whereYear('date', $year)
-                    ->whereHas('reference_app', function ($referenceQuery) {
-                        $referenceQuery->where('name', 'Supplemental Procurement Plan');
-                    });
+                $query->whereKey($procurement->id);
             })
             ->when(! $isPpmpPrint && !$planName, function ($query) use ($procurement, $year) {
-                $query->where('unit_id', $procurement->unit_id)
-                    ->whereYear('date', $year)
-                    ->whereNull('reference_app_id');
+                $query->whereKey($procurement->id);
             })
             ->get();
 
@@ -403,6 +401,7 @@ class PrintClass
                     ->implode(', ');
 
                 return ($sourceProcurement->items ?? collect())->map(function ($item) use ($sourceProcurement, $sourceMode) {
+                    $item->setAttribute('print_source_procurement_id', $sourceProcurement->id);
                     $item->setAttribute('print_general_description', $sourceProcurement->title ?: $sourceProcurement->purpose);
                     $item->setAttribute('print_classification_name', $sourceProcurement->classification?->name);
                     $item->setAttribute('print_mode_of_procurement', $sourceMode);

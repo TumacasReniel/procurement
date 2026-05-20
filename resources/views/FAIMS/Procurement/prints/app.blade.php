@@ -83,19 +83,7 @@
 
         return date('m/Y', strtotime((string) $value));
     };
-    $printEntryKey = function ($item) use ($cleanText) {
-        return implode('|', [
-            $item->print_source_procurement_id ?? 'selected-entry',
-            $cleanText($item->recommended_mode_of_procurement ?: ($item->print_mode_of_procurement ?? ''), ''),
-            $cleanText($item->pre_procurement_conference, ''),
-            $cleanText($item->print_start_date ?? '', ''),
-            $cleanText($item->end_of_procurement_activity, ''),
-            $cleanText($item->expected_delivery_date, ''),
-            $cleanText($item->attached_supporting_documents, ''),
-            $cleanText($item->remarks, ''),
-        ]);
-    };
-    $rowspansFor = function ($resolver, $mergeBlankValues = true, $matchSameEntry = false) use ($printItems, $cleanText, $printEntryKey) {
+    $rowspansFor = function ($resolver, $mergeBlankValues = true, $matchSameEntry = false) use ($printItems, $cleanText) {
         $rowspans = [];
         $lastValue = null;
         $lastEntryId = null;
@@ -103,7 +91,7 @@
 
         foreach ($printItems as $index => $item) {
             $value = $cleanText($resolver($item), '');
-            $entryId = $matchSameEntry ? $printEntryKey($item) : null;
+            $entryId = $matchSameEntry ? ($item->print_source_procurement_id ?? 'selected-entry') : null;
 
             if (
                 $lastIndex !== null
@@ -126,8 +114,7 @@
     };
     $generalDescriptionRowspans = $rowspansFor(fn ($item) => $item->print_general_description ?: ($procurement->title ?: $procurement->purpose), true, true);
     $projectTypeRowspans = $rowspansFor(fn ($item) => $item->project_type ?: ($item->print_classification_name ?: $classificationName), true, true);
-    $supportingDocumentsRowspans = $rowspansFor(fn ($item) => $item->attached_supporting_documents, false, true);
-    $remarksRowspans = $rowspansFor(fn ($item) => $item->remarks, false, true);
+    $supportingDocumentsRowspans = $rowspansFor(fn ($item) => $item->attached_supporting_documents, false);
     $estimatedRowsPerPrintPage = 9;
     $mergeCellClass = function ($rowspans, $index, $showValue = false) use ($estimatedRowsPerPrintPage) {
         $span = $rowspans[$index] ?? 1;
@@ -182,7 +169,7 @@
     <title>{{ $planShortName }} {{ $ppmpNo }}</title>
     <style>
         @page {
-            margin: 14px 8px 30px 8px;
+            margin: 18px 22px 34px 22px;
         }
 
         * {
@@ -270,7 +257,7 @@
             min-width: 2px;
             font-size: 15px;
             border-bottom: 1px solid #000;
-            padding: 0 2px 1px;
+            padding: 0 8px 1px;
             color:red;
         }
 
@@ -338,7 +325,6 @@
         }
 
         .ppmp-table {
-            width: 100%;
             table-layout: fixed;
             border: 1.8px solid #000;
             page-break-inside: auto;
@@ -370,7 +356,7 @@
         .ppmp-table th,
         .ppmp-table td {
             border: 1px solid #000;
-            padding: 2px 2px;
+            padding: 3px 4px;
             vertical-align: top;
             word-wrap: break-word;
             overflow-wrap: break-word;
@@ -415,19 +401,6 @@
             font-size: 7.2px;
             line-height: 1.16;
         }
-
-        .ppmp-wrap-cell {
-            word-break: normal;
-            hyphens: auto;
-        }
-
-        .ppmp-col-4 { width: 28mm !important; max-width: 28mm !important; }
-        .ppmp-col-5 { width: 19mm !important; max-width: 19mm !important; }
-        .ppmp-col-6 { width: 24mm !important; max-width: 24mm !important; }
-        .ppmp-col-7 { width: 19mm !important; max-width: 19mm !important; }
-        .ppmp-col-8 { width: 20mm !important; max-width: 20mm !important; }
-        .ppmp-col-9 { width: 26mm !important; max-width: 26mm !important; }
-        .ppmp-col-10 { width: 21mm !important; max-width: 21mm !important; }
 
         .amount-cell {
             font-size: 7.4px;
@@ -546,18 +519,18 @@
 
     <table class="ppmp-table">
         <colgroup>
-            <col style="width: 36mm;">
-            <col style="width: 29mm;">
-            <col style="width: 58mm;">
-            <col style="width: 28mm;">
-            <col style="width: 19mm;">
-            <col style="width: 24mm;">
-            <col style="width: 19mm;">
-            <col style="width: 20mm;">
-            <col style="width: 26mm;">
-            <col style="width: 21mm;">
-            <col style="width: 7mm;">
-            <col style="width: 5mm;">
+            <col style="width: 14%;">
+            <col style="width: 9%;">
+            <col style="width: 18%;">
+            <col style="width: 8%;">
+            <col style="width: 6%;">
+            <col style="width: 7%;">
+            <col style="width: 7%;">
+            <col style="width: 7%;">
+            <col style="width: 7%;">
+            <col style="width: 8%;">
+            <col style="width: 5%;">
+            <col style="width: 4%;">
         </colgroup>
         <thead>
             <tr class="group-header">
@@ -571,26 +544,17 @@
                 <th>General Description and Objective of the Project to be Procured</th>
                 <th>Type of the Project to be Procured (whether Goods, Infrastructure and Consulting Services)</th>
                 <th>Quantity and Size of the Project to be Procured</th>
-                <th class="ppmp-wrap-cell ppmp-col-4">Recommended Mode of Procurement</th>
-                <th class="ppmp-wrap-cell ppmp-col-5">Pre-Procurement Conference, if applicable</th>
-                <th class="ppmp-wrap-cell ppmp-col-6">Start of Procurement Activity</th>
-                <th class="ppmp-wrap-cell ppmp-col-7">End of Procurement Activity</th>
-                <th class="ppmp-wrap-cell ppmp-col-8">Expected Delivery/Implementation Period</th>
-                <th class="ppmp-wrap-cell ppmp-col-9">Source of Funds</th>
-                <th class="ppmp-wrap-cell ppmp-col-10">Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
+                <th>Recommended Mode of Procurement</th>
+                <th>Pre-Procurement Conference, if applicable</th>
+                <th>Start of Procurement Activity</th>
+                <th>End of Procurement Activity</th>
+                <th>Expected Delivery/Implementation Period</th>
+                <th>Source of Funds</th>
+                <th>Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
             </tr>
             <tr class="column-label">
                 @for ($column = 1; $column <= 12; $column++)
-                    <th @class([
-                        'ppmp-wrap-cell' => $column >= 4 && $column <= 10,
-                        'ppmp-col-4' => $column === 4,
-                        'ppmp-col-5' => $column === 5,
-                        'ppmp-col-6' => $column === 6,
-                        'ppmp-col-7' => $column === 7,
-                        'ppmp-col-8' => $column === 8,
-                        'ppmp-col-9' => $column === 9,
-                        'ppmp-col-10' => $column === 10,
-                    ])>Column {{ $column }}</th>
+                    <th>Column {{ $column }}</th>
                 @endfor
             </tr>
         </thead>
@@ -615,7 +579,6 @@
                         $showGeneralDescription = $showMergeCellValue($generalDescriptionRowspans, $itemIndex);
                         $showProjectType = $showMergeCellValue($projectTypeRowspans, $itemIndex);
                         $showSupportingDocuments = $showMergeCellValue($supportingDocumentsRowspans, $itemIndex);
-                        $showRemarks = $showMergeCellValue($remarksRowspans, $itemIndex);
                     @endphp
                     <tr>
                         <td class="compact-cell {{ $mergeCellClass($generalDescriptionRowspans, $itemIndex, $showGeneralDescription) }}">
@@ -641,13 +604,13 @@
                                 <div class="item-description">{{ $itemDescription }}</div>
                             @endif
                         </td>
-                        <td class="compact-cell ppmp-wrap-cell ppmp-col-4">{{ $cleanText($itemModeOfProcurement) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-5">{{ $cleanText($itemPreProcurementConference) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-6">{{ $formatPrintDate($itemStartDate) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-7">{{ $formatPrintDate($itemEndDate) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-8">{{ $formatPrintDate($itemExpectedDeliveryDate) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-9">{{ $cleanText($itemSourceOfFunds) }}</td>
-                        <td class="text-right amount-cell ppmp-wrap-cell ppmp-col-10">{{ number_format($lineTotal, 2) }}</td>
+                        <td class="compact-cell">{{ $cleanText($itemModeOfProcurement) }}</td>
+                        <td class="text-center compact-cell">{{ $cleanText($itemPreProcurementConference) }}</td>
+                        <td class="text-center compact-cell">{{ $formatPrintDate($itemStartDate) }}</td>
+                        <td class="text-center compact-cell">{{ $formatPrintDate($itemEndDate) }}</td>
+                        <td class="text-center compact-cell">{{ $formatPrintDate($itemExpectedDeliveryDate) }}</td>
+                        <td class="text-center compact-cell">{{ $cleanText($itemSourceOfFunds) }}</td>
+                        <td class="text-right nowrap amount-cell">{{ number_format($lineTotal, 2) }}</td>
                         <td class="text-center compact-cell {{ $mergeCellClass($supportingDocumentsRowspans, $itemIndex, $showSupportingDocuments) }}">
                             @if ($showSupportingDocuments)
                                 {{ $cleanText($item->attached_supporting_documents) }}
@@ -655,13 +618,7 @@
                                 &nbsp;
                             @endif
                         </td>
-                        <td class="text-center compact-cell {{ $mergeCellClass($remarksRowspans, $itemIndex, $showRemarks) }}">
-                            @if ($showRemarks)
-                                {{ $cleanText($item->remarks) }}
-                            @else
-                                &nbsp;
-                            @endif
-                        </td>
+                        <td class="text-center compact-cell">{{ $cleanText($item->remarks) }}</td>
                     </tr>
                 @endforeach
             @else

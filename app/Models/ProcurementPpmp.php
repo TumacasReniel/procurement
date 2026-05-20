@@ -2,10 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProcurementPpmp extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'request_id',
         'code',
@@ -20,6 +26,7 @@ class ProcurementPpmp extends Model
         'procurement_app_id',
         'created_by_id',
         'requested_by_id',
+        'reviewed_by_id',
         'approved_by_id',
         'status_id',
         'sub_status_id',
@@ -75,6 +82,14 @@ class ProcurementPpmp extends Model
         return $this->belongsTo(User::class, 'approved_by_id')->with('profile');
     }
 
+    public function reviewed_by(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            Schema::hasColumn($this->getTable(), 'reviewed_by_id') ? 'reviewed_by_id' : 'approved_by_id'
+        )->with('profile');
+    }
+
     public function codes()
     {
         return $this->hasMany(ProcurementPpmpCodeGroup::class, 'procurement_ppmp_id')
@@ -104,5 +119,33 @@ class ProcurementPpmp extends Model
     public function latest_comment()
     {
         return $this->morphOne(RequestComment::class, 'commentable')->latestOfMany();
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'request_id',
+                'code',
+                'date',
+                'purpose',
+                'title',
+                'division_id',
+                'unit_id',
+                'fund_cluster_id',
+                'classification_id',
+                'reference_app_id',
+                'procurement_app_id',
+                'created_by_id',
+                'requested_by_id',
+                'reviewed_by_id',
+                'approved_by_id',
+                'status_id',
+                'sub_status_id',
+            ])
+            ->setDescriptionForEvent(fn (string $eventName) => "PPMP {$eventName}")
+            ->useLogName('Procurement Plan')
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

@@ -39,7 +39,7 @@
                   PPMP
                 </button>
               </li>
-              <li class="nav-item" role="presentation" v-if="$page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Budget Officer')">
+              <li class="nav-item" role="presentation" v-if="$page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Budget Officer') ||  $page.props.roles.includes('Administrator')">
                 <button
                   type="button"
                   class="nav-link"
@@ -227,7 +227,7 @@
                           v-b-tooltip.hover
                           :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
-                          :disabled="approveFinalForm.processing"
+                          :disabled="form.processing"
                         >
                           <i class="ri-check-double-line"></i>
                         </b-button>
@@ -336,7 +336,7 @@
                           v-b-tooltip.hover
                           :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
-                          :disabled="approveFinalForm.processing"
+                          :disabled="form.processing"
                         >
                           <i class="ri-check-double-line"></i>
                         </b-button>
@@ -424,7 +424,7 @@
     v-model:show="approveFinalModal.show"
     :ppmp="approveFinalModal.data"
     :plan-type="filter.plan_type"
-    :processing="approveFinalForm.processing"
+    :processing="form.processing"
     :error="approveFinalModal.error"
     @cancel="closeApproveFinalModal"
     @confirm="updateStatus"
@@ -563,7 +563,7 @@ export default {
       addSppItemModal: {
         ppmp: null,
       },
-      approveFinalForm: useForm({
+      form: useForm({
         option: "update_status",
         plan_type: "PPMP",
       }),
@@ -587,10 +587,10 @@ export default {
         .filter(Boolean);
     },
     canManagePPMP() {
-      return this.currentRoleNames.some((role) => ["Procurement Officer", "Administrator"].includes(role));
+      return this.hasRole("Procurement Officer");
     },
     hasProcurementCreateRole() {
-      return this.currentRoleNames.some((role) => ["Procurement Staff", "Procurement Officer"].includes(role));
+      return this.hasRole("Procurement Staff") || this.hasRole("Procurement Officer");
     },
     canShowCreatePpmpButton() {
       if (this.filter.plan_type !== "PPMP") {
@@ -613,11 +613,12 @@ export default {
       const bacDesignations = ["BAC Chairperson", "BAC Vice Chairperson", "BAC Member"];
       const designation = this.$page.props.user?.data?.designation;
 
-      return this.currentRoles.some((role) => ["BAC User", ...bacDesignations, "Administrator"].includes(role))
+      return this.hasRole("BAC User")
+        || bacDesignations.some((role) => this.hasRole(role))
         || bacDesignations.includes(designation);
     },
     canCreateAppPlans() {
-      return this.canApprovePPMPPlans || this.currentRoleNames.includes("Procurement Officer");
+      return this.hasRole("Procurement Officer");
     },
     unitOptions() {
       return this.normalizeOptions(this.dropdowns?.units);
@@ -764,7 +765,34 @@ export default {
     this.fetchAvailableSppUnits();
     this.fetch();
   },
+  mounted() {
+    this.subscribeToPlanStatusUpdates();
+  },
+  beforeUnmount() {
+    this.unsubscribeFromPlanStatusUpdates();
+  },
   methods: {
+    hasRole(roleName) {
+      return Array.isArray(this.$page?.props?.roles)
+        && this.$page.props.roles.includes(roleName);
+    },
+    subscribeToPlanStatusUpdates() {
+      if (!window.Echo) {
+        return;
+      }
+
+      window.Echo.channel("procurement-plans")
+        .listen(".procurement-plan.status-updated", () => {
+          this.fetch();
+        });
+    },
+    unsubscribeFromPlanStatusUpdates() {
+      if (!window.Echo) {
+        return;
+      }
+
+      window.Echo.leave("procurement-plans");
+    },
     planCommentCount(item) {
       return Number(item?.comments_count || 0);
     },
@@ -795,7 +823,9 @@ export default {
         ? item.status
         : item.status?.name;
       const displayStatus = String(item.ppmp_status || "").toLowerCase();
-      const isApp = this.normalizedPlanType(item.plan_type) === "APP";
+      const planType = this.normalizedPlanType(item.plan_type);
+      const isApp = planType === "APP";
+      const isSpp = planType === "SPP";
 
       const isPending = [statusName, item.ppmp_status]
         .filter(Boolean)
@@ -805,20 +835,19 @@ export default {
         .some((status) => String(status).toLowerCase() === "for review");
       const isReviewed = String(statusName || "").toLowerCase() === "reviewed"
         || displayStatus === "reviewed/for submission";
-      const canReview = this.currentRoleNames.includes("Budget Officer") || this.currentRoleNames.includes("Administrator");
-      const canSubmit = this.currentRoleNames.includes("Procurement Officer") || this.currentRoleNames.includes("Administrator");
+      const canReview = this.hasRole("Budget Officer");
+      const canSubmit = this.hasRole("Procurement Officer");
       const canSubmitForReview = this.canSubmitPendingPpmp(item);
 
       if (isReviewed && canSubmit) {
         return true;
       }
 
-      if ((!isApp && item.is_final) || ["submitted/for consolidation", "submitted/for implementation", "consolidated/added to app", "consolidated/added to spp"].includes(displayStatus)) {
+      if ((!isApp && !isSpp && item.is_final) || ["submitted/for consolidation", "submitted/for implementation", "consolidated/added to app", "consolidated/added to spp"].includes(displayStatus)) {
         return false;
       }
 
-      return Boolean(item.can_submit_final)
-        || (isPending && canSubmitForReview)
+      return (isPending && canSubmitForReview)
         || (isForReview && canReview)
         || (isReviewed && canSubmit);
     },
@@ -828,8 +857,8 @@ export default {
 
       return Boolean(
         (currentUserId && currentUserId === createdById) ||
-        this.currentRoleNames.includes("Procurement Staff") ||
-        this.currentRoleNames.includes("Procurement Officer")
+        this.hasRole("Procurement Staff") ||
+        this.hasRole("Procurement Officer")
       );
     },
     hasPpmpItems(item) {
@@ -837,9 +866,6 @@ export default {
     },
     requiresItemsBeforeAdvance(item) {
       return ["PPMP", "SPP"].includes(this.normalizedPlanType(item?.plan_type));
-    },
-    emptyPpmpItemsMessage() {
-      return "Please add at least one item before updating or submitting this PPMP for review.";
     },
     firstFormError(errors) {
       const firstError = Object.values(errors || {}).flat().find(Boolean);
@@ -856,13 +882,17 @@ export default {
         return false;
       }
 
+      if (String(item?.ppmp_status || "").toLowerCase() !== "pending") {
+        return false;
+      }
+
       const currentUserId = Number(this.$page?.props?.user?.data?.id || 0);
       const createdById = Number(item?.created_by_id || 0);
 
       return Boolean(
         (currentUserId && currentUserId === createdById) ||
-        this.currentRoleNames.includes("Procurement Staff") ||
-        this.currentRoleNames.includes("Procurement Officer")
+        this.hasRole("Procurement Staff") ||
+        this.hasRole("Procurement Officer")
       );
     },
     normalizeOptions(options) {
@@ -895,7 +925,10 @@ export default {
           },
         })
         .then((response) => {
-          this.lists = response.data.data || [];
+          const lists = response.data.data || [];
+          this.lists = this.filter.plan_type === "SPP"
+            ? lists.filter((item) => this.normalizedPlanType(item?.plan_type) === "SPP")
+            : lists;
           this.meta = response.data.meta || {};
           this.links = response.data.links || {};
           this.openNotificationPlanChat();
@@ -1035,20 +1068,21 @@ export default {
     advanceActionTitle(item) {
       const status = (item?.ppmp_status || "").toLowerCase();
       const planType = this.normalizedPlanType(item?.plan_type);
+      const planLabel = planType === "SPP" ? "SPP" : "PPMP";
 
       if (status === "pending") {
-        return planType === "APP" ? "Move APP to For Review" : "Submit PPMP for review";
+        return planType === "APP" ? "Move APP to For Review" : `Submit ${planLabel} for review`;
       }
 
       if (status === "for review") {
-        return planType === "APP" ? "Mark APP as reviewed" : "Mark PPMP as reviewed";
+        return planType === "APP" ? "Mark APP as reviewed" : `Mark ${planLabel} as reviewed`;
       }
 
       if (status === "reviewed/for submission") {
-        return planType === "APP" ? "Submit APP for Implementation" : "Submit PPMP for consolidation";
+        return planType === "APP" ? "Submit APP for Implementation" : `Submit ${planLabel} for consolidation`;
       }
 
-      return "Review PPMP";
+      return `Review ${planLabel}`;
     },
 
     goViewPage(data, plan_type) {
@@ -1058,40 +1092,40 @@ export default {
       });
     },
     openApproveFinalModal(data) {
-      if (!data?.id || this.approveFinalForm.processing) {
+      if (!data?.id || this.form.processing) {
         return;
       }
 
-      this.approveFinalForm.clearErrors();
+      this.form.clearErrors();
       this.approveFinalModal.error = "";
-      this.approveFinalForm.option = "update_status";
-      this.approveFinalForm.plan_type = this.filter.plan_type;
+      this.form.option = "update_status";
+      this.form.plan_type = this.filter.plan_type;
       this.approveFinalModal.data = data;
       this.approveFinalModal.show = true;
     },
     closeApproveFinalModal() {
-      if (this.approveFinalForm.processing) {
+      if (this.form.processing) {
         return;
       }
 
       this.approveFinalModal.show = false;
       this.approveFinalModal.data = null;
       this.approveFinalModal.error = "";
-      this.approveFinalForm.clearErrors();
+      this.form.clearErrors();
     },
     updateStatus() {
       const data = this.approveFinalModal.data;
-      if (!data?.id || this.approveFinalForm.processing) {
+      if (!data?.id || this.form.processing) {
         return;
       }
 
       if (this.requiresItemsBeforeAdvance(data) && !this.hasPpmpItems(data)) {
-        this.approveFinalModal.error = this.emptyPpmpItemsMessage();
+        this.approveFinalModal.error = "Please add at least one item before updating or submitting this PPMP for review.";
         return;
       }
 
       this.approveFinalModal.error = "";
-      this.approveFinalForm.patch(`/faims/procurement-ppmp/${data.id}`, {
+      this.form.patch(`/faims/procurement-ppmp/${data.id}`, {
         preserveScroll: true,
         onSuccess: () => {
           this.approveFinalModal.show = false;

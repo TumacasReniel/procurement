@@ -378,11 +378,24 @@ export default {
       const entryGroups = new Map();
 
       rows.forEach((item) => {
+        const itemStartDate = this.ppmp.start_of_procurement_activity || this.ppmp.date;
+        const entryScopeKey = [
+          this.cleanValue(item.ppmp_no || (Array.isArray(item.source_ppmp_nos) ? item.source_ppmp_nos.join(",") : "")),
+          this.cleanValue(item.recommended_mode_of_procurement || this.ppmp.recommended_mode_of_procurement),
+          this.cleanValue(item.pre_procurement_conference || this.ppmp.pre_procurement_conference || "No"),
+          this.cleanValue(itemStartDate),
+          this.cleanValue(item.end_of_procurement_activity || this.ppmp.end_of_procurement_activity),
+          this.cleanValue(item.expected_delivery_date || this.ppmp.expected_delivery_implementation_period),
+          this.cleanValue(item.attached_supporting_documents || item.supporting_document_original_name),
+          this.cleanValue(item.remarks),
+        ].join("|");
         const entryKey = [
+          entryScopeKey,
           this.cleanValue(this.ppmp.general_description_objective || this.ppmp.title || this.ppmp.purpose),
           this.cleanValue(item.project_type || this.ppmp.type_of_project),
         ].join("|");
         const supportKey = [
+          entryScopeKey,
           this.cleanValue(item.attached_supporting_documents || item.supporting_document_original_name),
           this.cleanValue(item.remarks),
         ].join("|");

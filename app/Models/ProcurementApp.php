@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProcurementApp extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'code',
         'year',
@@ -57,5 +61,26 @@ class ProcurementApp extends Model
     public function comments()
     {
         return $this->morphMany(RequestComment::class, 'commentable');
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'code',
+                'year',
+                'title',
+                'app_type_id',
+                'created_by_id',
+                'requested_by_id',
+                'reviewed_by_id',
+                'approved_by_id',
+                'status_id',
+                'sub_status_id',
+            ])
+            ->setDescriptionForEvent(fn (string $eventName) => "APP {$eventName}")
+            ->useLogName('APP')
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

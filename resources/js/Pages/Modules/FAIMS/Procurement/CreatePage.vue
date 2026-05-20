@@ -214,7 +214,7 @@
                           :title="addItemDisabledReason"
                         >
                           <i class="ri-add-line me-1"></i>
-                          Select PPMP Item
+                          Select Items
                         </b-button>
                       </div>
                     </div>
@@ -294,8 +294,8 @@
                         <div class="empty-state-icon">
                           <i class="ri-shopping-bag-line"></i>
                         </div>
-                        <h6 class="empty-state-title">No PPMP Items Selected</h6>
-                        <p class="empty-state-text">Click "Select PPMP Item" to add approved PPMP items to this PR.</p>
+                        <h6 class="empty-state-title">No Items Selected</h6>
+                        <p class="empty-state-text">Click "Select Items" to add items to this PR.</p>
                       </div>
                     </div>
                   </div>
@@ -663,7 +663,7 @@ export default {
       if (!this.hasPpmpItemsForSelectedPap) {
         return this.isLoadingPpmpItems
           ? "Loading PPMP items for the selected PAP code."
-          : "No PPMP items are available for the selected unit and PAP code.";
+          : "No items are available for the selected unit and PAP code.";
       }
 
       if (!this.form.division_id || !this.form.fund_cluster_id || !this.form.purpose) {
@@ -682,7 +682,7 @@ export default {
       }
 
       if (!this.isLoadingPpmpItems && !this.hasPpmpItemsForSelectedPap) {
-        return "No PPMP items are available for the selected unit and PAP code.";
+        return "No items are available for the selected unit and PAP code.";
       }
 
       return null;
