@@ -19,11 +19,11 @@
             ?? ''
     );
 
-    $requestedDesignation = $procurement->requested_by?->org_chart?->designation?->name
+    $requestedDesignation = $procurement->requested_by?->organization?->position?->name
         ?? $procurement->requested_by?->designation
         ?? 'Division Head';
 
-    $approvedDesignation = $procurement->approved_by?->org_chart?->designation?->name
+    $approvedDesignation = $procurement->approved_by?->organization?->position?->name
         ?? $procurement->approved_by?->designation
         ?? 'Regional Director';
 
@@ -58,7 +58,7 @@
             margin: 0;
             color: #000;
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 9px;
+            font-size: 12px;
             line-height: 1.35;
         }
 
@@ -126,14 +126,31 @@
         }
 
         .meta-table {
-            border: 1.5px solid #000;
+            border: 0;
             margin-top: 6px;
         }
 
         .meta-table td {
             border: 1px solid #000;
-            padding: 5px 7px;
+            padding: 1px 7px 2px;
             vertical-align: middle;
+            line-height: 1.15;
+        }
+
+        .meta-table .meta-top td {
+            border-left: 0;
+            border-right: 0;
+            border-top: 0;
+        }
+
+        .meta-stack {
+            line-height: 1.35;
+        }
+
+        .meta-stack + .meta-stack {
+            margin-top: 2px;
+            padding-top: 2px;
+            border-top: 1px solid #000;
         }
 
         .field-label {
@@ -144,12 +161,13 @@
             display: inline-block;
             min-width: 75px;
             border-bottom: 1px solid #000;
-            padding: 0 3px 1px;
+            padding: 0 3px;
+            margin-bottom: -2px;
             font-weight: bold;
         }
 
         .items-table {
-            border: 1.5px solid #000;
+            border: 0;
             border-top: 0;
             table-layout: fixed;
         }
@@ -160,6 +178,7 @@
 
         .items-table th {
             border: 1px solid #000;
+            border-top: 0;
             padding: 6px 5px;
             text-align: center;
             vertical-align: middle;
@@ -174,14 +193,42 @@
             word-wrap: break-word;
         }
 
+        .items-table tbody tr.print-item-row td,
+        .items-table tbody tr.filler-row td {
+            border-top: 0 !important;
+            border-bottom: 0 !important;
+            border-left: 1px solid #000 !important;
+            border-right: 1px solid #000 !important;
+        }
+
+        .items-table .filler-row td {
+            border-top: 0 !important;
+        }
+
         .item-name {
             display: block;
-            margin-bottom: 3px;
+            margin-bottom: 1px;
             font-weight: bold;
+            line-height: 1.12;
         }
 
         .item-description {
-            line-height: 1.35;
+            line-height: 1.12;
+        }
+
+        .item-description p {
+            margin: 0;
+        }
+
+        .item-description ul,
+        .item-description ol {
+            margin: 1px 0 0 12px;
+            padding: 0;
+        }
+
+        .item-description li {
+            margin: 0;
+            padding: 0;
         }
 
         .total-row td {
@@ -190,17 +237,17 @@
         }
 
         .purpose-box {
-            border-left: 1.5px solid #000;
-            border-right: 1.5px solid #000;
+            border-left: 1px solid #000;
+            border-right: 1px solid #000;
             border-bottom: 1px solid #000;
             padding: 9px 10px;
             min-height: 45px;
         }
 
         .signature-table {
-            border-left: 1.5px solid #000;
-            border-right: 1.5px solid #000;
-            border-bottom: 1.5px solid #000;
+            border-left: 1px solid #000;
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
         }
 
         .signature-table td {
@@ -231,7 +278,7 @@
 
         .designation {
             text-align: center;
-            font-size: 8.5px;
+            font-size: 12px;
         }
 
         .footer-note {
@@ -259,12 +306,12 @@
     </div>
 
     <table class="meta-table">
-        <tr>
-            <td colspan="4">
+        <tr class="meta-top">
+            <td colspan="3">
                 <span class="field-label">Entity Name:</span>
                 <span class="field-value">Department of Science and Technology - IX</span>
             </td>
-            <td colspan="2">
+            <td colspan="3">
                 <span class="field-label">Fund Cluster:</span>
                 <span class="field-value">{{ $procurement->fund_cluster?->name ?? 'Regular Fund' }}</span>
             </td>
@@ -272,21 +319,21 @@
         <tr>
             <td colspan="2">
                 <span class="field-label">Office/Section:</span>
-                <span class="field-value">{{ $procurement->division?->name ?? 'N/A' }}</span>
+                <span class="field-value">{{ $procurement->division?->name ?? '' }}</span>
             </td>
             <td colspan="2">
-                <span class="field-label">PR No.:</span>
-                <span class="field-value">{{ $procurement->code }}</span>
+                <div class="meta-stack">
+                    <span class="field-label">PR No.:</span>
+                    <span class="field-value">{{ $procurement->code }}</span>
+                </div>
+                <div class="meta-stack">
+                    <span class="field-label">Responsibility Center Code :</span>
+                    <span class="field-value">{{ $procurement->unit?->responsibility_center_code ?? '' }}</span>
+                </div>
             </td>
             <td colspan="2">
-                <span class="field-label">Date:</span>
-                <span class="field-value">{{ $procurement->date ? date('m-d-Y', strtotime($procurement->date)) : 'N/A' }}</span>
-            </td>
-        </tr>
-        <tr>
-            <td colspan="6">
-                <span class="field-label">Responsibility Center Code:</span>
-                <span class="field-value">{{ $procurement->unit?->responsibility_center_code ?? 'N/A' }}</span>
+                <span class="field-label">Date :</span>
+                <span class="field-value">{{ $procurement->date ? date('m-d-Y', strtotime($procurement->date)) : '' }}</span>
             </td>
         </tr>
     </table>
@@ -304,11 +351,18 @@
         </thead>
         <tbody>
             @foreach ($items as $item)
-                <tr>
+                @php
+                    $unitType = $item->item_unit_type;
+                    $unitDisplay = (float) $item->item_quantity > 1
+                        ? ($unitType?->name_long ?? $unitType?->name_short ?? '')
+                        : ($unitType?->name_short ?? $unitType?->name_long ?? '');
+                @endphp
+                <tr class="print-item-row">
                     <td class="text-center">{{ $item->item_no }}</td>
-                    <td class="text-center">{{ $item->item_unit_type?->name_short }}</td>
+                    <td class="text-center">{{ $unitDisplay }}</td>
                     <td>
                         <span class="item-name">{{ $item->item_name }}</span>
+                        <span class="item-description">With the following specifications:</span>
                         <div class="item-description">{!! $item->item_description !!}</div>
                     </td>
                     <td class="text-center nowrap">{{ $item->item_quantity }}</td>
@@ -318,7 +372,7 @@
             @endforeach
 
             @if ($fillerHeight > 0)
-                <tr>
+                <tr class="filler-row">
                     <td style="height: {{ $fillerHeight }}px; border-bottom: none;"></td>
                     <td style="border-bottom: none;"></td>
                     <td style="border-bottom: none;"></td>
@@ -370,13 +424,13 @@
             $width = $pdf->get_width();
             $height = $pdf->get_height();
             $y_axis = $height - 25;
+            $footer_margin = 46;
 
             $text_code = "{{ $procurement->code }}";
-            $pdf->page_text(35, $y_axis, $text_code, $font, $size, array(0,0,0));
+            $pdf->page_text($footer_margin, $y_axis, $text_code, $font, $size, array(0,0,0));
 
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-            $pdf->page_text($width - $text_width - 35, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $pdf->page_text($width - 110, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

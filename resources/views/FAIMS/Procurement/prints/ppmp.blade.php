@@ -329,7 +329,7 @@
 
         .table-header-info {
             margin: 4px 0 3px;
-            font-size: 10px;
+            font-size: 12px;
             line-height: 1.45;
         }
 
@@ -400,6 +400,14 @@
             font-size: 6.8px;
         }
 
+        .width-guide th {
+            height: 0;
+            padding: 0 !important;
+            border: 0 !important;
+            font-size: 0;
+            line-height: 0;
+        }
+
         .item-name {
             display: block;
             margin-bottom: 2px;
@@ -421,13 +429,20 @@
             hyphens: auto;
         }
 
-        .ppmp-col-4 { width: 28mm !important; max-width: 28mm !important; }
-        .ppmp-col-5 { width: 19mm !important; max-width: 19mm !important; }
-        .ppmp-col-6 { width: 24mm !important; max-width: 24mm !important; }
-        .ppmp-col-7 { width: 19mm !important; max-width: 19mm !important; }
-        .ppmp-col-8 { width: 20mm !important; max-width: 20mm !important; }
-        .ppmp-col-9 { width: 26mm !important; max-width: 26mm !important; }
-        .ppmp-col-10 { width: 21mm !important; max-width: 21mm !important; }
+        .ppmp-col-3 { width: 33% !important; max-width: 33% !important; }
+        .ppmp-col-4,
+        .ppmp-col-5,
+        .ppmp-col-6,
+        .ppmp-col-7,
+        .ppmp-col-8,
+        .ppmp-col-9,
+        .ppmp-col-10 {
+            width: 5% !important;
+            max-width: 5% !important;
+            word-break: break-all !important;
+            overflow-wrap: anywhere !important;
+            hyphens: manual !important;
+        }
 
         .amount-cell {
             font-size: 7.4px;
@@ -478,6 +493,7 @@
 
         .signatory-table {
             margin-top: 16px;
+            font-size: 12px;
             page-break-inside: avoid;
         }
 
@@ -497,13 +513,13 @@
 
         .signature-label {
             margin-top: 4px;
-            font-size: 8px;
+            font-size: 12px;
             font-weight: bold;
         }
 
         .signature-role {
             margin-top: 2px;
-            font-size: 7.5px;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -546,20 +562,34 @@
 
     <table class="ppmp-table">
         <colgroup>
-            <col style="width: 36mm;">
-            <col style="width: 29mm;">
-            <col style="width: 58mm;">
-            <col style="width: 28mm;">
-            <col style="width: 19mm;">
-            <col style="width: 24mm;">
-            <col style="width: 19mm;">
-            <col style="width: 20mm;">
-            <col style="width: 26mm;">
-            <col style="width: 21mm;">
-            <col style="width: 7mm;">
-            <col style="width: 5mm;">
+            <col style="width: 6%;">
+            <col style="width: 6%;">
+            <col style="width: 33%;">
+            <col style="width: 5%;">
+            <col style="width: 5%;">
+            <col style="width: 5%;">
+            <col style="width: 5%;">
+            <col style="width: 5%;">
+            <col style="width: 5%;">
+            <col style="width: 5%;">
+            <col style="width: 10%;">
+            <col style="width: 10%;">
         </colgroup>
         <thead>
+            <tr class="width-guide">
+                <th style="width: 6%;"></th>
+                <th style="width: 6%;"></th>
+                <th style="width: 33%;"></th>
+                <th style="width: 5%;"></th>
+                <th style="width: 5%;"></th>
+                <th style="width: 5%;"></th>
+                <th style="width: 5%;"></th>
+                <th style="width: 5%;"></th>
+                <th style="width: 5%;"></th>
+                <th style="width: 5%;"></th>
+                <th style="width: 10%;"></th>
+                <th style="width: 10%;"></th>
+            </tr>
             <tr class="group-header">
                 <th colspan="5">PROCUREMENT PROJECT DETAILS</th>
                 <th colspan="3">PROJECTED TIMELINE (MM/YYYY)</th>
@@ -568,21 +598,22 @@
                 <th rowspan="2">REMARKS</th>
             </tr>
             <tr class="main-header">
-                <th>General Description and Objective of the Project to be Procured</th>
-                <th>Type of the Project to be Procured (whether Goods, Infrastructure and Consulting Services)</th>
-                <th>Quantity and Size of the Project to be Procured</th>
-                <th class="ppmp-wrap-cell ppmp-col-4">Recommended Mode of Procurement</th>
-                <th class="ppmp-wrap-cell ppmp-col-5">Pre-Procurement Conference, if applicable</th>
-                <th class="ppmp-wrap-cell ppmp-col-6">Start of Procurement Activity</th>
-                <th class="ppmp-wrap-cell ppmp-col-7">End of Procurement Activity</th>
-                <th class="ppmp-wrap-cell ppmp-col-8">Expected Delivery/Implementation Period</th>
-                <th class="ppmp-wrap-cell ppmp-col-9">Source of Funds</th>
-                <th class="ppmp-wrap-cell ppmp-col-10">Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
+                <th style="width: 6%;">General Description and Objective of the Project to be Procured</th>
+                <th style="width: 6%;">Type of the Project to be Procured (whether Goods, Infrastructure and Consulting Services)</th>
+                <th class="ppmp-col-3" style="width: 33%;">Quantity and Size of the Project to be Procured</th>
+                <th class="ppmp-wrap-cell ppmp-col-4" style="width: 5%;">Recommended Mode of Procurement</th>
+                <th class="ppmp-wrap-cell ppmp-col-5" style="width: 5%;">Pre-Procurement Conference, if applicable</th>
+                <th class="ppmp-wrap-cell ppmp-col-6" style="width: 5%;">Start of Procurement Activity</th>
+                <th class="ppmp-wrap-cell ppmp-col-7" style="width: 5%;">End of Procurement Activity</th>
+                <th class="ppmp-wrap-cell ppmp-col-8" style="width: 5%;">Expected Delivery/Implementation Period</th>
+                <th class="ppmp-wrap-cell ppmp-col-9" style="width: 5%;">Source of Funds</th>
+                <th class="ppmp-wrap-cell ppmp-col-10" style="width: 5%;">Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
             </tr>
             <tr class="column-label">
                 @for ($column = 1; $column <= 12; $column++)
                     <th @class([
                         'ppmp-wrap-cell' => $column >= 4 && $column <= 10,
+                        'ppmp-col-3' => $column === 3,
                         'ppmp-col-4' => $column === 4,
                         'ppmp-col-5' => $column === 5,
                         'ppmp-col-6' => $column === 6,
@@ -632,7 +663,7 @@
                                 &nbsp;
                             @endif
                         </td>
-                        <td>
+                        <td class="ppmp-col-3" style="width: 33%;">
                             <div class="item-description">
                                 &bull; {{ rtrim(rtrim(number_format($quantity, 2), '0'), '.') }} {{ $unitName }}
                                 {{ $cleanText($item->item_name, 'Item ' . $loop->iteration) }}
@@ -641,13 +672,13 @@
                                 <div class="item-description">{{ $itemDescription }}</div>
                             @endif
                         </td>
-                        <td class="compact-cell ppmp-wrap-cell ppmp-col-4">{{ $cleanText($itemModeOfProcurement) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-5">{{ $cleanText($itemPreProcurementConference) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-6">{{ $formatPrintDate($itemStartDate) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-7">{{ $formatPrintDate($itemEndDate) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-8">{{ $formatPrintDate($itemExpectedDeliveryDate) }}</td>
-                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-9">{{ $cleanText($itemSourceOfFunds) }}</td>
-                        <td class="text-right amount-cell ppmp-wrap-cell ppmp-col-10">{{ number_format($lineTotal, 2) }}</td>
+                        <td class="compact-cell ppmp-wrap-cell ppmp-col-4" style="width: 5%;">{{ $cleanText($itemModeOfProcurement) }}</td>
+                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-5" style="width: 5%;">{{ $cleanText($itemPreProcurementConference) }}</td>
+                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-6" style="width: 5%;">{{ $formatPrintDate($itemStartDate) }}</td>
+                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-7" style="width: 5%;">{{ $formatPrintDate($itemEndDate) }}</td>
+                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-8" style="width: 5%;">{{ $formatPrintDate($itemExpectedDeliveryDate) }}</td>
+                        <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-9" style="width: 5%;">{{ $cleanText($itemSourceOfFunds) }}</td>
+                        <td class="text-right amount-cell ppmp-wrap-cell ppmp-col-10" style="width: 5%;">{{ number_format($lineTotal, 2) }}</td>
                         <td class="text-center compact-cell {{ $mergeCellClass($supportingDocumentsRowspans, $itemIndex, $showSupportingDocuments) }}">
                             @if ($showSupportingDocuments)
                                 {{ $cleanText($item->attached_supporting_documents) }}

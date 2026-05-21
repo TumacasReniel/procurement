@@ -11,6 +11,8 @@ use App\Models\ProcurementApp;
 use App\Models\ProcurementPpmp;
 use App\Models\ProcurementPpmpItem;
 use App\Models\Request as RequestModel;
+use App\Models\User;
+use App\Notifications\ProcurementPlanForReviewNotification;
 use App\Services\DropdownClass;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -434,6 +436,7 @@ class ProcurementPPMPClass
             'status_id' => $next_step['status_id'],
             'status' => $next_step['label'],
         ]);
+        $this->notifyBudgetOfficersForReview($app->fresh(['status']), self::PLAN_TYPE_APP, $next_step['status_id'], $status_ids['for_review']);
 
         return [
             'data' => $this->appResource($app->fresh($this->appRelations())),
@@ -637,6 +640,12 @@ class ProcurementPPMPClass
             'status' => $next_step['label'],
             'affected_ppmps' => $updated,
         ]);
+        $this->notifyBudgetOfficersForReview(
+            $procurement->fresh(['reference_app', 'status', 'unit']),
+            $plan_type,
+            $next_step['status_id'],
+            $status_ids['for_review']
+        );
 
         return [
             'data' => $this->show($id, $request),
@@ -1328,6 +1337,23 @@ class ProcurementPPMPClass
                     'ppmp' => 'Only Pending, For Review, or Reviewed PPMP entries can be advanced.',
                 ]);
         }
+    }
+
+    protected function notifyBudgetOfficersForReview(object $plan, string $plan_type, int $next_status_id, int $for_review_status_id): void
+    {
+        if ($next_status_id !== $for_review_status_id || ! Auth::user()) {
+            return;
+        }
+
+        $plan_type = $this->planShortLabel($plan_type);
+
+        User::query()
+            ->where('is_active', 1)
+            ->whereHasActiveRole('Budget Officer')
+            ->get()
+            ->each(fn (User $user) => $user->notify(
+                new ProcurementPlanForReviewNotification($plan, Auth::user(), $plan_type)
+            ));
     }
 
     protected function relations(): array

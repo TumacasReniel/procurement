@@ -478,6 +478,8 @@ export default {
       ppmpItems: [],
       isLoadingPpmpItems: false,
       latestPpmpItemsKey: "",
+      createDraftStorageKey: "procurementRequestCreateDraft",
+      isRestoringCreateDraft: false,
       isRightCollapsed: false,
       isCollapsed: false,
     };
@@ -488,21 +490,40 @@ export default {
       if (newVal) {
         this.getUnits(newVal);
       }
+      this.saveCreateDraft();
     },
 
     "form.unit_id"() {
       this.removeInvalidProcurementCodesForUnit();
       this.fetchPpmpItems();
+      this.saveCreateDraft();
     },
 
     "form.date"() {
       this.applyAutomaticCurrentApp(true);
+      this.saveCreateDraft();
+    },
+
+    "form.fund_cluster_id"() {
+      this.saveCreateDraft();
+    },
+
+    "form.purpose"() {
+      this.saveCreateDraft();
+    },
+
+    "form.requested_by_id"() {
+      this.saveCreateDraft();
+    },
+
+    "form.approved_by_id"() {
+      this.saveCreateDraft();
     },
 
     "form.procurement_code_ids": function (value) {
       this.fetchPpmpItems();
 
-      if (this.action == "create") {
+      if (this.action == "create" && !this.isRestoringCreateDraft) {
         if (Array.isArray(value) && value.length > 0) {
           // Reset the title before adding new ones
           this.form.title = "";
@@ -512,6 +533,15 @@ export default {
           });
         }
       }
+
+      this.saveCreateDraft();
+    },
+
+    "form.items": {
+      deep: true,
+      handler() {
+        this.saveCreateDraft();
+      },
     },
 
     action: function (value) {
@@ -805,9 +835,6 @@ export default {
   },
 
   mounted() {
-    // Load from localStorage on component mount
-    this.getDataFromLocalStorage();
-
     this.action = this.option;
     if (this.option === 'create' && this.dropdowns.regional_director) {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
@@ -815,7 +842,10 @@ export default {
     }
     if (this.option === "create") {
       this.prefillUserDivisionAndUnit();
+      this.restoreCreateDraft();
     }
+    // Load from localStorage on component mount
+    this.getDataFromLocalStorage();
     if (this.option === "review") {
       this.applyAutomaticCurrentApp();
     }
@@ -857,6 +887,98 @@ export default {
     toggleRightSidebar() {
       this.isRightCollapsed = !this.isRightCollapsed;
       localStorage.setItem("isRightCollapsed", this.isRightCollapsed);
+    },
+
+    createDraftPayload() {
+      return {
+        purpose: this.form.purpose,
+        title: this.form.title,
+        date: this.form.date,
+        division_id: this.form.division_id,
+        unit_id: this.form.unit_id,
+        fund_cluster_id: this.form.fund_cluster_id,
+        classification_id: this.form.classification_id,
+        reference_app_id: this.form.reference_app_id,
+        procurement_app_id: this.form.procurement_app_id,
+        requested_by_id: this.form.requested_by_id,
+        approved_by_id: this.form.approved_by_id,
+        procurement_code_ids: Array.isArray(this.form.procurement_code_ids)
+          ? this.form.procurement_code_ids
+          : [],
+        items: Array.isArray(this.form.items) ? this.form.items : [],
+        saved_at: new Date().toISOString(),
+      };
+    },
+
+    saveCreateDraft() {
+      if (this.option !== "create" || this.isRestoringCreateDraft) {
+        return;
+      }
+
+      try {
+        localStorage.setItem(this.createDraftStorageKey, JSON.stringify(this.createDraftPayload()));
+      } catch (e) {
+        console.error("Unable to save procurement request draft:", e);
+      }
+    },
+
+    restoreCreateDraft() {
+      if (this.option !== "create") {
+        return;
+      }
+
+      let draft = null;
+
+      try {
+        draft = JSON.parse(localStorage.getItem(this.createDraftStorageKey));
+      } catch (e) {
+        localStorage.removeItem(this.createDraftStorageKey);
+        return;
+      }
+
+      if (!draft || typeof draft !== "object") {
+        return;
+      }
+
+      this.isRestoringCreateDraft = true;
+
+      [
+        "purpose",
+        "title",
+        "date",
+        "division_id",
+        "unit_id",
+        "fund_cluster_id",
+        "classification_id",
+        "reference_app_id",
+        "procurement_app_id",
+        "requested_by_id",
+        "approved_by_id",
+      ].forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(draft, key)) {
+          this.form[key] = draft[key];
+        }
+      });
+
+      this.form.procurement_code_ids = Array.isArray(draft.procurement_code_ids)
+        ? draft.procurement_code_ids
+        : [];
+
+      if (Array.isArray(draft.items)) {
+        this.form.items = draft.items;
+        localStorage.setItem("itemsAdded", JSON.stringify(draft.items));
+      }
+
+      this.$nextTick(() => {
+        this.isRestoringCreateDraft = false;
+        this.fetchPpmpItems();
+        this.saveCreateDraft();
+      });
+    },
+
+    clearCreateDraft() {
+      localStorage.removeItem(this.createDraftStorageKey);
+      localStorage.removeItem("itemsAdded");
     },
 
     applyAutomaticCurrentApp(force = false) {
@@ -1039,7 +1161,7 @@ export default {
 
       this.form.post("/faims/procurements", {
         onSuccess: () => {
-          localStorage.removeItem("itemsAdded");
+          this.clearCreateDraft();
         },
         onError: (errors) => {
           console.error("Submission failed:", errors);

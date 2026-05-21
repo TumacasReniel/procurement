@@ -2,25 +2,13 @@
   <b-modal
     v-model="showModal"
     header-class="p-3 bg-light"
-    :title="isEditing ? 'Change PPMP Item' : 'Select Items'"
+    :title="isEditing ? 'Change Item' : 'Select Items'"
     size="xl"
     class="v-modal-custom"
     modal-class="zoomIn"
     centered
     no-close-on-backdrop
   >
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-      <div>
-        <div class="text-muted fs-12">PPMP No.</div>
-        <div class="fw-semibold text-primary">{{ ppmpNoDisplay }}</div>
-      </div>
-
-      <div class="text-md-end">
-        <div class="text-muted fs-12">Available Items</div>
-        <div class="fw-semibold text-success">{{ availableItems.length }}</div>
-      </div>
-    </div>
-
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div class="ppmp-item-search">
         <i class="ri-search-line"></i>
@@ -28,7 +16,7 @@
           v-model="keyword"
           type="search"
           class="form-control form-control-sm"
-          placeholder="Search PPMP items..."
+          placeholder="Search items..."
         />
       </div>
 
@@ -132,7 +120,7 @@
     <template v-slot:footer>
       <b-button @click="hide" variant="light" block>Cancel</b-button>
       <b-button @click="saveSelection" variant="primary" :disabled="!selectedCount" block>
-        {{ isEditing ? "Update Selected Item" : "Use Selected PPMP Items" }}
+        {{ isEditing ? "Update Selected Item" : "Use Selected Items" }}
       </b-button>
     </template>
   </b-modal>
