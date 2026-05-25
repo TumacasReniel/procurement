@@ -160,6 +160,12 @@ export default {
       },
     };
   },
+  mounted() {
+    this.subscribeToPlanUpdates();
+  },
+  beforeUnmount() {
+    this.unsubscribeFromPlanUpdates();
+  },
   computed: {
     unitTypeOptions() {
       const options = this.dropdowns?.unit_types || [];
@@ -174,27 +180,38 @@ export default {
 
       return Boolean(currentUserId && Number(currentUserId) === Number(this.ppmp?.created_by_id));
     },
+    isSameUserUnit() {
+      const userUnitId = this.$page?.props?.user?.data?.organization?.unit_id;
+      const planUnitId = this.ppmp?.unit_id || this.ppmp?.unit?.id || this.ppmp?.unit?.value;
+
+      return Boolean(userUnitId && planUnitId && Number(userUnitId) === Number(planUnitId));
+    },
     canAddDraftItem() {
       const ppmpStatus = String(this.ppmp.ppmp_status || "").trim().toLowerCase();
       const approvalStatus = String(this.ppmp.approval_status || "").trim().toLowerCase();
       const is_pending = approvalStatus === "pending" && ppmpStatus === "pending";
 
-      return this.isPpmpCreator
+      return (this.isPpmpCreator || this.isSameUserUnit)
         && this.normalizedPlanType === "PPMP"
         && (this.ppmp.can_add_items || is_pending);
     },
     canAddSppItem() {
+      const planStatus = String(this.ppmp.ppmp_status || this.ppmp.approval_status || "Pending").trim().toLowerCase();
+
       return this.normalizedPlanType === "SPP"
-        && (this.isPpmpCreator || this.isProcurementUser || this.isAdministrator);
+        && planStatus === "pending"
+        && (this.isPpmpCreator || this.isSameUserUnit);
     },
     normalizedPlanType() {
-      switch (this.ppmp.plan_type) {
+      switch (this.ppmp.plan_type || this.ppmp.plan_name || this.ppmp.title) {
         case "APP":
         case "annual":
+        case "Annual Procurement Plan":
           return "APP";
 
         case "SPP":
         case "supplemental":
+        case "Supplemental Procurement Plan":
           return "SPP";
 
         case "PPMP":
@@ -212,16 +229,16 @@ export default {
         .filter(Boolean);
     },
     isBudgetOfficer() {
-      return this.currentRoleNames.includes("Budget Officer") || this.isAdministrator;
+      return this.hasRole("Budget Officer");
     },
     isAdministrator() {
-      return this.currentRoleNames.includes("Administrator");
+      return this.hasRole("Administrator");
     },
     isProcurementOfficer() {
-      return this.currentRoleNames.includes("Procurement Officer") || this.isAdministrator;
+      return this.hasRole("Procurement Officer");
     },
     isProcurementUser() {
-      return this.currentRoleNames.some((role) => ["Procurement Officer", "Procurement Staff"].includes(role));
+      return this.hasRole("Procurement Officer") || this.hasRole("Procurement Staff");
     },
     isPendingPpmp() {
       return String(this.ppmp.ppmp_status || "").trim().toLowerCase() === "pending";
@@ -235,8 +252,22 @@ export default {
     isConsolidatedToApp() {
       return String(this.ppmp.ppmp_status || "").trim().toLowerCase() === "consolidated/added to app";
     },
+    canConsolidatePpmp() {
+      const bacDesignations = ["BAC Chairperson", "BAC Vice Chairperson", "BAC Member"];
+      const designation = this.$page.props.user?.data?.designation;
+
+      return this.hasRole("BAC User")
+        || this.hasRole("BAC Chairperson")
+        || this.hasRole("BAC Vice Chairperson")
+        || this.hasRole("BAC Member")
+        || bacDesignations.includes(designation);
+    },
     canShowConsolidateAction() {
-      return Boolean(this.ppmp.can_approve_to_app) && !this.isConsolidatedToApp;
+      const status = String(this.ppmp.ppmp_status || "").trim().toLowerCase();
+
+      return this.canConsolidatePpmp
+        && (Boolean(this.ppmp.can_approve_to_app) || status === "submitted/for consolidation")
+        && !this.isConsolidatedToApp;
     },
     canShowAdvanceAction() {
       if (this.normalizedPlanType === "APP") {
@@ -251,6 +282,20 @@ export default {
         return this.isForReview && this.isBudgetOfficer;
       }
 
+      if (this.normalizedPlanType === "SPP") {
+        if (this.isForReview) {
+          return this.isBudgetOfficer;
+        }
+
+        if (this.isReviewedForSubmission) {
+          return this.isProcurementOfficer;
+        }
+
+        if (this.isPendingPpmp) {
+          return this.canSubmitPendingPpmp;
+        }
+      }
+
       if (this.isReviewedForSubmission && this.isProcurementOfficer) {
         return true;
       }
@@ -263,26 +308,18 @@ export default {
         return true;
       }
 
-      if (!this.ppmp.can_submit_final) {
-        return false;
-      }
-
-      if (this.isAdministrator) {
-        return true;
-      }
-
       if (this.isReviewedForSubmission) {
         return this.isProcurementOfficer;
       }
 
       if (this.isPendingPpmp) {
-        return this.isBudgetOfficer;
+        return this.canSubmitPendingPpmp;
       }
 
       return false;
     },
     canSubmitPendingPpmp() {
-      return this.isPpmpCreator || this.isProcurementUser || this.isAdministrator;
+      return this.isPpmpCreator || this.isSameUserUnit || this.isProcurementUser || this.isAdministrator;
     },
     hasPpmpItems() {
       return Number(this.ppmp?.items_count || 0) > 0;
@@ -391,10 +428,40 @@ export default {
         return "Submit for Review";
       }
 
-      return "Review";
+      return "Submit for Review";
     },
   },
   methods: {
+    hasRole(roleName) {
+      return Array.isArray(this.$page?.props?.roles)
+        && this.$page.props.roles.includes(roleName);
+    },
+    subscribeToPlanUpdates() {
+      if (!window.Echo) {
+        return;
+      }
+
+      window.Echo.channel("procurement-plans")
+        .listen(".procurement-plan.status-updated", (event) => {
+          const updatedPlanId = Number(event?.plan?.id || 0);
+
+          if (!updatedPlanId || updatedPlanId !== Number(this.ppmp?.id || 0)) {
+            return;
+          }
+
+          router.reload({
+            only: ["ppmp"],
+            preserveScroll: true,
+          });
+        });
+    },
+    unsubscribeFromPlanUpdates() {
+      if (!window.Echo) {
+        return;
+      }
+
+      window.Echo.leave("procurement-plans");
+    },
     goBack() {
       router.get("/faims/procurement-ppmp");
     },

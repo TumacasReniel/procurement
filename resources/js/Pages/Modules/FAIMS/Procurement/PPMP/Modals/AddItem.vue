@@ -256,6 +256,9 @@
           <div v-if="form.errors.item" class="text-danger small fw-semibold mt-2">
             {{ form.errors.item }}
           </div>
+          <div v-if="itemTableError" class="text-danger small fw-semibold mt-2">
+            {{ itemTableError }}
+          </div>
         </BCol>
       </BRow>
     </form>
@@ -265,10 +268,10 @@
       <b-button
         @click="submit"
         variant="primary"
-        :disabled="form.processing || !isFormValid"
+        :disabled="form.processing"
         block
       >
-        {{ form.processing ? "Saving..." : submitLabel }}
+        {{ form.processing ? "Saving..." : "Save" }}
       </b-button>
     </template>
   </b-modal>
@@ -410,8 +413,22 @@ export default {
     isEditing() {
       return Boolean(this.editingItem);
     },
+    planLabel() {
+      switch (this.ppmp?.plan_type) {
+        case "APP":
+        case "annual":
+          return "APP";
+        case "SPP":
+        case "supplemental":
+          return "SPP";
+        case "PPMP":
+        case "ppmp":
+        default:
+          return "PPMP";
+      }
+    },
     modalTitle() {
-      return this.isEditing ? "Edit PPMP Item" : "Add PPMP Item";
+      return this.isEditing ? `Edit ${this.planLabel} Item` : `Add ${this.planLabel} Item`;
     },
     isFormValid() {
       if (this.isEditing) {
@@ -448,10 +465,10 @@ export default {
     },
     submitLabel() {
       if (this.isEditing) {
-        return "Update Item";
+        return `Update ${this.planLabel} Item`;
       }
 
-      return this.mode === "draft" ? "Use Item" : "Add Item";
+      return this.mode === "draft" ? "Use Item" : `Add ${this.planLabel} Item`;
     },
     supportingDocumentName() {
       return this.form.supporting_document_file?.name || this.editingItem?.supporting_document_original_name || "";
@@ -536,10 +553,6 @@ export default {
       }
     },
     submit() {
-      if (!this.isFormValid) {
-        return;
-      }
-
       const rowsToSubmit = this.itemRows;
       this.form.items = rowsToSubmit.map(({ key, total_cost, ...row }) => row);
 
@@ -547,11 +560,11 @@ export default {
         const firstRow = rowsToSubmit[0];
         this.form.option = "update_item";
         this.form.item_id = this.editingItem.id;
-        this.form.item_name = firstRow.item_name;
-        this.form.item_description = firstRow.item_description;
-        this.form.item_quantity = firstRow.item_quantity;
-        this.form.item_unit_type_id = firstRow.item_unit_type_id;
-        this.form.item_unit_cost = Number(firstRow.item_unit_cost || 0);
+        this.form.item_name = firstRow?.item_name || "";
+        this.form.item_description = firstRow?.item_description || "";
+        this.form.item_quantity = firstRow?.item_quantity || null;
+        this.form.item_unit_type_id = firstRow?.item_unit_type_id || null;
+        this.form.item_unit_cost = firstRow ? Number(firstRow.item_unit_cost || 0) : null;
 
         this.form.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
           forceFormData: true,
@@ -565,6 +578,12 @@ export default {
 
       if (this.mode === "draft") {
         const firstRow = rowsToSubmit[0];
+
+        if (!firstRow) {
+          this.form.setError("items", "Please add at least one item to the table.");
+          return;
+        }
+
         this.$emit("draft", {
           item_name: firstRow.item_name,
           item_description: firstRow.item_description,

@@ -38,8 +38,9 @@ class ProcurementPPMPResource extends JsonResource
         $year = $this->date ? date('Y', strtotime($this->date)) : date('Y', strtotime((string) $this->created_at));
         $ppmp_no = $this->ppmp_no_override ?: match ($plan_type) {
             'supplemental' => $this->code ?: 'SPP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT),
-            default => 'PPMP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT),
+            default => $this->code ?: 'PPMP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT),
         };
+        $ppmp_no = $this->display_plan_number($ppmp_no);
         $start_date = $this->start_date_override ?: $this->date;
         $item_details = $this->item_details($items);
         $consolidated_item_details = $plan_type === 'ppmp'
@@ -77,6 +78,7 @@ class ProcurementPPMPResource extends JsonResource
             'purpose' => $this->purpose,
             'title' => $this->title,
             'division' => $this->division,
+            'unit_id' => $this->unit_id,
             'unit' => $this->unit_override ?: $this->unit,
             'fund_cluster' => $this->fund_cluster,
             'classification' => $this->classification,
@@ -534,7 +536,18 @@ class ProcurementPPMPResource extends JsonResource
             ? date('Y', strtotime($procurement->date))
             : date('Y', strtotime((string) $procurement->created_at));
 
-        return 'PPMP-'.$year.'-'.str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT);
+        return $this->display_plan_number($procurement->code ?: 'PPMP-'.$year.'-'.str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT));
+    }
+
+    protected function display_plan_number(?string $number): ?string
+    {
+        if (! $number) {
+            return $number;
+        }
+
+        return preg_match('/-(\d{2})$/', $number, $matches)
+            ? $matches[1]
+            : $number;
     }
 
     protected function plan_type(?string $plan_name): string
@@ -560,7 +573,9 @@ class ProcurementPPMPResource extends JsonResource
             ?: match ($this->status?->name) {
                 'For Review' => 'For Review',
                 'Reviewed' => 'Reviewed/For Submission',
-                'Approved' => $plan_name ? 'Consolidated/Added to APP' : 'Submitted/For Consolidation',
+                'Approved' => $plan_name === 'Supplemental Procurement Plan'
+                    ? 'Submitted/For Consolidation'
+                    : ($plan_name ? 'Consolidated/Added to APP' : 'Submitted/For Consolidation'),
                 default => 'Pending',
             };
     }
@@ -579,7 +594,7 @@ class ProcurementPPMPResource extends JsonResource
             'For Review' => 'For Review',
             'Reviewed' => 'Reviewed/For Submission',
             'Approved' => $plan_name === 'Supplemental Procurement Plan'
-                ? 'Consolidated/Added to SPP'
+                ? 'Submitted/For Consolidation'
                 : ($plan_name ? 'Consolidated/Added to APP' : 'Submitted/For Consolidation'),
             default => 'Pending',
         };
@@ -590,6 +605,7 @@ class ProcurementPPMPResource extends JsonResource
         return collect($this->source_ppmps_override ?: [])
             ->map(fn ($source) => [
                 'id' => data_get($source, 'id'),
+                'plan_type' => data_get($source, 'plan_type'),
                 'ppmp_no' => data_get($source, 'ppmp_no'),
                 'unit_id' => data_get($source, 'unit_id'),
                 'unit' => $this->source_label(data_get($source, 'unit')),
@@ -623,18 +639,21 @@ class ProcurementPPMPResource extends JsonResource
     protected function can_mark_final_ppmp(?string $plan_name, string $plan_type): bool
     {
         if ($plan_name === 'Annual Procurement Plan') {
-            return $this->can_advance_ppmp_status();
+            return in_array($this->status?->name, ['Pending', 'For Review', 'Reviewed'], true);
+        }
+
+        if ($plan_name === 'Supplemental Procurement Plan') {
+            return in_array($this->status?->name, ['Pending', 'For Review', 'Reviewed'], true);
         }
 
         return ! $plan_name
             && $plan_type === 'ppmp'
-            && $this->can_advance_ppmp_status();
+            && in_array($this->status?->name, ['Pending', 'For Review', 'Reviewed'], true);
     }
 
     protected function can_approve_to_app(string $approval_status): bool
     {
-        return $approval_status === 'Submitted/For Consolidation'
-            && $this->can_consolidate_ppmp();
+        return $approval_status === 'Submitted/For Consolidation';
     }
 
     protected function is_final_ppmp(?string $plan_name): bool
@@ -647,51 +666,4 @@ class ProcurementPPMPResource extends JsonResource
         return in_array($this->status?->name, ['For Review', 'Reviewed', 'Approved'], true);
     }
 
-    protected function can_advance_ppmp_status(): bool
-    {
-        $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        return match ($this->status?->name) {
-            'Pending' => $this->can_submit_pending_ppmp($user),
-            'For Review' => $user->hasRole('Budget Officer') || $user->hasRole('Administrator'),
-            'Reviewed' => $user->hasRole('Procurement Officer') || $user->hasRole('Administrator'),
-            default => false,
-        };
-    }
-
-    protected function can_submit_pending_ppmp($user): bool
-    {
-        if ((int) $this->created_by_id === (int) $user->id) {
-            return true;
-        }
-
-        foreach (['Procurement Staff', 'Procurement Officer', 'Administrator'] as $role) {
-            if ($user->hasRole($role)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    protected function can_consolidate_ppmp(): bool
-    {
-        $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        foreach (['Administrator', 'BAC User', 'BAC Chairperson', 'BAC Vice Chairperson', 'BAC Member'] as $role) {
-            if ($user->hasRole($role)) {
-                return true;
-            }
-        }
-
-        return in_array($user->org_chart?->designation?->name, ['BAC Chairperson', 'BAC Vice Chairperson', 'BAC Member'], true);
-    }
 }

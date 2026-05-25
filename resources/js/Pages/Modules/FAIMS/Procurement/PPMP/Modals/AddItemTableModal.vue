@@ -60,7 +60,7 @@
             label="display_name"
             valueProp="value"
             trackBy="display_name"
-            placeholder="Unit"
+            placeholder="Select Unit Type"
           />
         </BCol>
 

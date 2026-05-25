@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProcurementPpmpItem extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'item_no',
         'procurement_ppmp_id',
@@ -56,5 +60,35 @@ class ProcurementPpmpItem extends Model
     public function status()
     {
         return $this->belongsTo(ListStatus::class, 'status_id');
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'item_no',
+                'procurement_ppmp_id',
+                'item_unit_type_id',
+                'item_name',
+                'item_description',
+                'project_type',
+                'item_category_id',
+                'recommended_mode_of_procurement',
+                'pre_procurement_conference',
+                'end_of_procurement_activity',
+                'expected_delivery_date',
+                'attached_supporting_documents',
+                'supporting_document_path',
+                'supporting_document_original_name',
+                'remarks',
+                'item_quantity',
+                'item_unit_cost',
+                'total_cost',
+                'status_id',
+            ])
+            ->setDescriptionForEvent(fn (string $eventName) => "PPMP item {$eventName}")
+            ->useLogName('Procurement Plan Item')
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

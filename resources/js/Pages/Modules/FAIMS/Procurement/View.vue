@@ -541,6 +541,7 @@ export default {
       showProgressModal: false,
       processPage: 1,
       processPerPage: 8,
+      procurementRequestChannel: null,
     };
   },
 
@@ -870,8 +871,31 @@ export default {
     this.activeTab = this.resolveDefaultTab();
     this.syncPurchaseOrderViewState(this.activeTab);
     this.openProgressModalOnce();
+    this.subscribeToProcurementRequestChanges();
+  },
+  beforeUnmount() {
+    this.unsubscribeFromProcurementRequestChanges();
   },
   methods: {
+    subscribeToProcurementRequestChanges() {
+      if (!window.Echo || !this.procurement?.id || this.procurementRequestChannel) {
+        return;
+      }
+
+      this.procurementRequestChannel = `procurement.${this.procurement.id}`;
+      window.Echo.private(this.procurementRequestChannel)
+        .listen(".procurement-request.changed", () => {
+          this.refreshProcurementContext();
+        });
+    },
+    unsubscribeFromProcurementRequestChanges() {
+      if (!window.Echo || !this.procurementRequestChannel) {
+        return;
+      }
+
+      window.Echo.leave(this.procurementRequestChannel);
+      this.procurementRequestChannel = null;
+    },
     changeProcessPage(page) {
       const nextPage = Number(page);
 

@@ -28,7 +28,7 @@
         <div class="car-body bg-white ppmp-filter-panel border-bottom shadow-none">
           <div class="px-3 pt-3">
             <ul class="nav nav-tabs nav-tabs-custom" role="tablist">
-              <li class="nav-item" role="presentation" >
+              <li class="nav-item" role="presentation">
                 <button
                   type="button"
                   class="nav-link"
@@ -39,7 +39,15 @@
                   PPMP
                 </button>
               </li>
-              <li class="nav-item" role="presentation" v-if="$page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Budget Officer')">
+              <li
+                class="nav-item"
+                role="presentation"
+                v-if="
+                  $page.props.roles.includes('Procurement Officer') ||
+                  $page.props.roles.includes('Budget Officer') ||
+                  $page.props.roles.includes('Administrator')
+                "
+              >
                 <button
                   type="button"
                   class="nav-link"
@@ -62,7 +70,6 @@
                 </button>
               </li>
             </ul>
-
           </div>
           <b-row class="mb-2 ms-1 me-1" style="margin-top: 12px">
             <b-col lg>
@@ -75,7 +82,14 @@
                   v-model="filter.keyword"
                   :placeholder="`Search ${activePlanLabel}`"
                   class="form-control"
-                  :style="{ width: filter.plan_type === 'APP' ? '52%' : (filter.plan_type === 'SPP' ? '40%' : '37%') }"
+                  :style="{
+                    width:
+                      filter.plan_type === 'APP'
+                        ? '52%'
+                        : filter.plan_type === 'SPP'
+                        ? '40%'
+                        : '37%',
+                  }"
                 />
                 <Multiselect
                   v-if="['PPMP', 'SPP'].includes(filter.plan_type) && canManagePPMP"
@@ -103,8 +117,12 @@
                 <select v-model="filter.sort" class="form-select" style="width: 14%">
                   <option value="latest">Latest Date</option>
                   <option value="oldest">Oldest Date</option>
-                  <option v-if="filter.plan_type === 'PPMP'" value="pr_asc">PR Number A-Z</option>
-                  <option v-if="filter.plan_type === 'PPMP'" value="pr_desc">PR Number Z-A</option>
+                  <option v-if="filter.plan_type === 'PPMP'" value="pr_asc">
+                    PR Number A-Z
+                  </option>
+                  <option v-if="filter.plan_type === 'PPMP'" value="pr_desc">
+                    PR Number Z-A
+                  </option>
                 </select>
                 <span
                   @click="refresh()"
@@ -122,7 +140,10 @@
                   style="color: #fff !important"
                   @click="openCreatePpmpModal"
                 >
-                  <i class="ri-add-circle-line align-bottom me-1 text-white" style="color: #fff !important"></i>
+                  <i
+                    class="ri-add-circle-line align-bottom me-1 text-white"
+                    style="color: #fff !important"
+                  ></i>
                   Create PPMP
                 </b-button>
                 <b-button
@@ -132,8 +153,10 @@
                   class="text-white"
                   style="color: #fff !important"
                 >
-                  <i class="ri-file-add-line align-bottom me-1 " 
-                  style="color: #fff !important"></i>
+                  <i
+                    class="ri-file-add-line align-bottom me-1"
+                    style="color: #fff !important"
+                  ></i>
                   Create APP
                 </b-button>
                 <b-button
@@ -143,7 +166,10 @@
                   style="color: #fff !important"
                   @click="openCreateSppModal"
                 >
-                  <i class="ri-add-circle-line align-bottom me-1 text-white" style="color: #fff !important"></i>
+                  <i
+                    class="ri-add-circle-line align-bottom me-1 text-white"
+                    style="color: #fff !important"
+                  ></i>
                   Create SPP
                 </b-button>
               </div>
@@ -157,14 +183,17 @@
               class="table-responsive table-card ppmp-list-scroll"
               style="margin-top: -39px; height: calc(100vh - 350px); overflow: auto"
             >
-              <table v-if="filter.plan_type === 'APP'" class="table align-middle table-hover mb-0 ppmp-table app-register-table">
+              <table
+                v-if="filter.plan_type === 'APP'"
+                class="table align-middle table-hover mb-0 ppmp-table app-register-table"
+              >
                 <thead class="table-light thead-fixed">
                   <tr class="fs-12 fw-semibold align-middle">
                     <th style="width: 4%" class="text-center">#</th>
                     <th style="min-width: 160px">APP No.</th>
                     <th style="min-width: 130px">Fiscal Year</th>
                     <th style="min-width: 150px" class="text-end">Total ABC</th>
-                    <th style="min-width: 180px">Source PPMPs</th>
+                    <th style="min-width: 180px">Source</th>
                     <th style="min-width: 165px" class="text-center">APP Status</th>
                     <th style="min-width: 120px" class="text-center">Actions</th>
                   </tr>
@@ -182,19 +211,34 @@
                       {{ index + 1 }}
                     </td>
                     <td>
-                      <div class="fw-semibold text-primary">{{ list.ppmp_no || "-" }}</div>
-                      <small class="text-muted">{{ list.plan_name || "Annual Procurement Plan" }}</small>
+                      <div class="fw-semibold text-primary">
+                        {{ list.ppmp_no || "-" }}
+
+                        <span> Version No. </span>
+                        {{ list.version }}
+                      </div>
+                      <small class="text-muted">{{
+                        list.plan_name || "Annual Procurement Plan"
+                      }}</small>
                     </td>
                     <td>
                       <div class="fw-medium">{{ fiscalYear(list) }}</div>
                       <small class="text-muted">Agency-wide</small>
                     </td>
                     <td class="text-end">
-                      <span class="fw-semibold">{{ formatCurrency(list.estimated_budget) }}</span>
-                      <small class="d-block text-muted">{{ list.source_of_funds || "-" }}</small>
+                      <span class="fw-semibold">{{
+                        formatCurrency(list.estimated_budget)
+                      }}</span>
+                      <small class="d-block text-muted">{{
+                        list.source_of_funds || "-"
+                      }}</small>
                     </td>
                     <td>
-                      <div class="fw-medium">{{ sourcePpmpCount(list) }} PPMP{{ sourcePpmpCount(list) === 1 ? "" : "s" }}</div>
+                      <div class="fw-medium">
+                        {{ sourcePpmpCount(list) }} PPMP{{
+                          sourcePpmpCount(list) === 1 ? "" : "s"
+                        }}
+                      </div>
                       <small class="text-muted">{{ sourcePpmpPreview(list) }}</small>
                     </td>
                     <td class="text-center">
@@ -227,7 +271,7 @@
                           v-b-tooltip.hover
                           :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
-                          :disabled="approveFinalForm.processing"
+                          :disabled="form.processing"
                         >
                           <i class="ri-check-double-line"></i>
                         </b-button>
@@ -248,7 +292,13 @@
                           variant="soft-info"
                           class="btn-icon position-relative overflow-visible"
                           v-b-tooltip.hover
-                          :title="planCommentCount(list) ? `${planCommentCount(list)} comment${planCommentCount(list) === 1 ? '' : 's'} for ${list.ppmp_no || 'APP'}` : 'Open APP comments'"
+                          :title="
+                            planCommentCount(list)
+                              ? `${planCommentCount(list)} comment${
+                                  planCommentCount(list) === 1 ? '' : 's'
+                                } for ${list.ppmp_no || 'APP'}`
+                              : 'Open APP comments'
+                          "
                           style="border-radius: 8px"
                         >
                           <i class="ri-chat-1-line"></i>
@@ -290,16 +340,28 @@
                       {{ index + 1 }}
                     </td>
                     <td>
-                      <div class="fw-semibold text-primary">{{ list.ppmp_no || "-" }}</div>
+                      <div class="fw-semibold text-primary">
+                        {{ list.ppmp_no || "-" }}
+                      </div>
                     </td>
                     <td>
                       <div class="fw-medium">{{ list.unit?.name || "-" }}</div>
-                      <small class="text-muted">{{ normalizedPlanType(list.plan_type) === "PPMP" ? list.division?.name || "-" : "All end-user units" }}</small>
-                      <small class="d-block text-muted">{{ list.plan_name || "PPMP" }}</small>
+                      <small class="text-muted">{{
+                        normalizedPlanType(list.plan_type) === "PPMP"
+                          ? list.division?.name || "-"
+                          : "All end-user units"
+                      }}</small>
+                      <small class="d-block text-muted">{{
+                        list.plan_name || "PPMP"
+                      }}</small>
                     </td>
                     <td class="text-end">
-                      <span class="fw-semibold">{{ formatCurrency(list.estimated_budget) }}</span>
-                      <small class="d-block text-muted">{{ list.source_of_funds || "-" }}</small>
+                      <span class="fw-semibold">{{
+                        formatCurrency(list.estimated_budget)
+                      }}</span>
+                      <small class="d-block text-muted">{{
+                        list.source_of_funds || "-"
+                      }}</small>
                     </td>
                     <td>
                       <div>{{ formatDate(list.start_of_procurement_activity) }}</div>
@@ -324,7 +386,6 @@
                           :title="`View ${planShortName(list)} Details`"
                           style="border-radius: 8px"
                         >
-
                           <i class="ri-eye-line"></i>
                         </b-button>
                         <b-button
@@ -336,7 +397,7 @@
                           v-b-tooltip.hover
                           :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
-                          :disabled="approveFinalForm.processing"
+                          :disabled="form.processing"
                         >
                           <i class="ri-check-double-line"></i>
                         </b-button>
@@ -359,7 +420,13 @@
                           variant="soft-info"
                           class="btn-icon position-relative overflow-visible"
                           v-b-tooltip.hover
-                          :title="planCommentCount(list) ? `${planCommentCount(list)} comment${planCommentCount(list) === 1 ? '' : 's'} for ${list.ppmp_no || planShortName(list)}` : `Open ${planShortName(list)} comments`"
+                          :title="
+                            planCommentCount(list)
+                              ? `${planCommentCount(list)} comment${
+                                  planCommentCount(list) === 1 ? '' : 's'
+                                } for ${list.ppmp_no || planShortName(list)}`
+                              : `Open ${planShortName(list)} comments`
+                          "
                           style="border-radius: 8px"
                         >
                           <i class="ri-chat-1-line"></i>
@@ -424,7 +491,7 @@
     v-model:show="approveFinalModal.show"
     :ppmp="approveFinalModal.data"
     :plan-type="filter.plan_type"
-    :processing="approveFinalForm.processing"
+    :processing="form.processing"
     :error="approveFinalModal.error"
     @cancel="closeApproveFinalModal"
     @confirm="updateStatus"
@@ -480,7 +547,6 @@
     :show-trigger="true"
     @comment-added="syncPlanCommentCount"
   />
-
 </template>
 
 <script>
@@ -563,7 +629,7 @@ export default {
       addSppItemModal: {
         ppmp: null,
       },
-      approveFinalForm: useForm({
+      form: useForm({
         option: "update_status",
         plan_type: "PPMP",
       }),
@@ -575,6 +641,7 @@ export default {
       pendingNotificationPlanId: null,
       pendingNotificationCommentId: null,
       pendingNotificationChatOpened: false,
+      annualAppYearCache: null,
     };
   },
   computed: {
@@ -583,14 +650,14 @@ export default {
     },
     currentRoleNames() {
       return this.currentRoles
-        .map((role) => typeof role === "string" ? role : role?.name)
+        .map((role) => (typeof role === "string" ? role : role?.name))
         .filter(Boolean);
     },
     canManagePPMP() {
-      return this.currentRoleNames.some((role) => ["Procurement Officer", "Administrator"].includes(role));
+      return this.hasRole("Procurement Officer");
     },
     hasProcurementCreateRole() {
-      return this.currentRoleNames.some((role) => ["Procurement Staff", "Procurement Officer"].includes(role));
+      return this.hasRole("Procurement Staff") || this.hasRole("Procurement Officer");
     },
     canShowCreatePpmpButton() {
       if (this.filter.plan_type !== "PPMP") {
@@ -603,7 +670,9 @@ export default {
 
       return Boolean(
         this.defaultUserUnitId &&
-        this.availablePpmpUnits.some((unit) => Number(unit.value) === this.defaultUserUnitId)
+          this.availablePpmpUnits.some(
+            (unit) => Number(unit.value) === this.defaultUserUnitId
+          )
       );
     },
     canShowCreateSppButton() {
@@ -613,11 +682,14 @@ export default {
       const bacDesignations = ["BAC Chairperson", "BAC Vice Chairperson", "BAC Member"];
       const designation = this.$page.props.user?.data?.designation;
 
-      return this.currentRoles.some((role) => ["BAC User", ...bacDesignations, "Administrator"].includes(role))
-        || bacDesignations.includes(designation);
+      return (
+        this.hasRole("BAC User") ||
+        bacDesignations.some((role) => this.hasRole(role)) ||
+        bacDesignations.includes(designation)
+      );
     },
     canCreateAppPlans() {
-      return this.canApprovePPMPPlans || this.currentRoleNames.includes("Procurement Officer");
+      return this.hasRole("Procurement Officer");
     },
     unitOptions() {
       return this.normalizeOptions(this.dropdowns?.units);
@@ -630,11 +702,14 @@ export default {
     statusOptions() {
       const options = this.normalizeOptions(this.dropdowns?.statuses).map((status) => ({
         ...status,
-        name: status.name === "Reviewed"
-          ? "Reviewed/For Submission"
-          : (status.name === "Approved"
-            ? (this.filter.plan_type === "APP" ? "Submitted/For Implementation" : "Submitted/For Consolidation")
-            : status.name),
+        name:
+          status.name === "Reviewed"
+            ? "Reviewed/For Submission"
+            : status.name === "Approved"
+            ? this.filter.plan_type === "APP"
+              ? "Submitted/For Implementation"
+              : "Submitted/For Consolidation"
+            : status.name,
       }));
 
       if (!options.some((status) => status.name === "For Review")) {
@@ -656,6 +731,10 @@ export default {
       return new Date().getFullYear();
     },
     annualAppYears() {
+      if (Array.isArray(this.annualAppYearCache)) {
+        return this.annualAppYearCache;
+      }
+
       const years = this.dropdowns?.annual_app_years || [];
       return Array.isArray(years) ? years.map((year) => Number(year)) : [];
     },
@@ -726,7 +805,9 @@ export default {
         return null;
       }
 
-      return this.lists.find((item) => Number(item.id) === Number(this.selectedRow)) || null;
+      return (
+        this.lists.find((item) => Number(item.id) === Number(this.selectedRow)) || null
+      );
     },
   },
   watch: {
@@ -764,7 +845,38 @@ export default {
     this.fetchAvailableSppUnits();
     this.fetch();
   },
+  mounted() {
+    this.subscribeToPlanStatusUpdates();
+  },
+  beforeUnmount() {
+    this.unsubscribeFromPlanStatusUpdates();
+  },
   methods: {
+    hasRole(roleName) {
+      return (
+        Array.isArray(this.$page?.props?.roles) &&
+        this.$page.props.roles.includes(roleName)
+      );
+    },
+    subscribeToPlanStatusUpdates() {
+      if (!window.Echo) {
+        return;
+      }
+
+      window.Echo.channel("procurement-plans").listen(
+        ".procurement-plan.status-updated",
+        () => {
+          this.fetch();
+        }
+      );
+    },
+    unsubscribeFromPlanStatusUpdates() {
+      if (!window.Echo) {
+        return;
+      }
+
+      window.Echo.leave("procurement-plans");
+    },
     planCommentCount(item) {
       return Number(item?.comments_count || 0);
     },
@@ -791,11 +903,12 @@ export default {
         return false;
       }
 
-      const statusName = typeof item.status === "string"
-        ? item.status
-        : item.status?.name;
+      const statusName =
+        typeof item.status === "string" ? item.status : item.status?.name;
       const displayStatus = String(item.ppmp_status || "").toLowerCase();
-      const isApp = this.normalizedPlanType(item.plan_type) === "APP";
+      const planType = this.normalizedPlanType(item.plan_type);
+      const isApp = planType === "APP";
+      const isSpp = planType === "SPP";
 
       const isPending = [statusName, item.ppmp_status]
         .filter(Boolean)
@@ -803,24 +916,34 @@ export default {
       const isForReview = [statusName, item.ppmp_status]
         .filter(Boolean)
         .some((status) => String(status).toLowerCase() === "for review");
-      const isReviewed = String(statusName || "").toLowerCase() === "reviewed"
-        || displayStatus === "reviewed/for submission";
-      const canReview = this.currentRoleNames.includes("Budget Officer") || this.currentRoleNames.includes("Administrator");
-      const canSubmit = this.currentRoleNames.includes("Procurement Officer") || this.currentRoleNames.includes("Administrator");
+      const isReviewed =
+        String(statusName || "").toLowerCase() === "reviewed" ||
+        displayStatus === "reviewed/for submission";
+      const canReview = this.hasRole("Budget Officer");
+      const canSubmit = this.hasRole("Procurement Officer");
       const canSubmitForReview = this.canSubmitPendingPpmp(item);
 
       if (isReviewed && canSubmit) {
         return true;
       }
 
-      if ((!isApp && item.is_final) || ["submitted/for consolidation", "submitted/for implementation", "consolidated/added to app", "consolidated/added to spp"].includes(displayStatus)) {
+      if (
+        (!isApp && !isSpp && item.is_final) ||
+        [
+          "submitted/for consolidation",
+          "submitted/for implementation",
+          "consolidated/added to app",
+          "consolidated/added to spp",
+        ].includes(displayStatus)
+      ) {
         return false;
       }
 
-      return Boolean(item.can_submit_final)
-        || (isPending && canSubmitForReview)
-        || (isForReview && canReview)
-        || (isReviewed && canSubmit);
+      return (
+        (isPending && canSubmitForReview) ||
+        (isForReview && canReview) ||
+        (isReviewed && canSubmit)
+      );
     },
     canSubmitPendingPpmp(item) {
       const currentUserId = Number(this.$page?.props?.user?.data?.id || 0);
@@ -828,8 +951,8 @@ export default {
 
       return Boolean(
         (currentUserId && currentUserId === createdById) ||
-        this.currentRoleNames.includes("Procurement Staff") ||
-        this.currentRoleNames.includes("Procurement Officer")
+          this.hasRole("Procurement Staff") ||
+          this.hasRole("Procurement Officer")
       );
     },
     hasPpmpItems(item) {
@@ -838,21 +961,26 @@ export default {
     requiresItemsBeforeAdvance(item) {
       return ["PPMP", "SPP"].includes(this.normalizedPlanType(item?.plan_type));
     },
-    emptyPpmpItemsMessage() {
-      return "Please add at least one item before updating or submitting this PPMP for review.";
-    },
     firstFormError(errors) {
-      const firstError = Object.values(errors || {}).flat().find(Boolean);
+      const firstError = Object.values(errors || {})
+        .flat()
+        .find(Boolean);
 
       return firstError || "Unable to update this plan status.";
     },
     canApproveToApp(item) {
-      return this.canApprovePPMPPlans
-        && Boolean(item?.can_approve_to_app)
-        && (item?.ppmp_status || "").toLowerCase() === "submitted/for consolidation";
+      return (
+        this.canApprovePPMPPlans &&
+        Boolean(item?.can_approve_to_app) &&
+        (item?.ppmp_status || "").toLowerCase() === "submitted/for consolidation"
+      );
     },
     canAddSppItem(item) {
       if (this.normalizedPlanType(item?.plan_type) !== "SPP") {
+        return false;
+      }
+
+      if (String(item?.ppmp_status || "").toLowerCase() !== "pending") {
         return false;
       }
 
@@ -861,8 +989,22 @@ export default {
 
       return Boolean(
         (currentUserId && currentUserId === createdById) ||
-        this.currentRoleNames.includes("Procurement Staff") ||
-        this.currentRoleNames.includes("Procurement Officer")
+          this.isSameUserUnit(item) ||
+          this.hasRole("Procurement Staff") ||
+          this.hasRole("Procurement Officer")
+      );
+    },
+    currentUserUnitId() {
+      const unitId = this.$page?.props?.user?.data?.organization?.unit_id;
+
+      return unitId ? Number(unitId) : null;
+    },
+    planUnitId(item) {
+      return Number(item?.unit_id || item?.unit?.id || item?.unit?.value || 0) || null;
+    },
+    isSameUserUnit(item) {
+      return Boolean(
+        this.currentUserUnitId() && this.planUnitId(item) === this.currentUserUnitId()
       );
     },
     normalizeOptions(options) {
@@ -895,7 +1037,14 @@ export default {
           },
         })
         .then((response) => {
-          this.lists = response.data.data || [];
+          const lists = response.data.data || [];
+          this.lists =
+            this.filter.plan_type === "SPP"
+              ? lists.filter((item) => this.normalizedPlanType(item?.plan_type) === "SPP")
+              : lists;
+          if (this.filter.plan_type === "APP") {
+            this.refreshAnnualAppYearCache(this.lists);
+          }
           this.meta = response.data.meta || {};
           this.links = response.data.links || {};
           this.openNotificationPlanChat();
@@ -925,7 +1074,8 @@ export default {
       return Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
     },
     fiscalYear(item) {
-      const sourceDate = item?.start_of_procurement_activity || item?.date || item?.created_at;
+      const sourceDate =
+        item?.start_of_procurement_activity || item?.date || item?.created_at;
 
       if (!sourceDate) {
         return "-";
@@ -946,7 +1096,9 @@ export default {
       const sources = Array.isArray(item?.source_ppmps) ? item.source_ppmps : [];
 
       if (!sources.length) {
-        return item?.items_count ? `${item.items_count} item${Number(item.items_count) === 1 ? "" : "s"}` : "-";
+        return item?.items_count
+          ? `${item.items_count} item${Number(item.items_count) === 1 ? "" : "s"}`
+          : "-";
       }
 
       const labels = sources
@@ -958,6 +1110,12 @@ export default {
       }
 
       return labels.slice(0, 3).join(", ") + (labels.length > 3 ? "..." : "");
+    },
+    refreshAnnualAppYearCache(lists = []) {
+      this.annualAppYearCache = lists
+        .map((item) => Number(this.fiscalYear(item)))
+        .filter((year) => Number.isInteger(year))
+        .filter((year, index, years) => years.indexOf(year) === index);
     },
     normalizedPlanType(planType) {
       switch (planType) {
@@ -997,7 +1155,11 @@ export default {
         return "success";
       }
 
-      if (status === "reviewed/for submission" || status === "submitted/for consolidation" || status === "submitted/for implementation") {
+      if (
+        status === "reviewed/for submission" ||
+        status === "submitted/for consolidation" ||
+        status === "submitted/for implementation"
+      ) {
         return "warning";
       }
 
@@ -1005,7 +1167,10 @@ export default {
         return "info";
       }
 
-      if (status === "consolidated/added to app" || status === "consolidated/added to spp") {
+      if (
+        status === "consolidated/added to app" ||
+        status === "consolidated/added to spp"
+      ) {
         return "success";
       }
 
@@ -1019,13 +1184,17 @@ export default {
       }
 
       if (status === "for review" && item?.submitted_for_review_by) {
-        const submittedAt = item.submitted_for_review_at ? ` on ${this.formatDate(item.submitted_for_review_at)}` : "";
+        const submittedAt = item.submitted_for_review_at
+          ? ` on ${this.formatDate(item.submitted_for_review_at)}`
+          : "";
 
         return `Submitted for review by ${item.submitted_for_review_by}${submittedAt}`;
       }
 
       if (item?.reviewed_by) {
-        const reviewedAt = item.reviewed_at ? ` on ${this.formatDate(item.reviewed_at)}` : "";
+        const reviewedAt = item.reviewed_at
+          ? ` on ${this.formatDate(item.reviewed_at)}`
+          : "";
 
         return `Reviewed by ${item.reviewed_by}${reviewedAt}`;
       }
@@ -1035,63 +1204,71 @@ export default {
     advanceActionTitle(item) {
       const status = (item?.ppmp_status || "").toLowerCase();
       const planType = this.normalizedPlanType(item?.plan_type);
+      const planLabel = planType === "SPP" ? "SPP" : "PPMP";
 
       if (status === "pending") {
-        return planType === "APP" ? "Move APP to For Review" : "Submit PPMP for review";
+        return planType === "APP"
+          ? "Move APP to For Review"
+          : `Submit ${planLabel} for review`;
       }
 
       if (status === "for review") {
-        return planType === "APP" ? "Mark APP as reviewed" : "Mark PPMP as reviewed";
+        return planType === "APP"
+          ? "Mark APP as reviewed"
+          : `Mark ${planLabel} as reviewed`;
       }
 
       if (status === "reviewed/for submission") {
-        return planType === "APP" ? "Submit APP for Implementation" : "Submit PPMP for consolidation";
+        return planType === "APP"
+          ? "Submit APP for Implementation"
+          : `Submit ${planLabel} for consolidation`;
       }
 
-      return "Review PPMP";
+      return `Review ${planLabel}`;
     },
 
     goViewPage(data, plan_type) {
       router.get(`/faims/procurement-ppmp/${data.id}`, {
-        option: 'view',
+        option: "view",
         plan_type: plan_type,
       });
     },
     openApproveFinalModal(data) {
-      if (!data?.id || this.approveFinalForm.processing) {
+      if (!data?.id || this.form.processing) {
         return;
       }
 
-      this.approveFinalForm.clearErrors();
+      this.form.clearErrors();
       this.approveFinalModal.error = "";
-      this.approveFinalForm.option = "update_status";
-      this.approveFinalForm.plan_type = this.filter.plan_type;
+      this.form.option = "update_status";
+      this.form.plan_type = this.filter.plan_type;
       this.approveFinalModal.data = data;
       this.approveFinalModal.show = true;
     },
     closeApproveFinalModal() {
-      if (this.approveFinalForm.processing) {
+      if (this.form.processing) {
         return;
       }
 
       this.approveFinalModal.show = false;
       this.approveFinalModal.data = null;
       this.approveFinalModal.error = "";
-      this.approveFinalForm.clearErrors();
+      this.form.clearErrors();
     },
     updateStatus() {
       const data = this.approveFinalModal.data;
-      if (!data?.id || this.approveFinalForm.processing) {
+      if (!data?.id || this.form.processing) {
         return;
       }
 
       if (this.requiresItemsBeforeAdvance(data) && !this.hasPpmpItems(data)) {
-        this.approveFinalModal.error = this.emptyPpmpItemsMessage();
+        this.approveFinalModal.error =
+          "Please add at least one item before updating or submitting this PPMP for review.";
         return;
       }
 
       this.approveFinalModal.error = "";
-      this.approveFinalForm.patch(`/faims/procurement-ppmp/${data.id}`, {
+      this.form.patch(`/faims/procurement-ppmp/${data.id}`, {
         preserveScroll: true,
         onSuccess: () => {
           this.approveFinalModal.show = false;
@@ -1168,7 +1345,10 @@ export default {
       });
     },
     hydrateNotificationChatParams(fetchAfterHydrate = false) {
-      const url = new URL(this.$page?.url || window.location.href, window.location.origin);
+      const url = new URL(
+        this.$page?.url || window.location.href,
+        window.location.origin
+      );
       const params = url.searchParams;
       const planId = params.get("comment_plan_id");
 
@@ -1177,14 +1357,19 @@ export default {
       }
 
       const requestedPlanType = params.get("plan_type");
-      const nextPlanType = requestedPlanType ? this.normalizedPlanType(requestedPlanType) : this.filter.plan_type;
+      const nextPlanType = requestedPlanType
+        ? this.normalizedPlanType(requestedPlanType)
+        : this.filter.plan_type;
       const shouldFetch = fetchAfterHydrate && nextPlanType !== this.filter.plan_type;
 
       this.pendingNotificationPlanId = planId;
       this.pendingNotificationCommentId = params.get("comment_id");
       this.pendingNotificationChatOpened = false;
 
-      if (["PPMP", "APP", "SPP"].includes(nextPlanType) && nextPlanType !== this.filter.plan_type) {
+      if (
+        ["PPMP", "APP", "SPP"].includes(nextPlanType) &&
+        nextPlanType !== this.filter.plan_type
+      ) {
         this.activatePlanTab(nextPlanType);
       }
 
@@ -1218,14 +1403,18 @@ export default {
     initialPlanType() {
       const params = new URLSearchParams(window.location.search);
       const requestedPlanType = params.get("plan_type");
-      const queryPlanType = requestedPlanType ? this.normalizedPlanType(requestedPlanType) : null;
+      const queryPlanType = requestedPlanType
+        ? this.normalizedPlanType(requestedPlanType)
+        : null;
 
       if (["PPMP", "APP", "SPP"].includes(queryPlanType)) {
         this.persistPlanTab(queryPlanType);
         return queryPlanType;
       }
 
-      const storedPlanType = this.normalizedPlanType(localStorage.getItem("procurement_ppmp_plan_type"));
+      const storedPlanType = this.normalizedPlanType(
+        localStorage.getItem("procurement_ppmp_plan_type")
+      );
 
       return ["PPMP", "APP", "SPP"].includes(storedPlanType) ? storedPlanType : "PPMP";
     },
@@ -1252,10 +1441,12 @@ export default {
     openCreateAppModal() {
       this.createAppForm.clearErrors();
       const currentYear = new Date().getFullYear();
-      const currentYearAvailable = this.availableAppYearOptions.some((year) => Number(year.value) === currentYear);
+      const currentYearAvailable = this.availableAppYearOptions.some(
+        (year) => Number(year.value) === currentYear
+      );
       this.createAppForm.year = currentYearAvailable
         ? currentYear
-        : (this.availableAppYearOptions[0]?.value || null);
+        : this.availableAppYearOptions[0]?.value || null;
       this.createAppForm.plan_type = "APP";
       this.createAppModal.show = true;
     },
@@ -1309,13 +1500,15 @@ export default {
       this.createSppForm.year = this.currentYear;
       this.createSppForm.plan_type = "SPP";
       this.fetchAvailableSppUnits();
-      this.createSppForm.unit_id = this.defaultUnitExistsInOptions(this.availableSppUnits) ? this.defaultUserUnitId : null;
+      this.createSppForm.unit_id = this.defaultUnitExistsInOptions(this.availableSppUnits)
+        ? this.defaultUserUnitId
+        : null;
       this.createSppModal.show = true;
     },
     defaultUnitExistsInOptions(options = this.unitOptions) {
       return Boolean(
         this.defaultUserUnitId &&
-        options.some((unit) => Number(unit.value) === this.defaultUserUnitId)
+          options.some((unit) => Number(unit.value) === this.defaultUserUnitId)
       );
     },
     closeCreateSppModal() {
@@ -1340,10 +1533,17 @@ export default {
         })
         .then((response) => {
           this.availablePpmpUnits = Array.isArray(response.data) ? response.data : [];
-          if (!this.createPpmpForm.unit_id && this.defaultUnitExistsInOptions(this.availablePpmpUnits)) {
+          if (
+            !this.createPpmpForm.unit_id &&
+            this.defaultUnitExistsInOptions(this.availablePpmpUnits)
+          ) {
             this.createPpmpForm.unit_id = this.defaultUserUnitId;
           }
-          if (!this.availablePpmpUnits.some((unit) => Number(unit.value) === Number(this.createPpmpForm.unit_id))) {
+          if (
+            !this.availablePpmpUnits.some(
+              (unit) => Number(unit.value) === Number(this.createPpmpForm.unit_id)
+            )
+          ) {
             this.createPpmpForm.unit_id = null;
           }
         })
@@ -1365,10 +1565,17 @@ export default {
         })
         .then((response) => {
           this.availableSppUnits = Array.isArray(response.data) ? response.data : [];
-          if (!this.createSppForm.unit_id && this.defaultUnitExistsInOptions(this.availableSppUnits)) {
+          if (
+            !this.createSppForm.unit_id &&
+            this.defaultUnitExistsInOptions(this.availableSppUnits)
+          ) {
             this.createSppForm.unit_id = this.defaultUserUnitId;
           }
-          if (!this.availableSppUnits.some((unit) => Number(unit.value) === Number(this.createSppForm.unit_id))) {
+          if (
+            !this.availableSppUnits.some(
+              (unit) => Number(unit.value) === Number(this.createSppForm.unit_id)
+            )
+          ) {
             this.createSppForm.unit_id = null;
           }
         })
@@ -1391,8 +1598,16 @@ export default {
       });
     },
     submitCreateApp() {
-      if (!this.createAppForm.year || this.appYearHasExisting) {
-        this.createAppForm.setError('year', 'An APP already exists for the selected year.');
+      if (!this.createAppForm.year) {
+        this.createAppForm.setError("year", "Please select a plan year.");
+        return;
+      }
+
+      if (this.appYearHasExisting) {
+        this.createAppForm.setError(
+          "year",
+          "An APP already exists for the selected year."
+        );
         return;
       }
 
@@ -1401,6 +1616,12 @@ export default {
       this.createAppForm.post("/faims/procurement-ppmp", {
         preserveScroll: true,
         onSuccess: () => {
+          this.annualAppYearCache = [
+            ...new Set([
+              ...(this.annualAppYearCache || this.annualAppYears),
+              Number(this.createAppForm.year),
+            ]),
+          ];
           this.closeCreateAppModal();
           this.activatePlanTab("APP");
           this.filter.unit = null;
@@ -1434,15 +1655,15 @@ export default {
   --ppmp-card-strong: #eef2ff;
   --ppmp-filter-bg: #ffffff;
   --ppmp-header: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  --ppmp-border: rgba(91, 105, 153, .14);
+  --ppmp-border: rgba(91, 105, 153, 0.14);
   --ppmp-ink: #111827;
   --ppmp-muted: #4b5563;
   --ppmp-input: #ffffff;
   --ppmp-input-hover: #f8fafc;
-  --ppmp-hover: rgba(64, 81, 137, .06);
-  --ppmp-active: rgba(64, 81, 137, .1);
-  --ppmp-shadow: rgba(31, 45, 92, .08);
-  padding: .5rem;
+  --ppmp-hover: rgba(64, 81, 137, 0.06);
+  --ppmp-active: rgba(64, 81, 137, 0.1);
+  --ppmp-shadow: rgba(31, 45, 92, 0.08);
+  padding: 0.5rem;
   background: var(--ppmp-bg);
 }
 
@@ -1468,12 +1689,12 @@ export default {
 }
 
 .ppmp-filter-panel {
-  padding: .75rem .75rem .55rem;
+  padding: 0.75rem 0.75rem 0.55rem;
   border-color: var(--ppmp-border) !important;
 }
 
 .ppmp-table-panel {
-  padding: .65rem;
+  padding: 0.65rem;
 }
 
 .ppmp-list-card {
@@ -1508,8 +1729,8 @@ export default {
 
 .ppmp-index-page .form-control:focus,
 .ppmp-index-page .form-select:focus {
-  border-color: rgba(64, 81, 137, .42);
-  box-shadow: 0 0 0 .16rem rgba(64, 81, 137, .12);
+  border-color: rgba(64, 81, 137, 0.42);
+  box-shadow: 0 0 0 0.16rem rgba(64, 81, 137, 0.12);
 }
 
 .ppmp-index-page :deep(.multiselect-wrapper),
@@ -1582,7 +1803,7 @@ export default {
 }
 
 .ppmp-table > :not(caption) > * > * {
-  padding: .48rem .55rem;
+  padding: 0.48rem 0.55rem;
 }
 
 .ppmp-table thead th {
@@ -1631,7 +1852,7 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: .28rem;
+  gap: 0.28rem;
   white-space: nowrap;
 }
 
@@ -1644,7 +1865,7 @@ export default {
 .ppmp-confirm {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
-  gap: .85rem;
+  gap: 0.85rem;
   color: var(--ppmp-ink);
 }
 
@@ -1655,7 +1876,7 @@ export default {
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  background: rgba(10, 179, 156, .14);
+  background: rgba(10, 179, 156, 0.14);
   color: #0ab39c;
   font-size: 1.35rem;
 }
@@ -1664,11 +1885,11 @@ export default {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: .5rem;
+  gap: 0.5rem;
 }
 
 .ppmp-confirm__summary > div {
-  padding: .65rem;
+  padding: 0.65rem;
   border: 1px solid var(--ppmp-border);
   border-radius: 12px;
   background: var(--ppmp-card-soft);
@@ -1677,30 +1898,30 @@ export default {
 .ppmp-confirm__summary span {
   display: block;
   color: var(--ppmp-muted);
-  font-size: .72rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 
 .ppmp-confirm__summary strong {
   display: block;
-  margin-top: .18rem;
+  margin-top: 0.18rem;
   color: var(--ppmp-ink);
-  font-size: .9rem;
+  font-size: 0.9rem;
   line-height: 1.25;
 }
 
 @media (max-width: 1199.98px) {
   .ppmp-index-page .input-group {
     display: grid;
-    grid-template-columns: 42px minmax(220px, 1fr) repeat(3, minmax(150px, .55fr)) auto auto;
-    gap: .35rem;
+    grid-template-columns: 42px minmax(220px, 1fr) repeat(3, minmax(150px, 0.55fr)) auto auto;
+    gap: 0.35rem;
   }
 
   .ppmp-index-page .input-group > * {
     width: 100% !important;
-    border-radius: .375rem !important;
+    border-radius: 0.375rem !important;
   }
 }
 
@@ -1710,8 +1931,8 @@ export default {
   }
 
   .ppmp-list-scroll {
-    margin-left: .5rem;
-    margin-right: .5rem;
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
     max-height: none;
   }
 
@@ -1727,14 +1948,14 @@ export default {
   --ppmp-card-soft: #10192c;
   --ppmp-card-strong: #1d2942;
   --ppmp-header: linear-gradient(180deg, #172136 0%, #121b30 100%);
-  --ppmp-border: rgba(170, 184, 220, .16);
+  --ppmp-border: rgba(170, 184, 220, 0.16);
   --ppmp-ink: #e8edf9;
   --ppmp-muted: #9aa8c7;
   --ppmp-input: #0f1728;
   --ppmp-input-hover: #1a2540;
-  --ppmp-hover: rgba(142, 164, 255, .1);
-  --ppmp-active: rgba(142, 164, 255, .18);
-  --ppmp-shadow: rgba(0, 0, 0, .24);
+  --ppmp-hover: rgba(142, 164, 255, 0.1);
+  --ppmp-active: rgba(142, 164, 255, 0.18);
+  --ppmp-shadow: rgba(0, 0, 0, 0.24);
 }
 
 :global([data-bs-theme="dark"]) .ppmp-index-page .card,
@@ -1776,7 +1997,7 @@ export default {
 
 :global([data-bs-theme="dark"]) .ppmp-index-page .table-active,
 :global([data-bs-theme="dark"]) .ppmp-index-page .table-active > * {
-  --bs-table-bg-state: rgba(142, 164, 255, .14);
+  --bs-table-bg-state: rgba(142, 164, 255, 0.14);
   color: var(--ppmp-ink);
 }
 
@@ -1812,7 +2033,9 @@ export default {
 }
 
 :global([data-bs-theme="dark"]) .ppmp-index-page :deep(.multiselect-option.is-selected),
-:global([data-bs-theme="dark"]) .ppmp-index-page :deep(.multiselect-option.is-selected.is-pointed) {
+:global([data-bs-theme="dark"])
+  .ppmp-index-page
+  :deep(.multiselect-option.is-selected.is-pointed) {
   background: var(--ppmp-active) !important;
   color: var(--ppmp-ink) !important;
 }
@@ -1977,7 +2200,7 @@ export default {
 
 .ppmp-index-page .nav-tabs-custom .nav-link {
   border-radius: 0 !important;
-  padding: .8rem 1.25rem !important;
+  padding: 0.8rem 1.25rem !important;
 }
 
 .ppmp-index-page .ppmp-table-panel {
@@ -1996,12 +2219,12 @@ export default {
 }
 
 .ppmp-index-page .ppmp-table thead th {
-  font-size: .78rem;
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
 .ppmp-index-page .ppmp-table > :not(caption) > * > * {
-  padding: 1rem .75rem !important;
+  padding: 1rem 0.75rem !important;
 }
 
 :global([data-bs-theme="light"]) .ppmp-index-page,
@@ -2167,7 +2390,6 @@ export default {
   font-size: 12px;
   font-weight: 700;
 }
-
 </style>
 
 <style>

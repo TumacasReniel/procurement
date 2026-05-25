@@ -7,6 +7,7 @@ use Inertia\Middleware;
 use App\Notifications\PendingProcurementCodeBudgetRequestNotification;
 use App\Notifications\PendingSupplierApprovalNotification;
 use App\Notifications\ProcurementCommentMentioned;
+use App\Notifications\ProcurementPlanForReviewNotification;
 use App\Notifications\ProcurementPlanCommentMentioned;
 use App\Models\OrgSignatory;
 use App\Models\Procurement;
@@ -123,6 +124,7 @@ class HandleInertiaRequests extends Middleware
             ->whereIn('type', [
                 ProcurementCommentMentioned::class,
                 ProcurementPlanCommentMentioned::class,
+                ProcurementPlanForReviewNotification::class,
                 PendingProcurementCodeBudgetRequestNotification::class,
                 PendingSupplierApprovalNotification::class,
             ])
@@ -160,6 +162,10 @@ class HandleInertiaRequests extends Middleware
         }
 
         if ($notification->type === PendingProcurementCodeBudgetRequestNotification::class) {
+            return $user->hasActiveRole('Budget Officer');
+        }
+
+        if ($notification->type === ProcurementPlanForReviewNotification::class) {
             return $user->hasActiveRole('Budget Officer');
         }
 
@@ -232,6 +238,40 @@ class HandleInertiaRequests extends Middleware
                     'query' => array_filter([
                         'status' => 'pending',
                         'budget_request_id' => $budgetRequestId,
+                    ]),
+                ],
+            ];
+        }
+
+        if ($notification->type === ProcurementPlanForReviewNotification::class) {
+            $planId = data_get($notification->data, 'procurement_plan.id');
+            $planType = $this->normalizePlanType(data_get($notification->data, 'procurement_plan.plan_type'));
+
+            return [
+                'id' => $notification->id,
+                'notification_type' => 'procurement_plan_for_review',
+                'reason' => data_get($notification->data, 'reason', 'plan_review_required'),
+                'supplier_id' => null,
+                'procurement_id' => $planId,
+                'procurement_code' => data_get($notification->data, 'procurement_plan.code')
+                    ?: data_get($notification->data, 'procurement_plan.ppmp_no'),
+                'procurement_purpose' => data_get($notification->data, 'procurement_plan.purpose')
+                    ?: data_get($notification->data, 'procurement_plan.title')
+                    ?: data_get($notification->data, 'message'),
+                'comment_id' => null,
+                'comment_content' => data_get($notification->data, 'message'),
+                'actor' => $actor,
+                'mentioned_by' => $actor,
+                'created_at' => $notification->created_at,
+                'created_ago' => $notification->created_at?->diffForHumans(),
+                'context_label' => "{$planType} Review",
+                'action_label' => 'Review plan',
+                'target' => [
+                    'route' => '/faims/procurement-ppmp',
+                    'query' => array_filter([
+                        'plan_type' => $planType,
+                        'status' => 'For Review',
+                        'plan_id' => $planId,
                     ]),
                 ],
             ];

@@ -64,16 +64,16 @@
                   :searchable="true"
                   label="name"
                   valueProp="value"
-                  placeholder="Example: ICT supplies"
+                  placeholder="Select Item Category"
                   class="modern-select"
                   :append-to-body="true"
                 />
               </div>
             </div>
 
-            <div class="col-lg-6">
+            <div class="col-lg-6" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
-                <InputLabel value="PAP Codes" :message="form.errors.procurement_code_ids" />
+                <InputLabel value="Procurement Codes" :message="form.errors.procurement_code_ids" />
                 <Multiselect
                   v-model="form.procurement_code_ids"
                   :options="procurementCodeOptions"
@@ -82,7 +82,7 @@
                   label="label"
                   valueProp="value"
                   trackBy="label"
-                  placeholder="Select PAP code/s"
+                  placeholder="Select Procurement code/s"
                   class="modern-select"
                   :append-to-body="true"
                 />
@@ -90,14 +90,14 @@
             </div>
 
 
-            <div class="col-lg-6">
+            <div class="col-lg-6" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
                 <InputLabel value="Title" :message="form.errors.title" />
                 <TextInput v-model="form.title" type="text" class="form-control modern-input" placeholder="PR title" />
               </div>
             </div>
 
-            <div v-if="isLockedMode" class="col-lg-6">
+            <div v-if="isLockedMode" class="col-lg-6" >
               <div class="form-group compact-form-group">
                 <InputLabel value="Current APP" :message="form.errors.procurement_app_id" />
                 <Multiselect
@@ -115,7 +115,7 @@
 
         
 
-            <div class="col-12">
+            <div class="col-12" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
                 <InputLabel value="Purpose" :message="form.errors.purpose" />
                 <textarea
@@ -151,15 +151,6 @@
       </div>
 
       <div class="content-card">
-        <div class="card-header-custom">
-          <i class="ri-list-check-2 card-header-icon"></i>
-          <h5 class="card-header-title">Items</h5>
-          <div class="ms-auto">
-            <b-button type="button" variant="outline-secondary" size="sm" :disabled="items.length === 0" @click="toggleAll">
-              {{ allVisibleSelected ? 'Clear Selection' : 'Select All' }}
-            </b-button>
-          </div>
-        </div>
 
         <div class="card-body-custom">
           <div class="table-responsive category-items-table">
@@ -167,11 +158,10 @@
               <thead>
                 <tr>
                   <th class="text-center" style="width: 46px">Pick</th>
-                  <th style="width: 12%">PPMP No.</th>
-                  <th style="width: 18%">Unit</th>
+                  <th style="width: 18%">Acquisition Unit</th>
                   <th style="width: 13%">Category</th>
                   <th>Item</th>
-                  <th style="width: 11%">Quantity</th>
+                  <th style="width: 11%">Quantity/Unit</th>
                   <th style="width: 12%">Unit Cost</th>
                   <th style="width: 12%">ABC</th>
                 </tr>
@@ -195,12 +185,13 @@
                       :disabled="isLockedMode"
                     />
                   </td>
-                  <td>{{ item.ppmp_no || '-' }}</td>
                   <td>{{ item.unit_name || '-' }}</td>
                   <td>{{ item.item_category || '-' }}</td>
                   <td>
                     <div class="fw-semibold">{{ item.item_name }}</div>
-                    <div v-if="item.item_description" class="text-muted small">{{ item.item_description }}</div>
+                    <div v-if="item.item_description" class="text-muted small">
+                    <span v-html="item.item_description"></span>
+                    </div>
                   </td>
                   <td>{{ item.quantity_label || item.item_quantity }}</td>
                   <td>{{ formatCurrency(item.item_unit_cost) }}</td>
@@ -283,6 +274,8 @@ export default {
     return {
       loadingItems: false,
       hydratingProcurement: false,
+      restoringDraft: false,
+      draftStorageKey: "procurementRequestByCategoryDraft",
       items: [],
       selectedIds: [],
       availableItems: [],
@@ -344,7 +337,7 @@ export default {
     emptyItemsMessage() {
       return this.isLockedMode
         ? "No items are attached to this purchase request."
-        : "Choose an item category, then load approved PPMP items.";
+        : "Choose a fund cluster and item category, then load items.";
     },
     canLoadItems() {
       return Boolean(this.form.item_category_id && this.form.fund_cluster_id);
@@ -402,15 +395,34 @@ export default {
   watch: {
     "form.item_category_id"() {
       this.clearItems();
+      this.saveDraft();
     },
     "form.fund_cluster_id"() {
       this.clearItems();
+      this.saveDraft();
     },
     "form.procurement_code_ids"() {
       this.refreshTitleFromCodes();
+      this.saveDraft();
     },
     "form.date"() {
       this.applyAutomaticCurrentApp(true);
+      this.saveDraft();
+    },
+    "form.title"() {
+      this.saveDraft();
+    },
+    "form.purpose"() {
+      this.saveDraft();
+    },
+    "form.procurement_app_id"() {
+      this.saveDraft();
+    },
+    "form.requested_by_id"() {
+      this.saveDraft();
+    },
+    "form.approved_by_id"() {
+      this.saveDraft();
     },
   },
   mounted() {
@@ -423,6 +435,7 @@ export default {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
     }
     this.prefillUserDivisionAndUnit();
+    this.restoreDraft();
   },
   methods: {
     getCurrentDate() {
@@ -526,7 +539,7 @@ export default {
       };
     },
     clearItems() {
-      if (this.hydratingProcurement) {
+      if (this.hydratingProcurement || this.restoringDraft) {
         return;
       }
 
@@ -534,8 +547,13 @@ export default {
       this.selectedIds = [];
       this.availableItems = [];
       this.form.items = [];
+      this.saveDraft();
     },
     refreshTitleFromCodes() {
+      if (this.restoringDraft) {
+        return;
+      }
+
       const selectedCodes = this.dropdowns.procurement_codes.filter((code) =>
         this.form.procurement_code_ids.includes(code.value)
       );
@@ -568,6 +586,7 @@ export default {
         });
 
         this.availableItems = Array.isArray(data) ? data : [];
+        this.saveDraft();
         this.itemSelectionModal.show = true;
       } finally {
         this.loadingItems = false;
@@ -578,6 +597,7 @@ export default {
       this.selectedIds = this.items.map((item) => item.value);
       this.syncFormItems();
       this.itemSelectionModal.show = false;
+      this.saveDraft();
     },
     toggleItem(item) {
       if (this.isLockedMode) return;
@@ -588,12 +608,14 @@ export default {
         this.selectedIds = [...this.selectedIds, item.value];
       }
       this.syncFormItems();
+      this.saveDraft();
     },
     toggleAll() {
       if (this.isLockedMode) return;
 
       this.selectedIds = this.allVisibleSelected ? [] : this.items.map((item) => item.value);
       this.syncFormItems();
+      this.saveDraft();
     },
     syncFormItems() {
       this.form.items = this.selectedItems.map((item) => ({
@@ -605,6 +627,98 @@ export default {
         item_description: item.item_description,
         total_cost: item.total_cost,
       }));
+      this.saveDraft();
+    },
+    draftPayload() {
+      return {
+        form: {
+          date: this.form.date,
+          purpose: this.form.purpose,
+          title: this.form.title,
+          division_id: this.form.division_id,
+          unit_id: this.form.unit_id,
+          fund_cluster_id: this.form.fund_cluster_id,
+          classification_id: this.form.classification_id,
+          reference_app_id: this.form.reference_app_id,
+          procurement_app_id: this.form.procurement_app_id,
+          requested_by_id: this.form.requested_by_id,
+          approved_by_id: this.form.approved_by_id,
+          procurement_code_ids: Array.isArray(this.form.procurement_code_ids)
+            ? this.form.procurement_code_ids
+            : [],
+          item_category_id: this.form.item_category_id,
+          items: Array.isArray(this.form.items) ? this.form.items : [],
+        },
+        items: this.items,
+        selectedIds: this.selectedIds,
+        availableItems: this.availableItems,
+        saved_at: new Date().toISOString(),
+      };
+    },
+    saveDraft() {
+      if (this.isLockedMode || this.hydratingProcurement || this.restoringDraft) {
+        return;
+      }
+
+      try {
+        localStorage.setItem(this.draftStorageKey, JSON.stringify(this.draftPayload()));
+      } catch (error) {
+        console.error("Unable to save category PR draft:", error);
+      }
+    },
+    restoreDraft() {
+      let draft = null;
+
+      try {
+        draft = JSON.parse(localStorage.getItem(this.draftStorageKey));
+      } catch (error) {
+        localStorage.removeItem(this.draftStorageKey);
+        return;
+      }
+
+      if (!draft || typeof draft !== "object") {
+        return;
+      }
+
+      this.restoringDraft = true;
+
+      const draftForm = draft.form || {};
+
+      [
+        "date",
+        "purpose",
+        "title",
+        "division_id",
+        "unit_id",
+        "fund_cluster_id",
+        "classification_id",
+        "reference_app_id",
+        "procurement_app_id",
+        "requested_by_id",
+        "approved_by_id",
+        "item_category_id",
+      ].forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(draftForm, key)) {
+          this.form[key] = draftForm[key];
+        }
+      });
+
+      this.form.procurement_code_ids = Array.isArray(draftForm.procurement_code_ids)
+        ? draftForm.procurement_code_ids
+        : [];
+      this.items = Array.isArray(draft.items) ? draft.items : [];
+      this.selectedIds = Array.isArray(draft.selectedIds) ? draft.selectedIds : [];
+      this.availableItems = Array.isArray(draft.availableItems) ? draft.availableItems : [];
+      this.form.items = Array.isArray(draftForm.items) ? draftForm.items : [];
+
+      this.$nextTick(() => {
+        this.restoringDraft = false;
+        this.syncFormItems();
+        this.saveDraft();
+      });
+    },
+    clearDraft() {
+      localStorage.removeItem(this.draftStorageKey);
     },
     submit() {
       this.applyAutomaticCurrentApp();
@@ -622,6 +736,9 @@ export default {
 
       this.form.post("/faims/procurements", {
         preserveScroll: true,
+        onSuccess: () => {
+          this.clearDraft();
+        },
       });
     },
     goBack() {

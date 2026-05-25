@@ -31,6 +31,8 @@ use NumberFormatter;
 
 class ViewClass
 {
+    protected const PLAN_NAME_APP = 'Annual Procurement Plan';
+
     public function __construct(DropdownClass $dropdown)
     {
         $this->dropdown = $dropdown;
@@ -784,9 +786,13 @@ class ViewClass
 
     protected function currentAppDropdowns(): array
     {
+        $appTypeId = ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type');
+
         return ProcurementApp::query()
             ->with('status')
+            ->when($appTypeId, fn ($query) => $query->where('app_type_id', $appTypeId))
             ->orderByDesc('year')
+            ->orderByDesc('version')
             ->orderByDesc('id')
             ->get()
             ->map(fn (ProcurementApp $app) => [
@@ -795,6 +801,7 @@ class ViewClass
                 'code' => $app->code,
                 'title' => $app->title,
                 'year' => (int) $app->year,
+                'version' => (int) ($app->version ?? 1),
                 'status' => $app->status?->name,
             ])
             ->values()

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\FAIMS\Procurement;
 
 use App\Events\CommentAdded;
+use App\Events\ProcurementPlanStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Procurement\ProcurementPPMPListRequest;
 use App\Http\Requests\Procurement\ProcurementPPMPPlanRequest;
@@ -69,12 +70,24 @@ class ProcurementPPMPController extends Controller
             return $this->ppmp->updateByOption($id, $request);
         });
 
-        return back()->with([
-            'data' => $result['data'],
-            'message' => $result['message'],
-            'info' => $result['info'],
-            'status' => $result['status'],
-        ]);
+        switch ($request->option) {
+            case 'update_status':
+            case 'approve_to_app':
+            case 'add_item':
+            case 'update_item':
+            case 'delete_item':
+                broadcast(new ProcurementPlanStatusUpdated([
+                    'id' => (int) $id,
+                    'plan_type' => $request->input('plan_type', 'PPMP'),
+                    'option' => $request->option,
+                    'updated_by_id' => auth()->id(),
+                    'updated_at' => now()->toDateTimeString(),
+                ]))->toOthers();
+
+                break;
+        }
+
+        return back()->with($result);
     }
 
     public function show($id, Request $request)
@@ -143,6 +156,7 @@ class ProcurementPPMPController extends Controller
             ]);
 
             $comment->load('user.profile');
+            $this->logPlanCommentActivity($app, 'APP comment added', $comment->id);
             $this->notifyMentionedUsers($app, $comment);
             broadcast(new CommentAdded($comment))->toOthers();
 
@@ -164,6 +178,7 @@ class ProcurementPPMPController extends Controller
         ]);
 
         $comment->load('user.profile');
+        $this->logPlanCommentActivity($ppmp, 'Procurement plan comment added', $comment->id);
         $this->notifyMentionedUsers($ppmp, $comment);
         broadcast(new CommentAdded($comment))->toOthers();
 
@@ -176,6 +191,33 @@ class ProcurementPPMPController extends Controller
         return back()->with([
             'data' => $comment,
         ]);
+    }
+
+    protected function logPlanCommentActivity(ProcurementPpmp|ProcurementApp $plan, string $description, int $comment_id): void
+    {
+        $log_name = $plan instanceof ProcurementApp ? 'APP' : 'Procurement Plan';
+        $plan_type = $plan instanceof ProcurementApp
+            ? 'APP'
+            : match ($plan->reference_app?->name) {
+                'Supplemental Procurement Plan' => 'SPP',
+                'Annual Procurement Plan' => 'APP',
+                default => str_starts_with((string) $plan->code, 'SPP-') ? 'SPP' : 'PPMP',
+            };
+
+        $logger = activity($log_name)
+            ->performedOn($plan)
+            ->withProperties([
+                'plan_id' => $plan->id,
+                'plan_code' => $plan->code,
+                'plan_type' => $plan_type,
+                'comment_id' => $comment_id,
+            ]);
+
+        if (auth()->user()) {
+            $logger->causedBy(auth()->user());
+        }
+
+        $logger->log($description);
     }
 
     protected function notifyMentionedUsers(ProcurementPpmp|ProcurementApp $ppmp, $comment): void

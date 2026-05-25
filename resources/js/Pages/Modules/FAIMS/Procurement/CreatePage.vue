@@ -78,6 +78,7 @@
                                   v-model="form.date"
                                   type="date"
                                   class="form-control modern-input"
+                                  readonly
                                 />
                               </div>
                             </div>
@@ -112,9 +113,9 @@
                               </div>
                             </div>
 
-                            <div class="col-6">
+                            <div v-if="showProcurementCodeField" class="col-6">
                               <div class="form-group compact-form-group">
-                                <InputLabel for="Mode Procurement " value="PAP Codes"  />
+                                <InputLabel for="Mode Procurement " value="Procurement Codes"  />
                                 <Multiselect
                                   :options="availableProcurementCodes"
                                   v-model="form.procurement_code_ids"
@@ -214,7 +215,7 @@
                           :title="addItemDisabledReason"
                         >
                           <i class="ri-add-line me-1"></i>
-                          Select PPMP Item
+                          Select Items
                         </b-button>
                       </div>
                     </div>
@@ -294,8 +295,8 @@
                         <div class="empty-state-icon">
                           <i class="ri-shopping-bag-line"></i>
                         </div>
-                        <h6 class="empty-state-title">No PPMP Items Selected</h6>
-                        <p class="empty-state-text">Click "Select PPMP Item" to add approved PPMP items to this PR.</p>
+                        <h6 class="empty-state-title">No Items Selected</h6>
+                        <p class="empty-state-text">Click "Select Items" to add items to this PR.</p>
                       </div>
                     </div>
                   </div>
@@ -478,6 +479,8 @@ export default {
       ppmpItems: [],
       isLoadingPpmpItems: false,
       latestPpmpItemsKey: "",
+      createDraftStorageKey: "procurementRequestCreateDraft",
+      isRestoringCreateDraft: false,
       isRightCollapsed: false,
       isCollapsed: false,
     };
@@ -488,21 +491,40 @@ export default {
       if (newVal) {
         this.getUnits(newVal);
       }
+      this.saveCreateDraft();
     },
 
     "form.unit_id"() {
       this.removeInvalidProcurementCodesForUnit();
       this.fetchPpmpItems();
+      this.saveCreateDraft();
     },
 
     "form.date"() {
       this.applyAutomaticCurrentApp(true);
+      this.saveCreateDraft();
+    },
+
+    "form.fund_cluster_id"() {
+      this.saveCreateDraft();
+    },
+
+    "form.purpose"() {
+      this.saveCreateDraft();
+    },
+
+    "form.requested_by_id"() {
+      this.saveCreateDraft();
+    },
+
+    "form.approved_by_id"() {
+      this.saveCreateDraft();
     },
 
     "form.procurement_code_ids": function (value) {
       this.fetchPpmpItems();
 
-      if (this.action == "create") {
+      if (this.action == "create" && !this.isRestoringCreateDraft) {
         if (Array.isArray(value) && value.length > 0) {
           // Reset the title before adding new ones
           this.form.title = "";
@@ -512,6 +534,15 @@ export default {
           });
         }
       }
+
+      this.saveCreateDraft();
+    },
+
+    "form.items": {
+      deep: true,
+      handler() {
+        this.saveCreateDraft();
+      },
     },
 
     action: function (value) {
@@ -552,6 +583,9 @@ export default {
     },
     showReferenceAppField() {
       return ["review", "approve"].includes(this.option) || Boolean(this.form.procurement_app_id);
+    },
+    showProcurementCodeField() {
+      return this.option === "review" || (this.option !== "create" && this.hasSelectedProcurementCodes);
     },
     referenceAppOptions() {
       const options =
@@ -635,6 +669,9 @@ export default {
     hasSelectedProcurementCodes() {
       return Array.isArray(this.form.procurement_code_ids) && this.form.procurement_code_ids.length > 0;
     },
+    ppmpSelectionUnitId() {
+      return this.form.unit_id ? Number(this.form.unit_id) : null;
+    },
     availablePpmpItemIds() {
       return new Set(this.ppmpItems.map((item) => Number(item.value)));
     },
@@ -645,25 +682,18 @@ export default {
       return Boolean(
         this.form.division_id &&
         this.form.unit_id &&
+        this.ppmpSelectionUnitId &&
         this.form.fund_cluster_id &&
-        this.form.purpose &&
-        this.hasSelectedProcurementCodes &&
-        this.hasPpmpItemsForSelectedPap
+        this.form.purpose
       );
     },
     addItemDisabledReason() {
-      if (!this.form.unit_id) {
+      if (!this.ppmpSelectionUnitId) {
         return "Select the end user/unit first.";
       }
 
-      if (!this.hasSelectedProcurementCodes) {
+      if (this.showProcurementCodeField && !this.hasSelectedProcurementCodes) {
         return "Select a PAP code before adding items.";
-      }
-
-      if (!this.hasPpmpItemsForSelectedPap) {
-        return this.isLoadingPpmpItems
-          ? "Loading PPMP items for the selected PAP code."
-          : "No PPMP items are available for the selected unit and PAP code.";
       }
 
       if (!this.form.division_id || !this.form.fund_cluster_id || !this.form.purpose) {
@@ -673,7 +703,7 @@ export default {
       return "Add Item";
     },
     procurementCodeUnitHelper() {
-      if (this.option !== "create" || !this.form.unit_id) {
+      if (!this.showProcurementCodeField || !this.ppmpSelectionUnitId) {
         return null;
       }
 
@@ -682,7 +712,7 @@ export default {
       }
 
       if (!this.isLoadingPpmpItems && !this.hasPpmpItemsForSelectedPap) {
-        return "No PPMP items are available for the selected unit and PAP code.";
+        return "No items are available for your unit.";
       }
 
       return null;
@@ -785,7 +815,7 @@ export default {
       return `The selected PAP codes only have ${this.formatCurrency(this.selectedProcurementCodeBalance)} remaining, which is not enough for the request total of ${this.formatCurrency(this.totalCostSum)}. You cannot create this procurement request until the selected balance is enough.`;
     },
     canReviewRequest() {
-      return Boolean(this.form.procurement_app_id);
+      return Boolean(this.form.procurement_app_id && this.hasSelectedProcurementCodes);
     },
     canCreateRequest() {
       return this.isFormValid && this.hasEnoughSelectedProcurementCodeBalance;
@@ -795,7 +825,6 @@ export default {
       return this.form.division_id &&
              this.form.unit_id &&
              this.form.fund_cluster_id &&
-             this.hasSelectedProcurementCodes &&
              this.form.purpose &&
              this.form.requested_by_id &&
              this.form.approved_by_id &&
@@ -805,9 +834,6 @@ export default {
   },
 
   mounted() {
-    // Load from localStorage on component mount
-    this.getDataFromLocalStorage();
-
     this.action = this.option;
     if (this.option === 'create' && this.dropdowns.regional_director) {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
@@ -815,7 +841,10 @@ export default {
     }
     if (this.option === "create") {
       this.prefillUserDivisionAndUnit();
+      this.restoreCreateDraft();
     }
+    // Load from localStorage on component mount
+    this.getDataFromLocalStorage();
     if (this.option === "review") {
       this.applyAutomaticCurrentApp();
     }
@@ -857,6 +886,98 @@ export default {
     toggleRightSidebar() {
       this.isRightCollapsed = !this.isRightCollapsed;
       localStorage.setItem("isRightCollapsed", this.isRightCollapsed);
+    },
+
+    createDraftPayload() {
+      return {
+        purpose: this.form.purpose,
+        title: this.form.title,
+        date: this.form.date,
+        division_id: this.form.division_id,
+        unit_id: this.form.unit_id,
+        fund_cluster_id: this.form.fund_cluster_id,
+        classification_id: this.form.classification_id,
+        reference_app_id: this.form.reference_app_id,
+        procurement_app_id: this.form.procurement_app_id,
+        requested_by_id: this.form.requested_by_id,
+        approved_by_id: this.form.approved_by_id,
+        procurement_code_ids: Array.isArray(this.form.procurement_code_ids)
+          ? this.form.procurement_code_ids
+          : [],
+        items: Array.isArray(this.form.items) ? this.form.items : [],
+        saved_at: new Date().toISOString(),
+      };
+    },
+
+    saveCreateDraft() {
+      if (this.option !== "create" || this.isRestoringCreateDraft) {
+        return;
+      }
+
+      try {
+        localStorage.setItem(this.createDraftStorageKey, JSON.stringify(this.createDraftPayload()));
+      } catch (e) {
+        console.error("Unable to save procurement request draft:", e);
+      }
+    },
+
+    restoreCreateDraft() {
+      if (this.option !== "create") {
+        return;
+      }
+
+      let draft = null;
+
+      try {
+        draft = JSON.parse(localStorage.getItem(this.createDraftStorageKey));
+      } catch (e) {
+        localStorage.removeItem(this.createDraftStorageKey);
+        return;
+      }
+
+      if (!draft || typeof draft !== "object") {
+        return;
+      }
+
+      this.isRestoringCreateDraft = true;
+
+      [
+        "purpose",
+        "title",
+        "date",
+        "division_id",
+        "unit_id",
+        "fund_cluster_id",
+        "classification_id",
+        "reference_app_id",
+        "procurement_app_id",
+        "requested_by_id",
+        "approved_by_id",
+      ].forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(draft, key)) {
+          this.form[key] = draft[key];
+        }
+      });
+
+      this.form.procurement_code_ids = Array.isArray(draft.procurement_code_ids)
+        ? draft.procurement_code_ids
+        : [];
+
+      if (Array.isArray(draft.items)) {
+        this.form.items = draft.items;
+        localStorage.setItem("itemsAdded", JSON.stringify(draft.items));
+      }
+
+      this.$nextTick(() => {
+        this.isRestoringCreateDraft = false;
+        this.fetchPpmpItems();
+        this.saveCreateDraft();
+      });
+    },
+
+    clearCreateDraft() {
+      localStorage.removeItem(this.createDraftStorageKey);
+      localStorage.removeItem("itemsAdded");
     },
 
     applyAutomaticCurrentApp(force = false) {
@@ -909,7 +1030,7 @@ export default {
     },
 
     procurementCodeBelongsToSelectedUnit(option) {
-      if (!this.form.unit_id) {
+      if (!this.ppmpSelectionUnitId) {
         return false;
       }
 
@@ -917,7 +1038,7 @@ export default {
         ? option.end_user_ids.map((id) => Number(id))
         : [];
 
-      return endUserIds.includes(Number(this.form.unit_id));
+      return endUserIds.includes(Number(this.ppmpSelectionUnitId));
     },
 
     removeInvalidProcurementCodesForUnit() {
@@ -939,17 +1060,13 @@ export default {
         return;
       }
 
-      const procurementCodeIds = Array.isArray(this.form.procurement_code_ids)
-        ? this.form.procurement_code_ids.filter(Boolean)
-        : [];
-
-      if (!this.form.unit_id || procurementCodeIds.length === 0) {
+      if (!this.ppmpSelectionUnitId) {
         this.ppmpItems = [];
         this.removeItemsOutsideCurrentPpmp();
         return;
       }
 
-      const requestKey = `${this.form.unit_id}:${procurementCodeIds.join(",")}`;
+      const requestKey = `${this.ppmpSelectionUnitId}`;
       this.latestPpmpItemsKey = requestKey;
       this.isLoadingPpmpItems = true;
 
@@ -957,8 +1074,7 @@ export default {
         .get("/faims/procurements/create", {
           params: {
             option: "ppmp_items",
-            unit_id: this.form.unit_id,
-            procurement_code_ids: procurementCodeIds,
+            unit_id: this.ppmpSelectionUnitId,
           },
         })
         .then((response) => {
@@ -1037,9 +1153,18 @@ export default {
         return;
       }
 
-      this.form.post("/faims/procurements", {
+      this.form
+        .transform((data) => ({
+          ...data,
+          division_id: data.division_id ? Number(data.division_id) : null,
+          unit_id: data.unit_id ? Number(data.unit_id) : null,
+          fund_cluster_id: data.fund_cluster_id ? Number(data.fund_cluster_id) : null,
+          requested_by_id: data.requested_by_id ? Number(data.requested_by_id) : null,
+          approved_by_id: data.approved_by_id ? Number(data.approved_by_id) : null,
+        }))
+        .post("/faims/procurements", {
         onSuccess: () => {
-          localStorage.removeItem("itemsAdded");
+          this.clearCreateDraft();
         },
         onError: (errors) => {
           console.error("Submission failed:", errors);
@@ -1140,6 +1265,12 @@ export default {
 
               if (hasPreferredUnit) {
                 this.form.unit_id = Number(preferred_unit_id);
+              }
+            } else if (this.form.unit_id) {
+              const hasSelectedUnit = this.units.some((unit) => Number(unit.value) === Number(this.form.unit_id));
+
+              if (!hasSelectedUnit) {
+                this.form.unit_id = null;
               }
             }
           }
