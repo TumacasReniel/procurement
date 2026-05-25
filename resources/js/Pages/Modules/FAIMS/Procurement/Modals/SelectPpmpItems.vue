@@ -276,7 +276,7 @@ export default {
 
       return this.ppmpItems.length
         ? "No PPMP items match your search."
-        : "No PPMP items are available for the selected PAP code/end user.";
+        : "No PPMP items are available for your unit.";
     },
   },
   methods: {

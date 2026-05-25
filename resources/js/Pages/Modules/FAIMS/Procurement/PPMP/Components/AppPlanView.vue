@@ -16,7 +16,7 @@
           :class="{ active: activeTab === 'ppmps' }"
           @click="activeTab = 'ppmps'"
         >
-          PPMPs
+          PPMPs/SPPs
         </button>
         <button
           type="button"
@@ -47,7 +47,9 @@
       </div>
 
       <div class="table-responsive ppmp-table-wrap">
-        <table class="table table-bordered align-middle mb-0 ppmp-items-table ppmp-document-items-table">
+        <table
+          class="table table-bordered align-middle mb-0 ppmp-items-table ppmp-document-items-table"
+        >
           <colgroup>
             <col class="ppmp-col-description" />
             <col class="ppmp-col-type" />
@@ -102,11 +104,21 @@
           </thead>
           <tbody>
             <tr v-for="(item, index) in groupedItemRows" :key="item.id || index">
-              <td v-if="item.entryRowspan" :rowspan="item.entryRowspan" class="ppmp-entry-cell">
-                {{ ppmp.general_description_objective || ppmp.title || ppmp.purpose || "-" }}
+              <td
+                v-if="item.entryRowspan"
+                :rowspan="item.entryRowspan"
+                class="ppmp-entry-cell"
+              >
+                {{
+                  ppmp.general_description_objective || ppmp.title || ppmp.purpose || "-"
+                }}
               </td>
 
-              <td v-if="item.entryRowspan" :rowspan="item.entryRowspan" class="text-center ppmp-entry-cell">
+              <td
+                v-if="item.entryRowspan"
+                :rowspan="item.entryRowspan"
+                class="text-center ppmp-entry-cell"
+              >
                 {{ item.project_type || ppmp.type_of_project || "-" }}
               </td>
 
@@ -115,7 +127,9 @@
                   &bull; {{ formatQuantity(item.quantity) }} {{ item.unit || "" }}
                   <span class="fw-semibold">{{ item.name || "-" }}</span>
                 </div>
-                <div class="text-muted small mt-1 item-description">{{ plainText(item.description) }}</div>
+                <div class="text-muted small mt-1 item-description">
+                  {{ plainText(item.description) }}
+                </div>
                 <small v-if="item.consolidated_count > 1" class="text-muted d-block mt-1">
                   {{ item.consolidated_count }} matching items
                 </small>
@@ -125,11 +139,19 @@
               </td>
 
               <td>
-                {{ item.recommended_mode_of_procurement || ppmp.recommended_mode_of_procurement || "-" }}
+                {{
+                  item.recommended_mode_of_procurement ||
+                  ppmp.recommended_mode_of_procurement ||
+                  "-"
+                }}
               </td>
 
               <td class="text-center">
-                {{ item.pre_procurement_conference || ppmp.pre_procurement_conference || "No" }}
+                {{
+                  item.pre_procurement_conference ||
+                  ppmp.pre_procurement_conference ||
+                  "No"
+                }}
               </td>
 
               <td class="text-center">
@@ -137,11 +159,20 @@
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(item.end_of_procurement_activity || ppmp.end_of_procurement_activity) }}
+                {{
+                  formatPrintDate(
+                    item.end_of_procurement_activity || ppmp.end_of_procurement_activity
+                  )
+                }}
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(item.expected_delivery_date || ppmp.expected_delivery_implementation_period) }}
+                {{
+                  formatPrintDate(
+                    item.expected_delivery_date ||
+                      ppmp.expected_delivery_implementation_period
+                  )
+                }}
               </td>
 
               <td class="text-center">
@@ -152,11 +183,25 @@
                 {{ formatCurrency(item.abc) }}
               </td>
 
-              <td v-if="item.supportRowspan" :rowspan="item.supportRowspan" class="text-center ppmp-entry-cell">
-                <div>{{ item.attached_supporting_documents || item.supporting_document_original_name || "-" }}</div>
+              <td
+                v-if="item.supportRowspan"
+                :rowspan="item.supportRowspan"
+                class="text-center ppmp-entry-cell"
+              >
+                <div>
+                  {{
+                    item.attached_supporting_documents ||
+                    item.supporting_document_original_name ||
+                    "-"
+                  }}
+                </div>
               </td>
 
-              <td v-if="item.supportRowspan" :rowspan="item.supportRowspan" class="text-center ppmp-entry-cell">
+              <td
+                v-if="item.supportRowspan"
+                :rowspan="item.supportRowspan"
+                class="text-center ppmp-entry-cell"
+              >
                 {{ item.remarks || "-" }}
               </td>
 
@@ -167,7 +212,9 @@
               </td>
             </tr>
             <tr v-if="!groupedItemRows.length">
-              <td colspan="13" class="text-center text-muted">No consolidated items found.</td>
+              <td colspan="13" class="text-center text-muted">
+                No consolidated items found.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -178,7 +225,9 @@
       <div class="section-heading">
         <h6 class="mb-0 fs-14"></h6>
         <span class="text-muted fs-12">
-          {{ visibleSourcePpmps.length }} PPMP{{ visibleSourcePpmps.length === 1 ? "" : "s" }}
+          {{ visibleSourcePpmps.length }} PPMP{{
+            visibleSourcePpmps.length === 1 ? "" : "s"
+          }}
         </span>
       </div>
       <div class="table-responsive ppmp-table-wrap">
@@ -186,7 +235,7 @@
           <thead class="table-light">
             <tr class="fs-12">
               <th style="width: 4%" class="text-center">#</th>
-              <th style="width: 18%">PPMP No.</th>
+              <th style="width: 18%">PPMP/SPP No.</th>
               <th>Unit</th>
               <th style="width: 18%">PR No.</th>
               <th style="width: 12%" class="text-end">Items</th>
@@ -196,16 +245,34 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(source, index) in visibleSourcePpmps" :key="source.id || source.ppmp_no || index">
+            <tr
+              v-for="(source, index) in visibleSourcePpmps"
+              :key="source.id || source.ppmp_no || index"
+            >
               <td class="text-center fw-semibold">{{ index + 1 }}</td>
-              <td class="fw-semibold text-primary">{{ source.ppmp_no || "-" }}</td>
+              <td>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  <span class="fw-semibold text-primary">{{
+                    source.ppmp_no || "-"
+                  }}</span>
+                  <b-badge :variant="sourcePlanTypeVariant(source)">
+                    {{ sourcePlanTypeLabel(source) }}
+                  </b-badge>
+                </div>
+              </td>
               <td>
                 <div class="fw-medium">{{ sourceLabel(source.unit) || "-" }}</div>
-                <small class="text-muted">{{ sourceLabel(source.division) || "End-user unit" }}</small>
+                <small class="text-muted">{{
+                  sourceLabel(source.division) || "End-user unit"
+                }}</small>
               </td>
               <td>{{ source.pr_no || "-" }}</td>
-              <td class="text-end">{{ Number(source.items_count || 0).toLocaleString() }}</td>
-              <td class="text-end fw-semibold">{{ formatCurrency(source.total_amount) }}</td>
+              <td class="text-end">
+                {{ Number(source.items_count || 0).toLocaleString() }}
+              </td>
+              <td class="text-end fw-semibold">
+                {{ formatCurrency(source.total_amount) }}
+              </td>
               <td class="text-center">
                 <b-badge :variant="sourceStatusVariant(source)">
                   {{ source.approval_status || "Consolidated/Added to APP" }}
@@ -245,21 +312,28 @@
               <th style="width: 4%" class="text-center">#</th>
               <th style="width: 18%">PR No.</th>
               <th>Items</th>
-              <th style="width: 20%">Source PPMP</th>
+              <th style="width: 20%">Source</th>
               <th style="width: 14%" class="text-end">ABC</th>
               <th style="width: 90px" class="text-center">Action</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(request, index) in purchaseRequests" :key="request.pr_no || index">
+            <tr
+              v-for="(request, index) in purchaseRequests"
+              :key="request.pr_no || index"
+            >
               <td class="text-center fw-semibold">{{ index + 1 }}</td>
               <td class="fw-semibold text-primary">{{ request.pr_no || "-" }}</td>
               <td>
-                <div class="fw-medium">{{ request.items_count }} item{{ request.items_count === 1 ? "" : "s" }}</div>
+                <div class="fw-medium">
+                  {{ request.items_count }} item{{ request.items_count === 1 ? "" : "s" }}
+                </div>
                 <small class="text-muted">{{ request.item_names || "-" }}</small>
               </td>
               <td>{{ request.ppmp_no || "-" }}</td>
-              <td class="text-end fw-semibold">{{ formatCurrency(request.total_amount) }}</td>
+              <td class="text-end fw-semibold">
+                {{ formatCurrency(request.total_amount) }}
+              </td>
               <td class="text-center">
                 <b-button variant="soft-primary" size="sm" @click="openPrItems(request)">
                   <i class="ri-eye-line align-bottom me-1"></i>
@@ -268,7 +342,9 @@
               </td>
             </tr>
             <tr v-if="!purchaseRequests.length">
-              <td colspan="6" class="text-center text-muted py-4">No purchase requests found.</td>
+              <td colspan="6" class="text-center text-muted py-4">
+                No purchase requests found.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -292,14 +368,16 @@
           </div>
           <div class="col-md-4">
             <div class="border rounded p-2 h-100">
-              <small class="text-muted d-block">Source PPMP</small>
+              <small class="text-muted d-block">Source</small>
               <span class="fw-semibold">{{ selectedRequest.ppmp_no || "-" }}</span>
             </div>
           </div>
           <div class="col-md-4">
             <div class="border rounded p-2 h-100">
               <small class="text-muted d-block">Total ABC</small>
-              <span class="fw-semibold">{{ formatCurrency(selectedRequest.total_amount) }}</span>
+              <span class="fw-semibold">{{
+                formatCurrency(selectedRequest.total_amount)
+              }}</span>
             </div>
           </div>
         </div>
@@ -336,14 +414,15 @@
             <tfoot>
               <tr>
                 <th colspan="6" class="text-end">Total ABC</th>
-                <th class="text-end">{{ formatCurrency(selectedRequest.total_amount) }}</th>
+                <th class="text-end">
+                  {{ formatCurrency(selectedRequest.total_amount) }}
+                </th>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
     </b-modal>
-
   </div>
 </template>
 
@@ -380,23 +459,46 @@ export default {
       rows.forEach((item) => {
         const itemStartDate = this.ppmp.start_of_procurement_activity || this.ppmp.date;
         const entryScopeKey = [
-          this.cleanValue(item.ppmp_no || (Array.isArray(item.source_ppmp_nos) ? item.source_ppmp_nos.join(",") : "")),
-          this.cleanValue(item.recommended_mode_of_procurement || this.ppmp.recommended_mode_of_procurement),
-          this.cleanValue(item.pre_procurement_conference || this.ppmp.pre_procurement_conference || "No"),
+          this.cleanValue(
+            item.ppmp_no ||
+              (Array.isArray(item.source_ppmp_nos) ? item.source_ppmp_nos.join(",") : "")
+          ),
+          this.cleanValue(
+            item.recommended_mode_of_procurement ||
+              this.ppmp.recommended_mode_of_procurement
+          ),
+          this.cleanValue(
+            item.pre_procurement_conference ||
+              this.ppmp.pre_procurement_conference ||
+              "No"
+          ),
           this.cleanValue(itemStartDate),
-          this.cleanValue(item.end_of_procurement_activity || this.ppmp.end_of_procurement_activity),
-          this.cleanValue(item.expected_delivery_date || this.ppmp.expected_delivery_implementation_period),
-          this.cleanValue(item.attached_supporting_documents || item.supporting_document_original_name),
+          this.cleanValue(
+            item.end_of_procurement_activity || this.ppmp.end_of_procurement_activity
+          ),
+          this.cleanValue(
+            item.expected_delivery_date ||
+              this.ppmp.expected_delivery_implementation_period
+          ),
+          this.cleanValue(
+            item.attached_supporting_documents || item.supporting_document_original_name
+          ),
           this.cleanValue(item.remarks),
         ].join("|");
         const entryKey = [
           entryScopeKey,
-          this.cleanValue(this.ppmp.general_description_objective || this.ppmp.title || this.ppmp.purpose),
+          this.cleanValue(
+            this.ppmp.general_description_objective ||
+              this.ppmp.title ||
+              this.ppmp.purpose
+          ),
           this.cleanValue(item.project_type || this.ppmp.type_of_project),
         ].join("|");
         const supportKey = [
           entryScopeKey,
-          this.cleanValue(item.attached_supporting_documents || item.supporting_document_original_name),
+          this.cleanValue(
+            item.attached_supporting_documents || item.supporting_document_original_name
+          ),
           this.cleanValue(item.remarks),
         ].join("|");
 
@@ -417,60 +519,65 @@ export default {
         const entryItems = Array.from(supportGroups.values()).flat();
         let isFirstEntryRow = true;
 
-        return Array.from(supportGroups.values()).flatMap((supportItems) => supportItems.map((item, index) => {
-          const row = {
-            ...item,
-            entryRowspan: isFirstEntryRow ? entryItems.length : 0,
-            supportRowspan: index === 0 ? supportItems.length : 0,
-          };
+        return Array.from(supportGroups.values()).flatMap((supportItems) =>
+          supportItems.map((item, index) => {
+            const row = {
+              ...item,
+              entryRowspan: isFirstEntryRow ? entryItems.length : 0,
+              supportRowspan: index === 0 ? supportItems.length : 0,
+            };
 
-          isFirstEntryRow = false;
+            isFirstEntryRow = false;
 
-          return row;
-        }));
+            return row;
+          })
+        );
       });
     },
     purchaseRequests() {
       const requests = new Map();
 
-      (this.ppmp.raw_item_details || this.ppmp.item_details || [])
-        .forEach((item) => {
-          this.itemPurchaseRequests(item).forEach((purchaseRequest) => {
-            const prNo = purchaseRequest.code || "-";
-            const request = requests.get(prNo) || {
-              pr_id: purchaseRequest.id || null,
-              pr_no: prNo,
-              ppmp_nos: new Set(),
-              item_names: [],
-              items: [],
-              items_count: 0,
-              total_amount: 0,
-            };
+      (this.ppmp.raw_item_details || this.ppmp.item_details || []).forEach((item) => {
+        this.itemPurchaseRequests(item).forEach((purchaseRequest) => {
+          const prNo = purchaseRequest.code || "-";
+          const request = requests.get(prNo) || {
+            pr_id: purchaseRequest.id || null,
+            pr_no: prNo,
+            ppmp_nos: new Set(),
+            item_names: [],
+            items: [],
+            items_count: 0,
+            total_amount: 0,
+          };
 
-            if (item.ppmp_no) {
-              request.ppmp_nos.add(item.ppmp_no);
-            }
+          if (item.ppmp_no) {
+            request.ppmp_nos.add(item.ppmp_no);
+          }
 
-            if (item.name) {
-              request.item_names.push(item.name);
-            }
+          if (item.name) {
+            request.item_names.push(item.name);
+          }
 
-            request.items.push({
-              ...item,
-              pr_id: purchaseRequest.id || item.pr_id || null,
-              pr_no: prNo,
-            });
-            request.items_count += 1;
-            request.total_amount += Number(item.abc || 0);
-            requests.set(prNo, request);
+          request.items.push({
+            ...item,
+            pr_id: purchaseRequest.id || item.pr_id || null,
+            pr_no: prNo,
           });
+          request.items_count += 1;
+          request.total_amount += Number(item.abc || 0);
+          requests.set(prNo, request);
         });
+      });
 
-      return Array.from(requests.values()).map((request) => ({
-        ...request,
-        ppmp_no: Array.from(request.ppmp_nos).join(", "),
-        item_names: request.item_names.slice(0, 3).join(", ") + (request.item_names.length > 3 ? "..." : ""),
-      })).sort((first, second) => String(first.pr_no).localeCompare(String(second.pr_no)));
+      return Array.from(requests.values())
+        .map((request) => ({
+          ...request,
+          ppmp_no: Array.from(request.ppmp_nos).join(", "),
+          item_names:
+            request.item_names.slice(0, 3).join(", ") +
+            (request.item_names.length > 3 ? "..." : ""),
+        }))
+        .sort((first, second) => String(first.pr_no).localeCompare(String(second.pr_no)));
     },
     planShortName() {
       return this.planKind === "SPP" ? "SPP" : "APP";
@@ -553,7 +660,9 @@ export default {
     formatQuantity(value) {
       const number = Number(value || 0);
 
-      return Number.isInteger(number) ? number.toString() : number.toLocaleString(undefined, { maximumFractionDigits: 2 });
+      return Number.isInteger(number)
+        ? number.toString()
+        : number.toLocaleString(undefined, { maximumFractionDigits: 2 });
     },
     plainText(value) {
       if (!value) {
@@ -569,7 +678,10 @@ export default {
       return this.plainText(value).replace(/\s+/g, " ").trim();
     },
     itemStatus(item) {
-      return this.optionText(item.status?.name ?? item.status ?? item.approval_status) || "Pending";
+      return (
+        this.optionText(item.status?.name ?? item.status ?? item.approval_status) ||
+        "Pending"
+      );
     },
     itemStatusVariant(item) {
       const status = this.itemStatus(item).toLowerCase();
@@ -578,11 +690,19 @@ export default {
         return "success";
       }
 
-      if (status.includes("reviewed") || status.includes("submitted") || status.includes("for")) {
+      if (
+        status.includes("reviewed") ||
+        status.includes("submitted") ||
+        status.includes("for")
+      ) {
         return "warning";
       }
 
-      if (status.includes("cancel") || status.includes("reject") || status.includes("delete")) {
+      if (
+        status.includes("cancel") ||
+        status.includes("reject") ||
+        status.includes("delete")
+      ) {
         return "danger";
       }
 
@@ -609,11 +729,25 @@ export default {
         return "success";
       }
 
-      if (status.includes("submitted") || status.includes("reviewed") || status.includes("for")) {
+      if (
+        status.includes("submitted") ||
+        status.includes("reviewed") ||
+        status.includes("for")
+      ) {
         return "warning";
       }
 
       return "secondary";
+    },
+    sourcePlanTypeLabel(source) {
+      const type = String(
+        source?.plan_type || source?.plan_name || source?.ppmp_no || ""
+      ).toLowerCase();
+
+      return type.includes("spp") || type.includes("supplemental") ? "SPP" : "PPMP";
+    },
+    sourcePlanTypeVariant(source) {
+      return this.sourcePlanTypeLabel(source) === "SPP" ? "warning" : "primary";
     },
     normalizeOptions(options) {
       if (Array.isArray(options)) {
@@ -673,7 +807,7 @@ export default {
 .app-view-tab.active {
   background: var(--ppmp-surface, #ffffff);
   color: var(--ppmp-text, #212529);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .app-view-toolbar {
@@ -726,17 +860,39 @@ export default {
   overflow-x: visible;
 }
 
-.ppmp-col-description { width: 190px; }
-.ppmp-col-type { width: 130px; }
-.ppmp-col-quantity { width: 360px; }
-.ppmp-col-mode { width: 150px; }
-.ppmp-col-conference { width: 120px; }
-.ppmp-col-date { width: 105px; }
-.ppmp-col-funds { width: 130px; }
-.ppmp-col-budget { width: 155px; }
-.ppmp-col-docs { width: 145px; }
-.ppmp-col-remarks { width: 140px; }
-.ppmp-col-status { width: 90px; }
+.ppmp-col-description {
+  width: 190px;
+}
+.ppmp-col-type {
+  width: 130px;
+}
+.ppmp-col-quantity {
+  width: 360px;
+}
+.ppmp-col-mode {
+  width: 150px;
+}
+.ppmp-col-conference {
+  width: 120px;
+}
+.ppmp-col-date {
+  width: 105px;
+}
+.ppmp-col-funds {
+  width: 130px;
+}
+.ppmp-col-budget {
+  width: 155px;
+}
+.ppmp-col-docs {
+  width: 145px;
+}
+.ppmp-col-remarks {
+  width: 140px;
+}
+.ppmp-col-status {
+  width: 90px;
+}
 
 .ppmp-document-items-table th,
 .ppmp-document-items-table td {
@@ -798,5 +954,4 @@ export default {
   background: #f8fafc !important;
   color: #000000 !important;
 }
-
 </style>

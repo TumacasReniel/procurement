@@ -65,6 +65,9 @@
     $signatureColumnWidth = 100 / (1 + ($showReviewedSignature ? 1 : 0) + ($showSubmittedSignature ? 1 : 0));
     $ppmpYear = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y', strtotime((string) $procurement->created_at));
     $ppmpNo = $procurement->ppmp_no_override ?: 'PPMP-' . $ppmpYear . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT);
+    $displayPpmpNo = preg_match('/-(\d{2})$/', (string) $ppmpNo, $numberMatch)
+        ? $numberMatch[1]
+        : $ppmpNo;
     $prNo = $procurement->pr_no_override ?: ($procurement->code ?: '');
     $unitName = $procurement->unit_name_override ?: ($procurement->unit?->name ?? '-');
     $classificationName = $procurement->classification_override ?: ($procurement->classification?->name ?? '-');
@@ -179,7 +182,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{{ $planShortName }} {{ $ppmpNo }}</title>
+    <title>{{ $planShortName }} {{ $displayPpmpNo }}</title>
     <style>
         @page {
             margin: 14px 8px 30px 8px;
@@ -266,12 +269,16 @@
         }
 
         .title-line {
-            display: inline-block;
+            display: inline-flex;
+            align-items: baseline;
+            justify-content: center;
             min-width: 2px;
             font-size: 15px;
             border-bottom: 1px solid #000;
-            padding: 0 2px 1px;
+            line-height: 1.15;
+            padding: 0 2px;
             color:red;
+            vertical-align: baseline;
         }
 
         .status-row {
@@ -539,7 +546,7 @@
     <div class="title-block">
         <div class="document-title">
             {{ $documentTitle }}
-            <span class="title-line">{{ $ppmpNo }}</span>
+            <span class="title-line">{{ $displayPpmpNo }}</span>
         </div>
         <div class="status-row">
             <span class="status-option">

@@ -428,6 +428,7 @@ export default {
             activeChatRequestId: null,
             activeChatRequest: null,
             pendingChatRequestId: this.comment_request_id ? Number(this.comment_request_id) : null,
+            procurementRequestChannel: null,
         };
     },
     computed: {
@@ -463,7 +464,33 @@ export default {
         this.fetch();
         this.fetchChatRequests();
     },
+    mounted() {
+        this.subscribeToProcurementRequestChanges();
+    },
+    beforeUnmount() {
+        this.unsubscribeFromProcurementRequestChanges();
+    },
     methods: {
+        subscribeToProcurementRequestChanges() {
+            if (!window.Echo || this.procurementRequestChannel) {
+                return;
+            }
+
+            this.procurementRequestChannel = "procurement-requests";
+            window.Echo.private(this.procurementRequestChannel)
+                .listen(".procurement-request.changed", () => {
+                    this.fetch();
+                    this.fetchChatRequests();
+                });
+        },
+        unsubscribeFromProcurementRequestChanges() {
+            if (!window.Echo || !this.procurementRequestChannel) {
+                return;
+            }
+
+            window.Echo.leave(this.procurementRequestChannel);
+            this.procurementRequestChannel = null;
+        },
         shouldShowSubStatus(list) {
             const statusName = String(list?.status?.name || "").trim().toLowerCase();
             const subStatusName = String(list?.sub_status?.name || "").trim().toLowerCase();

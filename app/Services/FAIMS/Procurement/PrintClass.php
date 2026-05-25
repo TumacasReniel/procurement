@@ -333,6 +333,7 @@ class PrintClass
         $representative->setRelation('approved_by', $app->approved_by);
         $representative->setRelation('status', $app->status);
         $representative->setAttribute('ppmp_no_override', $app->code);
+        $representative->setAttribute('app_version_override', (int) ($app->version ?? 1));
         $representative->setAttribute('pr_no_override', $prNos->implode(', '));
         $representative->setAttribute('plan_name_override', 'Annual Procurement Plan');
         $representative->setAttribute('unit_name_override', 'Agency-wide');
@@ -441,18 +442,18 @@ class PrintClass
         $representative->setAttribute('start_date_override', $procurements->pluck('date')->filter()->sort()->first());
 
         if ($isPpmpPrint) {
-            $representative->setAttribute('ppmp_no_override', 'PPMP-' . $year . '-UNIT-' . str_pad((string) $representative->unit_id, 3, '0', STR_PAD_LEFT));
+            $representative->setAttribute('ppmp_no_override', $representative->code ?: 'PPMP-' . $year . '-01');
             $representative->setAttribute('plan_name_override', 'PPMP');
         } elseif ($planName === 'Annual Procurement Plan') {
-            $representative->setAttribute('ppmp_no_override', 'APP-' . $year);
+            $representative->setAttribute('ppmp_no_override', $representative->code ?: 'APP-' . $year . '-01');
             $representative->setAttribute('plan_name_override', 'Annual Procurement Plan');
             $representative->setAttribute('unit_name_override', 'Agency-wide');
         } elseif ($planName === 'Supplemental Procurement Plan') {
-            $representative->setAttribute('ppmp_no_override', 'SPP-' . $year);
+            $representative->setAttribute('ppmp_no_override', $representative->code ?: 'SPP-' . $year . '-01');
             $representative->setAttribute('plan_name_override', 'Supplemental Procurement Plan');
             $representative->setAttribute('unit_name_override', 'Agency-wide');
         } else {
-            $representative->setAttribute('ppmp_no_override', 'PPMP-' . $year . '-UNIT-' . str_pad((string) $representative->unit_id, 3, '0', STR_PAD_LEFT));
+            $representative->setAttribute('ppmp_no_override', $representative->code ?: 'PPMP-' . $year . '-01');
             $representative->setAttribute('plan_name_override', 'PPMP');
         }
 

@@ -46,9 +46,8 @@
         <thead>
           <tr class="fs-11">
             <th style="width: 6%" class="text-center">Select</th>
-            <th style="width: 24%">Unit</th>
             <th>Item</th>
-            <th style="width: 10%" class="text-center">Qty</th>
+            <th style="width: 10%" class="text-center">Qty/Unit</th>
             <th style="width: 14%" class="text-end">Unit Cost</th>
             <th style="width: 14%" class="text-end">ABC</th>
           </tr>
@@ -56,7 +55,7 @@
         <tbody>
           <tr v-if="items.length === 0">
             <td colspan="8" class="text-center text-muted py-4">
-              No PPMP items matched the selected fund source and item category.
+              No items matched the selected fund source and item category in APP.
             </td>
           </tr>
           <tr v-for="item in items" :key="item.value" class="item-row">
@@ -68,10 +67,12 @@
                 @change="toggleItem(item)"
               />
             </td>
-            <td>{{ item.unit_name || "-" }}</td>
             <td>
               <div class="fw-semibold">{{ item.item_name || "-" }}</div>
-              <div class="text-muted small ppmp-selection-description" v-html="item.item_description || '-'" />
+              <div
+                class="text-muted small ppmp-selection-description"
+                v-html="item.item_description || '-'"
+              />
             </td>
             <td class="text-center">{{ item.quantity_label || item.item_quantity }}</td>
             <td class="text-end">{{ formatCurrency(item.item_unit_cost) }}</td>
@@ -83,7 +84,13 @@
 
     <template v-slot:footer>
       <b-button type="button" variant="light" block @click="close">Cancel</b-button>
-      <b-button type="button" variant="primary" :disabled="selectedItems.length === 0" block @click="loadSelected">
+      <b-button
+        type="button"
+        variant="primary"
+        :disabled="selectedItems.length === 0"
+        block
+        @click="loadSelected"
+      >
         Load Selected Items
       </b-button>
     </template>
@@ -125,10 +132,16 @@ export default {
       return this.items.filter((item) => this.localSelectedIds.includes(item.value));
     },
     selectedTotal() {
-      return this.selectedItems.reduce((sum, item) => sum + Number(item.total_cost || 0), 0);
+      return this.selectedItems.reduce(
+        (sum, item) => sum + Number(item.total_cost || 0),
+        0
+      );
     },
     allSelected() {
-      return this.items.length > 0 && this.items.every((item) => this.localSelectedIds.includes(item.value));
+      return (
+        this.items.length > 0 &&
+        this.items.every((item) => this.localSelectedIds.includes(item.value))
+      );
     },
   },
   watch: {
@@ -159,7 +172,9 @@ export default {
       }
     },
     toggleAll() {
-      this.localSelectedIds = this.allSelected ? [] : this.items.map((item) => item.value);
+      this.localSelectedIds = this.allSelected
+        ? []
+        : this.items.map((item) => item.value);
     },
     loadSelected() {
       this.$emit("load", this.selectedItems);

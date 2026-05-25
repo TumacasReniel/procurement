@@ -25,8 +25,10 @@ class ProcurementRequest extends FormRequest
             ];
         }
 
+        $requiresProcurementCodes = in_array($this->input('option'), ['review', 'approve'], true);
+
         return [
-            'procurement_code_ids' => ['required', 'array', 'min:1'],
+            'procurement_code_ids' => [$requiresProcurementCodes ? 'required' : 'nullable', 'array', $requiresProcurementCodes ? 'min:1' : 'min:0'],
             'procurement_code_ids.*' => ['integer', 'distinct', 'exists:procurement_codes,id'],
             'procurement_app_id' => ['nullable', 'integer', 'exists:procurement_apps,id'],
             'unit_id' => ['nullable', 'integer'],
@@ -62,7 +64,7 @@ class ProcurementRequest extends FormRequest
             if ($this->isMethod('post') && $submittedItems->contains(fn ($item) => blank(data_get($item, 'ppmp_item_id')))) {
                 $validator->errors()->add(
                     'items',
-                    'Select each PR item from the PPMP items assigned to the selected PAP code.'
+                    'Select each PR item from the items assigned to the selected procurement code.'
                 );
 
                 return;

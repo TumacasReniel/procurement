@@ -180,12 +180,18 @@ export default {
 
       return Boolean(currentUserId && Number(currentUserId) === Number(this.ppmp?.created_by_id));
     },
+    isSameUserUnit() {
+      const userUnitId = this.$page?.props?.user?.data?.organization?.unit_id;
+      const planUnitId = this.ppmp?.unit_id || this.ppmp?.unit?.id || this.ppmp?.unit?.value;
+
+      return Boolean(userUnitId && planUnitId && Number(userUnitId) === Number(planUnitId));
+    },
     canAddDraftItem() {
       const ppmpStatus = String(this.ppmp.ppmp_status || "").trim().toLowerCase();
       const approvalStatus = String(this.ppmp.approval_status || "").trim().toLowerCase();
       const is_pending = approvalStatus === "pending" && ppmpStatus === "pending";
 
-      return this.isPpmpCreator
+      return (this.isPpmpCreator || this.isSameUserUnit)
         && this.normalizedPlanType === "PPMP"
         && (this.ppmp.can_add_items || is_pending);
     },
@@ -194,7 +200,7 @@ export default {
 
       return this.normalizedPlanType === "SPP"
         && planStatus === "pending"
-        && (this.isPpmpCreator);
+        && (this.isPpmpCreator || this.isSameUserUnit);
     },
     normalizedPlanType() {
       switch (this.ppmp.plan_type || this.ppmp.plan_name || this.ppmp.title) {
@@ -313,7 +319,7 @@ export default {
       return false;
     },
     canSubmitPendingPpmp() {
-      return this.isPpmpCreator || this.isProcurementUser || this.isAdministrator;
+      return this.isPpmpCreator || this.isSameUserUnit || this.isProcurementUser || this.isAdministrator;
     },
     hasPpmpItems() {
       return Number(this.ppmp?.items_count || 0) > 0;

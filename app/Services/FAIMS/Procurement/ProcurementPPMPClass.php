@@ -369,8 +369,9 @@ class ProcurementPPMPClass
             ->where('status_id', $approved_status_id);
 
         $app = ProcurementApp::query()->create([
-            'code' => 'APP-'.$year,
+            'code' => $this->generateAppCode($year, 1),
             'year' => $year,
+            'version' => 1,
             'title' => self::PLAN_NAME_APP,
             'app_type_id' => $app_type_id,
             'created_by_id' => Auth::id(),
@@ -399,6 +400,61 @@ class ProcurementPPMPClass
             'info' => $info,
             'status' => true,
         ];
+    }
+
+    protected function createUpdatedAppVersion(ProcurementApp $previous_app, int $pending_status_id): ProcurementApp
+    {
+        $next_version = ((int) ProcurementApp::query()
+            ->where('year', $previous_app->year)
+            ->max('version')) + 1;
+
+        $app = ProcurementApp::query()->create([
+            'code' => $this->generateAppVersionCode($previous_app, $next_version),
+            'year' => $previous_app->year,
+            'version' => $next_version,
+            'title' => $previous_app->title ?: self::PLAN_NAME_APP,
+            'app_type_id' => $previous_app->app_type_id,
+            'created_by_id' => Auth::id(),
+            'requested_by_id' => Auth::id(),
+            'status_id' => $pending_status_id,
+        ]);
+
+        $this->logAppActivity($app, 'APP updated version created', [
+            'plan_type' => self::PLAN_TYPE_APP,
+            'year' => $app->year,
+            'version' => $app->version,
+            'previous_app_id' => $previous_app->id,
+            'previous_app_code' => $previous_app->code,
+        ]);
+
+        return $app;
+    }
+
+    protected function appHasConsolidatedPpmpSources(ProcurementApp $app, int $app_type_id): bool
+    {
+        return $app->source_ppmps()
+            ->where('reference_app_id', $app_type_id)
+            ->where(function ($query) {
+                $query->whereNull('title')
+                    ->orWhere('title', '!=', self::PLAN_NAME_SPP);
+            })
+            ->where(function ($query) {
+                $query->whereNull('code')
+                    ->orWhere('code', 'NOT LIKE', 'SPP-%');
+            })
+            ->exists();
+    }
+
+    protected function generateAppCode(int $year, int $version): string
+    {
+        return 'APP-'.$year.'-'.str_pad((string) $version, 2, '0', STR_PAD_LEFT);
+    }
+
+    protected function generateAppVersionCode(ProcurementApp $previous_app, int $version): string
+    {
+        $base_code = preg_replace('/-V\d+$/', '', (string) $previous_app->code);
+
+        return $base_code.'-V'.str_pad((string) $version, 2, '0', STR_PAD_LEFT);
     }
 
     protected function advanceAppStatus(int $id): array
@@ -465,26 +521,7 @@ class ProcurementPPMPClass
 
     protected function generateUnitPpmpCode(int $year, int $unit_id): string
     {
-        $base_code = 'PPMP-'.$year.'-'.str_pad((string) $unit_id, 3, '0', STR_PAD_LEFT);
-
-        if (! ProcurementPpmp::query()->where('code', $base_code)->exists()) {
-            return $base_code;
-        }
-
-        $existing_codes = ProcurementPpmp::query()
-            ->where('code', 'like', $base_code.'-%')
-            ->pluck('code')
-            ->all();
-        $next_number = collect($existing_codes)
-            ->map(function ($code) use ($base_code) {
-                $suffix = str_replace($base_code.'-', '', (string) $code);
-
-                return ctype_digit($suffix) ? (int) $suffix : 1;
-            })
-            ->push(1)
-            ->max() + 1;
-
-        return $base_code.'-'.str_pad((string) $next_number, 2, '0', STR_PAD_LEFT);
+        return $this->generatePlanSeriesCode('PPMP-'.$year);
     }
 
     public function updateStatus($id, $request): array
@@ -532,7 +569,11 @@ class ProcurementPPMPClass
         $info = "The selected {$plan_label} was consolidated and added to the APP.";
 
         if ($this->hasSeparateAppRegister()) {
-            $app = ProcurementApp::where('year', $year)->first();
+            $app = ProcurementApp::query()
+                ->where('year', $year)
+                ->orderByDesc('version')
+                ->orderByDesc('id')
+                ->first();
 
             if (! $app) {
                 throw ValidationException::withMessages([
@@ -540,15 +581,25 @@ class ProcurementPPMPClass
                 ]);
             }
 
-            // Regular PPMP can only be added while APP is still pending; SPP is allowed after APP approval
-            if (! $is_spp_plan) {
+            // Regular PPMP can only be added while APP is still pending.
+            // Approved SPPs become a new APP update/version once the previous APP is already for implementation.
+            if (
+                $is_spp_plan
+                && (int) $app->status_id === (int) $approved_status_id
+                && $this->appHasConsolidatedPpmpSources($app, $app_type_id)
+            ) {
+                $app = $this->createUpdatedAppVersion($app, $pending_status_id);
+                $info = "The selected {$plan_label} was added to {$app->code} as APP version {$app->version}.";
+            } elseif (! $is_spp_plan) {
                 $this->ensureAppCanAcceptPpmp($app, $pending_status_id);
+                $info = "The selected {$plan_label} was added to {$app->code}.";
+            } else {
+                $info = "The selected {$plan_label} was added to {$app->code}.";
             }
 
             $updates['procurement_app_id'] = $app->id;
             $data['year'] = (int) $app->year;
             $data['procurement_app_id'] = $app->id;
-            $info = "The selected {$plan_label} was added to {$app->code}.";
         }
 
         $procurement->update($updates);
@@ -667,6 +718,8 @@ class ProcurementPPMPClass
             ]);
         }
 
+        $this->ensureUserCanManagePlanItems($procurement);
+
         $procurement->title = $request->general_description_objective;
         $procurement->save();
 
@@ -710,6 +763,8 @@ class ProcurementPPMPClass
             ]);
         }
 
+        $this->ensureUserCanManagePlanItems($procurement);
+
         $item = ProcurementPpmpItem::query()
             ->where('procurement_ppmp_id', $procurement->id)
             ->findOrFail($request->item_id);
@@ -752,6 +807,8 @@ class ProcurementPPMPClass
                 'item' => 'Items can only be deleted while the PPMP is still indicative.',
             ]);
         }
+
+        $this->ensureUserCanManagePlanItems($procurement);
 
         $item = ProcurementPpmpItem::query()
             ->where('procurement_ppmp_id', $procurement->id)
@@ -898,6 +955,34 @@ class ProcurementPPMPClass
 
         throw ValidationException::withMessages([
             'ppmp' => 'Only BAC users can consolidate this plan to APP.',
+        ]);
+    }
+
+    protected function ensureUserCanManagePlanItems(ProcurementPpmp $procurement): void
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'item' => 'You are not allowed to manage items for this plan.',
+            ]);
+        }
+
+        $user_unit_id = $user->organization?->unit_id;
+        $same_unit = $user_unit_id && $procurement->unit_id
+            && (int) $user_unit_id === (int) $procurement->unit_id;
+
+        if (
+            (int) $procurement->created_by_id === (int) $user->id
+            || $same_unit
+            || $user->hasRole('Procurement Staff')
+            || $user->hasRole('Procurement Officer')
+        ) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'item' => 'Only users assigned to the same unit can manage items for this plan.',
         ]);
     }
 
@@ -1180,12 +1265,22 @@ class ProcurementPPMPClass
 
     protected function generateSppCode(int $year, int $unit_id): string
     {
-        $sequence = ProcurementPpmp::query()
-            ->whereYear('date', $year)
-            ->where('unit_id', $unit_id)
-            ->count() + 1;
+        return $this->generatePlanSeriesCode('SPP-'.$year);
+    }
 
-        return 'SPP-'.$year.'-UNIT-'.str_pad((string) $unit_id, 3, '0', STR_PAD_LEFT).'-'.str_pad((string) $sequence, 2, '0', STR_PAD_LEFT);
+    protected function generatePlanSeriesCode(string $base_code): string
+    {
+        $next_number = ProcurementPpmp::query()
+            ->where('code', 'like', $base_code.'-%')
+            ->pluck('code')
+            ->map(function ($code) use ($base_code) {
+                $suffix = str_replace($base_code.'-', '', (string) $code);
+
+                return ctype_digit($suffix) ? (int) $suffix : 0;
+            })
+            ->max() + 1;
+
+        return $base_code.'-'.str_pad((string) max(1, $next_number), 2, '0', STR_PAD_LEFT);
     }
 
     protected function attachRequestIfSupported(ProcurementPpmp $procurement): void
@@ -1488,6 +1583,8 @@ class ProcurementPPMPClass
     {
         if ($plan_name === self::PLAN_NAME_APP && $this->hasSeparateAppRegister()) {
             return ProcurementApp::query()
+                ->select('year')
+                ->distinct()
                 ->orderByDesc('year')
                 ->pluck('year')
                 ->map(fn ($year) => (int) $year)
@@ -1656,8 +1753,8 @@ class ProcurementPPMPClass
             });
 
         match ($request->sort) {
-            'oldest' => $query->orderBy('year')->orderBy('created_at'),
-            default => $query->orderByDesc('year')->orderByDesc('created_at'),
+            'oldest' => $query->orderBy('year')->orderBy('version')->orderBy('created_at'),
+            default => $query->orderByDesc('year')->orderByDesc('version')->orderByDesc('created_at'),
         };
 
         $apps = $query->paginate($per_page);
@@ -1688,6 +1785,7 @@ class ProcurementPPMPClass
     {
         $source_ppmps = $app->source_ppmps ?? collect();
         $resource = $this->aggregateAgencyWide($source_ppmps, self::PLAN_NAME_APP)->first();
+        $display_number = $this->appDisplayNumber($app);
 
         if ($resource) {
             $resource->status_id = $app->status_id;
@@ -1696,7 +1794,7 @@ class ProcurementPPMPClass
             $resource->setRelation('approved_by', $app->approved_by);
 
             $this->applyOverrides($resource, [
-                'ppmp_no_override' => $app->code,
+                'ppmp_no_override' => $display_number,
                 'plan_name_override' => self::PLAN_NAME_APP,
                 'ppmp_status_override' => $this->appStatusLabel(collect([$app->status?->name])->filter()),
                 'approval_status_override' => $this->appStatusLabel(collect([$app->status?->name])->filter()),
@@ -1718,8 +1816,9 @@ class ProcurementPPMPClass
         return array_merge($data, [
             'id' => $app->id,
             'code' => $app->code,
+            'version' => (int) ($app->version ?? 1),
             'pr_no' => $app->code,
-            'ppmp_no' => $app->code,
+            'ppmp_no' => $display_number,
             'ppmp_status' => $this->appStatusLabel(collect([$app->status?->name])->filter()),
             'approval_status' => $this->appStatusLabel(collect([$app->status?->name])->filter()),
             'plan_name' => self::PLAN_NAME_APP,
@@ -1732,6 +1831,7 @@ class ProcurementPPMPClass
                 'short' => 'APP',
             ],
             'created_by_id' => $app->created_by_id,
+            'created_by' => $app->created_by?->profile?->full_name,
             'approved_by' => $app->approved_by?->profile?->full_name,
             'reviewed_by' => in_array($app->status?->name, [self::STATUS_REVIEWED, self::STATUS_APPROVED], true)
                 ? $app->reviewed_by?->profile?->full_name
@@ -1745,6 +1845,26 @@ class ProcurementPPMPClass
             'can_approve_to_app' => false,
             'is_final' => true,
         ]);
+    }
+
+    protected function appDisplayNumber(ProcurementApp $app): string
+    {
+        if (preg_match('/^APP-\d{4}-(\d{2})/', (string) $app->code, $matches)) {
+            return $matches[1];
+        }
+
+        return str_pad((string) ((int) ($app->version ?? 1)), 2, '0', STR_PAD_LEFT);
+    }
+
+    protected function planDisplayNumber(?string $number): ?string
+    {
+        if (! $number) {
+            return $number;
+        }
+
+        return preg_match('/-(\d+)$/', $number, $matches)
+            ? str_pad((string) ((int) $matches[1]), 2, '0', STR_PAD_LEFT)
+            : $number;
     }
 
     protected function aggregateSourceQuery(ProcurementPpmp $procurement, ?string $plan_type = null)
@@ -1872,7 +1992,7 @@ class ProcurementPPMPClass
                 ]);
 
                 $this->applyOverrides($representative, [
-                    'ppmp_no_override' => $number_prefix.'-'.$year.'-UNIT-'.str_pad((string) $representative->unit_id, 3, '0', STR_PAD_LEFT),
+                    'ppmp_no_override' => $representative->code ?: $number_prefix.'-'.$year.'-01',
                     'pr_no_override' => $pr_nos->implode(', '),
                     'plan_name_override' => $plan_type === self::PLAN_TYPE_SPP ? self::PLAN_NAME_SPP : $plan_name,
                     'ppmp_status_override' => $plan_type === self::PLAN_TYPE_SPP
@@ -1966,7 +2086,7 @@ class ProcurementPPMPClass
         ]);
 
         $this->applyOverrides($representative, [
-            'ppmp_no_override' => $plan_short.'-'.$year,
+            'ppmp_no_override' => $representative->code ?: $plan_short.'-'.$year.'-01',
             'pr_no_override' => $pr_nos->implode(', '),
             'plan_name_override' => $plan_name,
             'ppmp_status_override' => $this->ppmpStatusForGroup($plan_names, $statuses, $plan_name),
@@ -2024,10 +2144,14 @@ class ProcurementPPMPClass
             ->map(function (ProcurementPpmp $procurement) use ($approval_status) {
                 $items = collect($procurement->items ?? []);
                 $year = $this->yearForProcurement($procurement);
+                $plan_type = $this->actualPlanTypeForView($procurement);
 
                 return [
                     'id' => $procurement->id,
-                    'ppmp_no' => 'PPMP-'.$year.'-'.str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT),
+                    'plan_type' => $plan_type,
+                    'ppmp_no' => $this->planDisplayNumber(
+                        $procurement->code ?: $plan_type.'-'.$year.'-'.str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT)
+                    ),
                     'unit_id' => $procurement->unit_id,
                     'unit' => $procurement->unit?->name,
                     'division' => $procurement->division,

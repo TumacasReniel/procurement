@@ -78,6 +78,7 @@
                                   v-model="form.date"
                                   type="date"
                                   class="form-control modern-input"
+                                  readonly
                                 />
                               </div>
                             </div>
@@ -112,9 +113,9 @@
                               </div>
                             </div>
 
-                            <div class="col-6">
+                            <div v-if="showProcurementCodeField" class="col-6">
                               <div class="form-group compact-form-group">
-                                <InputLabel for="Mode Procurement " value="PAP Codes"  />
+                                <InputLabel for="Mode Procurement " value="Procurement Codes"  />
                                 <Multiselect
                                   :options="availableProcurementCodes"
                                   v-model="form.procurement_code_ids"
@@ -583,6 +584,9 @@ export default {
     showReferenceAppField() {
       return ["review", "approve"].includes(this.option) || Boolean(this.form.procurement_app_id);
     },
+    showProcurementCodeField() {
+      return this.option === "review" || (this.option !== "create" && this.hasSelectedProcurementCodes);
+    },
     referenceAppOptions() {
       const options =
         this.dropdowns?.reference_apps ??
@@ -665,6 +669,9 @@ export default {
     hasSelectedProcurementCodes() {
       return Array.isArray(this.form.procurement_code_ids) && this.form.procurement_code_ids.length > 0;
     },
+    ppmpSelectionUnitId() {
+      return this.form.unit_id ? Number(this.form.unit_id) : null;
+    },
     availablePpmpItemIds() {
       return new Set(this.ppmpItems.map((item) => Number(item.value)));
     },
@@ -675,25 +682,18 @@ export default {
       return Boolean(
         this.form.division_id &&
         this.form.unit_id &&
+        this.ppmpSelectionUnitId &&
         this.form.fund_cluster_id &&
-        this.form.purpose &&
-        this.hasSelectedProcurementCodes &&
-        this.hasPpmpItemsForSelectedPap
+        this.form.purpose
       );
     },
     addItemDisabledReason() {
-      if (!this.form.unit_id) {
+      if (!this.ppmpSelectionUnitId) {
         return "Select the end user/unit first.";
       }
 
-      if (!this.hasSelectedProcurementCodes) {
+      if (this.showProcurementCodeField && !this.hasSelectedProcurementCodes) {
         return "Select a PAP code before adding items.";
-      }
-
-      if (!this.hasPpmpItemsForSelectedPap) {
-        return this.isLoadingPpmpItems
-          ? "Loading PPMP items for the selected PAP code."
-          : "No items are available for the selected unit and PAP code.";
       }
 
       if (!this.form.division_id || !this.form.fund_cluster_id || !this.form.purpose) {
@@ -703,7 +703,7 @@ export default {
       return "Add Item";
     },
     procurementCodeUnitHelper() {
-      if (this.option !== "create" || !this.form.unit_id) {
+      if (!this.showProcurementCodeField || !this.ppmpSelectionUnitId) {
         return null;
       }
 
@@ -712,7 +712,7 @@ export default {
       }
 
       if (!this.isLoadingPpmpItems && !this.hasPpmpItemsForSelectedPap) {
-        return "No items are available for the selected unit and PAP code.";
+        return "No items are available for your unit.";
       }
 
       return null;
@@ -815,7 +815,7 @@ export default {
       return `The selected PAP codes only have ${this.formatCurrency(this.selectedProcurementCodeBalance)} remaining, which is not enough for the request total of ${this.formatCurrency(this.totalCostSum)}. You cannot create this procurement request until the selected balance is enough.`;
     },
     canReviewRequest() {
-      return Boolean(this.form.procurement_app_id);
+      return Boolean(this.form.procurement_app_id && this.hasSelectedProcurementCodes);
     },
     canCreateRequest() {
       return this.isFormValid && this.hasEnoughSelectedProcurementCodeBalance;
@@ -825,7 +825,6 @@ export default {
       return this.form.division_id &&
              this.form.unit_id &&
              this.form.fund_cluster_id &&
-             this.hasSelectedProcurementCodes &&
              this.form.purpose &&
              this.form.requested_by_id &&
              this.form.approved_by_id &&
@@ -1031,7 +1030,7 @@ export default {
     },
 
     procurementCodeBelongsToSelectedUnit(option) {
-      if (!this.form.unit_id) {
+      if (!this.ppmpSelectionUnitId) {
         return false;
       }
 
@@ -1039,7 +1038,7 @@ export default {
         ? option.end_user_ids.map((id) => Number(id))
         : [];
 
-      return endUserIds.includes(Number(this.form.unit_id));
+      return endUserIds.includes(Number(this.ppmpSelectionUnitId));
     },
 
     removeInvalidProcurementCodesForUnit() {
@@ -1061,17 +1060,13 @@ export default {
         return;
       }
 
-      const procurementCodeIds = Array.isArray(this.form.procurement_code_ids)
-        ? this.form.procurement_code_ids.filter(Boolean)
-        : [];
-
-      if (!this.form.unit_id || procurementCodeIds.length === 0) {
+      if (!this.ppmpSelectionUnitId) {
         this.ppmpItems = [];
         this.removeItemsOutsideCurrentPpmp();
         return;
       }
 
-      const requestKey = `${this.form.unit_id}:${procurementCodeIds.join(",")}`;
+      const requestKey = `${this.ppmpSelectionUnitId}`;
       this.latestPpmpItemsKey = requestKey;
       this.isLoadingPpmpItems = true;
 
@@ -1079,8 +1074,7 @@ export default {
         .get("/faims/procurements/create", {
           params: {
             option: "ppmp_items",
-            unit_id: this.form.unit_id,
-            procurement_code_ids: procurementCodeIds,
+            unit_id: this.ppmpSelectionUnitId,
           },
         })
         .then((response) => {
@@ -1159,7 +1153,16 @@ export default {
         return;
       }
 
-      this.form.post("/faims/procurements", {
+      this.form
+        .transform((data) => ({
+          ...data,
+          division_id: data.division_id ? Number(data.division_id) : null,
+          unit_id: data.unit_id ? Number(data.unit_id) : null,
+          fund_cluster_id: data.fund_cluster_id ? Number(data.fund_cluster_id) : null,
+          requested_by_id: data.requested_by_id ? Number(data.requested_by_id) : null,
+          approved_by_id: data.approved_by_id ? Number(data.approved_by_id) : null,
+        }))
+        .post("/faims/procurements", {
         onSuccess: () => {
           this.clearCreateDraft();
         },
@@ -1262,6 +1265,12 @@ export default {
 
               if (hasPreferredUnit) {
                 this.form.unit_id = Number(preferred_unit_id);
+              }
+            } else if (this.form.unit_id) {
+              const hasSelectedUnit = this.units.some((unit) => Number(unit.value) === Number(this.form.unit_id));
+
+              if (!hasSelectedUnit) {
+                this.form.unit_id = null;
               }
             }
           }

@@ -38,8 +38,9 @@ class ProcurementPPMPResource extends JsonResource
         $year = $this->date ? date('Y', strtotime($this->date)) : date('Y', strtotime((string) $this->created_at));
         $ppmp_no = $this->ppmp_no_override ?: match ($plan_type) {
             'supplemental' => $this->code ?: 'SPP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT),
-            default => 'PPMP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT),
+            default => $this->code ?: 'PPMP-'.$year.'-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT),
         };
+        $ppmp_no = $this->display_plan_number($ppmp_no);
         $start_date = $this->start_date_override ?: $this->date;
         $item_details = $this->item_details($items);
         $consolidated_item_details = $plan_type === 'ppmp'
@@ -77,6 +78,7 @@ class ProcurementPPMPResource extends JsonResource
             'purpose' => $this->purpose,
             'title' => $this->title,
             'division' => $this->division,
+            'unit_id' => $this->unit_id,
             'unit' => $this->unit_override ?: $this->unit,
             'fund_cluster' => $this->fund_cluster,
             'classification' => $this->classification,
@@ -534,7 +536,18 @@ class ProcurementPPMPResource extends JsonResource
             ? date('Y', strtotime($procurement->date))
             : date('Y', strtotime((string) $procurement->created_at));
 
-        return 'PPMP-'.$year.'-'.str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT);
+        return $this->display_plan_number($procurement->code ?: 'PPMP-'.$year.'-'.str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT));
+    }
+
+    protected function display_plan_number(?string $number): ?string
+    {
+        if (! $number) {
+            return $number;
+        }
+
+        return preg_match('/-(\d{2})$/', $number, $matches)
+            ? $matches[1]
+            : $number;
     }
 
     protected function plan_type(?string $plan_name): string
@@ -592,6 +605,7 @@ class ProcurementPPMPResource extends JsonResource
         return collect($this->source_ppmps_override ?: [])
             ->map(fn ($source) => [
                 'id' => data_get($source, 'id'),
+                'plan_type' => data_get($source, 'plan_type'),
                 'ppmp_no' => data_get($source, 'ppmp_no'),
                 'unit_id' => data_get($source, 'unit_id'),
                 'unit' => $this->source_label(data_get($source, 'unit')),

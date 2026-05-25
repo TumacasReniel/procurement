@@ -24,6 +24,10 @@ Broadcast::channel('procurement.{id}', function ($user, $id) {
     return $user && Procurement::query()->whereKey($id)->exists();
 });
 
+Broadcast::channel('procurement-requests', function ($user) {
+    return (bool) $user;
+});
+
 Broadcast::channel('procurement-plans', function ($user) {
     return (bool) $user;
 });

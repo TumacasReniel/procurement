@@ -65,6 +65,11 @@
     $signatureColumnWidth = 100 / (1 + ($showReviewedSignature ? 1 : 0) + ($showSubmittedSignature ? 1 : 0));
     $ppmpYear = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y', strtotime((string) $procurement->created_at));
     $ppmpNo = $procurement->ppmp_no_override ?: 'PPMP-' . $ppmpYear . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT);
+    $displayPpmpNo = preg_match('/-(\d{2})$/', (string) $ppmpNo, $numberMatch)
+        ? $numberMatch[1]
+        : $ppmpNo;
+    $appVersion = (int) ($procurement->app_version_override ?? 1);
+    $isUpdatedApp = $planShortName === 'APP' && $appVersion > 1;
     $prNo = $procurement->pr_no_override ?: ($procurement->code ?: '');
     $unitName = $procurement->unit_name_override ?: ($procurement->unit?->name ?? '-');
     $classificationName = $procurement->classification_override ?: ($procurement->classification?->name ?? '-');
@@ -166,7 +171,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{{ $planShortName }} {{ $ppmpNo }}</title>
+    <title>{{ $planShortName }} {{ $displayPpmpNo }}</title>
     <style>
         @page {
             margin: 18px 22px 34px 22px;
@@ -253,12 +258,16 @@
         }
 
         .title-line {
-            display: inline-block;
+            display: inline-flex;
+            align-items: baseline;
+            justify-content: center;
             min-width: 2px;
             font-size: 15px;
             border-bottom: 1px solid #000;
-            padding: 0 8px 1px;
+            line-height: 1.15;
+            padding: 0 8px;
             color:red;
+            vertical-align: baseline;
         }
 
         .status-row {
@@ -268,10 +277,26 @@
 
         .status-option {
             display: inline-block;
-            margin: 0 50px;
+            margin: 0 34px;
             font-size: 15px;
             font-weight: bold;
             vertical-align: middle;
+        }
+
+        .updated-option {
+            margin-right: 0;
+        }
+
+        .version-line {
+            display: inline-flex;
+            align-items: baseline;
+            justify-content: center;
+            min-width: 42px;
+            border-bottom: 1px solid #000;
+            line-height: 1.15;
+            padding: 0 4px;
+            text-align: center;
+            vertical-align: baseline;
         }
 
      .box {
@@ -520,7 +545,7 @@
     <div class="title-block">
         <div class="document-title">
             {{ $documentTitle }}
-            <span class="title-line">{{ $ppmpNo }}</span>
+            <span class="title-line">{{ $displayPpmpNo }}</span>
         </div>
         <div class="status-row">
             <span class="status-option">
@@ -532,6 +557,13 @@
                 <span class="box {{ $isFinal ? 'filled' : '' }}"></span>
                 FINAL
             </span>
+
+            @if ($planShortName === 'APP')
+                <span class="status-option updated-option">
+                    <span class="box {{ $isUpdatedApp ? 'filled' : '' }}"></span>
+                    UPDATED [version No. <span class="version-line">{{ $isUpdatedApp ? $appVersion : '' }}</span>]
+                </span>
+            @endif
         </div>
     </div>
 

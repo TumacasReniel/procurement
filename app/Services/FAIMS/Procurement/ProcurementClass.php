@@ -2,6 +2,7 @@
 
 namespace App\Services\FAIMS\Procurement;
 
+use App\Events\ProcurementRequestChanged;
 use App\Models\Request;
 use App\Models\OrgChart;
 use App\Models\OrgSignatory;
@@ -27,6 +28,8 @@ use Illuminate\Validation\ValidationException;
 
 class ProcurementClass
 {
+    protected const PLAN_NAME_APP = 'Annual Procurement Plan';
+
     public function __construct(protected DropdownClass $dropdown)
     {
     }
@@ -91,9 +94,13 @@ class ProcurementClass
 
     protected function currentAppDropdowns(): array
     {
+        $appTypeId = ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type');
+
         return ProcurementApp::query()
             ->with('status')
+            ->when($appTypeId, fn ($query) => $query->where('app_type_id', $appTypeId))
             ->orderByDesc('year')
+            ->orderByDesc('version')
             ->orderByDesc('id')
             ->get()
             ->map(fn (ProcurementApp $app) => [
@@ -102,6 +109,7 @@ class ProcurementClass
                 'code' => $app->code,
                 'title' => $app->title,
                 'year' => (int) $app->year,
+                'version' => (int) ($app->version ?? 1),
                 'status' => $app->status?->name,
             ])
             ->values()
@@ -244,6 +252,8 @@ class ProcurementClass
 
         // Save Procurement Items 
         $this->saveProcurementItems($request, $procurement->id);
+        $procurement = $this->procurementForBroadcast($procurement->id);
+        $this->broadcastProcurementRequestChanged($procurement, 'created');
 
         return [
             'data' => new ProcurementResource($procurement),
@@ -262,8 +272,12 @@ class ProcurementClass
             'created_by_id' => $user->id,
         ]);
 
-        $payload['division_id'] = $payload['division_id'] ?? $user->organization?->division_id;
-        $payload['unit_id'] = $payload['unit_id'] ?? $user->organization?->unit_id;
+        $payload['division_id'] = $request->filled('division_id')
+            ? (int) $request->input('division_id')
+            : $user->organization?->division_id;
+        $payload['unit_id'] = $request->filled('unit_id')
+            ? (int) $request->input('unit_id')
+            : $user->organization?->unit_id;
 
         // Handle schema drift safely for older DBs that may not yet have request_id.
         if (Schema::hasColumn('procurements', 'request_id')) {
@@ -344,6 +358,8 @@ class ProcurementClass
         // update Procurement Item Details
         $this->updatePRItems($id , $request);
 
+        $data = $this->procurementForBroadcast($id);
+        $this->broadcastProcurementRequestChanged($data, 'updated');
 
         return [
             'data' => new ProcurementResource($data),
@@ -385,6 +401,8 @@ class ProcurementClass
             $data->status_id  = ListStatus::getID('Reviewed','Procurement');
 
             $data->update();
+            $data = $this->procurementForBroadcast($id);
+            $this->broadcastProcurementRequestChanged($data, 'status-updated');
 
             Log::info('Procurement reviewed successfully', [
                 'procurement_id' => $id,
@@ -428,6 +446,8 @@ class ProcurementClass
         $data->status_id  = ListStatus::getID('Approved','Procurement');
 
         $data->update();
+        $data = $this->procurementForBroadcast($id);
+        $this->broadcastProcurementRequestChanged($data, 'status-updated');
 
         return [
             'data' => new ProcurementResource($data),
@@ -471,6 +491,8 @@ class ProcurementClass
         }
 
         $data->refresh();
+        $data = $this->procurementForBroadcast($id);
+        $this->broadcastProcurementRequestChanged($data, 'status-updated');
 
         return [
             'data' => new ProcurementResource($data),
@@ -518,6 +540,35 @@ class ProcurementClass
         return  $data;
     }
 
+    protected function procurementForBroadcast(int $id): Procurement
+    {
+        return Procurement::with([
+            'division',
+            'unit',
+            'fund_cluster',
+            'classification',
+            'reference_app',
+            'procurement_app',
+            'codes.procurement_code',
+            'items.item_unit_type',
+            'items.ppmp_item.item_category',
+            'items.ppmp_item.ppmp.unit',
+            'created_by.profile',
+            'requested_by.profile',
+            'approved_by.profile',
+            'status',
+            'sub_status',
+        ])->withCount('comments')->findOrFail($id);
+    }
+
+    protected function broadcastProcurementRequestChanged(Procurement $procurement, string $action): void
+    {
+        broadcast(new ProcurementRequestChanged(
+            (new ProcurementResource($procurement))->resolve(),
+            $action
+        ))->toOthers();
+    }
+
     protected function currentAppIdForRequest($request): ?int
     {
         if (!Schema::hasTable('procurement_apps')) {
@@ -529,7 +580,9 @@ class ProcurementClass
             : (int) now()->year;
 
         return ProcurementApp::query()
+            ->when(ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type'), fn ($query, $appTypeId) => $query->where('app_type_id', $appTypeId))
             ->where('year', $year)
+            ->orderByDesc('version')
             ->orderByDesc('id')
             ->value('id');
     }
@@ -718,29 +771,12 @@ class ProcurementClass
     public function ppmp_items($request): array
     {
         $unitId = (int) $request->input('unit_id');
-        $procurementCodeIds = collect($request->input('procurement_code_ids', []))
-            ->filter(fn ($id) => filled($id))
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values();
 
-        if (!$unitId || $procurementCodeIds->isEmpty()) {
+        if (!$unitId) {
             return [];
         }
 
-        $papEndUserUnitIds = ProcurementCode::query()
-            ->whereIn('id', $procurementCodeIds)
-            ->with('end_users')
-            ->get()
-            ->flatMap(fn ($code) => $code->end_users->pluck('end_user_id'))
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values();
-
-        $ppmpUnitIds = $papEndUserUnitIds->isNotEmpty()
-            ? $papEndUserUnitIds
-            : collect([$unitId]);
+        $ppmpUnitIds = collect([$unitId]);
 
         $usedPpmpItemIds = Schema::hasColumn('procurement_items', 'ppmp_item_id')
             ? ProcurementItem::query()
@@ -784,15 +820,8 @@ class ProcurementClass
             ->when($usedPpmpItemIds->isNotEmpty(), function ($query) use ($usedPpmpItemIds) {
                 $query->whereNotIn('id', $usedPpmpItemIds);
             })
-            ->whereHas('ppmp', function ($query) use ($ppmpUnitIds, $procurementCodeIds) {
-                $query->whereIn('unit_id', $ppmpUnitIds)
-                    ->where(function ($ppmpQuery) use ($procurementCodeIds) {
-                        $ppmpQuery
-                            ->whereHas('codes', function ($codeQuery) use ($procurementCodeIds) {
-                                $codeQuery->whereIn('procurement_code_id', $procurementCodeIds);
-                            })
-                            ->orDoesntHave('codes');
-                    });
+            ->whereHas('ppmp', function ($query) use ($ppmpUnitIds) {
+                $query->whereIn('unit_id', $ppmpUnitIds);
             })
             ->latest('id')
             ->limit(100)

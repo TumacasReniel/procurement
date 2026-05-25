@@ -274,6 +274,8 @@ export default {
     return {
       loadingItems: false,
       hydratingProcurement: false,
+      restoringDraft: false,
+      draftStorageKey: "procurementRequestByCategoryDraft",
       items: [],
       selectedIds: [],
       availableItems: [],
@@ -393,15 +395,34 @@ export default {
   watch: {
     "form.item_category_id"() {
       this.clearItems();
+      this.saveDraft();
     },
     "form.fund_cluster_id"() {
       this.clearItems();
+      this.saveDraft();
     },
     "form.procurement_code_ids"() {
       this.refreshTitleFromCodes();
+      this.saveDraft();
     },
     "form.date"() {
       this.applyAutomaticCurrentApp(true);
+      this.saveDraft();
+    },
+    "form.title"() {
+      this.saveDraft();
+    },
+    "form.purpose"() {
+      this.saveDraft();
+    },
+    "form.procurement_app_id"() {
+      this.saveDraft();
+    },
+    "form.requested_by_id"() {
+      this.saveDraft();
+    },
+    "form.approved_by_id"() {
+      this.saveDraft();
     },
   },
   mounted() {
@@ -414,6 +435,7 @@ export default {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
     }
     this.prefillUserDivisionAndUnit();
+    this.restoreDraft();
   },
   methods: {
     getCurrentDate() {
@@ -517,7 +539,7 @@ export default {
       };
     },
     clearItems() {
-      if (this.hydratingProcurement) {
+      if (this.hydratingProcurement || this.restoringDraft) {
         return;
       }
 
@@ -525,8 +547,13 @@ export default {
       this.selectedIds = [];
       this.availableItems = [];
       this.form.items = [];
+      this.saveDraft();
     },
     refreshTitleFromCodes() {
+      if (this.restoringDraft) {
+        return;
+      }
+
       const selectedCodes = this.dropdowns.procurement_codes.filter((code) =>
         this.form.procurement_code_ids.includes(code.value)
       );
@@ -559,6 +586,7 @@ export default {
         });
 
         this.availableItems = Array.isArray(data) ? data : [];
+        this.saveDraft();
         this.itemSelectionModal.show = true;
       } finally {
         this.loadingItems = false;
@@ -569,6 +597,7 @@ export default {
       this.selectedIds = this.items.map((item) => item.value);
       this.syncFormItems();
       this.itemSelectionModal.show = false;
+      this.saveDraft();
     },
     toggleItem(item) {
       if (this.isLockedMode) return;
@@ -579,12 +608,14 @@ export default {
         this.selectedIds = [...this.selectedIds, item.value];
       }
       this.syncFormItems();
+      this.saveDraft();
     },
     toggleAll() {
       if (this.isLockedMode) return;
 
       this.selectedIds = this.allVisibleSelected ? [] : this.items.map((item) => item.value);
       this.syncFormItems();
+      this.saveDraft();
     },
     syncFormItems() {
       this.form.items = this.selectedItems.map((item) => ({
@@ -596,6 +627,98 @@ export default {
         item_description: item.item_description,
         total_cost: item.total_cost,
       }));
+      this.saveDraft();
+    },
+    draftPayload() {
+      return {
+        form: {
+          date: this.form.date,
+          purpose: this.form.purpose,
+          title: this.form.title,
+          division_id: this.form.division_id,
+          unit_id: this.form.unit_id,
+          fund_cluster_id: this.form.fund_cluster_id,
+          classification_id: this.form.classification_id,
+          reference_app_id: this.form.reference_app_id,
+          procurement_app_id: this.form.procurement_app_id,
+          requested_by_id: this.form.requested_by_id,
+          approved_by_id: this.form.approved_by_id,
+          procurement_code_ids: Array.isArray(this.form.procurement_code_ids)
+            ? this.form.procurement_code_ids
+            : [],
+          item_category_id: this.form.item_category_id,
+          items: Array.isArray(this.form.items) ? this.form.items : [],
+        },
+        items: this.items,
+        selectedIds: this.selectedIds,
+        availableItems: this.availableItems,
+        saved_at: new Date().toISOString(),
+      };
+    },
+    saveDraft() {
+      if (this.isLockedMode || this.hydratingProcurement || this.restoringDraft) {
+        return;
+      }
+
+      try {
+        localStorage.setItem(this.draftStorageKey, JSON.stringify(this.draftPayload()));
+      } catch (error) {
+        console.error("Unable to save category PR draft:", error);
+      }
+    },
+    restoreDraft() {
+      let draft = null;
+
+      try {
+        draft = JSON.parse(localStorage.getItem(this.draftStorageKey));
+      } catch (error) {
+        localStorage.removeItem(this.draftStorageKey);
+        return;
+      }
+
+      if (!draft || typeof draft !== "object") {
+        return;
+      }
+
+      this.restoringDraft = true;
+
+      const draftForm = draft.form || {};
+
+      [
+        "date",
+        "purpose",
+        "title",
+        "division_id",
+        "unit_id",
+        "fund_cluster_id",
+        "classification_id",
+        "reference_app_id",
+        "procurement_app_id",
+        "requested_by_id",
+        "approved_by_id",
+        "item_category_id",
+      ].forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(draftForm, key)) {
+          this.form[key] = draftForm[key];
+        }
+      });
+
+      this.form.procurement_code_ids = Array.isArray(draftForm.procurement_code_ids)
+        ? draftForm.procurement_code_ids
+        : [];
+      this.items = Array.isArray(draft.items) ? draft.items : [];
+      this.selectedIds = Array.isArray(draft.selectedIds) ? draft.selectedIds : [];
+      this.availableItems = Array.isArray(draft.availableItems) ? draft.availableItems : [];
+      this.form.items = Array.isArray(draftForm.items) ? draftForm.items : [];
+
+      this.$nextTick(() => {
+        this.restoringDraft = false;
+        this.syncFormItems();
+        this.saveDraft();
+      });
+    },
+    clearDraft() {
+      localStorage.removeItem(this.draftStorageKey);
     },
     submit() {
       this.applyAutomaticCurrentApp();
@@ -613,6 +736,9 @@ export default {
 
       this.form.post("/faims/procurements", {
         preserveScroll: true,
+        onSuccess: () => {
+          this.clearDraft();
+        },
       });
     },
     goBack() {

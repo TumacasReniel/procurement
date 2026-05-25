@@ -13,6 +13,7 @@ class ProcurementApp extends Model
     protected $fillable = [
         'code',
         'year',
+        'version',
         'title',
         'app_type_id',
         'created_by_id',
@@ -69,6 +70,7 @@ class ProcurementApp extends Model
             ->logOnly([
                 'code',
                 'year',
+                'version',
                 'title',
                 'app_type_id',
                 'created_by_id',
