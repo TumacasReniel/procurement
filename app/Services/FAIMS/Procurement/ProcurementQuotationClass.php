@@ -13,9 +13,23 @@ class ProcurementQuotationClass
 {
     public function save($request){
         $procurement = Procurement::with('status')->findOrFail($request->procurement_id);
+        $supplierIds = collect($request->supplier_ids ?? [])
+            ->map(function ($supplierId) {
+                return is_array($supplierId) ? ($supplierId['value'] ?? $supplierId['id'] ?? null) : $supplierId;
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        $existingSupplierIds = ProcurementQuotation::where('procurement_id', $request->procurement_id)
+            ->whereIn('supplier_id', $supplierIds)
+            ->pluck('supplier_id');
+
+        $supplierIds = $supplierIds->diff($existingSupplierIds)->values();
+        $procurement_quotation = null;
 
         // create initial 
-        foreach ($request->supplier_ids as $supplier_id) {
+        foreach ($supplierIds as $supplier_id) {
 
             // save Request for Quotation(RFQ)
             $code= ProcurementQuotation::generateRFQNumber();
@@ -42,6 +56,14 @@ class ProcurementQuotationClass
             $procurement->update([
                 'quotation_count' => $procurement->quotation_count+1,
             ]);
+        }
+
+        if (!$procurement_quotation) {
+            return [
+                'data' => null,
+                'message' => 'No new Request for Quotation created.',
+                'info' => 'The selected supplier already has a Request for Quotation for this procurement.',
+            ];
         }
 
       
@@ -72,10 +94,17 @@ class ProcurementQuotationClass
     public function delete($id){
 
         // Find the RFQ by ID
-        $quotation_request = ProcurementQuotation::findOrFail($id);
+        $quotation_request = ProcurementQuotation::with('procurement')->findOrFail($id);
+        $procurement = $quotation_request->procurement;
 
         // Delete the RFQ
         $quotation_request->delete();
+
+        if ($procurement) {
+            $procurement->update([
+                'quotation_count' => max(0, $procurement->quotation_count - 1),
+            ]);
+        }
         
         return [
             'data' => new ProcurementQuotationResource($quotation_request),

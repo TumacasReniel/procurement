@@ -380,12 +380,10 @@ class ProcurementClass
         ]);
 
         try {
-            if (!$request->filled('procurement_app_id')) {
-                $currentAppId = $this->currentAppIdForRequest($request);
+            $currentAppId = $this->currentAppIdForRequest($request);
 
-                if ($currentAppId) {
-                    $request->merge(['procurement_app_id' => $currentAppId]);
-                }
+            if ($currentAppId) {
+                $request->merge(['procurement_app_id' => $currentAppId]);
             }
 
             // update Procurement
@@ -575,9 +573,7 @@ class ProcurementClass
             return null;
         }
 
-        $year = $request->filled('date')
-            ? (int) date('Y', strtotime($request->date))
-            : (int) now()->year;
+        $year = (int) now()->year;
 
         return ProcurementApp::query()
             ->when(ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type'), fn ($query, $appTypeId) => $query->where('app_type_id', $appTypeId))
@@ -821,7 +817,15 @@ class ProcurementClass
                 $query->whereNotIn('id', $usedPpmpItemIds);
             })
             ->whereHas('ppmp', function ($query) use ($ppmpUnitIds) {
-                $query->whereIn('unit_id', $ppmpUnitIds);
+                $query
+                    ->whereIn('unit_id', $ppmpUnitIds)
+                    ->whereHas('reference_app', function ($referenceQuery) {
+                        $referenceQuery->where('name', self::PLAN_NAME_APP);
+                    });
+
+                if (Schema::hasColumn('procurement_ppmps', 'procurement_app_id')) {
+                    $query->whereNotNull('procurement_app_id');
+                }
             })
             ->latest('id')
             ->limit(100)

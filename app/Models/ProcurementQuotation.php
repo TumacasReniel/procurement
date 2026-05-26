@@ -46,18 +46,27 @@ class ProcurementQuotation extends Model
 
     public static function generateRFQNumber($date = null)
     {
-         if ($date) {
-            $year = date("y", strtotime($date));  // 'y' gives the last two digits of the year
-            $month = date("m", strtotime($date));
-        } else {
-            $year = date("y", strtotime("now"));  // 'y' gives the last two digits of the year
-            $month = date("m", strtotime("now"));
+        $timestamp = strtotime($date ?? "now");
+        $year = date("y", $timestamp);
+        $month = date("m", $timestamp);
+        $prefix = 'RFQ-' . $year . '-' . $month . '-';
+
+        $lastCode = self::where('code', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->orderByDesc('code')
+            ->value('code');
+
+        $nextNumber = 1;
+
+        if ($lastCode && preg_match('/^' . preg_quote($prefix, '/') . '(\d+)$/', $lastCode, $matches)) {
+            $nextNumber = ((int) $matches[1]) + 1;
         }
 
-        $count = self::whereYear('created_at', date("Y", strtotime($date ?? "now")))
-                     ->whereMonth('created_at', $month)
-                     ->count() + 1;
+        do {
+            $code = $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            $nextNumber++;
+        } while (self::where('code', $code)->exists());
 
-        return 'RFQ-' . $year . '-' . $month . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        return $code;
     }
 }

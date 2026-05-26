@@ -217,6 +217,12 @@ export default {
                 return `${actor} submitted a PAP budget request`;
             }
 
+            if (notification?.notification_type === "procurement_plan_for_review") {
+                return notification?.reason === "plan_submission_required"
+                    ? `${actor} marked a procurement plan ready for submission`
+                    : `${actor} submitted a procurement plan for review`;
+            }
+
             if (notification?.notification_type === "procurement_plan_comment_notification") {
                 if (notification?.reason === "owner") {
                     return `${actor} commented on your procurement plan`;

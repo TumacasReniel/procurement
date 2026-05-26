@@ -64,6 +64,19 @@ class ProcurementPPMPController extends Controller
         ]);
     }
 
+    public function storeItemCategory(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $result = $this->handleTransaction(function () use ($validated) {
+            return $this->ppmp->storeItemCategory($validated['name']);
+        });
+
+        return response()->json($result);
+    }
+
     public function update($id, ProcurementPPMPUpdateRequest $request)
     {
         $result = $this->handleTransaction(function () use ($id, $request) {

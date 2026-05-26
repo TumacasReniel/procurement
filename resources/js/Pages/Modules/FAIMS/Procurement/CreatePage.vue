@@ -550,7 +550,7 @@ export default {
         this.form.id = this.procurement.id;
         this.form.code = this.procurement.code;
         this.form.purpose = this.procurement.purpose;
-        this.form.title = this.procurement.title;
+        this.form.title = this.procurement.title || this.requestTitleFromCodes(this.procurement.codes);
         this.form.date = this.procurement.date;
         this.form.division_id = this.procurement.division_id;
         this.form.unit_id = this.procurement.unit_id;
@@ -561,7 +561,7 @@ export default {
         this.form.procurement_code_ids = this.procurement.codes.map(
           (code) => code.procurement_code_id
         );
-        this.applyAutomaticCurrentApp();
+        this.applyAutomaticCurrentApp(this.option === "review");
         this.form.requested_by_id = this.procurement.requested_by_id;
         this.form.approved_by_id = this.procurement.approved_by_id;
         this.form.items = this.procurement.items;
@@ -604,9 +604,12 @@ export default {
         return this.currentApp.code || `APP-${this.currentApp.year}`;
       }
 
-      const year = this.prYear;
+      const year = this.currentAppYear;
 
       return year ? `APP-${year} not found` : "APP not found";
+    },
+    currentAppYear() {
+      return new Date().getFullYear();
     },
     currentApp() {
       if (!this.form.procurement_app_id) {
@@ -703,6 +706,10 @@ export default {
       return "Add Item";
     },
     procurementCodeUnitHelper() {
+      if (this.option !== "create") {
+        return null;
+      }
+
       if (!this.showProcurementCodeField || !this.ppmpSelectionUnitId) {
         return null;
       }
@@ -995,9 +1002,17 @@ export default {
         return null;
       }
 
-      const matchingApp = this.currentAppOptions.find((app) => Number(app.year) === this.prYear);
+      const matchingApp = this.currentAppOptions
+        .filter((app) => Number(app.year) === this.currentAppYear)
+        .sort((left, right) =>
+          Number(right.version || 1) - Number(left.version || 1) ||
+          Number(right.value || 0) - Number(left.value || 0)
+        )[0];
 
       return matchingApp ? Number(matchingApp.value) : null;
+    },
+    isApprovedApp(app) {
+      return String(app?.status || "").trim().toLowerCase() === "approved";
     },
 
     prefillUserDivisionAndUnit() {
@@ -1296,6 +1311,34 @@ export default {
           }
         })
         .catch((err) => console.log(err));
+    },
+    requestTitleFromCodes(codes = []) {
+      const codeIds = (Array.isArray(codes) ? codes : [])
+        .map((code) => Number(code.procurement_code_id ?? code.value ?? code.id))
+        .filter(Boolean);
+
+      if (!codeIds.length) {
+        return "";
+      }
+
+      const dropdownCodes = Array.isArray(this.dropdowns?.procurement_codes)
+        ? this.dropdowns.procurement_codes
+        : [];
+
+      return codeIds
+        .map((id) => {
+          const code = dropdownCodes.find(
+            (option) => Number(option.value ?? option.id) === Number(id)
+          );
+
+          if (!code) {
+            return "";
+          }
+
+          return code.title || String(code.label || "").replace(/^[^-]+-\s*/, "");
+        })
+        .filter(Boolean)
+        .join(", ");
     },
   },
 };

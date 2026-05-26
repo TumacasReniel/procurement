@@ -36,12 +36,11 @@
           @change="toggleAll($event.target.checked)"
         />
         <label class="form-check-label" for="ppmp-select-all-items">
-          Select all visible PPMP items
+          Select all items
         </label>
       </div>
       <strong class="text-primary fs-12">{{ formatCurrency(selectedAmount) }}</strong>
     </div>
-
 
     <div class="table-responsive border rounded ppmp-selection-table-wrap">
       <table class="table align-middle mb-0 ppmp-selection-table">
@@ -69,10 +68,15 @@
 
             <td>
               <div class="fw-semibold">{{ item.item_name || "-" }}</div>
-              <div class="text-muted small ppmp-selection-description" v-html="item.item_description || '-'" />
+              <div
+                class="text-muted small ppmp-selection-description"
+                v-html="item.item_description || '-'"
+              />
             </td>
             <td class="text-center">{{ formatQuantity(item.item_quantity) }}</td>
-            <td class="text-center">{{ item.unit_label || unitFromQuantityLabel(item) || "-" }}</td>
+            <td class="text-center">
+              {{ item.unit_label || unitFromQuantityLabel(item) || "-" }}
+            </td>
             <td class="text-end">{{ formatCurrency(item.item_unit_cost) }}</td>
             <td class="text-end fw-semibold">{{ formatCurrency(item.total_cost) }}</td>
           </tr>
@@ -94,11 +98,15 @@
       class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3"
     >
       <div class="text-muted fs-12">
-        Showing {{ paginationStart }}-{{ paginationEnd }} of {{ filteredItems.length }} item(s)
+        Showing {{ paginationStart }}-{{ paginationEnd }} of
+        {{ filteredItems.length }} item(s)
       </div>
 
       <div class="d-flex align-items-center gap-2">
-        <select v-model.number="itemsPerPage" class="form-select form-select-sm ppmp-page-size">
+        <select
+          v-model.number="itemsPerPage"
+          class="form-select form-select-sm ppmp-page-size"
+        >
           <option :value="5">5</option>
           <option :value="10">10</option>
           <option :value="20">20</option>
@@ -111,7 +119,12 @@
 
         <span class="text-muted fs-12">Page {{ page }} of {{ totalPages }}</span>
 
-        <b-button size="sm" variant="light" :disabled="page >= totalPages" @click="page += 1">
+        <b-button
+          size="sm"
+          variant="light"
+          :disabled="page >= totalPages"
+          @click="page += 1"
+        >
           <i class="ri-arrow-right-s-line"></i>
         </b-button>
       </div>
@@ -202,9 +215,7 @@ export default {
     },
     selectedExistingPpmpItemIds() {
       return new Set(
-        this.existingItems
-          .map((item) => Number(item.ppmp_item_id))
-          .filter(Boolean)
+        this.existingItems.map((item) => Number(item.ppmp_item_id)).filter(Boolean)
       );
     },
     availableItems() {
@@ -212,12 +223,12 @@ export default {
         return this.ppmpItems;
       }
 
-      return this.ppmpItems.filter((item) => !this.selectedExistingPpmpItemIds.has(Number(item.value)));
+      return this.ppmpItems.filter(
+        (item) => !this.selectedExistingPpmpItemIds.has(Number(item.value))
+      );
     },
     ppmpNoDisplay() {
-      const ppmpNos = this.ppmpItems
-        .map((item) => item.ppmp_no)
-        .filter(Boolean);
+      const ppmpNos = this.ppmpItems.map((item) => item.ppmp_no).filter(Boolean);
       const uniquePpmpNos = [...new Set(ppmpNos)];
 
       if (!uniquePpmpNos.length) {
@@ -246,11 +257,16 @@ export default {
       return this.selectedIds.length;
     },
     selectedAmount() {
-      return this.selectedItems.reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0);
+      return this.selectedItems.reduce(
+        (sum, item) => sum + (Number(item.total_cost) || 0),
+        0
+      );
     },
     allFilteredSelected() {
-      return this.filteredItems.length > 0
-        && this.filteredItems.every((item) => this.isSelected(item.value));
+      return (
+        this.filteredItems.length > 0 &&
+        this.filteredItems.every((item) => this.isSelected(item.value))
+      );
     },
     totalPages() {
       return Math.max(Math.ceil(this.filteredItems.length / this.itemsPerPage), 1);
@@ -264,7 +280,7 @@ export default {
         return 0;
       }
 
-      return ((this.page - 1) * this.itemsPerPage) + 1;
+      return (this.page - 1) * this.itemsPerPage + 1;
     },
     paginationEnd() {
       return Math.min(this.page * this.itemsPerPage, this.filteredItems.length);
@@ -276,7 +292,7 @@ export default {
 
       return this.ppmpItems.length
         ? "No PPMP items match your search."
-        : "No PPMP items are available for your unit.";
+        : "No consolidated PPMP items are available for the selected unit.";
     },
   },
   methods: {
@@ -331,7 +347,9 @@ export default {
       const visibleIds = this.filteredItems.map((item) => Number(item.value));
 
       if (checked) {
-        this.selectedIds = Array.from(new Set([...this.selectedIds.map((id) => Number(id)), ...visibleIds]));
+        this.selectedIds = Array.from(
+          new Set([...this.selectedIds.map((id) => Number(id)), ...visibleIds])
+        );
       } else {
         const visibleIdSet = new Set(visibleIds);
         this.selectedIds = this.selectedIds.filter((id) => !visibleIdSet.has(Number(id)));
@@ -345,7 +363,9 @@ export default {
           .filter(Boolean)
       );
       const selectedItems = this.selectedItems
-        .filter((ppmpItem) => this.isEditing || !existingPpmpItemIds.has(Number(ppmpItem.value)))
+        .filter(
+          (ppmpItem) => this.isEditing || !existingPpmpItemIds.has(Number(ppmpItem.value))
+        )
         .map((ppmpItem) => ({
           id: Date.now() + Number(ppmpItem.value),
           is_new: true,

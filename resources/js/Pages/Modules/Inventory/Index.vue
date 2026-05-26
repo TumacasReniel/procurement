@@ -233,12 +233,9 @@
                     :loading="loading"
                     :meta="receivingMeta"
                     :links="receivingLinks"
-                    @create="openReceivingCreate"
                     @fetch="fetchReceivings"
                     @refresh="() => fetchReceivings()"
-                    @view="(row) => openViewModal('receiving', row)"
-                    @edit="openReceivingEdit"
-                    @delete="removeReceiving"
+                    @view="openReceivingPoItems"
                   />
 
                   <WithdrawalLedger
@@ -317,6 +314,13 @@
       @update:modelValue="handleViewModalVisibility"
       @add-stock-item="openStockItemCreate"
     />
+
+    <ReceivedPOItems
+      :model-value="showReceivingPoItemsModal"
+      :po="selectedReceivingPo"
+      :can-edit="false"
+      @update:modelValue="handleReceivingPoItemsVisibility"
+    />
   </div>
 </template>
 
@@ -333,9 +337,10 @@ import RecordViewModal from '@/Pages/Modules/Inventory/Modals/RecordViewModal.vu
 import Stocks from '@/Pages/Modules/Inventory/Tabs/Stocks.vue';
 import ReceivingLedger from '@/Pages/Modules/Inventory/Tabs/Receiving.vue';
 import WithdrawalLedger from '@/Pages/Modules/Inventory/Tabs/Withdrawal.vue';
+import ReceivedPOItems from '@/Pages/Modules/FAIMS/Procurement/Modals/ReceivedPOItems.vue';
 
 export default {
-  components: { Head, Link, PageHeader, Pagination, StockModal, ItemModal, ReceivingModal, WithdrawModal, RecordViewModal, Stocks, ReceivingLedger, WithdrawalLedger },
+  components: { Head, Link, PageHeader, Pagination, StockModal, ItemModal, ReceivingModal, WithdrawModal, RecordViewModal, Stocks, ReceivingLedger, WithdrawalLedger, ReceivedPOItems },
   props: {
     initialTab: { type: String, default: 'stocks' },
     dropdowns: { type: Object, default: () => ({}) },
@@ -381,10 +386,12 @@ export default {
       showStockModal: false,
       showItemModal: false,
       showReceivingModal: false,
+      showReceivingPoItemsModal: false,
       showWithdrawalModal: false,
       showViewModal: false,
       viewRecordType: '',
       viewRecord: null,
+      selectedReceivingPo: null,
       viewStockItems: [],
       viewStockItemsLoading: false,
       itemKeyword: '',
@@ -631,7 +638,11 @@ export default {
     async fetchReceivings(pageUrl = '/inventory-receivings') {
       this.loading = true;
       try {
-        const response = await axios.get(pageUrl, { params: this.collectionParams() });
+        const response = await axios.get(pageUrl === '/inventory-receivings' ? '/faims/receiving-deliveries' : pageUrl, {
+          params: this.collectionParams({
+            option: 'lists',
+          }),
+        });
         this.assignPaginated('receivingRows', 'receivingMeta', 'receivingLinks', response.data);
       } finally {
         this.loading = false;
@@ -706,6 +717,17 @@ export default {
         this.viewRecord = null;
         this.viewStockItems = [];
         this.viewStockItemsLoading = false;
+      }
+    },
+    openReceivingPoItems(row) {
+      this.selectedReceivingPo = row;
+      this.showReceivingPoItemsModal = true;
+    },
+    handleReceivingPoItemsVisibility(value) {
+      this.showReceivingPoItemsModal = value;
+
+      if (!value) {
+        this.selectedReceivingPo = null;
       }
     },
     async fetchStockItems(stockId) {

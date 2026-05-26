@@ -21,7 +21,7 @@
       </div>
     </div>
 
-    <div class="selection-strip">
+    <div :class="['selection-strip', { 'selection-strip--invalid': noSelectionError }]">
       <div class="form-check mb-0">
         <input
           id="category-select-all-items"
@@ -39,6 +39,9 @@
       <div class="text-muted fs-12">
         {{ selectedItems.length }} of {{ items.length }} item(s) selected
       </div>
+    </div>
+    <div v-if="noSelectionError" class="text-danger small fw-semibold mb-2">
+      {{ noSelectionError }}
     </div>
 
     <div class="table-responsive border rounded ppmp-selection-table-wrap">
@@ -58,7 +61,7 @@
               No items matched the selected fund source and item category in APP.
             </td>
           </tr>
-          <tr v-for="item in items" :key="item.value" class="item-row">
+          <tr v-for="item in paginatedItems" :key="item.value" class="item-row">
             <td class="text-center">
               <input
                 class="form-check-input"
@@ -82,12 +85,47 @@
       </table>
     </div>
 
+    <div
+      v-if="items.length"
+      class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3"
+    >
+      <div class="text-muted fs-12">
+        Showing {{ paginationStart }}-{{ paginationEnd }} of {{ items.length }} item(s)
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <select
+          v-model.number="itemsPerPage"
+          class="form-select form-select-sm ppmp-page-size"
+        >
+          <option :value="5">5</option>
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+        </select>
+
+        <b-button size="sm" variant="light" :disabled="page <= 1" @click="page -= 1">
+          <i class="ri-arrow-left-s-line"></i>
+        </b-button>
+
+        <span class="text-muted fs-12">Page {{ page }} of {{ totalPages }}</span>
+
+        <b-button
+          size="sm"
+          variant="light"
+          :disabled="page >= totalPages"
+          @click="page += 1"
+        >
+          <i class="ri-arrow-right-s-line"></i>
+        </b-button>
+      </div>
+    </div>
+
     <template v-slot:footer>
       <b-button type="button" variant="light" block @click="close">Cancel</b-button>
       <b-button
         type="button"
         variant="primary"
-        :disabled="selectedItems.length === 0"
         block
         @click="loadSelected"
       >
@@ -117,6 +155,9 @@ export default {
   data() {
     return {
       localSelectedIds: [],
+      page: 1,
+      itemsPerPage: 10,
+      noSelectionError: "",
     };
   },
   computed: {
@@ -143,25 +184,52 @@ export default {
         this.items.every((item) => this.localSelectedIds.includes(item.value))
       );
     },
+    totalPages() {
+      return Math.max(Math.ceil(this.items.length / this.itemsPerPage), 1);
+    },
+    paginatedItems() {
+      const start = (this.page - 1) * this.itemsPerPage;
+      return this.items.slice(start, start + this.itemsPerPage);
+    },
+    paginationStart() {
+      if (!this.items.length) {
+        return 0;
+      }
+
+      return (this.page - 1) * this.itemsPerPage + 1;
+    },
+    paginationEnd() {
+      return Math.min(this.page * this.itemsPerPage, this.items.length);
+    },
   },
   watch: {
     modelValue(value) {
       if (value) {
+        this.page = 1;
+        this.noSelectionError = "";
         this.localSelectedIds = this.items
           .filter((item) => this.selectedIds.includes(item.value))
           .map((item) => item.value);
       }
     },
     items() {
+      if (this.page > this.totalPages) {
+        this.page = this.totalPages;
+      }
+
       if (this.modelValue) {
         this.localSelectedIds = this.items
           .filter((item) => this.selectedIds.includes(item.value))
           .map((item) => item.value);
       }
     },
+    itemsPerPage() {
+      this.page = 1;
+    },
   },
   methods: {
     close() {
+      this.noSelectionError = "";
       this.visible = false;
     },
     toggleItem(item) {
@@ -170,13 +238,26 @@ export default {
       } else {
         this.localSelectedIds = [...this.localSelectedIds, item.value];
       }
+
+      if (this.selectedItems.length) {
+        this.noSelectionError = "";
+      }
     },
     toggleAll() {
       this.localSelectedIds = this.allSelected
         ? []
         : this.items.map((item) => item.value);
+
+      if (this.selectedItems.length) {
+        this.noSelectionError = "";
+      }
     },
     loadSelected() {
+      if (!this.selectedItems.length) {
+        this.noSelectionError = "Please select at least one item.";
+        return;
+      }
+
       this.$emit("load", this.selectedItems);
     },
     formatCurrency(value) {
@@ -196,6 +277,14 @@ export default {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.selection-strip--invalid {
+  border-color: #f06548;
+  background: rgba(240, 101, 72, 0.06);
 }
 
 .ppmp-selection-table-wrap {
@@ -228,6 +317,10 @@ export default {
 .ppmp-selection-description {
   max-width: 520px;
   line-height: 1.4;
+}
+
+.ppmp-page-size {
+  width: 76px;
 }
 
 @media (max-width: 768px) {

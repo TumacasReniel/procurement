@@ -237,7 +237,6 @@
               <th style="width: 4%" class="text-center">#</th>
               <th style="width: 18%">PPMP/SPP No.</th>
               <th>Unit</th>
-              <th style="width: 18%">PR No.</th>
               <th style="width: 12%" class="text-end">Items</th>
               <th style="width: 14%" class="text-end">Total ABC</th>
               <th style="width: 18%" class="text-center">Status</th>
@@ -266,7 +265,7 @@
                   sourceLabel(source.division) || "End-user unit"
                 }}</small>
               </td>
-              <td>{{ source.pr_no || "-" }}</td>
+
               <td class="text-end">
                 {{ Number(source.items_count || 0).toLocaleString() }}
               </td>

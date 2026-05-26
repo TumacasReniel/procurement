@@ -99,6 +99,42 @@ class ProcurementPPMPClass
         };
     }
 
+    public function storeItemCategory(string $name): array
+    {
+        $normalizedName = trim($name);
+
+        if ($normalizedName === '') {
+            throw ValidationException::withMessages([
+                'name' => 'Please enter the item category name.',
+            ]);
+        }
+
+        $category = ListDropdown::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($normalizedName)])
+            ->whereRaw('LOWER(TRIM(classification)) = ?', ['item category'])
+            ->first();
+
+        if (! $category) {
+            $category = ListDropdown::create([
+                'name' => $normalizedName,
+                'classification' => 'Item Category',
+                'type' => 'Item Category',
+                'is_active' => 1,
+            ]);
+        }
+
+        return [
+            'data' => [
+                'value' => $category->id,
+                'name' => $category->name,
+                'others' => $category->others,
+            ],
+            'message' => 'Item category saved.',
+            'info' => 'Item category saved.',
+            'status' => true,
+        ];
+    }
+
     public function indexPageProps(): array
     {
         return [
@@ -111,6 +147,7 @@ class ProcurementPPMPClass
                 'classifications' => $this->dropdown->dropdowns('Classification'),
                 'item_categories' => $this->dropdown->dropdowns('Item Category'),
                 'mode_of_procurements' => $this->dropdown->dropdowns('Mode of Procurement'),
+                'supporting_document_types' => $this->supportingDocumentTypeDropdowns(),
                 'app_types' => $this->dropdown->dropdowns('APP Type'),
                 'annual_app_years' => $this->registeredPlanYears(self::PLAN_NAME_APP),
             ],
@@ -127,6 +164,7 @@ class ProcurementPPMPClass
                 'classifications' => $this->dropdown->dropdowns('Classification'),
                 'item_categories' => $this->dropdown->dropdowns('Item Category'),
                 'mode_of_procurements' => $this->dropdown->dropdowns('Mode of Procurement'),
+                'supporting_document_types' => $this->supportingDocumentTypeDropdowns(),
             ],
         ];
     }
@@ -492,7 +530,12 @@ class ProcurementPPMPClass
             'status_id' => $next_step['status_id'],
             'status' => $next_step['label'],
         ]);
-        $this->notifyBudgetOfficersForReview($app->fresh(['status']), self::PLAN_TYPE_APP, $next_step['status_id'], $status_ids['for_review']);
+        $this->notifyNextPlanReviewers(
+            $app->fresh(['status']),
+            self::PLAN_TYPE_APP,
+            $next_step['status_id'],
+            $status_ids
+        );
 
         return [
             'data' => $this->appResource($app->fresh($this->appRelations())),
@@ -691,11 +734,11 @@ class ProcurementPPMPClass
             'status' => $next_step['label'],
             'affected_ppmps' => $updated,
         ]);
-        $this->notifyBudgetOfficersForReview(
+        $this->notifyNextPlanReviewers(
             $procurement->fresh(['reference_app', 'status', 'unit']),
             $plan_type,
             $next_step['status_id'],
-            $status_ids['for_review']
+            $status_ids
         );
 
         return [
@@ -772,26 +815,51 @@ class ProcurementPPMPClass
         $procurement->title = $request->general_description_objective;
         $procurement->save();
 
-        $item->fill($this->editableItemPayload($request));
+        $rows = $this->itemRowsFromRequest($request);
+        $row_ids = $rows->pluck('id')->filter()->map(fn ($id) => (int) $id)->values();
 
-        if ($request->hasFile('supporting_document_file')) {
-            $supporting_document = $this->storeSupportingDocument($request);
-            $item->fill([
-                'supporting_document_path' => $supporting_document['path'],
-                'supporting_document_original_name' => $supporting_document['original_name'],
+        $items = ProcurementPpmpItem::query()
+            ->where('procurement_ppmp_id', $procurement->id)
+            ->whereIn('id', $row_ids)
+            ->get()
+            ->keyBy('id');
+
+        if ($items->count() !== $row_ids->count()) {
+            throw ValidationException::withMessages([
+                'items' => 'One or more selected PPMP items are invalid.',
             ]);
         }
 
-        $item->save();
+        $supporting_document = $request->hasFile('supporting_document_file')
+            ? $this->storeSupportingDocument($request)
+            : null;
+
+        $rows->each(function ($row) use ($items, $request, $supporting_document) {
+            $item = $items->get((int) data_get($row, 'id'));
+            $item->fill($this->editableItemPayload($request, $row));
+
+            if ($supporting_document) {
+                $item->fill([
+                    'supporting_document_path' => $supporting_document['path'],
+                    'supporting_document_original_name' => $supporting_document['original_name'],
+                ]);
+            }
+
+            $item->save();
+        });
+
         $this->logPpmpActivity($procurement, $this->planShortLabelForProcurement($procurement).' item updated', [
             'item_id' => $item->id,
             'item_name' => $item->item_name,
+            'item_ids' => $row_ids->all(),
         ]);
 
         return [
             'data' => $this->show($procurement->id),
             'message' => 'PPMP item updated successfully!',
-            'info' => "{$item->item_name} was updated.",
+            'info' => $rows->count() > 1
+                ? "{$rows->count()} PPMP items were updated."
+                : "{$item->item_name} was updated.",
             'status' => true,
         ];
     }
@@ -1299,7 +1367,7 @@ class ProcurementPPMPClass
         $quantity = (float) data_get($row, 'item_quantity', $request->item_quantity ?? 0);
         $unit_cost = (float) data_get($row, 'item_unit_cost', $request->item_unit_cost ?? 0);
 
-        return [
+        $payload = [
             'item_no' => $item_no,
             'procurement_ppmp_id' => $procurement->id,
             'item_unit_type_id' => data_get($row, 'item_unit_type_id', $request->item_unit_type_id),
@@ -1309,6 +1377,7 @@ class ProcurementPPMPClass
             'item_category_id' => $request->item_category_id,
             'recommended_mode_of_procurement' => $request->recommended_mode_of_procurement,
             'pre_procurement_conference' => $request->pre_procurement_conference,
+            'start_of_procurement_activity' => $request->start_of_procurement_activity,
             'end_of_procurement_activity' => $request->end_of_procurement_activity,
             'expected_delivery_date' => $request->expected_delivery_date,
             'attached_supporting_documents' => $request->attached_supporting_documents,
@@ -1320,29 +1389,42 @@ class ProcurementPPMPClass
             'total_cost' => $quantity * $unit_cost,
             'status_id' => $status_id,
         ];
+
+        if (! Schema::hasColumn('procurement_ppmp_items', 'start_of_procurement_activity')) {
+            unset($payload['start_of_procurement_activity']);
+        }
+
+        return $payload;
     }
 
-    protected function editableItemPayload($request): array
+    protected function editableItemPayload($request, $row = null): array
     {
-        $quantity = (float) $request->item_quantity;
-        $unit_cost = (float) $request->item_unit_cost;
+        $quantity = (float) data_get($row, 'item_quantity', $request->item_quantity);
+        $unit_cost = (float) data_get($row, 'item_unit_cost', $request->item_unit_cost);
 
-        return [
-            'item_name' => $request->item_name,
-            'item_description' => $request->item_description,
+        $payload = [
+            'item_name' => data_get($row, 'item_name', $request->item_name),
+            'item_description' => data_get($row, 'item_description', $request->item_description),
             'project_type' => $request->project_type,
             'item_category_id' => $request->item_category_id,
             'recommended_mode_of_procurement' => $request->recommended_mode_of_procurement,
             'pre_procurement_conference' => $request->pre_procurement_conference,
+            'start_of_procurement_activity' => $request->start_of_procurement_activity,
             'end_of_procurement_activity' => $request->end_of_procurement_activity,
             'expected_delivery_date' => $request->expected_delivery_date,
             'attached_supporting_documents' => $request->attached_supporting_documents,
             'remarks' => $request->remarks,
             'item_quantity' => $quantity,
-            'item_unit_type_id' => $request->item_unit_type_id,
+            'item_unit_type_id' => data_get($row, 'item_unit_type_id', $request->item_unit_type_id),
             'item_unit_cost' => $unit_cost,
             'total_cost' => $quantity * $unit_cost,
         ];
+
+        if (! Schema::hasColumn('procurement_ppmp_items', 'start_of_procurement_activity')) {
+            unset($payload['start_of_procurement_activity']);
+        }
+
+        return $payload;
     }
 
     protected function itemRowsFromRequest($request): Collection
@@ -1434,20 +1516,33 @@ class ProcurementPPMPClass
         }
     }
 
-    protected function notifyBudgetOfficersForReview(object $plan, string $plan_type, int $next_status_id, int $for_review_status_id): void
+    protected function notifyNextPlanReviewers(object $plan, string $plan_type, int $next_status_id, array $status_ids): void
     {
-        if ($next_status_id !== $for_review_status_id || ! Auth::user()) {
+        if (! Auth::user()) {
             return;
         }
 
         $plan_type = $this->planShortLabel($plan_type);
+        $target_role = match ($next_status_id) {
+            (int) $status_ids['for_review'] => 'Budget Officer',
+            (int) $status_ids['reviewed'] => 'Procurement Officer',
+            default => null,
+        };
+
+        if (! $target_role) {
+            return;
+        }
+
+        $reason = $target_role === 'Budget Officer'
+            ? 'plan_review_required'
+            : 'plan_submission_required';
 
         User::query()
             ->where('is_active', 1)
-            ->whereHasActiveRole('Budget Officer')
+            ->whereHasActiveRole($target_role)
             ->get()
             ->each(fn (User $user) => $user->notify(
-                new ProcurementPlanForReviewNotification($plan, Auth::user(), $plan_type)
+                new ProcurementPlanForReviewNotification($plan, Auth::user(), $plan_type, $target_role, $reason)
             ));
     }
 
@@ -1492,6 +1587,28 @@ class ProcurementPPMPClass
             'path' => $file->store('procurement/ppmp/supporting-documents', 'public'),
             'original_name' => $file->getClientOriginalName(),
         ];
+    }
+
+    protected function supportingDocumentTypeDropdowns(): array
+    {
+        $options = $this->dropdown->dropdowns('PPMP Supporting Document');
+
+        if ($options->isNotEmpty()) {
+            return $options->all();
+        }
+
+        return collect([
+            'Terms of Reference',
+            'Technical Specifications',
+            'Project Design',
+            'Program of Works',
+            'Market Study',
+            'Other Supporting Document',
+        ])->map(fn ($name) => [
+            'value' => $name,
+            'name' => $name,
+            'others' => 'default',
+        ])->all();
     }
 
     protected function statusId(string $name, string $classification = 'Procurement'): ?int
