@@ -114,16 +114,17 @@
                   :append-to-body="true"
                   placeholder="Select Status"
                 />
-                <select v-model="filter.sort" class="form-select" style="width: 14%">
-                  <option value="latest">Latest Date</option>
-                  <option value="oldest">Oldest Date</option>
-                  <option v-if="filter.plan_type === 'PPMP'" value="pr_asc">
-                    PR Number A-Z
-                  </option>
-                  <option v-if="filter.plan_type === 'PPMP'" value="pr_desc">
-                    PR Number Z-A
-                  </option>
-                </select>
+                <Multiselect
+                  class="white"
+                  style="width: 14%"
+                  :options="sortOptions"
+                  v-model="filter.sort"
+                  label="name"
+                  value-prop="value"
+                  :searchable="false"
+                  :append-to-body="true"
+                  placeholder="Select Sort"
+                />
                 <span
                   @click="refresh()"
                   class="input-group-text"
@@ -717,6 +718,12 @@ export default {
       }
 
       return options;
+    },
+    sortOptions() {
+      return [
+        { value: "latest", name: "Latest Date" },
+        { value: "oldest", name: "Oldest Date" },
+      ];
     },
     yearOptions() {
       const years = [];

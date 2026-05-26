@@ -36,6 +36,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             $rules['item_category_id'] = ['required', 'integer', 'exists:list_dropdowns,id'];
             $rules['recommended_mode_of_procurement'] = ['required', 'string', 'max:255'];
             $rules['pre_procurement_conference'] = ['required', 'string', 'max:255'];
+            $rules['start_of_procurement_activity'] = ['required', 'date'];
             $rules['end_of_procurement_activity'] = ['required', 'date'];
             $rules['expected_delivery_date'] = ['required', 'date'];
             $rules['attached_supporting_documents'] = ['required', 'string', 'max:255'];
@@ -45,16 +46,24 @@ class ProcurementPPMPUpdateRequest extends FormRequest
 
         if ($this->option === 'update_item') {
             $rules['item_id'] = ['required', 'integer', 'exists:procurement_ppmp_items,id'];
-            $rules['item_name'] = ['required', 'string', 'max:255'];
-            $rules['item_description'] = ['required', 'string'];
-            $rules['item_quantity'] = ['required', 'numeric', 'min:0.0001'];
-            $rules['item_unit_type_id'] = ['required', 'integer', 'exists:unit_types,id'];
-            $rules['item_unit_cost'] = ['required', 'numeric', 'min:0'];
+            $rules['items'] = ['required', 'array', 'min:1'];
+            $rules['items.*.id'] = ['required', 'integer', 'exists:procurement_ppmp_items,id'];
+            $rules['items.*.item_name'] = ['required', 'string', 'max:255'];
+            $rules['items.*.item_description'] = ['required', 'string'];
+            $rules['items.*.item_quantity'] = ['required', 'numeric', 'min:0.0001'];
+            $rules['items.*.item_unit_type_id'] = ['required', 'integer', 'exists:unit_types,id'];
+            $rules['items.*.item_unit_cost'] = ['required', 'numeric', 'min:0'];
+            $rules['item_name'] = ['nullable', 'string', 'max:255'];
+            $rules['item_description'] = ['nullable', 'string'];
+            $rules['item_quantity'] = ['nullable', 'numeric', 'min:0.0001'];
+            $rules['item_unit_type_id'] = ['nullable', 'integer', 'exists:unit_types,id'];
+            $rules['item_unit_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['general_description_objective'] = ['required', 'string'];
             $rules['project_type'] = ['required', 'string', 'max:255'];
             $rules['item_category_id'] = ['required', 'integer', 'exists:list_dropdowns,id'];
             $rules['recommended_mode_of_procurement'] = ['required', 'string', 'max:255'];
             $rules['pre_procurement_conference'] = ['required', 'string', 'max:255'];
+            $rules['start_of_procurement_activity'] = ['required', 'date'];
             $rules['end_of_procurement_activity'] = ['required', 'date'];
             $rules['expected_delivery_date'] = ['required', 'date'];
             $rules['attached_supporting_documents'] = ['required', 'string', 'max:255'];
@@ -86,9 +95,10 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             'item_category_id.exists' => 'The selected item category is invalid.',
             'recommended_mode_of_procurement.required' => 'Please select the recommended mode of procurement.',
             'pre_procurement_conference.required' => 'Please select if a pre-procurement conference is applicable.',
+            'start_of_procurement_activity.required' => 'Please select the start of procurement activity.',
             'end_of_procurement_activity.required' => 'Please select the end of procurement activity.',
             'expected_delivery_date.required' => 'Please select the expected delivery date.',
-            'attached_supporting_documents.required' => 'Please enter the supporting document name.',
+            'attached_supporting_documents.required' => 'Please select or enter the supporting document type.',
             'supporting_document_file.required' => 'Please attach the supporting document file.',
             'supporting_document_file.mimes' => 'The supporting document must be a PDF file.',
             'remarks.required' => 'Please enter remarks.',

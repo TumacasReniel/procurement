@@ -208,7 +208,7 @@
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(ppmp.start_of_procurement_activity || ppmp.date) }}
+                {{ formatPrintDate(item.start_of_procurement_activity || ppmp.start_of_procurement_activity || ppmp.date) }}
               </td>
 
               <td class="text-center">
@@ -259,7 +259,7 @@
                     size="sm"
                     class="btn-icon"
                     style="border-radius: 8px;"
-                    @click="$emit('edit-item', item)"
+                    @click="$emit('edit-item', editEntryPayload(item))"
                   >
                     <i class="ri-edit-2-line"></i>
                   </b-button>
@@ -598,7 +598,7 @@ export default {
       const entryGroups = new Map();
 
       rows.forEach((item) => {
-        const itemStartDate = this.ppmp.start_of_procurement_activity || this.ppmp.date;
+        const itemStartDate = item.start_of_procurement_activity || this.ppmp.start_of_procurement_activity || this.ppmp.date;
         const entryScopeKey = [
           this.cleanValue(item.ppmp_no || (Array.isArray(item.source_ppmp_nos) ? item.source_ppmp_nos.join(",") : "")),
           this.cleanValue(item.recommended_mode_of_procurement || this.ppmp.recommended_mode_of_procurement),
@@ -642,6 +642,7 @@ export default {
             ...item,
             entryRowspan: isFirstEntryRow ? entryItems.length : 0,
             supportRowspan: index === 0 ? supportItems.length : 0,
+            __entry_items: entryItems,
           };
 
           isFirstEntryRow = false;
@@ -652,6 +653,12 @@ export default {
     },
   },
   methods: {
+    editEntryPayload(item) {
+      return {
+        ...item,
+        __entry_items: item.__entry_items || [item],
+      };
+    },
     openPrItems(request) {
       this.selectedRequest = request;
       this.showPrItemsModal = true;
@@ -789,24 +796,24 @@ export default {
 }
 
 .ppmp-document-items-table {
-  min-width: 2240px;
+  min-width: 2760px;
   table-layout: fixed;
   border: 1.8px solid #000;
   border-collapse: collapse;
 }
 
-.ppmp-col-description { width: 260px; }
-.ppmp-col-type { width: 180px; }
-.ppmp-col-quantity { width: 430px; }
-.ppmp-col-mode { width: 210px; }
-.ppmp-col-conference { width: 160px; }
-.ppmp-col-date { width: 135px; }
-.ppmp-col-funds { width: 170px; }
-.ppmp-col-budget { width: 190px; }
-.ppmp-col-docs { width: 210px; }
-.ppmp-col-remarks { width: 190px; }
-.ppmp-col-status { width: 130px; }
-.ppmp-col-actions { width: 90px; }
+.ppmp-col-description { width: 340px; }
+.ppmp-col-type { width: 220px; }
+.ppmp-col-quantity { width: 520px; }
+.ppmp-col-mode { width: 250px; }
+.ppmp-col-conference { width: 190px; }
+.ppmp-col-date { width: 165px; }
+.ppmp-col-funds { width: 210px; }
+.ppmp-col-budget { width: 230px; }
+.ppmp-col-docs { width: 260px; }
+.ppmp-col-remarks { width: 240px; }
+.ppmp-col-status { width: 150px; }
+.ppmp-col-actions { width: 100px; }
 
 .ppmp-document-items-table th,
 .ppmp-document-items-table td {

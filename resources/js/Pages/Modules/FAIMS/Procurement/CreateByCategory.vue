@@ -13,12 +13,19 @@
                 </div>
                 <div>
                   <h1 class="hero-title mb-1">{{ pageTitle }}</h1>
-                  <p class="hero-subtitle mb-0">Create one purchase request from approved PPMP items across units</p>
+                  <p class="hero-subtitle mb-0">
+                    Create one purchase request from approved PPMP items across units
+                  </p>
                 </div>
               </div>
             </div>
             <div class="col-lg-4 text-end mt-3 mt-lg-0">
-              <b-button type="button" variant="light" class="hero-back-btn" @click="goBack">
+              <b-button
+                type="button"
+                variant="light"
+                class="hero-back-btn"
+                @click="goBack"
+              >
                 <i class="ri-arrow-left-line align-bottom me-1"></i>
                 Back
               </b-button>
@@ -34,14 +41,22 @@
           <div class="row g-3">
             <div class="col-lg-3">
               <div class="form-group compact-form-group">
-                <InputLabel value="PR Date" :message="form.errors.date" />
-                <TextInput v-model="form.date" type="date" class="form-control modern-input" readonly/>
+                <InputLabel value="PR Date" />
+                <TextInput
+                  v-model="form.date"
+                  type="date"
+                  class="form-control modern-input"
+                  readonly
+                />
+                <div v-if="form.errors.date" class="invalid-feedback d-block">
+                  {{ form.errors.date }}
+                </div>
               </div>
             </div>
 
             <div class="col-lg-3">
               <div class="form-group compact-form-group">
-                <InputLabel value="Fund Cluster" :message="form.errors.fund_cluster_id" />
+                <InputLabel value="Fund Cluster" />
                 <Multiselect
                   v-model="form.fund_cluster_id"
                   :options="fundClusterOptions"
@@ -49,15 +64,18 @@
                   label="name"
                   valueProp="value"
                   placeholder="Select fund cluster"
-                  class="modern-select"
+                  :class="['modern-select', multiselectInvalidClass('fund_cluster_id')]"
                   :append-to-body="true"
                 />
+                <div v-if="form.errors.fund_cluster_id" class="invalid-feedback d-block">
+                  {{ form.errors.fund_cluster_id }}
+                </div>
               </div>
             </div>
 
             <div class="col-lg-6">
               <div class="form-group compact-form-group">
-                <InputLabel value="Item Category" :message="form.errors.item_category_id" />
+                <InputLabel value="Item Category" />
                 <Multiselect
                   v-model="form.item_category_id"
                   :options="categoryOptions"
@@ -65,15 +83,18 @@
                   label="name"
                   valueProp="value"
                   placeholder="Select Item Category"
-                  class="modern-select"
+                  :class="['modern-select', multiselectInvalidClass('item_category_id')]"
                   :append-to-body="true"
                 />
+                <div v-if="form.errors.item_category_id" class="invalid-feedback d-block">
+                  {{ form.errors.item_category_id }}
+                </div>
               </div>
             </div>
 
             <div class="col-lg-6" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
-                <InputLabel value="Procurement Codes" :message="form.errors.procurement_code_ids" />
+                <InputLabel value="Procurement Codes" />
                 <Multiselect
                   v-model="form.procurement_code_ids"
                   :options="procurementCodeOptions"
@@ -83,23 +104,39 @@
                   valueProp="value"
                   trackBy="label"
                   placeholder="Select Procurement code/s"
-                  class="modern-select"
+                  :class="[
+                    'modern-select',
+                    multiselectInvalidClass('procurement_code_ids'),
+                  ]"
                   :append-to-body="true"
                 />
+                <div
+                  v-if="form.errors.procurement_code_ids"
+                  class="invalid-feedback d-block"
+                >
+                  {{ form.errors.procurement_code_ids }}
+                </div>
               </div>
             </div>
-
 
             <div class="col-lg-6" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
-                <InputLabel value="Title" :message="form.errors.title" />
-                <TextInput v-model="form.title" type="text" class="form-control modern-input" placeholder="PR title" />
+                <InputLabel value="Title" />
+                <TextInput
+                  v-model="form.title"
+                  type="text"
+                  :class="['form-control modern-input', inputInvalidClass('title')]"
+                  placeholder="PR title"
+                />
+                <div v-if="form.errors.title" class="invalid-feedback d-block">
+                  {{ form.errors.title }}
+                </div>
               </div>
             </div>
 
-            <div v-if="isLockedMode" class="col-lg-6" >
+            <div v-if="isLockedMode" class="col-lg-6">
               <div class="form-group compact-form-group">
-                <InputLabel value="Current APP" :message="form.errors.procurement_app_id" />
+                <InputLabel value="Current APP" />
                 <Multiselect
                   v-model="form.procurement_app_id"
                   :options="currentAppOptions"
@@ -107,23 +144,33 @@
                   label="name"
                   valueProp="value"
                   placeholder="Select current APP"
-                  class="modern-select"
+                  :class="[
+                    'modern-select',
+                    multiselectInvalidClass('procurement_app_id'),
+                  ]"
                   :append-to-body="true"
                 />
+                <div
+                  v-if="form.errors.procurement_app_id"
+                  class="invalid-feedback d-block"
+                >
+                  {{ form.errors.procurement_app_id }}
+                </div>
               </div>
             </div>
 
-        
-
             <div class="col-12" v-if="form.fund_cluster_id && form.item_category_id">
               <div class="form-group compact-form-group">
-                <InputLabel value="Purpose" :message="form.errors.purpose" />
+                <InputLabel value="Purpose" />
                 <textarea
                   v-model="form.purpose"
-                  class="form-control modern-input"
+                  :class="['form-control modern-input', inputInvalidClass('purpose')]"
                   rows="2"
                   placeholder="Purpose of this purchase request"
                 ></textarea>
+                <div v-if="form.errors.purpose" class="invalid-feedback d-block">
+                  {{ form.errors.purpose }}
+                </div>
               </div>
             </div>
           </div>
@@ -142,7 +189,10 @@
               :disabled="!canLoadItems || loadingItems"
               @click="fetchItems"
             >
-              <span v-if="loadingItems" class="spinner-border spinner-border-sm me-1"></span>
+              <span
+                v-if="loadingItems"
+                class="spinner-border spinner-border-sm me-1"
+              ></span>
               <i v-else class="ri-download-cloud-2-line align-bottom me-1"></i>
               Load Items
             </b-button>
@@ -151,7 +201,6 @@
       </div>
 
       <div class="content-card">
-
         <div class="card-body-custom">
           <div class="table-responsive category-items-table">
             <table class="items-table mb-0">
@@ -168,7 +217,9 @@
               </thead>
               <tbody>
                 <tr v-if="loadingItems">
-                  <td colspan="8" class="text-center text-muted py-4">Loading items...</td>
+                  <td colspan="8" class="text-center text-muted py-4">
+                    Loading items...
+                  </td>
                 </tr>
                 <tr v-else-if="items.length === 0">
                   <td colspan="8" class="text-center text-muted py-4">
@@ -185,12 +236,12 @@
                       :disabled="isLockedMode"
                     />
                   </td>
-                  <td>{{ item.unit_name || '-' }}</td>
-                  <td>{{ item.item_category || '-' }}</td>
+                  <td>{{ item.unit_name || "-" }}</td>
+                  <td>{{ item.item_category || "-" }}</td>
                   <td>
                     <div class="fw-semibold">{{ item.item_name }}</div>
                     <div v-if="item.item_description" class="text-muted small">
-                    <span v-html="item.item_description"></span>
+                      <span v-html="item.item_description"></span>
                     </div>
                   </td>
                   <td>{{ item.quantity_label || item.item_quantity }}</td>
@@ -199,6 +250,9 @@
                 </tr>
               </tbody>
             </table>
+            <div v-if="form.errors.items" class="text-danger small fw-semibold mt-2">
+              {{ form.errors.items }}
+            </div>
           </div>
 
           <div class="action-footer">
@@ -206,7 +260,7 @@
               <div class="row g-3">
                 <div class="col-lg-6">
                   <div class="form-group compact-form-group">
-                    <InputLabel value="Requested By" :message="form.errors.requested_by_id" />
+                    <InputLabel value="Requested By" />
                     <Multiselect
                       v-model="form.requested_by_id"
                       :options="requesterOptions"
@@ -214,15 +268,24 @@
                       label="name"
                       valueProp="value"
                       placeholder="Select requester"
-                      class="modern-select"
+                      :class="[
+                        'modern-select',
+                        multiselectInvalidClass('requested_by_id'),
+                      ]"
                       :append-to-body="true"
                     />
+                    <div
+                      v-if="form.errors.requested_by_id"
+                      class="invalid-feedback d-block"
+                    >
+                      {{ form.errors.requested_by_id }}
+                    </div>
                   </div>
                 </div>
 
                 <div class="col-lg-6">
                   <div class="form-group compact-form-group">
-                    <InputLabel value="Approved By" :message="form.errors.approved_by_id" />
+                    <InputLabel value="Approved By" />
                     <Multiselect
                       v-model="form.approved_by_id"
                       :options="approverOptions"
@@ -230,20 +293,34 @@
                       label="name"
                       valueProp="value"
                       placeholder="Select approver"
-                      class="modern-select"
+                      :class="[
+                        'modern-select',
+                        multiselectInvalidClass('approved_by_id'),
+                      ]"
                       :append-to-body="true"
                     />
+                    <div
+                      v-if="form.errors.approved_by_id"
+                      class="invalid-feedback d-block"
+                    >
+                      {{ form.errors.approved_by_id }}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             <div class="footer-buttons">
-            <b-button type="button" variant="outline-secondary" @click="goBack">Cancel</b-button>
-            <b-button type="submit" variant="success" :disabled="!canSubmit || form.processing">
-              <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>
-              <i v-else class="ri-check-line align-bottom me-1"></i>
-              {{ submitLabel }}
-            </b-button>
+              <b-button type="submit" variant="success" :disabled="form.processing">
+                <span
+                  v-if="form.processing"
+                  class="spinner-border spinner-border-sm me-1"
+                ></span>
+                <i v-else class="ri-check-line align-bottom me-1"></i>
+                {{ submitLabel }}
+              </b-button>
+              <b-button type="button" variant="outline-secondary" @click="goBack"
+                >Back to List
+              </b-button>
             </div>
           </div>
         </div>
@@ -325,14 +402,14 @@ export default {
     },
     submitLabel() {
       if (this.isApproveMode) {
-        return "Approve PR";
+        return "Approve";
       }
 
       if (this.isReviewMode) {
-        return "Review PR";
+        return "Confirm";
       }
 
-      return "Create PR";
+      return "Save";
     },
     emptyItemsMessage() {
       return this.isLockedMode
@@ -356,7 +433,8 @@ export default {
     },
     categoryOptions() {
       const ppmpCategories = this.dropdowns.ppmp_item_categories || [];
-      const options = ppmpCategories.length > 0 ? ppmpCategories : (this.dropdowns.item_categories || []);
+      const options =
+        ppmpCategories.length > 0 ? ppmpCategories : this.dropdowns.item_categories || [];
       return this.normalizeDropdownOptions(options);
     },
     referenceAppOptions() {
@@ -369,14 +447,23 @@ export default {
     currentAppOptions() {
       return this.normalizeDropdownOptions(this.dropdowns?.current_apps);
     },
+    currentAppYear() {
+      return new Date().getFullYear();
+    },
     selectedItems() {
       return this.items.filter((item) => this.selectedIds.includes(item.value));
     },
     selectedTotal() {
-      return this.selectedItems.reduce((sum, item) => sum + Number(item.total_cost || 0), 0);
+      return this.selectedItems.reduce(
+        (sum, item) => sum + Number(item.total_cost || 0),
+        0
+      );
     },
     allVisibleSelected() {
-      return this.items.length > 0 && this.items.every((item) => this.selectedIds.includes(item.value));
+      return (
+        this.items.length > 0 &&
+        this.items.every((item) => this.selectedIds.includes(item.value))
+      );
     },
     canSubmit() {
       if (this.isReviewMode && !this.form.procurement_app_id) {
@@ -385,23 +472,26 @@ export default {
 
       return Boolean(
         this.form.date &&
-        this.form.fund_cluster_id &&
-        this.form.purpose &&
-        this.form.procurement_code_ids.length > 0 &&
-        this.selectedItems.length > 0
+          this.form.fund_cluster_id &&
+          this.form.purpose &&
+          this.form.procurement_code_ids.length > 0 &&
+          this.selectedItems.length > 0
       );
     },
   },
   watch: {
     "form.item_category_id"() {
+      this.clearErrorWhenFilled("item_category_id", this.form.item_category_id);
       this.clearItems();
       this.saveDraft();
     },
     "form.fund_cluster_id"() {
+      this.clearErrorWhenFilled("fund_cluster_id", this.form.fund_cluster_id);
       this.clearItems();
       this.saveDraft();
     },
     "form.procurement_code_ids"() {
+      this.clearErrorWhenFilled("procurement_code_ids", this.form.procurement_code_ids);
       this.refreshTitleFromCodes();
       this.saveDraft();
     },
@@ -410,18 +500,23 @@ export default {
       this.saveDraft();
     },
     "form.title"() {
+      this.clearErrorWhenFilled("title", this.form.title);
       this.saveDraft();
     },
     "form.purpose"() {
+      this.clearErrorWhenFilled("purpose", this.form.purpose);
       this.saveDraft();
     },
     "form.procurement_app_id"() {
+      this.clearErrorWhenFilled("procurement_app_id", this.form.procurement_app_id);
       this.saveDraft();
     },
     "form.requested_by_id"() {
+      this.clearErrorWhenFilled("requested_by_id", this.form.requested_by_id);
       this.saveDraft();
     },
     "form.approved_by_id"() {
+      this.clearErrorWhenFilled("approved_by_id", this.form.approved_by_id);
       this.saveDraft();
     },
   },
@@ -447,14 +542,15 @@ export default {
       this.form.option = this.option || "create_by_category";
       this.form.date = this.normalizeDate(this.procurement.date);
       this.form.purpose = this.procurement.purpose;
-      this.form.title = this.procurement.title;
+      this.form.title =
+        this.procurement.title || this.requestTitleFromCodes(this.procurement.codes);
       this.form.division_id = this.procurement.division_id;
       this.form.unit_id = this.procurement.unit_id;
       this.form.fund_cluster_id = this.procurement.fund_cluster_id;
       this.form.classification_id = this.procurement.classification_id;
       this.form.reference_app_id = this.procurement.reference_app_id;
       this.form.procurement_app_id = this.procurement.procurement_app_id;
-      this.applyAutomaticCurrentApp();
+      this.applyAutomaticCurrentApp(this.isReviewMode);
       this.form.requested_by_id = this.procurement.requested_by_id;
       this.form.approved_by_id = this.procurement.approved_by_id;
       const codes = this.normalizeList(this.procurement.codes);
@@ -486,7 +582,8 @@ export default {
     normalizeDropdownOptions(value, labelKey = "name") {
       return this.normalizeList(value).map((option) => {
         const normalizedValue = option.value ?? option.id;
-        const normalizedLabel = option[labelKey] ?? option.name ?? option.label ?? option.code ?? option.title;
+        const normalizedLabel =
+          option[labelKey] ?? option.name ?? option.label ?? option.code ?? option.title;
 
         return {
           ...option,
@@ -498,16 +595,30 @@ export default {
       });
     },
     applyAutomaticCurrentApp(force = false) {
-      if (!this.isReviewMode || (this.form.procurement_app_id && !force) || !this.currentAppOptions.length) {
+      if (
+        !this.isReviewMode ||
+        (this.form.procurement_app_id && !force) ||
+        !this.currentAppOptions.length
+      ) {
         return;
       }
 
-      const prYear = this.form.date
-        ? Number(new Date(this.form.date).getFullYear())
-        : Number(new Date().getFullYear());
-      const matchingApp = this.currentAppOptions.find((app) => Number(app.year) === prYear);
+      const matchingApp = this.currentAppOptions
+        .filter((app) => Number(app.year) === this.currentAppYear)
+        .sort(
+          (left, right) =>
+            Number(right.version || 1) - Number(left.version || 1) ||
+            Number(right.value || 0) - Number(left.value || 0)
+        )[0];
 
       this.form.procurement_app_id = matchingApp ? Number(matchingApp.value) : null;
+    },
+    isApprovedApp(app) {
+      return (
+        String(app?.status || "")
+          .trim()
+          .toLowerCase() === "approved"
+      );
     },
     normalizeDate(value) {
       if (!value) return this.getCurrentDate();
@@ -557,7 +668,10 @@ export default {
       const selectedCodes = this.dropdowns.procurement_codes.filter((code) =>
         this.form.procurement_code_ids.includes(code.value)
       );
-      this.form.title = selectedCodes.map((code) => code.title || code.code || code.name).filter(Boolean).join(", ");
+      this.form.title = selectedCodes
+        .map((code) => code.title || code.code || code.name)
+        .filter(Boolean)
+        .join(", ");
     },
     prefillUserDivisionAndUnit() {
       const organization = this.$page.props.user?.data?.organization || {};
@@ -596,6 +710,7 @@ export default {
       this.items = items;
       this.selectedIds = this.items.map((item) => item.value);
       this.syncFormItems();
+      this.clearErrorWhenFilled("items", this.selectedItems);
       this.itemSelectionModal.show = false;
       this.saveDraft();
     },
@@ -608,13 +723,17 @@ export default {
         this.selectedIds = [...this.selectedIds, item.value];
       }
       this.syncFormItems();
+      this.clearErrorWhenFilled("items", this.selectedItems);
       this.saveDraft();
     },
     toggleAll() {
       if (this.isLockedMode) return;
 
-      this.selectedIds = this.allVisibleSelected ? [] : this.items.map((item) => item.value);
+      this.selectedIds = this.allVisibleSelected
+        ? []
+        : this.items.map((item) => item.value);
       this.syncFormItems();
+      this.clearErrorWhenFilled("items", this.selectedItems);
       this.saveDraft();
     },
     syncFormItems() {
@@ -708,7 +827,9 @@ export default {
         : [];
       this.items = Array.isArray(draft.items) ? draft.items : [];
       this.selectedIds = Array.isArray(draft.selectedIds) ? draft.selectedIds : [];
-      this.availableItems = Array.isArray(draft.availableItems) ? draft.availableItems : [];
+      this.availableItems = Array.isArray(draft.availableItems)
+        ? draft.availableItems
+        : [];
       this.form.items = Array.isArray(draftForm.items) ? draftForm.items : [];
 
       this.$nextTick(() => {
@@ -723,9 +844,16 @@ export default {
     submit() {
       this.applyAutomaticCurrentApp();
       this.syncFormItems();
+
+      if (!this.validateSubmit()) {
+        return;
+      }
+
       this.form.option = this.isApproveMode
         ? "approve"
-        : (this.isReviewMode ? "review" : "create_by_category");
+        : this.isReviewMode
+        ? "review"
+        : "create_by_category";
 
       if (this.isLockedMode && this.form.id) {
         this.form.put(`/faims/procurements/${this.form.id}`, {
@@ -741,6 +869,70 @@ export default {
         },
       });
     },
+    validateSubmit() {
+      const errors = {};
+
+      if (!this.hasValue(this.form.date)) {
+        errors.date = "PR date is required.";
+      }
+
+      if (!this.hasValue(this.form.fund_cluster_id)) {
+        errors.fund_cluster_id = "Fund cluster is required.";
+      }
+
+      if (!this.hasValue(this.form.item_category_id)) {
+        errors.item_category_id = "Item category is required.";
+      }
+
+      if (!this.hasValue(this.form.procurement_code_ids)) {
+        errors.procurement_code_ids = "Procurement code is required.";
+      }
+
+      if (!this.hasValue(this.form.title)) {
+        errors.title = "Title is required.";
+      }
+
+      if (!this.hasValue(this.form.purpose)) {
+        errors.purpose = "Purpose is required.";
+      }
+
+      if (this.isReviewMode && !this.hasValue(this.form.procurement_app_id)) {
+        errors.procurement_app_id = "Current APP is required.";
+      }
+
+      if (!this.selectedItems.length) {
+        errors.items = "Please load and select at least one item.";
+      }
+
+      if (Object.keys(errors).length) {
+        this.form.setError(errors);
+        return false;
+      }
+
+      return true;
+    },
+    hasValue(value) {
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+
+      if (value && typeof value === "object") {
+        return true;
+      }
+
+      return String(value ?? "").trim() !== "";
+    },
+    clearErrorWhenFilled(field, value) {
+      if (this.hasValue(value)) {
+        this.form.clearErrors(field);
+      }
+    },
+    inputInvalidClass(field) {
+      return { "is-invalid": Boolean(this.form.errors[field]) };
+    },
+    multiselectInvalidClass(field) {
+      return { "is-invalid": Boolean(this.form.errors[field]) };
+    },
     goBack() {
       router.get("/faims/procurements");
     },
@@ -749,6 +941,34 @@ export default {
         style: "currency",
         currency: "PHP",
       }).format(Number(value || 0));
+    },
+    requestTitleFromCodes(codes = []) {
+      const codeIds = (Array.isArray(codes) ? codes : [])
+        .map((code) => Number(code.procurement_code_id ?? code.value ?? code.id))
+        .filter(Boolean);
+
+      if (!codeIds.length) {
+        return "";
+      }
+
+      const dropdownCodes = Array.isArray(this.dropdowns?.procurement_codes)
+        ? this.dropdowns.procurement_codes
+        : [];
+
+      return codeIds
+        .map((id) => {
+          const code = dropdownCodes.find(
+            (option) => Number(option.value ?? option.id) === Number(id)
+          );
+
+          if (!code) {
+            return "";
+          }
+
+          return code.title || String(code.label || "").replace(/^[^-]+-\s*/, "");
+        })
+        .filter(Boolean)
+        .join(", ");
     },
   },
 };
@@ -857,6 +1077,16 @@ export default {
 
 .modern-select {
   border-radius: 10px;
+}
+
+:deep(.multiselect.is-invalid),
+:deep(.multiselect.is-invalid .multiselect-wrapper) {
+  border-color: #f06548 !important;
+}
+
+:deep(.multiselect.is-invalid),
+.modern-input.is-invalid {
+  box-shadow: 0 0 0 0.125rem rgba(240, 101, 72, 0.12);
 }
 
 .category-action-bar {

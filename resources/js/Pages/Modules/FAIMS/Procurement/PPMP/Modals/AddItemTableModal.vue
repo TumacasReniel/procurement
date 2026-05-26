@@ -13,12 +13,13 @@
     <form class="customform" @submit.prevent="save">
       <BRow class="g-3">
         <BCol lg="12">
-          <InputLabel value="Item Name" :message="errors.item_name" />
+          <InputLabel value="Item Name" />
           <div class="item-name-autocomplete">
             <TextInput
               v-model="form.item_name"
               type="text"
               class="form-control"
+              :class="inputInvalidClass('item_name')"
               placeholder="Item name"
               autocomplete="off"
               @focus="handleItemNameFocus"
@@ -44,16 +45,25 @@
               </button>
             </div>
           </div>
+          <div v-if="fieldError('item_name')" class="invalid-feedback d-block">
+            {{ fieldError("item_name") }}
+          </div>
         </BCol>
 
         <BCol lg="12">
-          <InputLabel value="Description" :message="errors.item_description" />
-          <CustomEditorMini v-model="form.item_description" modal-size="lg" />
+          <InputLabel value="Description" />
+          <div :class="editorInvalidClass('item_description')">
+            <CustomEditorMini v-model="form.item_description" modal-size="lg" />
+          </div>
+          <div v-if="fieldError('item_description')" class="invalid-feedback d-block">
+            {{ fieldError("item_description") }}
+          </div>
         </BCol>
 
         <BCol lg="4">
-          <InputLabel value="Unit Type" :message="errors.item_unit_type_id" />
+          <InputLabel value="Unit Type" />
           <Multiselect
+            :class="multiselectInvalidClass('item_unit_type_id')"
             :options="normalizedUnitTypeOptions"
             v-model="form.item_unit_type_id"
             :searchable="true"
@@ -62,23 +72,35 @@
             trackBy="display_name"
             placeholder="Select Unit Type"
           />
+          <div v-if="fieldError('item_unit_type_id')" class="invalid-feedback d-block">
+            {{ fieldError("item_unit_type_id") }}
+          </div>
         </BCol>
 
         <BCol lg="4">
-          <InputLabel value="Quantity" :message="errors.item_quantity" />
+          <InputLabel value="Quantity" />
           <TextInput
             v-model="form.item_quantity"
             type="number"
             class="form-control"
+            :class="inputInvalidClass('item_quantity')"
             min="0.0001"
             step="0.0001"
             placeholder="1"
           />
+          <div v-if="fieldError('item_quantity')" class="invalid-feedback d-block">
+            {{ fieldError("item_quantity") }}
+          </div>
         </BCol>
 
         <BCol lg="4">
-          <InputLabel value="Unit Cost" :message="errors.item_unit_cost" />
-          <Amount @amount="amount" ref="amountComponent" />
+          <InputLabel value="Unit Cost" />
+          <div :class="amountInvalidClass('item_unit_cost')">
+            <Amount @amount="amount" ref="amountComponent" />
+          </div>
+          <div v-if="fieldError('item_unit_cost')" class="invalid-feedback d-block">
+            {{ fieldError("item_unit_cost") }}
+          </div>
         </BCol>
 
       
@@ -90,7 +112,6 @@
       <b-button
         @click="save"
         variant="primary"
-        :disabled="!isValid"
         block
       >
         {{ isEditing ? "Update Item" : "Add to Table" }}
@@ -132,6 +153,7 @@ export default {
       latestItemNameKeyword: "",
       isItemNameFocused: false,
       activeSuggestionIndex: -1,
+      localErrors: {},
     };
   },
   computed: {
@@ -139,13 +161,7 @@ export default {
       return this.editIndex !== null;
     },
     isValid() {
-      return Boolean(
-        this.form.item_name &&
-        this.form.item_description &&
-        Number(this.form.item_quantity) > 0 &&
-        this.form.item_unit_type_id &&
-        Number(this.form.item_unit_cost) >= 0
-      );
+      return Object.keys(this.validateForm()).length === 0;
     },
     shouldShowItemNameDropdown() {
       return this.isItemNameFocused && this.itemNameSuggestions.length > 0;
@@ -186,6 +202,7 @@ export default {
             item_unit_cost: Number(row.item_unit_cost || 0),
           }
         : this.defaultForm();
+      this.localErrors = {};
       this.modal.show = true;
       this.fetchItemNameSuggestions(this.form.item_name || "");
     },
@@ -193,11 +210,15 @@ export default {
       this.modal.show = false;
       this.editIndex = null;
       this.form = this.defaultForm();
+      this.localErrors = {};
       this.clearItemNameSuggestionState();
       this.$refs.amountComponent?.empty();
     },
     save() {
-      if (!this.isValid) {
+      const errors = this.validateForm();
+
+      if (Object.keys(errors).length) {
+        this.localErrors = errors;
         return;
       }
 
@@ -220,6 +241,7 @@ export default {
     },
     amount(val) {
       this.form.item_unit_cost = this.cleanCurrency(val);
+      this.clearErrorWhenValid("item_unit_cost");
     },
     syncAmountInput() {
       const unitCost = Number(this.form.item_unit_cost || 0);
@@ -326,6 +348,68 @@ export default {
       this.latestItemNameKeyword = "";
       this.closeItemNameDropdown();
     },
+    validateForm() {
+      const errors = {};
+
+      if (!this.hasValue(this.form.item_name)) {
+        errors.item_name = "Item name is required.";
+      }
+
+      if (!this.hasValue(this.form.item_description)) {
+        errors.item_description = "Description is required.";
+      }
+
+      if (!this.hasValue(this.form.item_unit_type_id)) {
+        errors.item_unit_type_id = "Unit type is required.";
+      }
+
+      if (Number(this.form.item_quantity) <= 0) {
+        errors.item_quantity = "Quantity must be greater than zero.";
+      }
+
+      if (!this.hasValue(this.form.item_unit_cost) || Number(this.form.item_unit_cost) < 0) {
+        errors.item_unit_cost = "Unit cost is required.";
+      }
+
+      return errors;
+    },
+    fieldError(field) {
+      return this.localErrors[field] || this.errors[field] || "";
+    },
+    hasFieldError(field) {
+      return Boolean(this.fieldError(field));
+    },
+    inputInvalidClass(field) {
+      return { "is-invalid": this.hasFieldError(field) };
+    },
+    multiselectInvalidClass(field) {
+      return { "is-invalid": this.hasFieldError(field) };
+    },
+    editorInvalidClass(field) {
+      return { "editor-invalid": this.hasFieldError(field) };
+    },
+    amountInvalidClass(field) {
+      return { "amount-invalid": this.hasFieldError(field) };
+    },
+    hasValue(value) {
+      if (value && typeof value === "object") {
+        return true;
+      }
+
+      return String(value ?? "").trim() !== "";
+    },
+    clearErrorWhenValid(field) {
+      if (!this.localErrors[field]) {
+        return;
+      }
+
+      const errors = this.validateForm();
+
+      if (!errors[field]) {
+        const { [field]: _removed, ...remainingErrors } = this.localErrors;
+        this.localErrors = remainingErrors;
+      }
+    },
   },
   watch: {
     "form.item_name"(value) {
@@ -337,6 +421,17 @@ export default {
       this.itemNameLookupTimeout = setTimeout(() => {
         this.fetchItemNameSuggestions(value);
       }, 250);
+
+      this.clearErrorWhenValid("item_name");
+    },
+    "form.item_description"() {
+      this.clearErrorWhenValid("item_description");
+    },
+    "form.item_unit_type_id"() {
+      this.clearErrorWhenValid("item_unit_type_id");
+    },
+    "form.item_quantity"() {
+      this.clearErrorWhenValid("item_quantity");
     },
   },
 };
@@ -380,5 +475,21 @@ export default {
 .item-name-suggestion--active {
   background: #eaf2ff;
   color: #2846a6;
+}
+
+:deep(.multiselect.is-invalid),
+:deep(.multiselect.is-invalid .multiselect-wrapper),
+.editor-invalid :deep(.ql-toolbar),
+.editor-invalid :deep(.ql-container),
+.amount-invalid :deep(input),
+.amount-invalid :deep(.form-control) {
+  border-color: #f06548 !important;
+}
+
+:deep(.multiselect.is-invalid),
+.editor-invalid,
+.amount-invalid :deep(input),
+.amount-invalid :deep(.form-control) {
+  box-shadow: 0 0 0 .125rem rgba(240, 101, 72, .12);
 }
 </style>

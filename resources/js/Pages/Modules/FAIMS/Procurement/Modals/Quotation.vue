@@ -92,8 +92,8 @@
                         </thead>
                         <tbody style="vertical-align: top">
                             <tr
-                                v-for="(item, index) in form.items"
-                                :key="index"
+                                v-for="(item, index) in paginatedItems"
+                                :key="item.id || item.item_no || index"
                             >
                                 <td>{{ item.item_no }}</td>
                                 <td>{{ item.item_name || "-" }}</td>
@@ -113,6 +113,47 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div
+                    v-if="form.items.length"
+                    class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3"
+                >
+                    <div class="text-muted fs-12">
+                        Showing {{ paginationStart }}-{{ paginationEnd }} of
+                        {{ form.items.length }} item(s)
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <select
+                            v-model.number="itemsPerPage"
+                            class="form-select form-select-sm rfq-page-size"
+                        >
+                            <option :value="5">5</option>
+                            <option :value="10">10</option>
+                            <option :value="20">20</option>
+                            <option :value="50">50</option>
+                        </select>
+
+                        <b-button
+                            size="sm"
+                            variant="light"
+                            :disabled="page <= 1"
+                            @click="page -= 1"
+                        >
+                            <i class="ri-arrow-left-s-line"></i>
+                        </b-button>
+
+                        <span class="text-muted fs-12">Page {{ page }} of {{ totalPages }}</span>
+
+                        <b-button
+                            size="sm"
+                            variant="light"
+                            :disabled="page >= totalPages"
+                            @click="page += 1"
+                        >
+                            <i class="ri-arrow-right-s-line"></i>
+                        </b-button>
+                    </div>
                 </div>
             </BRow>
         </form>
@@ -160,10 +201,30 @@ export default {
             }),
             editable: false,
             showModal: false,
+            page: 1,
+            itemsPerPage: 10,
         };
     },
 
     computed: {
+        totalPages() {
+            return Math.max(Math.ceil(this.form.items.length / this.itemsPerPage), 1);
+        },
+        paginatedItems() {
+            const start = (this.page - 1) * this.itemsPerPage;
+
+            return this.form.items.slice(start, start + this.itemsPerPage);
+        },
+        paginationStart() {
+            if (!this.form.items.length) {
+                return 0;
+            }
+
+            return (this.page - 1) * this.itemsPerPage + 1;
+        },
+        paginationEnd() {
+            return Math.min(this.page * this.itemsPerPage, this.form.items.length);
+        },
         filteredSuppliers() {
             const all = this.dropdowns.suppliers || [];
 
@@ -184,12 +245,14 @@ export default {
 
     methods: {
         show() {
+            this.page = 1;
             this.showModal = true;
         },
 
         hide() {
             this.form.reset();
             this.form.item_unit_cost = 0.0;
+            this.page = 1;
             this.showModal = false;
         },
 
@@ -226,5 +289,23 @@ export default {
             return `${year}-${month}-${day}`;
         },
     },
+    watch: {
+        itemsPerPage() {
+            this.page = 1;
+        },
+        "form.items": {
+            deep: true,
+            handler() {
+                if (this.page > this.totalPages) {
+                    this.page = this.totalPages;
+                }
+            },
+        },
+    },
 };
 </script>
+<style scoped>
+.rfq-page-size {
+    width: 76px;
+}
+</style>

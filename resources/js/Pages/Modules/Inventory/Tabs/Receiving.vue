@@ -12,10 +12,10 @@
           </div>
           <div class="flex-grow-1">
             <h5 class="mb-0 fs-14">
-              <span class="text-body">Purchase Order Receivings</span>
+              <span class="text-body">Purchase Order Receiving</span>
             </h5>
             <p class="text-muted text-truncate-two-lines fs-12 mb-0">
-              Completed procurement purchase orders ready for inventory receiving review.
+              Purchase orders from procurement with received item details available for inventory review.
             </p>
           </div>
         </div>
@@ -56,13 +56,6 @@
             >
               <i class="bx bx-refresh search-icon"></i>
             </button>
-            <button
-              type="button"
-              class="btn receiving-create-btn"
-              @click="$emit('create')"
-            >
-              <i class="ri-add-circle-fill me-2"></i>Create
-            </button>
           </div>
         </b-col>
       </b-row>
@@ -71,51 +64,53 @@
         <table class="table align-middle table-hover mb-0 ledger-table">
           <thead class="table-light thead-fixed">
             <tr>
-              <th>Item</th>
-              <th>Approved By</th>
+              <th style="width: 14%">PO No.</th>
+              <th>Procurement</th>
+              <th style="width: 18%">Supplier</th>
               <th>Status</th>
-              <th>Date Received</th>
-              <th>Remarks</th>
-              <th class="text-center" style="width: 140px">Action</th>
+              <th style="width: 16%" class="text-center">Items</th>
+              <th class="text-center" style="width: 120px">Action</th>
             </tr>
           </thead>
           <tbody class="table-group-divider">
             <tr v-if="loading">
-              <td colspan="6" class="text-center text-muted py-4">Loading receiving records...</td>
+              <td colspan="6" class="text-center text-muted py-4">Loading purchase orders...</td>
             </tr>
             <tr v-else-if="sortedRows.length === 0">
-              <td colspan="6" class="text-center text-muted py-4">No receiving records found.</td>
+              <td colspan="6" class="text-center text-muted py-4">No purchase orders found for receiving.</td>
             </tr>
             <tr v-else v-for="item in sortedRows" :key="item.id">
-              <td class="fw-semibold">{{ item.item_name }}</td>
-              <td>{{ item.approved_by }}</td>
+              <td>
+                <div class="fw-semibold text-primary">{{ item.code || '-' }}</div>
+                <div class="small text-muted">{{ item.date_of_delivery || item.po_date || '-' }}</div>
+              </td>
+              <td>
+                <div class="fw-semibold">{{ item.procurement_title || '-' }}</div>
+                <div class="small text-muted">{{ item.procurement_code || 'No PR code' }}</div>
+              </td>
+              <td>{{ item.supplier_name || '-' }}</td>
               <td>
                 <span class="badge receiving-status-chip">
-                  <i class="ri-checkbox-circle-fill me-1"></i>{{ item.status }}
+                  <i class="ri-checkbox-circle-fill me-1"></i>{{ item.status?.name || item.status || '-' }}
                 </span>
               </td>
-              <td>{{ item.received_at }}</td>
-              <td>{{ item.remarks }}</td>
+              <td class="text-center">
+                <div class="fw-semibold">
+                  {{ item.delivered_items_count || 0 }}/{{ item.total_items_count || 0 }} received
+                </div>
+                <div class="small text-muted">
+                  {{ formatQuantity(totalReceivedQuantity(item)) }} total qty
+                </div>
+              </td>
               <td class="text-center">
                 <div class="d-inline-flex gap-1">
                   <button
                     class="btn btn-sm btn-outline-success receiving-action-btn"
                     type="button"
-                    title="View"
+                    title="View items"
                     @click="$emit('view', item)"
                   >
                     <i class="ri-eye-line"></i>
-                  </button>
-                  <button
-                    class="btn btn-sm btn-outline-primary receiving-action-btn"
-                    type="button"
-                    title="Edit"
-                    @click="$emit('edit', item)"
-                  >
-                    <i class="ri-pencil-line"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger receiving-action-btn" type="button" title="Delete" @click="$emit('delete', item)">
-                    <i class="ri-delete-bin-line"></i>
                   </button>
                 </div>
               </td>
@@ -147,7 +142,7 @@ export default {
     meta: { type: Object, default: null },
     links: { type: Array, default: null },
   },
-  emits: ['create', 'fetch', 'refresh', 'view', 'edit', 'delete'],
+  emits: ['fetch', 'refresh', 'view'],
   data() {
     return {
       filters: {
@@ -162,7 +157,14 @@ export default {
       const keyword = (this.filters.keyword || '').toLowerCase();
 
       return this.rows.filter((item) => {
-        const searchable = [item.item_name, item.approved_by, item.remarks, item.received_at, item.status]
+        const searchable = [
+          item.code,
+          item.procurement_code,
+          item.procurement_title,
+          item.supplier_name,
+          item.date_of_delivery,
+          item.status?.name || item.status,
+        ]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
@@ -182,17 +184,37 @@ export default {
 
       const sorters = {
         oldest: (left, right) => normalizeDate(left.received_at) - normalizeDate(right.received_at),
-        item_asc: (left, right) => normalizeText(left.item_name).localeCompare(normalizeText(right.item_name)),
-        status_asc: (left, right) => normalizeText(left.status).localeCompare(normalizeText(right.status)),
+        item_asc: (left, right) => normalizeText(left.procurement_title).localeCompare(normalizeText(right.procurement_title)),
+        status_asc: (left, right) => normalizeText(left.status?.name || left.status).localeCompare(normalizeText(right.status?.name || right.status)),
       };
 
-      return rows.sort(sorters[this.filters.sort] || ((left, right) => normalizeDate(right.received_at) - normalizeDate(left.received_at)));
+      return rows.sort(sorters[this.filters.sort] || ((left, right) => normalizeDate(right.date_of_delivery_raw || right.date_of_delivery || right.po_date) - normalizeDate(left.date_of_delivery_raw || left.date_of_delivery || left.po_date)));
     },
   },
   methods: {
     handleRefresh() {
       this.filters.keyword = '';
       this.$emit('refresh');
+    },
+    formatQuantity(value) {
+      const number = Number(value ?? 0);
+
+      if (!Number.isFinite(number)) {
+        return '-';
+      }
+
+      return Number.isInteger(number)
+        ? number.toLocaleString('en-PH')
+        : number.toLocaleString('en-PH', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 4,
+        });
+    },
+    totalReceivedQuantity(po) {
+      return (po?.delivery_monitoring_items || []).reduce(
+        (total, item) => total + Number(item?.delivered_quantity || 0),
+        0,
+      );
     },
   },
 };

@@ -34,8 +34,6 @@ $procurementIdsFromPpmpItems = $tableExists('procurement_items') && $columnExist
 
 $procurementIds = $tableExists('procurements')
     ? DB::table('procurements')
-        ->when($columnExists('procurements', 'procurement_app_id'), fn ($query) => $query->orWhereNotNull('procurement_app_id'))
-        ->when($columnExists('procurements', 'code'), fn ($query) => $query->orWhere('code', 'like', 'PPMP-%'))
         ->pluck('id')
         ->map(fn ($id) => (int) $id)
         ->merge($procurementIdsFromPpmpItems)
@@ -116,8 +114,8 @@ $counts = [
     'procurement_apps' => $count('procurement_apps'),
     'procurement_ppmps' => $count('procurement_ppmps'),
     'procurement_ppmp_items' => $count('procurement_ppmp_items'),
-    'linked_prs' => $procurementIds->count(),
-    'linked_requests' => $requestIds->count(),
+    'procurement_request_list' => $procurementIds->count(),
+    'requests' => $requestIds->count(),
     'linked_comments' => $commentCountQuery ? $commentCountQuery->count() : 0,
     'linked_notifications' => $notificationCountQuery ? $notificationCountQuery->count() : 0,
 ];
@@ -225,4 +223,4 @@ DB::transaction(function () use ($procurementIds, $requestIds, $commentTypes, $n
     DB::statement('SET FOREIGN_KEY_CHECKS=1');
 });
 
-echo PHP_EOL.'Deleted PPMP, SPP, APP, linked PR, linked request, comment, and notification data.'.PHP_EOL;
+echo PHP_EOL.'Deleted PPMP, SPP, APP, procurement request list, request, comment, and notification data.'.PHP_EOL;

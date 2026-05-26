@@ -166,7 +166,9 @@ class HandleInertiaRequests extends Middleware
         }
 
         if ($notification->type === ProcurementPlanForReviewNotification::class) {
-            return $user->hasActiveRole('Budget Officer');
+            $targetRoles = data_get($notification->data, 'target_roles', ['Budget Officer']);
+
+            return $user->hasActiveRole($targetRoles);
         }
 
         if ($notification->type === ProcurementCommentMentioned::class) {
@@ -246,6 +248,11 @@ class HandleInertiaRequests extends Middleware
         if ($notification->type === ProcurementPlanForReviewNotification::class) {
             $planId = data_get($notification->data, 'procurement_plan.id');
             $planType = $this->normalizePlanType(data_get($notification->data, 'procurement_plan.plan_type'));
+            $targetRole = data_get($notification->data, 'procurement_plan.target_role')
+                ?: collect(data_get($notification->data, 'target_roles', ['Budget Officer']))->first();
+            $targetStatus = $targetRole === 'Procurement Officer'
+                ? 'Reviewed/For Submission'
+                : 'For Review';
 
             return [
                 'id' => $notification->id,
@@ -264,13 +271,14 @@ class HandleInertiaRequests extends Middleware
                 'mentioned_by' => $actor,
                 'created_at' => $notification->created_at,
                 'created_ago' => $notification->created_at?->diffForHumans(),
-                'context_label' => "{$planType} Review",
-                'action_label' => 'Review plan',
+                'context_label' => "{$planType} {$targetStatus}",
+                'action_label' => $targetRole === 'Procurement Officer' ? 'Submit plan' : 'Review plan',
                 'target' => [
-                    'route' => '/faims/procurement-ppmp',
+                    'route' => "/faims/procurement-ppmp/{$planId}",
                     'query' => array_filter([
+                        'option' => 'view',
                         'plan_type' => $planType,
-                        'status' => 'For Review',
+                        'status' => $targetStatus,
                         'plan_id' => $planId,
                     ]),
                 ],
@@ -300,9 +308,10 @@ class HandleInertiaRequests extends Middleware
                 'context_label' => $reason === 'owner' ? 'Your Plan' : 'Plan Mention',
                 'action_label' => 'Open plan chat',
                 'target' => [
-                    'route' => '/faims/procurement-ppmp',
+                    'route' => "/faims/procurement-ppmp/{$planId}",
                     'query' => array_filter([
-                        'comment_plan_id' => $planId,
+                        'option' => 'view',
+                        'open_chat' => 1,
                         'comment_id' => data_get($notification->data, 'comment.id'),
                         'plan_type' => $planType,
                     ]),

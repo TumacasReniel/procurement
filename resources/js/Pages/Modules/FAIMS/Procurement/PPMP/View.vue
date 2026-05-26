@@ -113,7 +113,7 @@
     @confirm="approveToApp"
   />
 
-  <FloatingPlanChat :plan="ppmp" :show-trigger="true" />
+  <FloatingPlanChat ref="planChat" :plan="ppmp" :show-trigger="true" />
 </template>
 
 <script>
@@ -162,6 +162,7 @@ export default {
   },
   mounted() {
     this.subscribeToPlanUpdates();
+    this.openNotificationChatIfRequested();
   },
   beforeUnmount() {
     this.unsubscribeFromPlanUpdates();
@@ -558,6 +559,32 @@ export default {
     },
     openDeleteItemModal(item) {
       this.$refs.deleteItemModal?.show(item);
+    },
+    openNotificationChatIfRequested() {
+      const url = new URL(
+        this.$page?.url || window.location.href,
+        window.location.origin
+      );
+      const params = url.searchParams;
+
+      if (params.get("open_chat") !== "1" && !params.get("comment_id")) {
+        return;
+      }
+
+      this.$nextTick(() => {
+        this.$refs.planChat?.openPlan({
+          ...this.ppmp,
+          plan_type: this.normalizedPlanType,
+        });
+        this.clearNotificationChatParams();
+      });
+    },
+    clearNotificationChatParams() {
+      const url = new URL(window.location.href);
+
+      url.searchParams.delete("open_chat");
+      url.searchParams.delete("comment_id");
+      window.history.replaceState({}, "", url.toString());
     },
     emptyPpmpItemsMessage() {
       return "Please add at least one item before updating or submitting this PPMP for review.";

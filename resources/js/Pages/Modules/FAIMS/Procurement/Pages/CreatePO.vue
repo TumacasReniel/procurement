@@ -31,7 +31,7 @@
 
       <b-dropdown
         v-else-if="editPOActions.length > 1"
-        variant="success"
+        variant="light"
         size="sm"
         class="po-actions-dropdown"
         toggle-class="btn-modern shadow-sm"
@@ -54,6 +54,41 @@
       </b-dropdown>
 
       <b-button
+        v-if="statusPOActions.length === 1"
+        :variant="statusPOActions[0].variant"
+        class="btn-modern shadow-sm"
+        size="sm"
+        @click="runPOAction(statusPOActions[0])"
+      >
+        <i :class="[statusPOActions[0].icon, 'align-bottom me-1']"></i>
+        {{ statusPOActions[0].label }}
+      </b-button>
+
+      <b-dropdown
+        v-else-if="statusPOActions.length > 1"
+        variant="light"
+        size="sm"
+        class="po-actions-dropdown"
+        toggle-class="btn-modern shadow-sm"
+        menu-class="po-actions-menu"
+        right
+      >
+        <template #button-content>
+          <i class="ri-edit-circle-fill align-bottom me-1"></i>
+          Update Status
+        </template>
+
+        <b-dropdown-item
+          v-for="action in statusPOActions"
+          :key="action.key"
+          @click="runPOAction(action)"
+        >
+          <i :class="[action.icon, 'align-bottom me-2', action.iconClass]"></i>
+          {{ action.label }}
+        </b-dropdown-item>
+      </b-dropdown>
+
+      <b-button
         v-if="printPOActions.length === 1"
         :variant="printPOActions[0].variant"
         class="btn-modern shadow-sm"
@@ -66,7 +101,7 @@
 
       <b-dropdown
         v-else-if="printPOActions.length > 1"
-        variant="dark"
+        variant="light"
         size="sm"
         class="po-actions-dropdown"
         toggle-class="btn-modern shadow-sm"
@@ -327,6 +362,22 @@ export default {
         });
       }
 
+      if (this.canEditNTP) {
+        actions.push({
+          key: "edit-ntp",
+          label: "Edit NTP",
+          icon: "ri-file-edit-line",
+          iconClass: "text-primary",
+          variant: "outline-primary",
+          handler: () => this.editNTP(),
+        });
+      }
+
+      return actions;
+    },
+    statusPOActions() {
+      const actions = [];
+
       if (this.canUpdatePOStatus) {
         actions.push({
           key: "update-status",
@@ -357,17 +408,6 @@ export default {
           iconClass: "text-danger",
           variant: "outline-danger",
           handler: () => this.notConformed(this.purchase_order),
-        });
-      }
-
-      if (this.canEditNTP) {
-        actions.push({
-          key: "edit-ntp",
-          label: "Edit NTP",
-          icon: "ri-file-edit-line",
-          iconClass: "text-primary",
-          variant: "outline-primary",
-          handler: () => this.editNTP(),
         });
       }
 

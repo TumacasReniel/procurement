@@ -14,6 +14,8 @@ class ProcurementPlanForReviewNotification extends Notification
         protected object $plan,
         protected User $actor,
         protected string $planType,
+        protected string $targetRole = 'Budget Officer',
+        protected string $reason = 'plan_review_required',
     ) {
     }
 
@@ -46,12 +48,15 @@ class ProcurementPlanForReviewNotification extends Notification
             ?? $this->plan->ppmp_no
             ?? "{$this->planType} #{$this->plan->id}";
         $unitName = method_exists($this->plan, 'unit') ? ($this->plan->unit?->name ?? null) : null;
+        $actionLabel = $this->targetRole === 'Procurement Officer'
+            ? 'ready for Procurement Officer submission'
+            : 'now for Budget Officer review';
 
         return [
             'type' => 'procurement_plan_for_review',
-            'reason' => 'plan_review_required',
-            'target_roles' => ['Budget Officer'],
-            'message' => "{$this->planType} {$planCode} is now for Budget Officer review.",
+            'reason' => $this->reason,
+            'target_roles' => [$this->targetRole],
+            'message' => "{$this->planType} {$planCode} is {$actionLabel}.",
             'procurement_plan' => [
                 'id' => $this->plan->id,
                 'plan_type' => $this->planType,
@@ -60,6 +65,7 @@ class ProcurementPlanForReviewNotification extends Notification
                 'title' => $this->plan->title ?? null,
                 'purpose' => $this->plan->purpose ?? null,
                 'status' => $this->plan->status?->name,
+                'target_role' => $this->targetRole,
                 'unit' => $unitName,
                 'year' => $this->plan->year
                     ?? ($this->plan->date ? date('Y', strtotime((string) $this->plan->date)) : null),
