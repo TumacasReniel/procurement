@@ -208,7 +208,7 @@ class ProcurementPPMPResource extends JsonResource
                     'supporting_document_path' => $item->supporting_document_path,
                     'supporting_document_original_name' => $item->supporting_document_original_name,
                     'supporting_document_url' => $item->supporting_document_path
-                        ? asset('storage/'.$item->supporting_document_path)
+                        ? route('procurement-ppmp.items.supporting-document', $item->id)
                         : null,
                     'remarks' => $item->remarks,
                     'status' => $item->status,
