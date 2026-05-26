@@ -18,6 +18,7 @@ use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class ProcurementPPMPController extends Controller
 {
@@ -114,6 +115,19 @@ class ProcurementPPMPController extends Controller
         }
 
         return inertia('Modules/FAIMS/Procurement/PPMP/View', $this->ppmp->showPageProps($id, $request));
+    }
+
+    public function supportingDocument($item)
+    {
+        $item = \App\Models\ProcurementPpmpItem::query()->findOrFail($item);
+        $path = $item->supporting_document_path;
+
+        abort_if(! $path || ! Storage::disk('public')->exists($path), 404);
+
+        return response()->file(Storage::disk('public')->path($path), [
+            'Content-Type' => Storage::disk('public')->mimeType($path) ?: 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.addslashes($item->supporting_document_original_name ?: basename($path)).'"',
+        ]);
     }
 
     public function comments($id)

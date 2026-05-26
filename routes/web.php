@@ -113,6 +113,8 @@ Route::prefix('faims')->group(function () {
         ->name('procurement.reports');
     Route::resource('/procurement-assignments', App\Http\Controllers\FAIMS\Procurement\ProcurementAssignmentController::class);
     Route::post('/procurement-ppmp/item-categories', [App\Http\Controllers\FAIMS\Procurement\ProcurementPPMPController::class, 'storeItemCategory']);
+    Route::get('/procurement-ppmp/items/{item}/supporting-document', [App\Http\Controllers\FAIMS\Procurement\ProcurementPPMPController::class, 'supportingDocument'])
+        ->name('procurement-ppmp.items.supporting-document');
     Route::resource('/procurement-ppmp', App\Http\Controllers\FAIMS\Procurement\ProcurementPPMPController::class)
         ->only(['index', 'store', 'show', 'update']);
     Route::post('/procurement-ppmp/{id}/comments', [App\Http\Controllers\FAIMS\Procurement\ProcurementPPMPController::class, 'storeComment']);
