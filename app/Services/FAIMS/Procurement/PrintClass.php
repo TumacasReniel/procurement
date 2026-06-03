@@ -797,19 +797,14 @@ class PrintClass
 
     private function reportSignatories(): array
     {
-        $procurementStaff = User::with('profile')
-            ->whereHas('roles', function ($query) {
-                $query->where('list_roles.name', 'Procurement Staff');
-            })
-            ->get()
-            ->map(function ($user) {
-                return [
-                    'name' => strtoupper($user->profile?->full_name ?? ('USER #' . $user->id)),
-                    'role' => 'Procurement Staff',
-                ];
-            })
-            ->values()
-            ->all();
+        $currentUser = Auth::user()?->loadMissing('profile', 'org_chart.designation', 'organization.position', 'roles');
+        $preparedBy = $currentUser ? [[
+            'name' => strtoupper($currentUser->profile?->full_name ?? ('USER #' . $currentUser->id)),
+            'role' => $currentUser->org_chart?->designation?->name
+                ?? $currentUser->organization?->position?->name
+                ?? $currentUser->roles?->first()?->name
+                ?? 'Procurement Staff',
+        ]] : [];
 
         $supplyOfficer = User::with('profile')
             ->whereHas('roles', function ($query) {
@@ -832,7 +827,7 @@ class PrintClass
         $notedByDesignation = $assistantRegionalDirector?->is_oic ? 'OIC ARD-FASS' : 'ARD-FASS';
 
         return [
-            'prepared_by' => array_slice($procurementStaff, 0, 2),
+            'prepared_by' => $preparedBy,
             'supply_officer' => $supplyOfficer ? [
                 'name' => strtoupper($supplyOfficer->profile?->full_name ?? ('USER #' . $supplyOfficer->id)),
                 'role' => 'Supply Officer',

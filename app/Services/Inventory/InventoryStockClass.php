@@ -12,6 +12,7 @@ use App\Models\InventoryStock;
 use App\Models\InventoryWithdrawal;
 use App\Models\ListDropdown;
 use App\Models\ListStatus;
+use App\Models\UnitType;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -24,7 +25,8 @@ class InventoryStockClass
                 'categories' => ListDropdown::where('classification', 'Inventory Category')
                     ->orderBy('name')
                     ->get(['id', 'name']),
-                'statuses' => $this->inventoryStatuses(),
+                'statuses'   => $this->inventoryStatuses(),
+                'unitTypes'  => UnitType::orderBy('name_long')->get(['id', 'name_short', 'name_long']),
             ],
             'users' => User::with('profile')
                 ->get()
@@ -34,12 +36,14 @@ class InventoryStockClass
                 ])
                 ->sortBy('name')
                 ->values(),
-            'stockOptions' => InventoryStock::orderBy('name')
-                ->get(['id', 'code', 'name'])
+            'stockOptions' => InventoryStock::with('item:id,code,name')
+                ->orderByDesc('id')
+                ->get()
                 ->map(fn ($stock) => [
-                    'id' => $stock->id,
-                    'code' => $stock->code,
-                    'name' => $stock->name,
+                    'id'      => $stock->id,
+                    'item_id' => $stock->item_id,
+                    'name'    => $stock->item?->name ?? '—',
+                    'code'    => $stock->item?->code ?? '—',
                 ])
                 ->values(),
             'itemOptions' => InventoryItem::orderBy('name')
@@ -87,19 +91,12 @@ class InventoryStockClass
 
     public function saveStock($request): array
     {
-        $payload = $request->validated();
-        $payload['code'] = InventoryStock::generateCode();
-
-        if (empty($payload['entry_date'])) {
-            $payload['entry_date'] = now();
-        }
-
-        $stock = InventoryStock::create($payload);
+        $stock = InventoryStock::create($request->validated());
 
         return $this->stockResult(
             $stock,
-            'Inventory stock created successfully.',
-            "You've successfully created a stock group."
+            'Stock entry added successfully.',
+            "You've successfully added a stock entry."
         );
     }
 
@@ -215,26 +212,28 @@ class InventoryStockClass
     protected function stocksQuery(Request $request)
     {
         return InventoryStock::query()
-            ->withCount('items')
-            ->withSum('items as total_quantity', 'quantity')
+            ->with(['item:id,code,name', 'unit:id,name_short,name_long'])
+            ->when($request->filled('item_id'), function ($query) use ($request) {
+                $query->where('item_id', $request->integer('item_id'));
+            })
             ->when($request->filled('keyword'), function ($query) use ($request) {
                 $keyword = trim((string) $request->input('keyword'));
-
-                $query->where(function ($inner) use ($keyword) {
-                    $inner->where('code', 'like', "%{$keyword}%")
-                        ->orWhere('name', 'like', "%{$keyword}%");
+                $query->whereHas('item', function ($inner) use ($keyword) {
+                    $inner->where('name', 'like', "%{$keyword}%")
+                          ->orWhere('code', 'like', "%{$keyword}%");
                 });
             })
-            ->orderByDesc('entry_date')
             ->orderByDesc('id');
     }
 
     protected function itemsQuery(Request $request)
     {
         return $this->applyItemSorting(
-            InventoryItem::with(['stock:id,code,name', 'category:id,name'])
-                ->when($request->filled('stock_id'), function ($query) use ($request) {
-                    $query->where('stock_id', $request->integer('stock_id'));
+            InventoryItem::with(['category:id,name'])
+                ->withCount('stocks')
+                ->withSum('stocks', 'quantity')
+                ->when($request->filled('category_id'), function ($query) use ($request) {
+                    $query->where('category_id', $request->integer('category_id'));
                 })
                 ->when($request->filled('keyword'), function ($query) use ($request) {
                     $keyword = trim((string) $request->input('keyword'));
@@ -242,10 +241,6 @@ class InventoryStockClass
                     $query->where(function ($inner) use ($keyword) {
                         $inner->where('code', 'like', "%{$keyword}%")
                             ->orWhere('name', 'like', "%{$keyword}%")
-                            ->orWhereHas('stock', function ($stock) use ($keyword) {
-                                $stock->where('code', 'like', "%{$keyword}%")
-                                    ->orWhere('name', 'like', "%{$keyword}%");
-                            })
                             ->orWhereHas('category', function ($category) use ($keyword) {
                                 $category->where('name', 'like', "%{$keyword}%");
                             });
@@ -338,11 +333,8 @@ class InventoryStockClass
 
     protected function stockResult(InventoryStock $stock, string $message, string $info): array
     {
-        $stock->loadCount('items');
-        $stock->setAttribute('total_quantity', (int) $stock->items()->sum('quantity'));
-
         return [
-            'data' => new InventoryStockResource($stock),
+            'data' => new InventoryStockResource($stock->load(['item', 'unit'])),
             'message' => $message,
             'info' => $info,
         ];
@@ -351,7 +343,7 @@ class InventoryStockClass
     protected function itemResult(InventoryItem $item, string $message, string $info): array
     {
         return [
-            'data' => new InventoryItemResource($item->load(['stock', 'category'])),
+            'data' => new InventoryItemResource($item->load(['category'])),
             'message' => $message,
             'info' => $info,
         ];

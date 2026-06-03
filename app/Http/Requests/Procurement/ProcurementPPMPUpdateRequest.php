@@ -8,7 +8,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return auth()->check();
     }
 
     public function rules(): array
@@ -110,4 +110,5 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             'item_unit_cost.required' => 'Please enter the unit cost.',
         ];
     }
+
 }

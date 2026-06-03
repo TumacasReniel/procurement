@@ -289,6 +289,7 @@ class ProcurementPPMPClass
         $fund_cluster_id = $this->regularFundClusterId();
 
         $this->validateSppSetup($app_type_id, $approved_status_id, $pending_status_id);
+        $this->ensureUserCanCreatePlanForUnit($unit);
         $this->ensureApprovedAppExists($year, $approved_status_id);
         $this->ensureUnitHasConsolidatedPpmpForYear($unit, $year);
 
@@ -323,6 +324,7 @@ class ProcurementPPMPClass
 
         $this->validateAppSetup($app_type_id, $approved_status_id);
         $this->validateAppPendingSetup($pending_status_id);
+        $this->ensureUserCanCreateApp();
         $this->ensureAppDoesNotExist($year);
 
         if ($this->hasSeparateAppRegister()) {
@@ -374,7 +376,7 @@ class ProcurementPPMPClass
         $pending_status_id = $this->statusId(self::STATUS_PENDING);
         $fund_cluster_id = $this->regularFundClusterId();
 
-        $this->ensureUserCanCreatePpmpForUnit($unit);
+        $this->ensureUserCanCreatePlanForUnit($unit);
         $this->validatePpmpSetup($pending_status_id, $fund_cluster_id);
         $this->ensureUnitHasNoPpmpForYear($unit, $year);
 
@@ -501,6 +503,8 @@ class ProcurementPPMPClass
             ->with($this->appRelations())
             ->findOrFail($id);
 
+        $this->ensureUserCanAdvanceAppStatus($app);
+
         $status_ids = $this->submissionStatusIds();
         $next_step = $this->nextSubmissionStep(
             $app->status_id,
@@ -515,6 +519,10 @@ class ProcurementPPMPClass
             'status_id' => $next_step['status_id'],
             'updated_at' => now(),
         ];
+
+        if ($next_step['status_id'] === $status_ids['for_review']) {
+            $updates['submitted_by_id'] = Auth::id();
+        }
 
         if ($next_step['status_id'] === $status_ids['reviewed']) {
             $updates['reviewed_by_id'] = Auth::id();
@@ -553,6 +561,10 @@ class ProcurementPPMPClass
             return false;
         }
 
+        if ($user->hasRole('Administrator')) {
+            return true;
+        }
+
         return match ($app->status?->name) {
             self::STATUS_PENDING => $user->hasRole('Procurement Staff')
                 || $user->hasRole('Procurement Officer'),
@@ -560,6 +572,57 @@ class ProcurementPPMPClass
             self::STATUS_REVIEWED => $user->hasRole('Procurement Officer') ,
             default => false,
         };
+    }
+
+    protected function ensureUserCanAdvanceAppStatus(ProcurementApp $app): void
+    {
+        if ($this->can_advance_app_status($app)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'ppmp' => 'You are not allowed to update this APP at its current status.',
+        ]);
+    }
+
+    protected function ensureUserCanCreateApp(): void
+    {
+        $user = Auth::user();
+
+        if ($user && ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'))) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'plan_type' => 'Only Procurement Officers can create an APP register.',
+        ]);
+    }
+
+    protected function ensureUserCanCreatePlanForUnit(ListUnit $unit): void
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'unit_id' => 'You are not allowed to create this procurement plan.',
+            ]);
+        }
+
+        $user_unit_id = $user->organization?->unit_id;
+        $same_unit = $user_unit_id && (int) $user_unit_id === (int) $unit->id;
+
+        if (
+            $same_unit
+            || $user->hasRole('Administrator')
+            || $user->hasRole('Procurement Staff')
+            || $user->hasRole('Procurement Officer')
+        ) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'unit_id' => 'You can only create a procurement plan for your assigned unit.',
+        ]);
     }
 
     protected function generateUnitPpmpCode(int $year, int $unit_id): string
@@ -594,13 +657,23 @@ class ProcurementPPMPClass
         $this->validateAppPendingSetup($pending_status_id);
         $this->ensureUserCanConsolidateToApp();
         $this->ensurePpmpCanBeConsolidated($procurement, $approved_status_id);
-
         $updates = [
             'reference_app_id' => $app_type_id,
             'status_id' => $approved_status_id,
-            'approved_by_id' => Auth::id(),
             'updated_at' => now(),
         ];
+
+        if (! Schema::hasColumn('procurement_ppmps', 'consolidated_by_id')) {
+            $updates['approved_by_id'] = Auth::id();
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'consolidated_by_id')) {
+            $updates['consolidated_by_id'] = Auth::id();
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'consolidated_at')) {
+            $updates['consolidated_at'] = now();
+        }
 
         $data = [
             'id' => $procurement->id,
@@ -701,6 +774,20 @@ class ProcurementPPMPClass
             'updated_at' => now(),
         ];
 
+        if (
+            $next_step['status_id'] === $status_ids['for_review']
+            && Schema::hasColumn('procurement_ppmps', 'submitted_by_id')
+        ) {
+            $updates['submitted_by_id'] = Auth::id();
+        }
+
+        if (
+            $next_step['status_id'] === $status_ids['for_review']
+            && Schema::hasColumn('procurement_ppmps', 'submitted_at')
+        ) {
+            $updates['submitted_at'] = now();
+        }
+
         // Add reviewer when status becomes Reviewed
         if (
             $next_step['status_id'] === $status_ids['reviewed']
@@ -709,9 +796,23 @@ class ProcurementPPMPClass
             $updates['reviewed_by_id'] = Auth::id();
         }
 
+        if (
+            $next_step['status_id'] === $status_ids['reviewed']
+            && Schema::hasColumn('procurement_ppmps', 'reviewed_at')
+        ) {
+            $updates['reviewed_at'] = now();
+        }
+
         // Add approver when status becomes Approved
         if ($next_step['status_id'] === $status_ids['approved']) {
             $updates['approved_by_id'] = Auth::id();
+        }
+
+        if (
+            $next_step['status_id'] === $status_ids['approved']
+            && Schema::hasColumn('procurement_ppmps', 'approved_at')
+        ) {
+            $updates['approved_at'] = now();
         }
 
         if ($is_app_plan) {
@@ -1207,6 +1308,7 @@ class ProcurementPPMPClass
         if ($this->hasSeparateAppRegister()) {
             $exists = ProcurementApp::query()
                 ->where('year', $year)
+                ->lockForUpdate()
                 ->exists();
 
             if ($exists) {
@@ -1223,6 +1325,7 @@ class ProcurementPPMPClass
             ->whereHas('reference_app', function ($reference_query) {
                 $reference_query->where('name', self::PLAN_NAME_APP);
             })
+            ->lockForUpdate()
             ->exists();
 
         if ($exists) {
@@ -1237,6 +1340,15 @@ class ProcurementPPMPClass
         $exists = ProcurementPpmp::query()
             ->where('unit_id', $unit->id)
             ->whereYear('date', $year)
+            ->where(function ($query) {
+                $query->whereNull('title')
+                    ->orWhere('title', '!=', self::PLAN_NAME_SPP);
+            })
+            ->where(function ($query) {
+                $query->whereNull('code')
+                    ->orWhere('code', 'NOT LIKE', 'SPP-%');
+            })
+            ->lockForUpdate()
             ->exists();
 
         if ($exists) {
@@ -1277,19 +1389,6 @@ class ProcurementPPMPClass
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
-    }
-
-    protected function ensureUserCanCreatePpmpForUnit(ListUnit $unit): void
-    {
-        $employee_unit_id = $this->employeeOnlyUnitId();
-
-        if (! $employee_unit_id || (int) $unit->id === $employee_unit_id) {
-            return;
-        }
-
-        throw ValidationException::withMessages([
-            'unit_id' => 'You can only create a PPMP for your assigned unit.',
-        ]);
     }
 
     protected function sppPayload(int $year, ListUnit $unit, int $app_type_id, int $pending_status_id, ?int $fund_cluster_id): array
@@ -1384,8 +1483,15 @@ class ProcurementPPMPClass
             'supporting_document_path' => $supporting_document['path'],
             'supporting_document_original_name' => $supporting_document['original_name'],
             'remarks' => $request->remarks,
+            'requested_quantity' => $quantity,
+            'funded_quantity' => $quantity,
+            'is_partial_funding' => false,
             'item_quantity' => $quantity,
             'item_unit_cost' => $unit_cost,
+            'price_basis' => null,
+            'price_basis_amount' => null,
+            'quantity_adjustment_reason' => null,
+            'price_variance_reason' => null,
             'total_cost' => $quantity * $unit_cost,
             'status_id' => $status_id,
         ];
@@ -1393,6 +1499,8 @@ class ProcurementPPMPClass
         if (! Schema::hasColumn('procurement_ppmp_items', 'start_of_procurement_activity')) {
             unset($payload['start_of_procurement_activity']);
         }
+
+        $this->stripMissingItemPlanningColumns($payload);
 
         return $payload;
     }
@@ -1414,9 +1522,16 @@ class ProcurementPPMPClass
             'expected_delivery_date' => $request->expected_delivery_date,
             'attached_supporting_documents' => $request->attached_supporting_documents,
             'remarks' => $request->remarks,
+            'requested_quantity' => $quantity,
+            'funded_quantity' => $quantity,
+            'is_partial_funding' => false,
             'item_quantity' => $quantity,
             'item_unit_type_id' => data_get($row, 'item_unit_type_id', $request->item_unit_type_id),
             'item_unit_cost' => $unit_cost,
+            'price_basis' => null,
+            'price_basis_amount' => null,
+            'quantity_adjustment_reason' => null,
+            'price_variance_reason' => null,
             'total_cost' => $quantity * $unit_cost,
         ];
 
@@ -1424,7 +1539,26 @@ class ProcurementPPMPClass
             unset($payload['start_of_procurement_activity']);
         }
 
+        $this->stripMissingItemPlanningColumns($payload);
+
         return $payload;
+    }
+
+    protected function stripMissingItemPlanningColumns(array &$payload): void
+    {
+        foreach ([
+            'requested_quantity',
+            'funded_quantity',
+            'is_partial_funding',
+            'price_basis',
+            'price_basis_amount',
+            'quantity_adjustment_reason',
+            'price_variance_reason',
+        ] as $column) {
+            if (! Schema::hasColumn('procurement_ppmp_items', $column)) {
+                unset($payload[$column]);
+            }
+        }
     }
 
     protected function itemRowsFromRequest($request): Collection
@@ -1558,8 +1692,10 @@ class ProcurementPPMPClass
             'created_by.org_chart.designation',
             'created_by.organization.position',
             'requested_by.profile',
+            'submitted_by.profile',
             'reviewed_by.profile',
             'approved_by.profile',
+            'consolidated_by.profile',
             'codes.procurement_code.mode_of_procurement',
             'codes.procurement_code.app_type',
             'items.procurement',
@@ -1886,6 +2022,7 @@ class ProcurementPPMPClass
             'app_type',
             'created_by.profile',
             'requested_by.profile',
+            'submitted_by.profile',
             'reviewed_by.profile',
             'approved_by.profile',
             'comments.user.profile',

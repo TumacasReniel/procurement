@@ -102,8 +102,6 @@
             {{ fieldError("item_unit_cost") }}
           </div>
         </BCol>
-
-      
       </BRow>
     </form>
 
@@ -231,6 +229,10 @@ export default {
           item_name: this.form.item_name,
           item_description: this.form.item_description,
           item_quantity: quantity,
+          funded_quantity: quantity,
+          requested_quantity: quantity,
+          unfunded_quantity: 0,
+          is_partial_funding: false,
           item_unit_type_id: this.form.item_unit_type_id,
           item_unit_cost: unitCost,
           total_cost: quantity * unitCost,

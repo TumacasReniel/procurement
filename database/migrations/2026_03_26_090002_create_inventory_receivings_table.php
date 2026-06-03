@@ -13,22 +13,9 @@ return new class extends Migration
             $table->timestamp('received_at')->nullable();
             $table->text('remarks')->nullable();
             $table->timestamps();
-
-
-            $table->unsignedInteger('item_id')->index();
-            $table->foreign('item_id')
-                ->references('id')
-                ->on('inventory_items');
-
-            $table->unsignedInteger('approved_by_id')->nullable();
-            $table->foreign('approved_by_id')
-                ->references('id')
-                ->on('users');
-
-            $table->unsignedTinyInteger('status_id');
-            $table->foreign('status_id')
-                ->references('id')
-                ->on('list_statuses');
+            $table->foreignId('item_id')->constrained('inventory_items')->onDelete('cascade');
+            $table->foreignId('approved_by_id')->nullable()->constrained('users');
+            $table->foreignId('status_id')->constrained('list_statuses');
         });
     }
 

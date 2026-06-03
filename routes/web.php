@@ -39,8 +39,20 @@ Route::middleware(['auth','verified'])->group(function () {
     Route::get('/inventory-dashboard', [App\Http\Controllers\Inventory\DashboardController::class, 'index'])->name('inventory.dashboard');
     Route::resource('/inventory-stocks', App\Http\Controllers\Inventory\InventoryStockController::class)->only(['index','store','update','destroy']);
     Route::resource('/inventory-items', App\Http\Controllers\Inventory\InventoryItemController::class)->only(['index','store','update','destroy']);
+    Route::resource('/inventory-categories', App\Http\Controllers\Inventory\InventoryCategoryController::class)->only(['index','store','update','destroy']);
     Route::resource('/inventory-receivings', App\Http\Controllers\Inventory\InventoryReceivingController::class)->only(['index','store','update','destroy']);
     Route::resource('/inventory-withdrawals', App\Http\Controllers\Inventory\InventoryWithdrawalController::class)->only(['index','store','update','destroy']);
+    Route::resource('/inventory-ris', App\Http\Controllers\Inventory\InventoryRisController::class)->only(['index','show','store','update','destroy']);
+
+    // AI Chatbot
+    Route::post('/ai-chat', [App\Http\Controllers\AI\ChatbotController::class, 'chat']);
+    Route::get('/ai-settings', [App\Http\Controllers\AI\ChatbotSettingController::class, 'show']);
+    Route::post('/ai-settings', [App\Http\Controllers\AI\ChatbotSettingController::class, 'save']);
+    Route::post('/ai-settings/test', [App\Http\Controllers\AI\ChatbotSettingController::class, 'test']);
+    Route::delete('/ai-settings/key', [App\Http\Controllers\AI\ChatbotSettingController::class, 'clearKey']);
+    Route::get('/ai-modules', [App\Http\Controllers\AI\ChatbotSettingController::class, 'modules']);
+    Route::patch('/ai-modules/{key}', [App\Http\Controllers\AI\ChatbotSettingController::class, 'toggleModule'])
+        ->where('key', '[a-z0-9_]+');
 });
 
 Route::middleware(['role:Asset Management Officer'])->group(function () {

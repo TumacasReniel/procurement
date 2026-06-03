@@ -124,20 +124,20 @@
         </div>
       </div>
 
-      <div v-if="averageGroups.length" class="ppmp-average-preview">
+      <div v-if="priceVarianceGroups.length" class="ppmp-average-preview">
         <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
           <div>
-            <h6 class="mb-1">Items with averaged unit cost</h6>
+            <h6 class="mb-1">Matching items with different unit costs</h6>
             <p class="text-muted mb-0 small">
-              These items have matching specs/description but different unit costs.
+              These items match existing APP or approved PPMP items. Consolidation uses the combined ABC and quantity to compute the weighted unit cost.
             </p>
           </div>
-          <b-badge variant="warning">{{ averageGroups.length }} group{{ averageGroups.length === 1 ? "" : "s" }}</b-badge>
+          <b-badge variant="warning">{{ priceVarianceGroups.length }} group{{ priceVarianceGroups.length === 1 ? "" : "s" }}</b-badge>
         </div>
 
         <div class="accordion ppmp-average-accordion" id="ppmpAveragePreview">
           <div
-            v-for="group in averageGroups"
+            v-for="group in priceVarianceGroups"
             :key="group.id"
             class="accordion-item"
           >
@@ -150,10 +150,12 @@
               >
                 <span class="flex-grow-1">
                   <span class="fw-semibold">{{ group.name || "-" }}</span>
-                  <span class="text-muted ms-2">{{ formatQuantity(group.quantity) }} {{ group.unit || "" }}</span>
+                  <span class="text-muted ms-2">
+                    {{ formatQuantity(group.quantity) }} {{ group.unit || "" }}
+                  </span>
                 </span>
                 <span class="fw-semibold text-primary me-3">
-                  Avg: {{ formatCurrency(group.average_unit_price) }}
+                  Weighted: {{ formatCurrency(group.computed_weighted_unit_cost || group.average_unit_price) }}
                 </span>
               </button>
             </h2>
@@ -189,9 +191,9 @@
                     </tbody>
                     <tfoot>
                       <tr>
-                        <th colspan="2" class="text-end">Average Unit Cost</th>
+                        <th colspan="2" class="text-end">Weighted Unit Cost</th>
                         <th class="text-end">{{ formatQuantity(group.quantity) }}</th>
-                        <th class="text-end">{{ formatCurrency(group.average_unit_price) }}</th>
+                        <th class="text-end">{{ formatCurrency(group.computed_weighted_unit_cost || group.average_unit_price) }}</th>
                         <th class="text-end">{{ formatCurrency(group.total_amount) }}</th>
                       </tr>
                     </tfoot>
@@ -204,7 +206,7 @@
       </div>
 
       <div v-else class="ppmp-average-empty">
-        No same-spec items with different unit costs were found for averaging.
+        No unit cost differences were found for matching same-spec items.
       </div>
 
       <div v-if="error" class="alert alert-danger mb-0 ppmp-confirm__error">
@@ -259,8 +261,10 @@ export default {
         this.$emit("update:show", value);
       },
     },
-    averageGroups() {
-      return Array.isArray(this.ppmp?.consolidation_average_groups)
+    priceVarianceGroups() {
+      return Array.isArray(this.ppmp?.consolidation_price_variance_groups)
+        ? this.ppmp.consolidation_price_variance_groups
+        : Array.isArray(this.ppmp?.consolidation_average_groups)
         ? this.ppmp.consolidation_average_groups
         : [];
     },

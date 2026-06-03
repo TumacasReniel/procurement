@@ -26,10 +26,23 @@ class ProcurementPpmp extends Model
         'procurement_app_id',
         'created_by_id',
         'requested_by_id',
+        'submitted_by_id',
+        'submitted_at',
         'reviewed_by_id',
+        'reviewed_at',
         'approved_by_id',
+        'approved_at',
+        'consolidated_by_id',
+        'consolidated_at',
         'status_id',
         'sub_status_id',
+    ];
+
+    protected $casts = [
+        'submitted_at' => 'datetime',
+        'reviewed_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'consolidated_at' => 'datetime',
     ];
 
     public function request()
@@ -87,6 +100,22 @@ class ProcurementPpmp extends Model
         return $this->belongsTo(
             User::class,
             Schema::hasColumn($this->getTable(), 'reviewed_by_id') ? 'reviewed_by_id' : 'approved_by_id'
+        )->with('profile');
+    }
+
+    public function submitted_by(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            Schema::hasColumn($this->getTable(), 'submitted_by_id') ? 'submitted_by_id' : 'requested_by_id'
+        )->with('profile');
+    }
+
+    public function consolidated_by(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            Schema::hasColumn($this->getTable(), 'consolidated_by_id') ? 'consolidated_by_id' : 'approved_by_id'
         )->with('profile');
     }
 

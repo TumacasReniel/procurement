@@ -36,9 +36,9 @@ class DashboardController extends Controller
                 'units' => $this->dropdown->dropdowns('Unit'),
                 'locations' => $this->dropdown->dropdowns('Location'),
                 'periods' => [
-                    ['value' => 'monthly', 'name' => 'Monthly'],
+                    ['value' => 'monthly',   'name' => 'Monthly'],
                     ['value' => 'quarterly', 'name' => 'Quarterly'],
-                    ['value' => 'yearly', 'name' => 'Yearly'],
+                    ['value' => 'yearly',    'name' => 'Yearly'],
                 ],
             ],
             'totalItems' => $dashboard['totalItems'],

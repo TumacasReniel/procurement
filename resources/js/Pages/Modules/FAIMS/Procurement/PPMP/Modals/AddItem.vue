@@ -12,7 +12,7 @@
     <form class="customform">
       <BRow>
         <BCol lg="12" class="mb-3">
-          <InputLabel value="General Description and Objective" />
+          <InputLabel value="General Description and Objective(Column 1)" />
           <textarea
             v-model="form.general_description_objective"
             class="form-control"
@@ -20,12 +20,15 @@
             rows="3"
             placeholder="General description and objective of the project to be procured"
           ></textarea>
-          <div v-if="fieldError('general_description_objective')" class="invalid-feedback d-block">
+          <div
+            v-if="fieldError('general_description_objective')"
+            class="invalid-feedback d-block"
+          >
             {{ fieldError("general_description_objective") }}
           </div>
         </BCol>
         <BCol lg="4">
-          <InputLabel value="Type of Project to be Procured" />
+          <InputLabel value="Type of Project to be Procured(Column 2)" />
           <Multiselect
             :class="multiselectInvalidClass('project_type')"
             :options="projectTypeOptions"
@@ -66,7 +69,7 @@
         </BCol>
 
         <BCol lg="4">
-          <InputLabel value="Recommended Mode of Procurement" />
+          <InputLabel value="Recommended Mode of Procurement(Column 4)" />
           <Multiselect
             :class="multiselectInvalidClass('recommended_mode_of_procurement')"
             :options="modeOfProcurementOptions"
@@ -85,7 +88,7 @@
         </BCol>
 
         <BCol lg="4" class="mt-3">
-          <InputLabel value="Start of Procurement Activity" />
+          <InputLabel value="Start of Procurement Activity(Column 6)" />
           <TextInput
             v-model="form.start_of_procurement_activity"
             type="date"
@@ -101,33 +104,39 @@
         </BCol>
 
         <BCol lg="4" class="mt-3">
-          <InputLabel value="End of Procurement Activity" />
+          <InputLabel value="End of Procurement Activity(Column 7)" />
           <TextInput
             v-model="form.end_of_procurement_activity"
             type="date"
             class="form-control"
             :class="inputInvalidClass('end_of_procurement_activity')"
           />
-          <div v-if="fieldError('end_of_procurement_activity')" class="invalid-feedback d-block">
+          <div
+            v-if="fieldError('end_of_procurement_activity')"
+            class="invalid-feedback d-block"
+          >
             {{ fieldError("end_of_procurement_activity") }}
           </div>
         </BCol>
 
         <BCol lg="4" class="mt-3">
-          <InputLabel value="Expected Delivery Date" />
+          <InputLabel value="Expected Delivery Date(Column 8)" />
           <TextInput
             v-model="form.expected_delivery_date"
             type="date"
             class="form-control"
             :class="inputInvalidClass('expected_delivery_date')"
           />
-          <div v-if="fieldError('expected_delivery_date')" class="invalid-feedback d-block">
+          <div
+            v-if="fieldError('expected_delivery_date')"
+            class="invalid-feedback d-block"
+          >
             {{ fieldError("expected_delivery_date") }}
           </div>
         </BCol>
 
         <BCol lg="6" class="mt-3">
-          <InputLabel value="Supporting Document Type" />
+          <InputLabel value="Supporting Document Type(Column 11)" />
           <TextInput
             v-model="form.attached_supporting_documents"
             type="text"
@@ -144,7 +153,7 @@
         </BCol>
 
         <BCol lg="6" class="mt-3">
-          <InputLabel value="Pre-Procurement Conference" />
+          <InputLabel value="Pre-Procurement Conference(Column 5)" />
           <Multiselect
             :class="multiselectInvalidClass('pre_procurement_conference')"
             :options="preProcurementConferenceOptions"
@@ -154,7 +163,10 @@
             value-prop="value"
             placeholder="Select option"
           />
-          <div v-if="fieldError('pre_procurement_conference')" class="invalid-feedback d-block">
+          <div
+            v-if="fieldError('pre_procurement_conference')"
+            class="invalid-feedback d-block"
+          >
             {{ fieldError("pre_procurement_conference") }}
           </div>
         </BCol>
@@ -177,13 +189,16 @@
             @rejected="rejectSupportingDocumentFile"
             @remove="removeSupportingDocument"
           />
-          <div v-if="fieldError('supporting_document_file')" class="invalid-feedback d-block">
+          <div
+            v-if="fieldError('supporting_document_file')"
+            class="invalid-feedback d-block"
+          >
             {{ fieldError("supporting_document_file") }}
           </div>
         </BCol>
 
         <BCol lg="12" class="mt-3">
-          <InputLabel value="Remarks" />
+          <InputLabel value="Remarks(Column 12)" />
           <textarea
             v-model="form.remarks"
             class="form-control"
@@ -199,7 +214,7 @@
         <BCol lg="12" class="mt-3">
           <div class="items-table-toolbar">
             <div>
-              <h6 class="items-table-title">Items</h6>
+              <h6 class="items-table-title">Items(Column 3)</h6>
               <span class="items-table-subtitle">
                 {{ itemRows.length }} item{{ itemRows.length === 1 ? "" : "s" }}
                 {{ isEditing ? "selected" : "queued" }}
@@ -938,6 +953,10 @@ export default {
         item_name: item.name || item.item_name || "",
         item_description: item.description || item.item_description || "",
         item_quantity: item.quantity || item.item_quantity || 1,
+        funded_quantity: item.quantity || item.item_quantity || 1,
+        requested_quantity: item.quantity || item.item_quantity || 1,
+        unfunded_quantity: 0,
+        is_partial_funding: false,
         item_unit_type_id: item.item_unit_type_id ?? null,
         item_unit_cost: Number(item.unit_price || item.item_unit_cost || 0),
         total_cost: Number(item.abc || item.total_cost || 0),
@@ -966,7 +985,10 @@ export default {
       }
 
       const existingCategory = this.itemCategoryOptions.find(
-        (option) => String(option.name || "").trim().toLowerCase() === name.toLowerCase()
+        (option) =>
+          String(option.name || "")
+            .trim()
+            .toLowerCase() === name.toLowerCase()
       );
 
       if (existingCategory) {
@@ -1144,7 +1166,7 @@ export default {
 }
 
 :deep(.multiselect.is-invalid) {
-  box-shadow: 0 0 0 .125rem rgba(240, 101, 72, .12);
+  box-shadow: 0 0 0 0.125rem rgba(240, 101, 72, 0.12);
 }
 
 .items-table-toolbar {

@@ -14,32 +14,34 @@ class InventoryStockRequest extends FormRequest
 
     public function rules(): array
     {
-        $stockId = $this->resolveStockId();
-        $codeRequirement = $stockId ? 'required' : 'nullable';
-
         return [
-            'code' => [$codeRequirement, 'string', 'max:255', Rule::unique('inventory_stocks', 'code')->ignore($stockId)],
-            'name' => ['required', 'string', 'max:255', Rule::unique('inventory_stocks', 'name')->ignore($stockId)],
-            'entry_date' => ['nullable', 'date'],
+            'item_id'     => ['required', 'exists:inventory_items,id'],
+            'quantity'    => ['required', 'numeric', 'min:0'],
+            'unit_id'     => ['required', 'exists:unit_types,id'],
+            'unit_cost'   => ['required', 'numeric', 'min:0'],
+            'description' => ['nullable', 'string', 'max:500'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'code.required' => 'Code is required.',
-            'code.unique' => 'This stock code is already in use.',
-            'name.required' => 'Name is required.',
-            'name.unique' => 'This stock name is already in use.',
+            'item_id.required'  => 'Please select an item.',
+            'item_id.exists'    => 'The selected item is invalid.',
+            'quantity.required' => 'Please enter the quantity.',
+            'unit_id.required'  => 'Please select a unit.',
+            'unit_id.exists'    => 'The selected unit is invalid.',
+            'unit_cost.required'=> 'Please enter the unit cost.',
         ];
     }
 
     public function attributes(): array
     {
         return [
-            'code' => 'stock code',
-            'name' => 'stock name',
-            'entry_date' => 'entry date',
+            'item_id'   => 'item',
+            'quantity'  => 'quantity',
+            'unit_id'   => 'unit',
+            'unit_cost' => 'unit cost',
         ];
     }
 

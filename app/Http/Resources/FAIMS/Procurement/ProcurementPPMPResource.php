@@ -21,9 +21,9 @@ class ProcurementPPMPResource extends JsonResource
         $is_final = $this->is_final_ppmp($plan_name);
         $is_reviewed = in_array($this->status?->name, ['Reviewed', 'Approved'], true);
         $is_for_review = $this->status?->name === 'For Review';
-        $reviewed_by = $is_reviewed ? $this->approved_by?->profile?->full_name : null;
-        $submitted_for_review_by = $is_for_review ? $this->approved_by?->profile?->full_name : null;
-        $submitted_for_review_at = $is_for_review && $this->approved_by_id ? $this->updated_at : null;
+        $reviewed_by = $is_reviewed ? ($this->reviewed_by?->profile?->full_name ?? $this->approved_by?->profile?->full_name) : null;
+        $submitted_for_review_by = $is_for_review ? ($this->submitted_by?->profile?->full_name ?? $this->requested_by?->profile?->full_name) : null;
+        $submitted_for_review_at = $is_for_review ? ($this->submitted_at ?? $this->updated_at) : null;
         $submitted_by = $is_final
             ? ($this->approved_by?->profile?->full_name ?? $this->requested_by?->profile?->full_name)
             : $this->requested_by?->profile?->full_name;
@@ -32,8 +32,10 @@ class ProcurementPPMPResource extends JsonResource
             ?? $this->created_by?->designation;
         $approval_status = $this->approval_status($plan_name);
         $is_consolidated = str_starts_with($approval_status, 'Consolidated/Added to');
-        $consolidated_by = $is_consolidated ? $this->approved_by?->profile?->full_name : null;
-        $consolidated_at = $is_consolidated && $this->approved_by_id ? $this->updated_at : null;
+        $consolidated_by = $is_consolidated ? ($this->consolidated_by?->profile?->full_name ?? $this->approved_by?->profile?->full_name) : null;
+        $consolidated_at = $is_consolidated
+            ? ($this->consolidated_at ?? ($this->approved_by_id ? $this->updated_at : null))
+            : null;
         $can_add_items = ! $plan_name && ! $this->has_completed_status();
         $year = $this->date ? date('Y', strtotime($this->date)) : date('Y', strtotime((string) $this->created_at));
         $ppmp_no = $this->ppmp_no_override ?: match ($plan_type) {
@@ -43,6 +45,7 @@ class ProcurementPPMPResource extends JsonResource
         $ppmp_no = $this->display_plan_number($ppmp_no);
         $start_date = $this->start_date_override ?: $this->date;
         $item_details = $this->item_details($items);
+        $price_variance_groups = $this->consolidation_price_variance_groups($item_details, $approval_status);
         $consolidated_item_details = $plan_type === 'ppmp'
             ? $item_details
             : $this->consolidated_item_details($item_details);
@@ -89,9 +92,9 @@ class ProcurementPPMPResource extends JsonResource
             'requested_by_id' => $this->requested_by_id,
             'approved_by' => $this->approved_by?->profile?->full_name,
             'approved_by_id' => $this->approved_by_id,
-            'approved_at' => $this->approved_by_id ? $this->updated_at : null,
-            'formatted_approved_at' => $this->approved_by_id && $this->updated_at
-                ? date('F j, Y', strtotime((string) $this->updated_at))
+            'approved_at' => $this->approved_by_id ? ($this->approved_at ?? $this->updated_at) : null,
+            'formatted_approved_at' => $this->approved_by_id && ($this->approved_at ?? $this->updated_at)
+                ? date('F j, Y', strtotime((string) ($this->approved_at ?? $this->updated_at)))
                 : null,
             'consolidated_by' => $consolidated_by,
             'consolidated_at' => $consolidated_at,
@@ -100,9 +103,9 @@ class ProcurementPPMPResource extends JsonResource
                 : null,
             'comments_count' => $this->comments_count ?? 0,
             'reviewed_by' => $reviewed_by,
-            'reviewed_at' => $reviewed_by ? $this->updated_at : null,
-            'formatted_reviewed_at' => $reviewed_by && $this->updated_at
-                ? date('F j, Y', strtotime((string) $this->updated_at))
+            'reviewed_at' => $reviewed_by ? ($this->reviewed_at ?? $this->updated_at) : null,
+            'formatted_reviewed_at' => $reviewed_by && ($this->reviewed_at ?? $this->updated_at)
+                ? date('F j, Y', strtotime((string) ($this->reviewed_at ?? $this->updated_at)))
                 : null,
             'submitted_for_review_by' => $submitted_for_review_by,
             'submitted_for_review_at' => $submitted_for_review_at,
@@ -117,7 +120,8 @@ class ProcurementPPMPResource extends JsonResource
             'item_details' => $consolidated_item_details,
             'raw_item_details' => $item_details,
             'consolidation_match_groups' => $this->consolidation_match_groups($item_details, $approval_status),
-            'consolidation_average_groups' => $this->consolidation_average_groups($item_details, $approval_status),
+            'consolidation_price_variance_groups' => $price_variance_groups,
+            'consolidation_average_groups' => $price_variance_groups,
             'items_count' => $items->count(),
             'consolidated_items_count' => $consolidated_item_details->count(),
             'ppmp_count' => $this->aggregated_ppmp_count ?: 1,
@@ -166,7 +170,15 @@ class ProcurementPPMPResource extends JsonResource
         return $items
             ->map(function ($item) {
                 $quantity = (float) ($item->item_quantity ?? 0);
+                $requested_quantity = (float) ($item->requested_quantity ?? $quantity);
+                $funded_quantity = (float) ($item->funded_quantity ?? $quantity);
                 $unit_cost = (float) ($item->item_unit_cost ?? 0);
+                $price_basis_amount = $item->price_basis_amount !== null
+                    ? (float) $item->price_basis_amount
+                    : null;
+                $price_variance_rate = $price_basis_amount && $price_basis_amount > 0
+                    ? (($unit_cost - $price_basis_amount) / $price_basis_amount) * 100
+                    : null;
                 $pr_no = $item->pr_items
                     ?->pluck('procurement.code')
                     ->filter()
@@ -198,8 +210,17 @@ class ProcurementPPMPResource extends JsonResource
                     'recommended_mode_of_procurement' => $item->recommended_mode_of_procurement,
                     'pre_procurement_conference' => $item->pre_procurement_conference,
                     'quantity' => $quantity,
+                    'requested_quantity' => round($requested_quantity, 2),
+                    'funded_quantity' => round($funded_quantity, 2),
+                    'unfunded_quantity' => round(max(0, $requested_quantity - $funded_quantity), 2),
+                    'is_partial_funding' => $requested_quantity > $funded_quantity,
                     'unit' => $this->item_unit_label($item),
                     'unit_price' => round($unit_cost, 2),
+                    'price_basis' => $item->price_basis,
+                    'price_basis_amount' => $price_basis_amount !== null ? round($price_basis_amount, 2) : null,
+                    'price_variance_rate' => $price_variance_rate !== null ? round($price_variance_rate, 2) : null,
+                    'quantity_adjustment_reason' => $item->quantity_adjustment_reason,
+                    'price_variance_reason' => $item->price_variance_reason,
                     'abc' => round((float) ($item->total_cost ?? ($quantity * $unit_cost)), 2),
                     'start_of_procurement_activity' => $item->start_of_procurement_activity,
                     'end_of_procurement_activity' => $item->end_of_procurement_activity,
@@ -335,7 +356,7 @@ class ProcurementPPMPResource extends JsonResource
         return trim((string) $text);
     }
 
-    protected function consolidation_average_groups(Collection $current_items, string $approval_status): array
+    protected function consolidation_price_variance_groups(Collection $current_items, string $approval_status): array
     {
         if ($approval_status !== 'Submitted/For Consolidation' || $current_items->isEmpty()) {
             return [];
@@ -363,6 +384,11 @@ class ProcurementPPMPResource extends JsonResource
                 $quantity = $items->sum(fn ($item) => (float) ($item['quantity'] ?? 0));
                 $abc = $items->sum(fn ($item) => (float) ($item['abc'] ?? 0));
                 $representative = $items->first();
+                $unit_prices = $items
+                    ->pluck('unit_price')
+                    ->map(fn ($price) => round((float) $price, 2))
+                    ->unique()
+                    ->values();
 
                 return [
                     'id' => $index + 1,
@@ -370,7 +396,9 @@ class ProcurementPPMPResource extends JsonResource
                     'description' => $representative['description'] ?? null,
                     'unit' => $representative['unit'] ?? null,
                     'quantity' => round($quantity, 2),
+                    'computed_weighted_unit_cost' => $quantity > 0 ? round($abc / $quantity, 2) : 0,
                     'average_unit_price' => $quantity > 0 ? round($abc / $quantity, 2) : 0,
+                    'unit_price_spread' => $unit_prices->all(),
                     'total_amount' => round($abc, 2),
                     'items' => $items
                         ->map(fn ($item) => [

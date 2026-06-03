@@ -27,10 +27,27 @@ class ProcurementPpmpItem extends Model
         'supporting_document_path',
         'supporting_document_original_name',
         'remarks',
+        'requested_quantity',
+        'funded_quantity',
+        'is_partial_funding',
         'item_quantity',
         'item_unit_cost',
+        'price_basis',
+        'price_basis_amount',
+        'quantity_adjustment_reason',
+        'price_variance_reason',
         'total_cost',
         'status_id',
+    ];
+
+    protected $casts = [
+        'requested_quantity' => 'float',
+        'funded_quantity' => 'float',
+        'is_partial_funding' => 'boolean',
+        'item_quantity' => 'float',
+        'item_unit_cost' => 'float',
+        'price_basis_amount' => 'float',
+        'total_cost' => 'float',
     ];
 
     public function procurement()
@@ -83,8 +100,15 @@ class ProcurementPpmpItem extends Model
                 'supporting_document_path',
                 'supporting_document_original_name',
                 'remarks',
+                'requested_quantity',
+                'funded_quantity',
+                'is_partial_funding',
                 'item_quantity',
                 'item_unit_cost',
+                'price_basis',
+                'price_basis_amount',
+                'quantity_adjustment_reason',
+                'price_variance_reason',
                 'total_cost',
                 'status_id',
             ])

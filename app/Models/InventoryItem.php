@@ -12,20 +12,12 @@ class InventoryItem extends Model
     protected $fillable = [
         'code',
         'name',
-        'stock_id',
         'category_id',
-        'quantity',
-        'unit_cost',
-        'expiration',
     ];
 
-    protected $casts = [
-        'expiration' => 'date',
-    ];
-
-    public function stock()
+    public function stocks()
     {
-        return $this->belongsTo(InventoryStock::class, 'stock_id');
+        return $this->hasMany(InventoryStock::class, 'item_id');
     }
 
     public function category()
@@ -41,5 +33,39 @@ class InventoryItem extends Model
     public function withdrawals()
     {
         return $this->hasMany(InventoryWithdrawal::class, 'inventory_id');
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($item) {
+            if (empty($item->code)) {
+                $item->code = self::generateItemCode();
+            }
+        });
+    }
+
+    public static function generateItemCode()
+    {
+        $prefix = 'ITM-';
+
+        $lastCode = self::where('code', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->orderByDesc('code')
+            ->value('code');
+
+        $nextNumber = 1;
+
+        if ($lastCode && preg_match('/^' . preg_quote($prefix, '/') . '(\d+)$/', $lastCode, $matches)) {
+            $nextNumber = ((int) $matches[1]) + 1;
+        }
+
+        do {
+            $code = $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            $nextNumber++;
+        } while (self::where('code', $code)->exists());
+
+        return $code;
     }
 }
