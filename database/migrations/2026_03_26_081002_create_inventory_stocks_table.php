@@ -17,14 +17,21 @@ return new class extends Migration
             return;
         }
 
+        if (!Schema::hasTable('inventory_items')) {
+            return;
+        }
+
         Schema::create('inventory_stocks', function (Blueprint $table) {
             $table->increments('id');
-            $table->foreignId('item_id')->constrained('inventory_items')->onDelete('cascade');
+            $table->unsignedInteger('item_id');
             $table->decimal('quantity', 12, 2)->default(0);
-            $table->foreignId('unit_id')->constrained('unit_types')->onDelete('cascade');
+            $table->unsignedTinyInteger('unit_id');
             $table->decimal('unit_cost', 10, 2);
             $table->text('description')->nullable();
             $table->timestamps();
+
+            $table->foreign('item_id')->references('id')->on('inventory_items')->onDelete('cascade');
+            $table->foreign('unit_id')->references('id')->on('unit_types')->onDelete('cascade');
         });
     }
 

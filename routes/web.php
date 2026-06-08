@@ -44,8 +44,8 @@ Route::middleware(['auth','verified'])->group(function () {
     Route::resource('/inventory-withdrawals', App\Http\Controllers\Inventory\InventoryWithdrawalController::class)->only(['index','store','update','destroy']);
     Route::resource('/inventory-ris', App\Http\Controllers\Inventory\InventoryRisController::class)->only(['index','show','store','update','destroy']);
 
-    // AI Chatbot
-    Route::post('/ai-chat', [App\Http\Controllers\AI\ChatbotController::class, 'chat']);
+    // OneApp Chatbot
+    Route::post('/ai-chat', App\Http\Controllers\AI\AiChatController::class);
     Route::get('/ai-settings', [App\Http\Controllers\AI\ChatbotSettingController::class, 'show']);
     Route::post('/ai-settings', [App\Http\Controllers\AI\ChatbotSettingController::class, 'save']);
     Route::post('/ai-settings/test', [App\Http\Controllers\AI\ChatbotSettingController::class, 'test']);

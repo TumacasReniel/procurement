@@ -49,4 +49,13 @@ return [
         'key' => env('ANTHROPIC_API_KEY'),
     ],
 
+    'procurement_ai' => [
+        'base_url' => env('PROCUREMENT_AI_BASE_URL', 'http://127.0.0.1:8010'),
+        'api_key' => env('PROCUREMENT_AI_API_KEY'),
+        'timeout' => env('PROCUREMENT_AI_TIMEOUT', 90),
+        'auto_start' => env('PROCUREMENT_AI_AUTO_START', true),
+        'start_command' => env('PROCUREMENT_AI_START_COMMAND') ?: (PHP_OS_FAMILY === 'Windows' ? 'start-oneapp-chatbot.bat' : 'sh start-oneapp-chatbot.sh'),
+        'working_dir' => env('PROCUREMENT_AI_WORKING_DIR') ?: base_path('fastapi_ai_service'),
+    ],
+
 ];

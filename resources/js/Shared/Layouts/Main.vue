@@ -64,7 +64,7 @@
     @success="handleSurveySubmit"
   />
   <Update v-if="showUpdateModal" v-model="updateRequired" @success="handleUpdateSubmit" />
-  <!-- <AIChatbot /> -->
+  <OneAppChatbot />
 </template>
 <script>
 import { router } from "@inertiajs/vue3";
@@ -74,7 +74,7 @@ import Horizontal from "./Horizontal.vue";
 import TwoColumns from "./Twocolumn.vue";
 import Survey from "./Components/Survey.vue";
 import Update from "./Components/Update.vue";
-import AIChatbot from "@/Shared/Components/AIChatbot.vue";
+import OneAppChatbot from "@/Shared/Components/AIChatbot.vue";
 
 export default {
   components: {
@@ -83,7 +83,7 @@ export default {
     TwoColumns,
     Survey,
     Update,
-    AIChatbot,
+    OneAppChatbot,
   },
   provide() {
     return {

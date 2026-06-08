@@ -5,22 +5,24 @@ namespace App\Http\Controllers\AI;
 use App\Http\Controllers\Controller;
 use App\Models\ChatbotModule;
 use App\Models\ChatbotSetting;
-use App\Services\AI\AIProviderService;
+use App\Services\AI\FastApiChatbotClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ChatbotSettingController extends Controller
 {
+    public function __construct(private FastApiChatbotClient $client) {}
+
     public function show(): JsonResponse
     {
         $setting   = ChatbotSetting::current();
         $providers = ChatbotSetting::providers();
 
         return response()->json([
-            'provider'   => $setting->provider,
+            'provider'   => 'fastapi',
             'model'      => $setting->model,
-            'has_key'    => !empty($setting->api_key),
-            'base_url'   => $setting->base_url,
+            'has_key'    => true,
+            'base_url'   => config('services.procurement_ai.base_url'),
             'max_tokens' => $setting->max_tokens,
             'is_active'  => $setting->is_active,
             'providers'  => $providers,
@@ -30,7 +32,7 @@ class ChatbotSettingController extends Controller
     public function save(Request $request): JsonResponse
     {
         $request->validate([
-            'provider'   => ['required', 'in:openai,groq,openrouter,ollama'],
+            'provider'   => ['required', 'in:fastapi,openai,groq,openrouter,ollama'],
             'model'      => ['required', 'string', 'max:100'],
             'api_key'    => ['nullable', 'string', 'max:500'],
             'base_url'   => ['nullable', 'url', 'max:255'],
@@ -58,11 +60,7 @@ class ChatbotSettingController extends Controller
 
     public function test(): JsonResponse
     {
-        $setting  = ChatbotSetting::current();
-        $service  = new AIProviderService($setting);
-        $result   = $service->testConnection();
-
-        return response()->json($result);
+        return response()->json($this->client->health());
     }
 
     public function clearKey(): JsonResponse

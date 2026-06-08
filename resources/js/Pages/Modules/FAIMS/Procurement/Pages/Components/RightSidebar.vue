@@ -1073,7 +1073,7 @@ export default {
 .floating-comments-wrapper {
   position: fixed;
   right: 24px;
-  bottom: 104px;
+  bottom: 24px;
   z-index: 1060;
   max-width: calc(100vw - 48px);
   max-height: calc(100dvh - 48px);
@@ -1102,14 +1102,14 @@ export default {
 .floating-comment-trigger {
   position: relative;
   z-index: 1;
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, #4a5fa7 0%, #31488f 100%);
   color: #fff;
   box-shadow: 0 18px 36px rgba(49, 72, 143, 0.28);
-  font-size: 1.4rem;
+  font-size: 1.3rem;
 }
 
 .floating-comment-trigger:hover {
@@ -1118,9 +1118,9 @@ export default {
 
 .floating-comment-badge {
   position: absolute;
-  top: 3px;
-  right: 3px;
-  font-size: 0.7rem;
+  top: -4px;
+  right: -4px;
+  font-size: 0.62rem;
 }
 
 .floating-comment-panel {
@@ -1356,7 +1356,7 @@ export default {
 @media (max-width: 768px) {
   .floating-comments-wrapper {
     right: 16px;
-    bottom: 96px;
+    bottom: 16px;
     max-width: calc(100vw - 32px);
     max-height: calc(100dvh - 32px);
   }

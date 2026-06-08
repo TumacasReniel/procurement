@@ -17,8 +17,8 @@ class ChatbotSetting extends Model
     public static function current(): self
     {
         return static::firstOrCreate([], [
-            'provider'   => 'groq',
-            'model'      => 'llama-3.3-70b-versatile',
+            'provider'   => 'fastapi',
+            'model'      => 'procurement-db-assistant',
             'max_tokens' => 1500,
             'is_active'  => true,
         ]);
@@ -27,6 +27,14 @@ class ChatbotSetting extends Model
     public static function providers(): array
     {
         return [
+            'fastapi' => [
+                'name'    => 'OneApp Chatbot',
+                'api_url' => config('services.procurement_ai.base_url'),
+                'key_url' => null,
+                'models'  => [
+                    'qwen3' => 'Qwen3 via local Ollama',
+                ],
+            ],
             'openai' => [
                 'name'    => 'OpenAI',
                 'api_url' => 'https://api.openai.com/v1/chat/completions',

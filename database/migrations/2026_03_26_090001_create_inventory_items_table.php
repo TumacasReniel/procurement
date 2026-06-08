@@ -19,10 +19,26 @@ return new class extends Migration
             $table->foreign('category_id')->references('id')->on('list_dropdowns')->onDelete('set null');
 
         });
+
+        if (!Schema::hasTable('inventory_stocks')) {
+            Schema::create('inventory_stocks', function (Blueprint $table) {
+                $table->increments('id');
+                $table->unsignedInteger('item_id');
+                $table->decimal('quantity', 12, 2)->default(0);
+                $table->unsignedTinyInteger('unit_id');
+                $table->decimal('unit_cost', 10, 2);
+                $table->text('description')->nullable();
+                $table->timestamps();
+
+                $table->foreign('item_id')->references('id')->on('inventory_items')->onDelete('cascade');
+                $table->foreign('unit_id')->references('id')->on('unit_types')->onDelete('cascade');
+            });
+        }
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('inventory_stocks');
         Schema::dropIfExists('inventory_items');
     }
 };

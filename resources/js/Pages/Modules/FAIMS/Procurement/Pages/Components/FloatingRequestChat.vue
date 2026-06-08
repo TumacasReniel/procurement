@@ -670,8 +670,8 @@ export default {
     },
     triggerStyle() {
       return {
-        width: "64px",
-        height: "64px",
+        width: "52px",
+        height: "52px",
       };
     },
     avatarStyle() {

@@ -16,23 +16,31 @@ return new class extends Migration
             $table->string('responsibility_center')->nullable();
             $table->text('purpose')->nullable();
             $table->date('ris_date');
-            $table->foreignId('requested_by_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('approved_by_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('issued_by_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('received_by_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('status_id')->constrained('list_statuses');
+            $table->unsignedInteger('requested_by_id')->nullable();
+            $table->unsignedInteger('approved_by_id')->nullable();
+            $table->unsignedInteger('issued_by_id')->nullable();
+            $table->unsignedInteger('received_by_id')->nullable();
+            $table->unsignedTinyInteger('status_id');
             $table->timestamps();
+
+            $table->foreign('requested_by_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('approved_by_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('issued_by_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('received_by_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('status_id')->references('id')->on('list_statuses');
         });
 
         Schema::create('inventory_ris_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('ris_id')->constrained('inventory_ris')->cascadeOnDelete();
-            $table->foreignId('item_id')->constrained('inventory_items')->cascadeOnDelete();
+            $table->unsignedInteger('item_id');
             $table->string('unit_of_issue')->nullable();
             $table->decimal('quantity_requested', 12, 2)->default(0);
             $table->decimal('quantity_issued', 12, 2)->default(0);
             $table->text('remarks')->nullable();
             $table->timestamps();
+
+            $table->foreign('item_id')->references('id')->on('inventory_items')->cascadeOnDelete();
         });
     }
 
