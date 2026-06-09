@@ -67,6 +67,15 @@
                 <i class="ri-checkbox-circle-line align-bottom me-1"></i>
                 Consolidate
               </b-button>
+              <b-button
+                v-if="ppmp.can_revert_status"
+                variant="warning"
+                :disabled="revertStatusForm.processing"
+                @click="revertStatusModal.show = true"
+              >
+                <i class="ri-arrow-go-back-line align-bottom me-1"></i>
+                Revert Status
+              </b-button>
             </div>
           </div>
         </div>
@@ -113,6 +122,16 @@
     @confirm="approveToApp"
   />
 
+  <RevertStatusModal
+    v-model:show="revertStatusModal.show"
+    :plan="ppmp"
+    :plan-type="normalizedPlanType"
+    :processing="revertStatusForm.processing"
+    :error="revertStatusModal.error"
+    @cancel="closeRevertStatusModal"
+    @confirm="revertStatus"
+  />
+
   <FloatingPlanChat ref="planChat" :plan="ppmp" :show-trigger="true" />
 </template>
 
@@ -123,6 +142,7 @@ import AddItemModal from "./Modals/AddItem.vue";
 import DeleteItemModal from "./Modals/DeleteItem.vue";
 import ApproveToAppModal from "./Modals/ApproveToApp.vue";
 import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
+import RevertStatusModal from "./Modals/RevertStatus.vue";
 import AppPlanView from "./Components/AppPlanView.vue";
 import SppPlanView from "./Components/SppPlanView.vue";
 import PpmpPlanView from "./Components/PpmpPlanView.vue";
@@ -136,6 +156,7 @@ export default {
     DeleteItemModal,
     ApproveToAppModal,
     SubmitForApprovalModal,
+    RevertStatusModal,
     AppPlanView,
     SppPlanView,
     PpmpPlanView,
@@ -154,9 +175,20 @@ export default {
       approveAppForm: useForm({
         option: "approve_to_app",
         plan_type: this.ppmp?.plan_type || "PPMP",
+        consolidation_review_acknowledged: false,
+        consolidation_pricing: [],
       }),
       approveAppModal: {
         show: false,
+      },
+      revertStatusForm: useForm({
+        option: "revert_status",
+        plan_type: this.ppmp?.plan_type || "PPMP",
+        revert_reason: "",
+      }),
+      revertStatusModal: {
+        show: false,
+        error: "",
       },
     };
   },
@@ -533,15 +565,40 @@ export default {
       this.submitFinalModal.error = "";
       this.submitFinalForm.clearErrors();
     },
-    approveToApp() {
+    approveToApp(review = {}) {
       this.approveAppForm.option = "approve_to_app";
       this.approveAppForm.plan_type = this.normalizedPlanType;
+      this.approveAppForm.consolidation_review_acknowledged = Boolean(review.consolidation_review_acknowledged);
+      this.approveAppForm.consolidation_pricing = review.consolidation_pricing || [];
       this.approveAppForm.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
         preserveScroll: true,
         onSuccess: () => {
           this.approveAppModal.show = false;
         },
       });
+    },
+    revertStatus(reason) {
+      this.revertStatusForm.option = "revert_status";
+      this.revertStatusForm.plan_type = this.normalizedPlanType;
+      this.revertStatusForm.revert_reason = reason;
+      this.revertStatusForm.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+          this.revertStatusModal.show = false;
+          this.revertStatusModal.error = "";
+        },
+        onError: (errors) => {
+          this.revertStatusModal.error = Object.values(errors || {})[0] || "Unable to revert status.";
+        },
+      });
+    },
+    closeRevertStatusModal() {
+      if (this.revertStatusForm.processing) {
+        return;
+      }
+      this.revertStatusModal.show = false;
+      this.revertStatusModal.error = "";
+      this.revertStatusForm.clearErrors();
     },
     closeApproveAppModal() {
       if (this.approveAppForm.processing) {

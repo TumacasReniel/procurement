@@ -92,6 +92,7 @@ class ProcurementPPMPClass
     {
         return match ($request->option) {
             'update_status', 'approve_to_app' => $this->updateStatus($id, $request),
+            'revert_status' => $this->revertStatus($id, $request),
             'add_item' => $this->addItem($id, $request),
             'update_item' => $this->updateItem($id, $request),
             'delete_item' => $this->deleteItem($id, $request),
@@ -638,6 +639,153 @@ class ProcurementPPMPClass
             : $this->advancePpmpStatus($id, $request);
     }
 
+    public function revertStatus($id, $request): array
+    {
+        $plan_type = $this->normalizePlanType(data_get($request, 'plan_type', self::PLAN_TYPE_PPMP));
+
+        if ($plan_type === self::PLAN_TYPE_APP && $this->hasSeparateAppRegister()) {
+            return $this->revertAppStatus((int) $id, $request);
+        }
+
+        $procurement = ProcurementPpmp::query()
+            ->with(['reference_app', 'status'])
+            ->findOrFail($id);
+
+        if ($procurement->reference_app?->name === self::PLAN_NAME_APP && $plan_type !== self::PLAN_TYPE_APP) {
+            throw ValidationException::withMessages([
+                'ppmp' => 'A consolidated plan cannot be reverted with status revert. APP composition must be amended through a new APP/SPP version.',
+            ]);
+        }
+
+        $this->ensureUserCanRevertPlanStatus();
+        $status_ids = $this->submissionStatusIds();
+        $previous_step = $this->previousSubmissionStep((int) $procurement->status_id, $status_ids, $plan_type === self::PLAN_TYPE_APP);
+        $old_status = $procurement->status?->name;
+        $updates = $this->revertAuditUpdates($previous_step['status_id'], $status_ids, 'procurement_ppmps');
+
+        if ($plan_type === self::PLAN_TYPE_APP) {
+            $updated = ProcurementPpmp::query()
+                ->whereYear('date', $this->yearForProcurement($procurement))
+                ->where('status_id', $procurement->status_id)
+                ->whereHas('reference_app', fn ($query) => $query->where('name', self::PLAN_NAME_APP))
+                ->update($updates);
+        } else {
+            $procurement->update($updates);
+            $updated = 1;
+        }
+
+        $this->logPpmpActivity($procurement->fresh(['reference_app', 'status']), $this->planShortLabel($plan_type).' status reverted', [
+            'plan_type' => $plan_type,
+            'from_status' => $old_status,
+            'to_status' => $previous_step['label'],
+            'reason' => trim((string) $request->revert_reason),
+            'affected_plans' => $updated,
+        ]);
+
+        return [
+            'data' => $this->show($id, $request),
+            'message' => $this->planShortLabel($plan_type).' status reverted successfully.',
+            'info' => "Status reverted from {$old_status} to {$previous_step['label']}.",
+            'status' => true,
+        ];
+    }
+
+    protected function revertAppStatus(int $id, $request): array
+    {
+        $app = ProcurementApp::query()->with($this->appRelations())->findOrFail($id);
+        $this->ensureUserCanRevertPlanStatus();
+        $status_ids = $this->submissionStatusIds();
+        $previous_step = $this->previousSubmissionStep((int) $app->status_id, $status_ids, true);
+        $old_status = $app->status?->name;
+        $app->update($this->revertAuditUpdates($previous_step['status_id'], $status_ids, 'procurement_apps'));
+
+        $this->logAppActivity($app->fresh(['status']), 'APP status reverted', [
+            'from_status' => $old_status,
+            'to_status' => $previous_step['label'],
+            'reason' => trim((string) $request->revert_reason),
+        ]);
+
+        return [
+            'data' => $this->appResource($app->fresh($this->appRelations())),
+            'message' => 'APP status reverted successfully.',
+            'info' => "Status reverted from {$old_status} to {$previous_step['label']}.",
+            'status' => true,
+        ];
+    }
+
+    protected function previousSubmissionStep(int $current_status_id, array $status_ids, bool $is_app): array
+    {
+        return match ($current_status_id) {
+            $status_ids['approved'] => [
+                'status_id' => $status_ids['reviewed'],
+                'label' => 'Reviewed/For Submission',
+            ],
+            $status_ids['reviewed'] => [
+                'status_id' => $status_ids['for_review'],
+                'label' => 'For Review',
+            ],
+            $status_ids['for_review'] => [
+                'status_id' => $status_ids['pending'],
+                'label' => 'Pending',
+            ],
+            default => throw ValidationException::withMessages([
+                'ppmp' => ($is_app ? 'APP' : 'PPMP/SPP').' status can only be reverted from Submitted, Reviewed, or For Review.',
+            ]),
+        };
+    }
+
+    protected function revertAuditUpdates(int $target_status_id, array $status_ids, string $table): array
+    {
+        $updates = ['status_id' => $target_status_id, 'updated_at' => now()];
+        $clear = [];
+
+        if ($target_status_id !== $status_ids['approved']) {
+            $clear = array_merge($clear, ['approved_by_id', 'approved_at']);
+        }
+        if (! in_array($target_status_id, [$status_ids['reviewed'], $status_ids['approved']], true)) {
+            $clear = array_merge($clear, ['reviewed_by_id', 'reviewed_at']);
+        }
+        if ($target_status_id === $status_ids['pending']) {
+            $clear = array_merge($clear, ['submitted_by_id', 'submitted_at']);
+        }
+
+        foreach (array_unique($clear) as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                $updates[$column] = null;
+            }
+        }
+
+        return $updates;
+    }
+
+    protected function ensureUserCanRevertPlanStatus(): void
+    {
+        $user = Auth::user();
+        if ($user && ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'))) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'ppmp' => 'Only Administrators and Procurement Officers can revert plan status.',
+        ]);
+    }
+
+    protected function canRevertPlanStatus(?int $status_id, bool $is_consolidated = false): bool
+    {
+        $user = Auth::user();
+        if (! $user || $is_consolidated || ! ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'))) {
+            return false;
+        }
+
+        $status_ids = $this->submissionStatusIds();
+
+        return in_array((int) $status_id, [
+            $status_ids['for_review'],
+            $status_ids['reviewed'],
+            $status_ids['approved'],
+        ], true);
+    }
+
     protected function consolidatePpmpToApp($id, $request): array
     {
         $procurement = ProcurementPpmp::with(['status', 'reference_app'])->findOrFail($id);
@@ -713,17 +861,44 @@ class ProcurementPPMPClass
                 $info = "The selected {$plan_label} was added to {$app->code}.";
             }
 
+            $pricing_overrides = collect($request->input('consolidation_pricing', []))
+                ->filter(fn (array $pricing) => ! empty($pricing['group_key']) && ! empty($pricing['method']))
+                ->mapWithKeys(fn (array $pricing) => [
+                    $pricing['group_key'] => [
+                        'method' => $pricing['method'],
+                        'manual_unit_cost' => $pricing['method'] === 'manual'
+                            ? round((float) ($pricing['manual_unit_cost'] ?? 0), 2)
+                            : null,
+                        'updated_by_id' => Auth::id(),
+                        'updated_at' => now()->toISOString(),
+                    ],
+                ])
+                ->all();
+
+            if ($pricing_overrides !== []) {
+                $app->update([
+                    'pricing_overrides' => array_merge($app->pricing_overrides ?? [], $pricing_overrides),
+                ]);
+            }
+
             $updates['procurement_app_id'] = $app->id;
             $data['year'] = (int) $app->year;
             $data['procurement_app_id'] = $app->id;
         }
 
         $procurement->update($updates);
+        $snapshot = $this->consolidationSnapshot(
+            $procurement->fresh(['reference_app', 'status', 'unit', 'procurement_app']),
+            $data['procurement_app_id'] ?? null
+        );
         $this->logPpmpActivity($procurement->fresh(['reference_app', 'status']), "{$plan_label} consolidated to APP", [
             'plan_type' => $is_spp_plan ? self::PLAN_TYPE_SPP : self::PLAN_TYPE_PPMP,
             'year' => $year,
             'reference_app_id' => $app_type_id,
             'procurement_app_id' => $data['procurement_app_id'] ?? null,
+            'consolidation_review_acknowledged' => $request->boolean('consolidation_review_acknowledged'),
+            'consolidation_pricing' => $request->input('consolidation_pricing', []),
+            'consolidation_snapshot' => $snapshot,
         ]);
 
         return [
@@ -1177,80 +1352,68 @@ class ProcurementPPMPClass
         ]);
     }
 
-    // Check if the current logged-in user is allowed to move/update the PPMP status.
-    protected function ensureUserCanAdvancePpmpSubmission(ProcurementPpmp $procurement, // Current PPMP record
-                                                        $current_status_id,       // Current status ID of PPMP
-                                                        $status_ids             // Array of status IDs
-    ): void
+    protected function transitionPolicy(ProcurementPpmp $procurement, int $current_status_id, array $status_ids): array
     {
-        // Get authenticated/logged-in user
         $user = Auth::user();
- 
-        // If no user is logged in stop execution and throw validation error
+
         if (! $user) {
-            throw ValidationException::withMessages([
-                'ppmp' => 'You are not allowed to advance this PPMP.',
-            ]);
+            return [
+                'allowed' => false,
+                'message' => 'You are not allowed to advance this PPMP.',
+            ];
         }
 
-        // Check if current plan is SPP
-        $is_spp_plan =
-            $procurement->reference_app?->name === self::PLAN_NAME_SPP;
+        // Detect plan scope the same way the rest of the service does.
+        // Note: actualPlanTypeForView() returns APP / SPP / PPMP.
+        $actualPlanType = $this->actualPlanTypeForView($procurement);
+        $is_spp_plan = $actualPlanType === self::PLAN_TYPE_SPP;
 
-        // Determine who can submit a PPMP while it is still in Pending status
+        // Who can submit from Pending -> For Review
         $can_submit_pending =
-            $procurement->created_by_id === $user->id
+            (int) $procurement->created_by_id === (int) $user->id
             || $user->hasRole('Procurement Staff')
             || $user->hasRole('Procurement Officer');
 
-        //Check if user is allowed based on current PPMP status
-        $allowed = $is_spp_plan
-            //If SPP Plan
-            ? match ($current_status_id){
-                //Pending -> For Review
-                // Allowed: Creator , Procurement Staff, Procurement Officer
-                $status_ids['pending'] => $can_submit_pending,
+        // Allowed roles per status step
+        $allowed = match ($current_status_id) {
+            (int) $status_ids['pending'] => $can_submit_pending,
+            (int) $status_ids['for_review'] => $user->hasRole('Budget Officer'),
+            (int) $status_ids['reviewed'] => $user->hasRole('Procurement Officer'),
+            default => false,
+        };
 
-                // For Review-> Reviewed
-                //Allowed: Budget Officer
-                $status_ids['for_review'] =>
-                    $user->hasRole('Budget Officer'),
+        // Keep message generic but deterministic.
+        return [
+            'allowed' => (bool) $allowed,
+            'message' => $is_spp_plan
+                ? 'You are not allowed to update this SPP at its current status.'
+                : 'You are not allowed to update this PPMP at its current status.',
+        ];
+    }
 
-                //Reviewed-> Approved / Submitted
-                //Allowed:Procurement Officer
-                $status_ids['reviewed'] =>
-                    $user->hasRole('Procurement Officer'),
+    // Check if the current logged-in user is allowed to move/update the PPMP status.
+    protected function ensureUserCanAdvancePpmpSubmission(
+        ProcurementPpmp $procurement,
+        $current_status_id,
+        $status_ids
+    ): void
+    {
+        $policy = $this->transitionPolicy(
+            $procurement,
+            (int) $current_status_id,
+            $status_ids
+        );
 
-                //Any unknown status is automatically denied
-                default => false,
-            }
+        // If current user is not allowed,throw validation exception
 
-            // If regular PPMP
-            // NOTE:This logic is currently identical to the SPP logic above.
-            : match ($current_status_id) {
-                // Pending -> For Review
-                $status_ids['pending'] => $can_submit_pending,
 
-                // For Review -> Reviewed
-                $status_ids['for_review'] =>
-                    $user->hasRole('Budget Officer'),
-
-                // Reviewed -> Approved
-                $status_ids['reviewed'] =>
-                    $user->hasRole('Procurement Officer'),
-
-                // Unknown status
-                default => false,
-            };
-
-        // If user is not allowed,throw validation exception
-        if (! $allowed) {
+        if (! $policy['allowed']) {
             throw ValidationException::withMessages([
-                'ppmp' =>
-                    'You are not allowed to update this PPMP at its current status.',
+                'ppmp' => $policy['message'],
             ]);
         }
     }
+
 
     protected function submissionStatusIds(): array
     {
@@ -2097,6 +2260,7 @@ class ProcurementPPMPClass
             'comments_count' => (int) ($app->comments_count ?? $app->comments?->count() ?? 0),
             'can_submit_final' => $this->can_advance_app_status($app),
             'can_approve_to_app' => false,
+            'can_revert_status' => $this->canRevertPlanStatus($app->status_id),
             'is_final' => true,
         ]);
     }
@@ -2428,6 +2592,146 @@ class ProcurementPPMPClass
         $procurement->forceFill($overrides);
 
         return $procurement;
+    }
+
+    protected function consolidationSnapshot(ProcurementPpmp $procurement, ?int $app_id): array
+    {
+        $year = $this->yearForProcurement($procurement);
+        $plans = ProcurementPpmp::query()
+            ->with([
+                'unit',
+                'reference_app',
+                'procurement_app',
+                'items.item_unit_type',
+                'items.item_category',
+                'items.status',
+            ])
+            ->whereYear('date', $year)
+            ->when(
+                $app_id,
+                fn ($query) => $query->where('procurement_app_id', $app_id),
+                fn ($query) => $query->whereHas(
+                    'reference_app',
+                    fn ($reference_query) => $reference_query->where('name', self::PLAN_NAME_APP)
+                )
+            )
+            ->get();
+
+        $source_items = $plans
+            ->flatMap(function (ProcurementPpmp $plan) use ($procurement) {
+                return $plan->items->map(function (ProcurementPpmpItem $item) use ($plan, $procurement) {
+                    $quantity = (float) ($item->item_quantity ?? 0);
+                    $unit_cost = (float) ($item->item_unit_cost ?? 0);
+                    $abc = (float) ($item->total_cost ?? ($quantity * $unit_cost));
+
+                    return [
+                        'source_plan_id' => $plan->id,
+                        'source_plan_code' => $plan->code,
+                        'source_plan_type' => $this->planShortLabelForProcurement($plan),
+                        'source_unit_id' => $plan->unit_id,
+                        'source_unit' => $plan->unit?->name,
+                        'is_current_consolidation' => (int) $plan->id === (int) $procurement->id,
+                        'item_id' => $item->id,
+                        'item_no' => $item->item_no,
+                        'item_name' => $item->item_name,
+                        'item_description' => $item->item_description,
+                        'item_category_id' => $item->item_category_id,
+                        'item_category' => $item->item_category?->name,
+                        'item_unit_type_id' => $item->item_unit_type_id,
+                        'item_unit_type' => $item->item_unit_type?->name,
+                        'project_type' => $item->project_type,
+                        'recommended_mode_of_procurement' => $item->recommended_mode_of_procurement,
+                        'pre_procurement_conference' => $item->pre_procurement_conference,
+                        'start_of_procurement_activity' => $item->start_of_procurement_activity,
+                        'end_of_procurement_activity' => $item->end_of_procurement_activity,
+                        'expected_delivery_date' => $item->expected_delivery_date,
+                        'attached_supporting_documents' => $item->attached_supporting_documents,
+                        'supporting_document_path' => $item->supporting_document_path,
+                        'supporting_document_original_name' => $item->supporting_document_original_name,
+                        'remarks' => $item->remarks,
+                        'requested_quantity' => round((float) ($item->requested_quantity ?? $quantity), 2),
+                        'funded_quantity' => round((float) ($item->funded_quantity ?? $quantity), 2),
+                        'is_partial_funding' => (bool) $item->is_partial_funding,
+                        'quantity' => round($quantity, 2),
+                        'unit_cost' => round($unit_cost, 2),
+                        'abc' => round($abc, 2),
+                        'status_id' => $item->status_id,
+                        'status' => $item->status?->name,
+                    ];
+                });
+            })
+            ->values();
+
+        $consolidated_items = $source_items
+            ->groupBy(fn (array $item) => $this->consolidationSnapshotGroupKey($item))
+            ->values()
+            ->map(function (Collection $items, int $index) {
+                $representative = $items->first();
+                $quantity = $items->sum('quantity');
+                $abc = $items->sum('abc');
+                $prices = $items->pluck('unit_cost')->map(fn ($price) => (float) $price);
+                $minimum_price = (float) ($prices->min() ?? 0);
+                $maximum_price = (float) ($prices->max() ?? 0);
+
+                return [
+                    'group_no' => $index + 1,
+                    'source_item_ids' => $items->pluck('item_id')->values()->all(),
+                    'source_plan_codes' => $items->pluck('source_plan_code')->filter()->unique()->values()->all(),
+                    'item_name' => $representative['item_name'],
+                    'item_description' => $representative['item_description'],
+                    'item_category_id' => $representative['item_category_id'],
+                    'item_category' => $representative['item_category'],
+                    'item_unit_type_id' => $representative['item_unit_type_id'],
+                    'item_unit_type' => $representative['item_unit_type'],
+                    'project_type' => $representative['project_type'],
+                    'quantity' => round((float) $quantity, 2),
+                    'weighted_unit_cost' => $quantity > 0 ? round((float) ($abc / $quantity), 2) : 0,
+                    'minimum_unit_cost' => round($minimum_price, 2),
+                    'maximum_unit_cost' => round($maximum_price, 2),
+                    'price_spread_percentage' => $minimum_price > 0
+                        ? round((($maximum_price - $minimum_price) / $minimum_price) * 100, 2)
+                        : null,
+                    'abc' => round((float) $abc, 2),
+                ];
+            })
+            ->all();
+
+        return [
+            'schema_version' => 1,
+            'captured_at' => now()->toISOString(),
+            'captured_by_id' => Auth::id(),
+            'year' => $year,
+            'app_id' => $app_id,
+            'app_code' => $procurement->procurement_app?->code,
+            'consolidated_plan_id' => $procurement->id,
+            'consolidated_plan_code' => $procurement->code,
+            'source_plan_count' => $plans->count(),
+            'source_item_count' => $source_items->count(),
+            'consolidated_item_count' => count($consolidated_items),
+            'total_abc' => round((float) $source_items->sum('abc'), 2),
+            'source_items' => $source_items->all(),
+            'consolidated_items' => $consolidated_items,
+        ];
+    }
+
+    protected function consolidationSnapshotGroupKey(array $item): string
+    {
+        return implode('|', [
+            $item['item_category_id'] ?? '',
+            $item['item_unit_type_id'] ?? '',
+            $this->normalizeConsolidationSnapshotText($item['project_type'] ?? ''),
+            $this->normalizeConsolidationSnapshotText($item['item_name'] ?? ''),
+            $this->normalizeConsolidationSnapshotText($item['item_description'] ?? ''),
+        ]);
+    }
+
+    protected function normalizeConsolidationSnapshotText($value): string
+    {
+        $text = html_entity_decode(strip_tags(strtolower((string) $value)));
+        $text = preg_replace('/[^a-z0-9.\s-]+/', ' ', $text);
+        $text = preg_replace('/\s+/', ' ', (string) $text);
+
+        return trim((string) $text);
     }
 
     protected function logPpmpActivity(ProcurementPpmp $procurement, string $description, array $properties = []): void

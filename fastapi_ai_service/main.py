@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest, urlopen
 
 import pymysql
@@ -23,6 +23,7 @@ load_dotenv(BASE_DIR.parent / ".env")
 APP_NAME = "OneApp Local AI Assistant"
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3")
+LLM_REQUIRED = os.getenv("INTELLIBOT_LLM_REQUIRED", "true").lower() in {"1", "true", "yes", "on"}
 SERVICE_TOKEN = os.getenv("PROCUREMENT_AI_API_KEY")
 CACHE_TTL_SECONDS = int(os.getenv("INTELLIBOT_CACHE_SECONDS", "120"))
 MAX_ROWS = int(os.getenv("INTELLIBOT_MAX_ROWS", "20"))
@@ -299,7 +300,24 @@ app = FastAPI(title=APP_NAME)
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "message": f"{APP_NAME} is reachable.", "model": OLLAMA_MODEL}
+    model_status = ollama_model_status()
+    if not model_status["reachable"] or not model_status["available"]:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": model_status["message"],
+                "model": OLLAMA_MODEL,
+                "ollama_base_url": OLLAMA_BASE_URL,
+            },
+        )
+
+    return {
+        "ok": True,
+        "message": f"{APP_NAME} and Ollama are ready.",
+        "provider": "ollama",
+        "model": OLLAMA_MODEL,
+        "llm_required": LLM_REQUIRED,
+    }
 
 
 @app.post("/chat")
@@ -408,13 +426,67 @@ def ask_qwen(
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urlopen(request, timeout=float(os.getenv("OLLAMA_TIMEOUT", "25"))) as response:
+        with urlopen(request, timeout=float(os.getenv("OLLAMA_TIMEOUT", "120"))) as response:
             raw = json.loads(response.read().decode("utf-8")).get("response", "")
         parsed = parse_json_object(raw)
         parsed["_source"] = "ollama"
         return parsed
-    except (URLError, TimeoutError, ValueError, json.JSONDecodeError):
+    except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+        if LLM_REQUIRED:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"Ollama could not generate a valid response with model '{OLLAMA_MODEL}'. "
+                    f"Confirm Ollama is running and the model is installed. Technical detail: {error}"
+                ),
+            ) from error
+
         return local_plan(question, modules, knowledge)
+
+
+def ollama_model_status() -> dict[str, Any]:
+    try:
+        request = UrlRequest(
+            f"{OLLAMA_BASE_URL.rstrip('/')}/api/tags",
+            headers={"Accept": "application/json"},
+            method="GET",
+        )
+        with urlopen(request, timeout=3) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+        return {
+            "reachable": False,
+            "available": False,
+            "message": f"Ollama is not reachable at {OLLAMA_BASE_URL}: {error}",
+        }
+
+    model_names = {
+        str(model.get("name") or "").strip()
+        for model in payload.get("models", [])
+        if isinstance(model, dict)
+    }
+    configured_base = OLLAMA_MODEL.split(":", 1)[0]
+    available = any(
+        name == OLLAMA_MODEL
+        or name.split(":", 1)[0] == configured_base
+        for name in model_names
+    )
+    if not available:
+        installed = ", ".join(sorted(model_names)) or "none"
+        return {
+            "reachable": True,
+            "available": False,
+            "message": (
+                f"Ollama is running, but model '{OLLAMA_MODEL}' is not installed. "
+                f"Installed models: {installed}. Run: ollama pull {OLLAMA_MODEL}"
+            ),
+        }
+
+    return {
+        "reachable": True,
+        "available": True,
+        "message": f"Ollama model '{OLLAMA_MODEL}' is ready.",
+    }
 
 
 def build_prompt(

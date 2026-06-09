@@ -218,6 +218,10 @@ class AiChatController extends Controller
             return 'OneApp Chatbot is not running yet. Start the FastAPI service on http://127.0.0.1:8010, then try again.';
         }
 
+        if (str_contains($message, 'Ollama') || str_contains($message, 'model')) {
+            return $message;
+        }
+
         return 'OneApp Chatbot is online, but could not process that request yet. Please try again or contact support if the issue continues.';
     }
 }

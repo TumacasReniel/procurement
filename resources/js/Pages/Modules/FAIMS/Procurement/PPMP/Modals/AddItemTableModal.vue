@@ -182,6 +182,7 @@ export default {
   methods: {
     defaultForm() {
       return {
+        id: null,
         item_name: "",
         item_description: "",
         item_quantity: 1,
@@ -193,6 +194,7 @@ export default {
       this.editIndex = editIndex;
       this.form = row
         ? {
+            id: row.id ?? null,
             item_name: row.item_name || "",
             item_description: row.item_description || "",
             item_quantity: row.item_quantity || 1,
@@ -225,6 +227,7 @@ export default {
 
       this.$emit("save", {
         row: {
+          id: this.form.id,
           key: `${Date.now()}-${Math.random()}`,
           item_name: this.form.item_name,
           item_description: this.form.item_description,

@@ -14,7 +14,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'option' => ['required', 'in:update_status,approve_to_app,add_item,update_item,delete_item'],
+            'option' => ['required', 'in:update_status,revert_status,approve_to_app,add_item,update_item,delete_item'],
             'plan_type' => ['nullable', 'in:PPMP,ppmp,APP,SPP,annual,supplemental'],
         ];
 
@@ -75,6 +75,18 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             $rules['item_id'] = ['required', 'integer', 'exists:procurement_ppmp_items,id'];
         }
 
+        if ($this->option === 'approve_to_app') {
+            $rules['consolidation_review_acknowledged'] = ['accepted'];
+            $rules['consolidation_pricing'] = ['nullable', 'array'];
+            $rules['consolidation_pricing.*.group_key'] = ['required', 'string'];
+            $rules['consolidation_pricing.*.method'] = ['required', 'in:weighted,average,manual'];
+            $rules['consolidation_pricing.*.manual_unit_cost'] = ['nullable', 'numeric', 'min:0'];
+        }
+
+        if ($this->option === 'revert_status') {
+            $rules['revert_reason'] = ['required', 'string', 'min:5', 'max:1000'];
+        }
+
         return $rules;
     }
 
@@ -102,6 +114,10 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             'supporting_document_file.required' => 'Please attach the supporting document file.',
             'supporting_document_file.mimes' => 'The supporting document must be a PDF file.',
             'remarks.required' => 'Please enter remarks.',
+            'consolidation_review_acknowledged.accepted' => 'Please review and acknowledge the consolidation matches and unit-cost differences.',
+            'consolidation_pricing.*.manual_unit_cost.numeric' => 'The manual unit cost must be a valid number.',
+            'revert_reason.required' => 'Please provide a reason for reverting the status.',
+            'revert_reason.min' => 'The revert reason must be at least 5 characters.',
             'item_id.required' => 'Please select an item to update.',
             'item_name.required' => 'Please enter the item name.',
             'item_description.required' => 'Please enter the item description.',

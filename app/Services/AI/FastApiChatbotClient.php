@@ -144,7 +144,10 @@ class FastApiChatbotClient
         $response = $this->http()->post($this->url($path), $payload);
 
         if (!$response->successful()) {
-            $message = $response->json('detail') ?? $response->json('message') ?? $response->body();
+            $detail = $response->json('detail') ?? $response->json('message') ?? $response->body();
+            $message = is_array($detail)
+                ? ($detail['message'] ?? json_encode($detail, JSON_UNESCAPED_SLASHES))
+                : (string) $detail;
             throw new \RuntimeException('Procurement AI service error: ' . $message);
         }
 

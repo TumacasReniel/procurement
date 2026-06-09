@@ -416,6 +416,19 @@
                           <i class="ri-checkbox-circle-line"></i>
                         </b-button>
                         <b-button
+                          v-if="list.can_revert_status"
+                          @click.stop="openRevertStatusModal(list)"
+                          size="sm"
+                          variant="warning"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Revert to previous status"
+                          style="border-radius: 8px"
+                          :disabled="revertStatusForm.processing"
+                        >
+                          <i class="ri-arrow-go-back-line"></i>
+                        </b-button>
+                        <b-button
                           @click.stop="openPlanChat(list)"
                           size="sm"
                           variant="soft-info"
@@ -507,6 +520,16 @@
     @confirm="approveToApp"
   />
 
+  <RevertStatusModal
+    v-model:show="revertStatusModal.show"
+    :plan="revertStatusModal.data"
+    :plan-type="filter.plan_type"
+    :processing="revertStatusForm.processing"
+    :error="revertStatusModal.error"
+    @cancel="closeRevertStatusModal"
+    @confirm="revertStatus"
+  />
+
   <CreateUnitPpmpModal
     v-model:show="createPpmpModal.show"
     :form="createPpmpForm"
@@ -562,6 +585,7 @@ import CreateSppModal from "./Modals/CreateSpp.vue";
 import AddItemModal from "./Modals/AddItem.vue";
 import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
 import ApproveToAppModal from "./Modals/ApproveToApp.vue";
+import RevertStatusModal from "./Modals/RevertStatus.vue";
 import FloatingPlanChat from "./Components/FloatingPlanChat.vue";
 
 export default {
@@ -576,6 +600,7 @@ export default {
     AddItemModal,
     SubmitForApprovalModal,
     ApproveToAppModal,
+    RevertStatusModal,
     FloatingPlanChat,
   },
   data() {
@@ -614,8 +639,20 @@ export default {
       approveAppForm: useForm({
         option: "approve_to_app",
         plan_type: "PPMP",
+        consolidation_review_acknowledged: false,
+        consolidation_pricing: [],
       }),
       approveAppModal: {
+        show: false,
+        data: null,
+        error: "",
+      },
+      revertStatusForm: useForm({
+        option: "revert_status",
+        plan_type: "PPMP",
+        revert_reason: "",
+      }),
+      revertStatusModal: {
         show: false,
         data: null,
         error: "",
@@ -1477,7 +1514,7 @@ export default {
       this.approveAppModal.error = "";
       this.approveAppForm.clearErrors();
     },
-    approveToApp() {
+    approveToApp(review = {}) {
       const data = this.approveAppModal.data;
       if (!data?.id || this.approveAppForm.processing) {
         return;
@@ -1485,6 +1522,8 @@ export default {
 
       this.approveAppForm.option = "approve_to_app";
       this.approveAppForm.plan_type = data?.plan_type || "PPMP";
+      this.approveAppForm.consolidation_review_acknowledged = Boolean(review.consolidation_review_acknowledged);
+      this.approveAppForm.consolidation_pricing = review.consolidation_pricing || [];
       this.approveAppForm.patch(`/faims/procurement-ppmp/${data.id}`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -1495,6 +1534,45 @@ export default {
         },
         onError: (errors) => {
           this.approveAppModal.error = this.firstFormError(errors);
+        },
+      });
+    },
+    openRevertStatusModal(data) {
+      if (!data?.id || this.revertStatusForm.processing) {
+        return;
+      }
+      this.revertStatusForm.clearErrors();
+      this.revertStatusModal.data = data;
+      this.revertStatusModal.error = "";
+      this.revertStatusModal.show = true;
+    },
+    closeRevertStatusModal() {
+      if (this.revertStatusForm.processing) {
+        return;
+      }
+      this.revertStatusModal.show = false;
+      this.revertStatusModal.data = null;
+      this.revertStatusModal.error = "";
+      this.revertStatusForm.clearErrors();
+    },
+    revertStatus(reason) {
+      const data = this.revertStatusModal.data;
+      if (!data?.id || this.revertStatusForm.processing) {
+        return;
+      }
+      this.revertStatusForm.option = "revert_status";
+      this.revertStatusForm.plan_type = data.plan_type || this.filter.plan_type;
+      this.revertStatusForm.revert_reason = reason;
+      this.revertStatusForm.patch(`/faims/procurement-ppmp/${data.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+          this.revertStatusModal.show = false;
+          this.revertStatusModal.data = null;
+          this.revertStatusModal.error = "";
+          this.fetch();
+        },
+        onError: (errors) => {
+          this.revertStatusModal.error = this.firstFormError(errors);
         },
       });
     },

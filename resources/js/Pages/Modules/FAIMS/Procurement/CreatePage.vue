@@ -13,13 +13,21 @@
                   </div>
                   <div>
                     <h1 class="hero-title mb-1">
-                      {{ option === 'create' ? 'Create Purchase Request' :
-                         option === 'edit' ? 'Edit Purchase Request' :
-                         option === 'review' ? 'Review Purchase Request' :
-                         option === 'approve' ? 'Approve Purchase Request' :
-                         'View Procurement Request' }}
+                      {{
+                        option === "create"
+                          ? "Create Purchase Request"
+                          : option === "edit"
+                          ? "Edit Purchase Request"
+                          : option === "review"
+                          ? "Review Purchase Request"
+                          : option === "approve"
+                          ? "Approve Purchase Request"
+                          : "View Procurement Request"
+                      }}
                     </h1>
-                    <p class="hero-subtitle mb-0">Manage purchase request details and items</p>
+                    <p class="hero-subtitle mb-0">
+                      Manage purchase request details and items
+                    </p>
                   </div>
                 </div>
               </div>
@@ -29,7 +37,7 @@
                 <div class="status-badge-wrapper">
                   <b-badge
                     :class="getStatusBadgeClass()"
-                    style="font-size: 1rem; padding: 0.5rem 1rem;"
+                    style="font-size: 1rem; padding: 0.5rem 1rem"
                   >
                     <i :class="getStatusIcon()" class="me-2"></i>
                     {{ getStatusText() }}
@@ -45,369 +53,434 @@
     <!-- Main Content -->
     <div>
       <div class="row d-flex">
-        <div class="col-12" style="transition: all 0.3s ease; height: 100%; overflow: hidden;">
-
-            <form class="customform">
-              <!-- Basic Information Section -->
-              <div class="row g-3 mb-3">
-                <div class="col-12">
-                  <div class="content-card request-details-card">
-                    <div class="card-body-custom request-details-body">
-                      <div class="row g-3 align-items-stretch">
-                        <div class="col-xxl-8 col-xl-7">
-                          <div class="row g-3">
-                            <div class="col-lg-6">
-                              <div class="form-group compact-form-group">
-                                <InputLabel for="division" value="Division" :message="form.errors.division_id" />
-                                <Multiselect
-                                  :options="dropdowns.divisions"
-                                  v-model="form.division_id"
-                                  :searchable="true"
-                                  label="name"
-                                  placeholder="Select Division"
-                                  class="modern-select"
-                                  :append-to-body="true"
-                                />
-                              </div>
+        <div
+          class="col-12"
+          style="transition: all 0.3s ease; height: 100%; overflow: hidden"
+        >
+          <form class="customform">
+            <!-- Basic Information Section -->
+            <div class="row g-3 mb-3">
+              <div class="col-12">
+                <div class="content-card request-details-card">
+                  <div class="card-body-custom request-details-body">
+                    <div class="row g-3 align-items-stretch">
+                      <div class="col-xxl-8 col-xl-7">
+                        <div class="row g-3">
+                          <div class="col-lg-6">
+                            <div class="form-group compact-form-group">
+                              <InputLabel
+                                for="division"
+                                value="Division"
+                                :message="form.errors.division_id"
+                              />
+                              <Multiselect
+                                :options="dropdowns.divisions"
+                                v-model="form.division_id"
+                                :searchable="true"
+                                label="name"
+                                placeholder="Select Division"
+                                class="modern-select"
+                                :append-to-body="true"
+                              />
                             </div>
+                          </div>
 
-                            <div class="col-lg-6">
-                              <div class="form-group compact-form-group">
-                                <InputLabel value="PR Date" :message="form.errors.date" />
-                                <TextInput
-                                  v-model="form.date"
-                                  type="date"
-                                  class="form-control modern-input"
-                                  readonly
-                                />
-                              </div>
+                          <div class="col-lg-6">
+                            <div class="form-group compact-form-group">
+                              <InputLabel value="PR Date" :message="form.errors.date" />
+                              <TextInput
+                                v-model="form.date"
+                                type="date"
+                                class="form-control modern-input"
+                                readonly
+                              />
                             </div>
+                          </div>
 
-                            <div class="col-lg-6">
-                              <div class="form-group compact-form-group">
-                                <InputLabel for="unit" value="Unit" :message="form.errors.unit_id" />
-                                <Multiselect
-                                  :options="units"
-                                  v-model="form.unit_id"
-                                  :searchable="true"
-                                  label="name"
-                                  placeholder="Select Unit"
-                                  class="modern-select"
-                                  :append-to-body="true"
-                                />
-                              </div>
+                          <div class="col-lg-6">
+                            <div class="form-group compact-form-group">
+                              <InputLabel
+                                for="unit"
+                                value="Unit"
+                                :message="form.errors.unit_id"
+                              />
+                              <Multiselect
+                                :options="units"
+                                v-model="form.unit_id"
+                                :searchable="true"
+                                label="name"
+                                placeholder="Select Unit"
+                                class="modern-select"
+                                :append-to-body="true"
+                              />
                             </div>
+                          </div>
 
-                            <div class="col-lg-6">
-                              <div class="form-group compact-form-group">
-                                <InputLabel for="fund_cluster" value="Fund Cluster" :message="form.errors.fund_cluster_id" />
-                                <Multiselect
-                                  :options="dropdowns.fund_clusters"
-                                  v-model="form.fund_cluster_id"
-                                  :searchable="true"
-                                  label="name"
-                                  placeholder="Select Fund Cluster"
-                                  class="modern-select"
-                                  :append-to-body="true"
-                                />
-                              </div>
+                          <div class="col-lg-6">
+                            <div class="form-group compact-form-group">
+                              <InputLabel
+                                for="fund_cluster"
+                                value="Fund Cluster"
+                                :message="form.errors.fund_cluster_id"
+                              />
+                              <Multiselect
+                                :options="dropdowns.fund_clusters"
+                                v-model="form.fund_cluster_id"
+                                :searchable="true"
+                                label="name"
+                                placeholder="Select Fund Cluster"
+                                class="modern-select"
+                                :append-to-body="true"
+                              />
                             </div>
+                          </div>
 
-                            <div v-if="showProcurementCodeField" class="col-6">
-                              <div class="form-group compact-form-group">
-                                <InputLabel for="Mode Procurement " value="Procurement Codes"  />
-                                <Multiselect
-                                  :options="availableProcurementCodes"
-                                  v-model="form.procurement_code_ids"
-                                  :searchable="true"
-                                  label="label"
-                                  valueProp="value"
-                                  trackBy="label"
-                                  placeholder="Select Procurement Codes"
-                                  mode="tags"
-                                  :close-on-select="false"
-                                  class="modern-select"
-                                  :append-to-body="true"
-                                />
-                                <small
-                                  v-if="form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage || procurementCodeUnitHelper"
-                                  class="text-danger d-block mt-2 fs-5 fw-bold"
-                                >
-                                  {{ form.errors.procurement_code_ids || procurementCodeBudgetErrorMessage || procurementCodeUnitHelper }}
-                                </small>
-                              </div>
+                          <div v-if="showProcurementCodeField" class="col-6">
+                            <div class="form-group compact-form-group">
+                              <InputLabel
+                                for="Mode Procurement "
+                                value="Procurement Codes"
+                              />
+                              <Multiselect
+                                :options="availableProcurementCodes"
+                                v-model="form.procurement_code_ids"
+                                :searchable="true"
+                                label="label"
+                                valueProp="value"
+                                trackBy="label"
+                                placeholder="Select Procurement Codes"
+                                mode="tags"
+                                :close-on-select="false"
+                                class="modern-select"
+                                :append-to-body="true"
+                              />
+                              <small
+                                v-if="
+                                  form.errors.procurement_code_ids ||
+                                  procurementCodeBudgetErrorMessage ||
+                                  procurementCodeUnitHelper
+                                "
+                                class="text-danger d-block mt-2 fs-5 fw-bold"
+                              >
+                                {{
+                                  form.errors.procurement_code_ids ||
+                                  procurementCodeBudgetErrorMessage ||
+                                  procurementCodeUnitHelper
+                                }}
+                              </small>
                             </div>
+                          </div>
 
-                            <div
-                              v-if="showReferenceAppField"
-                              class="col-lg-6"
+                          <div v-if="showReferenceAppField" class="col-lg-6">
+                            <div class="form-group compact-form-group">
+                              <InputLabel
+                                for="reference_app"
+                                value="Reference APP"
+                                :message="form.errors.procurement_app_id"
+                              />
+                              <Multiselect
+                                :options="currentAppOptions"
+                                v-model="form.procurement_app_id"
+                                :searchable="true"
+                                label="name"
+                                valueProp="value"
+                                placeholder="Select Reference APP"
+                                class="modern-select"
+                                :append-to-body="true"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-xxl-4 col-xl-5">
+                        <div class="form-group compact-form-group h-100">
+                          <InputLabel
+                            for="purpose"
+                            value="Request Purpose"
+                            :message="form.errors.purpose"
+                          />
+                          <b-form-textarea
+                            id="purpose"
+                            v-model="form.purpose"
+                            placeholder="Enter your request purpose"
+                            rows="7"
+                            max-rows="10"
+                            class="modern-textarea request-purpose-textarea"
+                          ></b-form-textarea>
+                        </div>
+                      </div>
+
+                      <div
+                        class="col-12"
+                        v-if="option == 'review' || option == 'approve'"
+                      >
+                        <div class="form-group compact-form-group mb-0">
+                          <InputLabel
+                            for="title"
+                            value="Request Title"
+                            :message="form.errors.title"
+                          />
+                          <b-form-textarea
+                            id="title"
+                            v-model="form.title"
+                            placeholder="Enter request title"
+                            rows="2"
+                            max-rows="4"
+                            class="modern-textarea"
+                          ></b-form-textarea>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Items Section -->
+            <div class="row g-3 mb-3">
+              <div class="col-12">
+                <div class="content-card">
+                  <div class="card-header-custom">
+                    <i class="ri-shopping-bag-line card-header-icon"></i>
+                    <h5 class="card-header-title">Items</h5>
+                    <div class="ms-auto">
+                      <b-button
+                        v-if="canManageRequestDetails"
+                        :disabled="!canAddItems"
+                        @click="openAddItem()"
+                        variant="primary"
+                        size="sm"
+                        class="add-item-btn"
+                        v-b-tooltip.hover
+                        :title="addItemDisabledReason"
+                      >
+                        <i class="ri-add-line me-1"></i>
+                        Select Items
+                      </b-button>
+                    </div>
+                  </div>
+                  <div class="card-body-custom">
+                    <div
+                      v-if="form.items && form.items.length > 0"
+                      class="items-table-container"
+                    >
+                      <div class="table-responsive">
+                        <table class="items-table">
+                          <thead>
+                            <tr>
+                              <th class="text-center">#</th>
+                              <th>Unit</th>
+                              <th>Name/Description</th>
+                              <th class="text-center">Qty</th>
+                              <th class="text-end">Unit Cost</th>
+                              <th class="text-end">Total</th>
+                              <th class="text-center"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr
+                              v-for="(item, index) in form.items"
+                              :key="index"
+                              class="item-row"
                             >
-                              <div class="form-group compact-form-group">
-                                <InputLabel
-                                  for="reference_app"
-                                  value="Reference APP"
-                                  :message="form.errors.procurement_app_id"
-                                />
-                                <Multiselect
-                                  :options="currentAppOptions"
-                                  v-model="form.procurement_app_id"
-                                  :searchable="true"
-                                  label="name"
-                                  valueProp="value"
-                                  placeholder="Select Reference APP"
-                                  class="modern-select"
-                                  :append-to-body="true"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                              <td class="text-center item-number">{{ index + 1 }}</td>
+                              <td class="item-unit">
+                                <span class="unit-badge">
+                                  {{
+                                    item.item_quantity > 1
+                                      ? item.item_unit_type?.[0]?.name_long ||
+                                        item.item_unit_type?.name_long ||
+                                        ""
+                                      : item.item_unit_type?.[0]?.name_short ||
+                                        item.item_unit_type?.name_short ||
+                                        ""
+                                  }}
+                                </span>
+                              </td>
+                              <td class="item-description">
+                                <span> {{ item.item_name || "-" }}</span>
+                                <div v-html="item.item_description"></div>
+                              </td>
+                              <td class="text-center item-quantity">
+                                {{ item.item_quantity }}
+                              </td>
+                              <td class="text-end item-cost">
+                                {{ formatCurrency(item.item_unit_cost) }}
+                              </td>
+                              <td class="text-end item-total">
+                                {{ formatCurrency(item.total_cost) }}
+                              </td>
+                              <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                  <b-button
+                                    v-if="canManageRequestDetails"
+                                    @click="editItem(index)"
+                                    variant="success"
+                                    size="sm"
+                                    class="btn-icon"
+                                    v-b-tooltip.hover
+                                    title="Edit Item"
+                                    style="border-radius: 8px"
+                                  >
+                                    <i class="ri-edit-2-line"></i>
+                                  </b-button>
 
-                        <div class="col-xxl-4 col-xl-5">
-                          <div class="form-group compact-form-group h-100">
-                            <InputLabel for="purpose" value="Request Purpose" :message="form.errors.purpose" />
-                            <b-form-textarea
-                              id="purpose"
-                              v-model="form.purpose"
-                              placeholder="Enter your request purpose"
-                              rows="7"
-                              max-rows="10"
-                              class="modern-textarea request-purpose-textarea"
-                            ></b-form-textarea>
-                          </div>
-                        </div>
+                                  <b-button
+                                    v-if="canManageRequestDetails"
+                                    @click="removeItem(index)"
+                                    variant="danger"
+                                    size="sm"
+                                    class="btn-icon"
+                                    v-b-tooltip.hover
+                                    title="Remove Item"
+                                    style="border-radius: 8px"
+                                  >
+                                    <i class="ri-delete-bin-line"></i>
+                                  </b-button>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                          <tfoot>
+                            <tr class="grand-total-row">
+                              <td colspan="5" class="text-end grand-total-label">
+                                Grand Total:
+                              </td>
+                              <td class="text-end grand-total-amount">
+                                {{ formatCurrency(totalCostSum) }}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                    <div v-else class="empty-state">
+                      <div class="empty-state-icon">
+                        <i class="ri-shopping-bag-line"></i>
+                      </div>
+                      <h6 class="empty-state-title">No Items Selected</h6>
+                      <p class="empty-state-text">
+                        Click "Select Items" to add items to this PR.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                        <div class="col-12" v-if="option == 'review' || option == 'approve'">
-                          <div class="form-group compact-form-group mb-0">
-                            <InputLabel for="title" value="Request Title" :message="form.errors.title" />
-                            <b-form-textarea
-                              id="title"
-                              v-model="form.title"
-                              placeholder="Enter request title"
-                              rows="2"
-                              max-rows="4"
-                              class="modern-textarea"
-                            ></b-form-textarea>
-                          </div>
+            <!-- Assignees Section -->
+            <div class="row g-3 mb-5">
+              <div class="col-12 mb-4">
+                <div class="content-card">
+                  <div class="card-header-custom">
+                    <i class="ri-user-line card-header-icon"></i>
+                    <h5 class="card-header-title">Assignees</h5>
+                  </div>
+                  <div class="card-body-custom">
+                    <div class="row g-3 align-items-end">
+                      <div class="col-xl-4 col-lg-6">
+                        <div class="form-group compact-form-group">
+                          <InputLabel
+                            for="requested_by"
+                            value="Requested By"
+                            :message="form.errors.requested_by_id"
+                          />
+                          <Multiselect
+                            :options="dropdowns.requesters"
+                            v-model="form.requested_by_id"
+                            :searchable="true"
+                            label="name"
+                            placeholder="Select Requester"
+                            class="modern-select"
+                            :append-to-body="true"
+                          />
+                        </div>
+                      </div>
+                      <div class="col-xl-4 col-lg-6">
+                        <div class="form-group compact-form-group">
+                          <InputLabel
+                            for="approved_by"
+                            value="Approved By"
+                            :message="form.errors.approved_by_id"
+                          />
+                          <Multiselect
+                            :options="dropdowns.approvers"
+                            v-model="form.approved_by_id"
+                            :searchable="true"
+                            label="name"
+                            placeholder="Select Approver"
+                            class="modern-select"
+                            :append-to-body="true"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="col-xl-4">
+                        <div class="action-buttons-group justify-content-xl-end">
+                          <b-button
+                            v-if="option == 'create'"
+                            :disabled="!canCreateRequest"
+                            @click="submit()"
+                            variant="primary"
+                            size="sm"
+                            class="action-btn primary-btn"
+                          >
+                            <i class="ri-save-line me-2"></i>
+                            Save Request
+                          </b-button>
+
+                          <b-button
+                            v-if="option == 'edit'"
+                            @click="update(form)"
+                            variant="primary"
+                            size="sm"
+                            class="action-btn primary-btn"
+                          >
+                            <i class="ri-edit-line me-2"></i>
+                            Update Request
+                          </b-button>
+
+                          <b-button
+                            v-if="option == 'review'"
+                            :disabled="!canReviewRequest"
+                            @click="review(form)"
+                            variant="success"
+                            size="sm"
+                            class="action-btn success-btn"
+                          >
+                            <i class="ri-check-line me-2"></i>
+                            Confirm Review
+                          </b-button>
+
+                          <b-button
+                            v-if="option == 'approve'"
+                            @click="approve(form)"
+                            variant="success"
+                            size="sm"
+                            class="action-btn success-btn"
+                          >
+                            <i class="ri-check-double-line me-2"></i>
+                            Approve Request
+                          </b-button>
+
+                          <b-button
+                            @click="goBackPage()"
+                            variant="outline-secondary"
+                            size="sm"
+                            class="action-btn back-btn"
+                          >
+                            <i class="ri-arrow-left-line me-2"></i>
+                            Back to List
+                          </b-button>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-
-              <!-- Items Section -->
-              <div class="row g-3 mb-3">
-                <div class="col-12">
-                  <div class="content-card">
-                    <div class="card-header-custom">
-                      <i class="ri-shopping-bag-line card-header-icon"></i>
-                      <h5 class="card-header-title">Items</h5>
-                      <div class="ms-auto">
-                        <b-button
-                          v-if="canManageRequestDetails"
-                          :disabled="!canAddItems"
-                          @click="openAddItem()"
-                          variant="primary"
-                          size="sm"
-                          class="add-item-btn"
-                          v-b-tooltip.hover
-                          :title="addItemDisabledReason"
-                        >
-                          <i class="ri-add-line me-1"></i>
-                          Select Items
-                        </b-button>
-                      </div>
-                    </div>
-                    <div class="card-body-custom">
-                      <div v-if="form.items && form.items.length > 0" class="items-table-container">
-                        <div class="table-responsive">
-                          <table class="items-table">
-                            <thead>
-                              <tr>
-                                <th class="text-center">#</th>
-                                <th>Unit</th>
-                                <th>Name/Description</th>
-                                <th class="text-center">Qty</th>
-                                <th class="text-end">Unit Cost</th>
-                                <th class="text-end">Total</th>
-                                <th class="text-center"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr v-for="(item, index) in form.items" :key="index" class="item-row">
-                                <td class="text-center item-number">{{ index + 1 }}</td>
-                                <td class="item-unit">
-                                  <span class="unit-badge">
-                                    {{
-                                      item.item_quantity > 1
-                                        ? item.item_unit_type?.[0]?.name_long || item.item_unit_type?.name_long || ""
-                                        : item.item_unit_type?.[0]?.name_short || item.item_unit_type?.name_short || ""
-                                    }}
-                                  </span>
-                                </td>
-                                <td class="item-description">
-                                  <span>  {{ item.item_name || "-" }}</span>
-                                  <div v-html="item.item_description"></div>
-                                </td>
-                                <td class="text-center item-quantity">{{ item.item_quantity }}</td>
-                                <td class="text-end item-cost">{{ formatCurrency(item.item_unit_cost) }}</td>
-                                <td class="text-end item-total">{{ formatCurrency(item.total_cost) }}</td>
-                                <td class="text-center">
-                                  <div class="d-flex justify-content-center gap-1">
-                                    <b-button
-                                      v-if="canManageRequestDetails"
-                                      @click="editItem(index)"
-                                      variant="success"
-                                      size="sm"
-                                      class="btn-icon"
-                                      v-b-tooltip.hover title="Edit Item"
-                                      style="border-radius: 8px;"
-                                    >
-                                      <i class="ri-edit-2-line"></i>
-                                    </b-button>
-
-                                      <b-button
-                                        v-if="canManageRequestDetails"
-                                      @click="removeItem(index)"
-                                      variant="danger"
-                                      size="sm"
-                                      class="btn-icon"
-                                      v-b-tooltip.hover title="Remove Item"
-                                      style="border-radius: 8px;"
-                                    >
-                                      <i class="ri-delete-bin-line"></i>
-                                    </b-button>
-                                  </div>
-                                </td>
-                              </tr>
-                            </tbody>
-                            <tfoot>
-                              <tr class="grand-total-row">
-                                <td colspan="5" class="text-end grand-total-label">Grand Total:</td>
-                                <td class="text-end grand-total-amount">{{ formatCurrency(totalCostSum) }}</td>
-                              </tr>
-                            </tfoot>
-                          </table>
-                        </div>
-                      </div>
-                      <div v-else class="empty-state">
-                        <div class="empty-state-icon">
-                          <i class="ri-shopping-bag-line"></i>
-                        </div>
-                        <h6 class="empty-state-title">No Items Selected</h6>
-                        <p class="empty-state-text">Click "Select Items" to add items to this PR.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Assignees Section -->
-              <div class="row g-3 mb-5">
-                <div class="col-12 mb-4">
-                  <div class="content-card">
-                    <div class="card-header-custom">
-                      <i class="ri-user-line card-header-icon"></i>
-                      <h5 class="card-header-title">Assignees</h5>
-                    </div>
-                    <div class="card-body-custom ">
-                      <div class="row g-3 align-items-end">
-                        <div class="col-xl-4 col-lg-6">
-                          <div class="form-group compact-form-group">
-                            <InputLabel for="requested_by" value="Requested By" :message="form.errors.requested_by_id" />
-                            <Multiselect
-                              :options="dropdowns.requesters"
-                              v-model="form.requested_by_id"
-                              :searchable="true"
-                              label="name"
-                              placeholder="Select Requester"
-                              class="modern-select"
-                              :append-to-body="true"
-                            />
-                          </div>
-                        </div>
-                        <div class="col-xl-4 col-lg-6">
-                          <div class="form-group compact-form-group">
-                            <InputLabel for="approved_by" value="Approved By" :message="form.errors.approved_by_id" />
-                            <Multiselect
-                              :options="dropdowns.approvers"
-                              v-model="form.approved_by_id"
-                              :searchable="true"
-                              label="name"
-                              placeholder="Select Approver"
-                              class="modern-select"
-                              :append-to-body="true"
-                            />
-                          </div>
-                        </div>
-
-                         <div class="col-xl-4">
-                           <div class="action-buttons-group justify-content-xl-end">
-                              <b-button
-                                v-if="option == 'create'"
-                                :disabled="!canCreateRequest"
-                                @click="submit()"
-                                variant="primary"
-                                size="sm"
-                                class="action-btn primary-btn"
-                              >
-                                <i class="ri-save-line me-2"></i>
-                                Save Request
-                              </b-button>
-
-                              <b-button
-                                v-if="option == 'edit'"
-                                @click="update(form)"
-                                variant="primary"
-                                size="sm"
-                                class="action-btn primary-btn"
-                              >
-                                <i class="ri-edit-line me-2"></i>
-                                Update Request
-                              </b-button>
-
-                              <b-button
-                                v-if="option == 'review'"
-                                :disabled="!canReviewRequest"
-                                @click="review(form)"
-                                variant="success"
-                                size="sm"
-                                class="action-btn success-btn"
-                              >
-                                <i class="ri-check-line me-2"></i>
-                                Confirm Review
-                              </b-button>
-
-                              <b-button
-                                v-if="option == 'approve'"
-                                @click="approve(form)"
-                                variant="success"
-                                size="sm"
-                                class="action-btn success-btn"
-                              >
-                                <i class="ri-check-double-line me-2"></i>
-                                Approve Request
-                              </b-button>
-
-                              <b-button
-                                @click="goBackPage()"
-                                variant="outline-secondary"
-                                size="sm"
-                                class="action-btn back-btn"
-                              >
-                                <i class="ri-arrow-left-line me-2"></i>
-                                Back to List
-                              </b-button>
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </form>
-      
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -429,12 +502,7 @@
       ref="ppmpItemSelector"
     />
 
-    <Item
-      v-else
-      :dropdowns="dropdowns"
-      @refresh="getDataFromLocalStorage()"
-      ref="item"
-    />
+    <Item v-else :dropdowns="dropdowns" @refresh="getDataFromLocalStorage()" ref="item" />
   </div>
 </template>
 <script>
@@ -450,7 +518,16 @@ import { router } from "@inertiajs/vue3";
 import RightSidebar from "./Pages/Components/RightSidebar.vue";
 
 export default {
-  components: { PageHeader, InputError, InputLabel, TextInput, Multiselect, Item, SelectPpmpItems, RightSidebar },
+  components: {
+    PageHeader,
+    InputError,
+    InputLabel,
+    TextInput,
+    Multiselect,
+    Item,
+    SelectPpmpItems,
+    RightSidebar,
+  },
   props: ["procurement", "dropdowns", "option", "regional_director"],
   data() {
     return {
@@ -550,7 +627,8 @@ export default {
         this.form.id = this.procurement.id;
         this.form.code = this.procurement.code;
         this.form.purpose = this.procurement.purpose;
-        this.form.title = this.procurement.title || this.requestTitleFromCodes(this.procurement.codes);
+        this.form.title =
+          this.procurement.title || this.requestTitleFromCodes(this.procurement.codes);
         this.form.date = this.procurement.date;
         this.form.division_id = this.procurement.division_id;
         this.form.unit_id = this.procurement.unit_id;
@@ -582,15 +660,19 @@ export default {
       }, 0);
     },
     showReferenceAppField() {
-      return ["review", "approve"].includes(this.option) || Boolean(this.form.procurement_app_id);
+      return (
+        ["review", "approve"].includes(this.option) ||
+        Boolean(this.form.procurement_app_id)
+      );
     },
     showProcurementCodeField() {
-      return this.option === "review" || (this.option !== "create" && this.hasSelectedProcurementCodes);
+      return (
+        this.option === "review" ||
+        (this.option !== "create" && this.hasSelectedProcurementCodes)
+      );
     },
     referenceAppOptions() {
-      const options =
-        this.dropdowns?.reference_apps ??
-        [];
+      const options = this.dropdowns?.reference_apps ?? [];
 
       return Array.isArray(options) ? options : Object.values(options);
     },
@@ -616,7 +698,11 @@ export default {
         return null;
       }
 
-      return this.currentAppOptions.find((app) => Number(app.value) === Number(this.form.procurement_app_id)) || null;
+      return (
+        this.currentAppOptions.find(
+          (app) => Number(app.value) === Number(this.form.procurement_app_id)
+        ) || null
+      );
     },
     prYear() {
       const date = this.form.date ? new Date(this.form.date) : new Date();
@@ -637,8 +723,10 @@ export default {
         const endUserIds = Array.isArray(option.end_user_ids)
           ? option.end_user_ids
           : Array.isArray(option.end_users)
-            ? option.end_users.map((endUser) => endUser.end_user_id ?? endUser.value ?? endUser.id)
-            : [];
+          ? option.end_users.map(
+              (endUser) => endUser.end_user_id ?? endUser.value ?? endUser.id
+            )
+          : [];
 
         return {
           ...option,
@@ -660,8 +748,8 @@ export default {
           : []
       );
 
-      return this.normalizedProcurementCodes.filter((option) =>
-        selectedIds.has(Number(option.value)) || option.remaining_budget > 0
+      return this.normalizedProcurementCodes.filter(
+        (option) => selectedIds.has(Number(option.value)) || option.remaining_budget > 0
       );
     },
     hasSelectedUnitProcurementCodes() {
@@ -670,7 +758,10 @@ export default {
       );
     },
     hasSelectedProcurementCodes() {
-      return Array.isArray(this.form.procurement_code_ids) && this.form.procurement_code_ids.length > 0;
+      return (
+        Array.isArray(this.form.procurement_code_ids) &&
+        this.form.procurement_code_ids.length > 0
+      );
     },
     ppmpSelectionUnitId() {
       return this.form.unit_id ? Number(this.form.unit_id) : null;
@@ -684,10 +775,10 @@ export default {
     canAddItems() {
       return Boolean(
         this.form.division_id &&
-        this.form.unit_id &&
-        this.ppmpSelectionUnitId &&
-        this.form.fund_cluster_id &&
-        this.form.purpose
+          this.form.unit_id &&
+          this.ppmpSelectionUnitId &&
+          this.form.fund_cluster_id &&
+          this.form.purpose
       );
     },
     addItemDisabledReason() {
@@ -725,7 +816,10 @@ export default {
       return null;
     },
     selectedProcurementCodeBalance() {
-      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+      if (
+        !Array.isArray(this.form.procurement_code_ids) ||
+        this.form.procurement_code_ids.length === 0
+      ) {
         return 0;
       }
 
@@ -740,7 +834,10 @@ export default {
       }, 0);
     },
     selectedProcurementCodeDetails() {
-      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+      if (
+        !Array.isArray(this.form.procurement_code_ids) ||
+        this.form.procurement_code_ids.length === 0
+      ) {
         return [];
       }
 
@@ -757,7 +854,10 @@ export default {
       return this.selectedProcurementCodeBalance - this.totalCostSum;
     },
     procurementCodeBudgetStatusClass() {
-      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+      if (
+        !Array.isArray(this.form.procurement_code_ids) ||
+        this.form.procurement_code_ids.length === 0
+      ) {
         return "pap-budget-overview--idle";
       }
 
@@ -774,7 +874,10 @@ export default {
         return true;
       }
 
-      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+      if (
+        !Array.isArray(this.form.procurement_code_ids) ||
+        this.form.procurement_code_ids.length === 0
+      ) {
         return true;
       }
 
@@ -793,15 +896,24 @@ export default {
         return "Only PAP codes with available remaining balance are shown.";
       }
 
-      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
-        return `Select PAP code(s) with enough combined remaining balance for the current total of ${this.formatCurrency(this.totalCostSum)}.`;
+      if (
+        !Array.isArray(this.form.procurement_code_ids) ||
+        this.form.procurement_code_ids.length === 0
+      ) {
+        return `Select PAP code(s) with enough combined remaining balance for the current total of ${this.formatCurrency(
+          this.totalCostSum
+        )}.`;
       }
 
       if (!this.hasEnoughSelectedProcurementCodeBalance) {
-        return `Selected PAP codes only cover ${this.formatCurrency(this.selectedProcurementCodeBalance)} of the ${this.formatCurrency(this.totalCostSum)} request total.`;
+        return `Selected PAP codes only cover ${this.formatCurrency(
+          this.selectedProcurementCodeBalance
+        )} of the ${this.formatCurrency(this.totalCostSum)} request total.`;
       }
 
-      return `Selected PAP codes cover ${this.formatCurrency(this.selectedProcurementCodeBalance)} for the current total of ${this.formatCurrency(this.totalCostSum)}.`;
+      return `Selected PAP codes cover ${this.formatCurrency(
+        this.selectedProcurementCodeBalance
+      )} for the current total of ${this.formatCurrency(this.totalCostSum)}.`;
     },
     procurementCodeBalanceHelperClass() {
       return this.hasEnoughSelectedProcurementCodeBalance ? "text-muted" : "text-danger";
@@ -811,7 +923,10 @@ export default {
         return null;
       }
 
-      if (!Array.isArray(this.form.procurement_code_ids) || this.form.procurement_code_ids.length === 0) {
+      if (
+        !Array.isArray(this.form.procurement_code_ids) ||
+        this.form.procurement_code_ids.length === 0
+      ) {
         return null;
       }
 
@@ -819,7 +934,11 @@ export default {
         return null;
       }
 
-      return `The selected PAP codes only have ${this.formatCurrency(this.selectedProcurementCodeBalance)} remaining, which is not enough for the request total of ${this.formatCurrency(this.totalCostSum)}. You cannot create this procurement request until the selected balance is enough.`;
+      return `The selected PAP codes only have ${this.formatCurrency(
+        this.selectedProcurementCodeBalance
+      )} remaining, which is not enough for the request total of ${this.formatCurrency(
+        this.totalCostSum
+      )}. You cannot create this procurement request until the selected balance is enough.`;
     },
     canReviewRequest() {
       return Boolean(this.form.procurement_app_id && this.hasSelectedProcurementCodes);
@@ -829,22 +948,23 @@ export default {
     },
 
     isFormValid() {
-      return this.form.division_id &&
-             this.form.unit_id &&
-             this.form.fund_cluster_id &&
-             this.form.purpose &&
-             this.form.requested_by_id &&
-             this.form.approved_by_id &&
-             this.form.items &&
-             this.form.items.length > 0;
+      return (
+        this.form.division_id &&
+        this.form.unit_id &&
+        this.form.fund_cluster_id &&
+        this.form.purpose &&
+        this.form.requested_by_id &&
+        this.form.approved_by_id &&
+        this.form.items &&
+        this.form.items.length > 0
+      );
     },
   },
 
   mounted() {
     this.action = this.option;
-    if (this.option === 'create' && this.dropdowns.regional_director) {
+    if (this.option === "create" && this.dropdowns.regional_director) {
       this.form.approved_by_id = this.dropdowns.regional_director.value;
- 
     }
     if (this.option === "create") {
       this.prefillUserDivisionAndUnit();
@@ -856,38 +976,37 @@ export default {
       this.applyAutomaticCurrentApp();
     }
     try {
-      this.isRightCollapsed = JSON.parse(localStorage.getItem("isRightCollapsed")) ?? true;
+      this.isRightCollapsed =
+        JSON.parse(localStorage.getItem("isRightCollapsed")) ?? true;
     } catch (e) {
       this.isRightCollapsed = true;
       localStorage.setItem("isRightCollapsed", JSON.stringify(true));
     }
   },
-  
 
   methods: {
-
     getStatusBadgeClass() {
-      if (this.option === 'create') return 'bg-primary';
-      if (this.option === 'edit') return 'bg-warning';
-      if (this.option === 'review') return 'bg-info';
-      if (this.option === 'approve') return 'bg-success';
-      return 'bg-secondary';
+      if (this.option === "create") return "bg-primary";
+      if (this.option === "edit") return "bg-warning";
+      if (this.option === "review") return "bg-info";
+      if (this.option === "approve") return "bg-success";
+      return "bg-secondary";
     },
 
     getStatusIcon() {
-      if (this.option === 'create') return 'ri-add-circle-line';
-      if (this.option === 'edit') return 'ri-edit-line';
-      if (this.option === 'review') return 'ri-eye-line';
-      if (this.option === 'approve') return 'ri-check-double-line';
-      return 'ri-file-line';
+      if (this.option === "create") return "ri-add-circle-line";
+      if (this.option === "edit") return "ri-edit-line";
+      if (this.option === "review") return "ri-eye-line";
+      if (this.option === "approve") return "ri-check-double-line";
+      return "ri-file-line";
     },
 
     getStatusText() {
-      if (this.option === 'create') return 'Creating';
-      if (this.option === 'edit') return 'Editing';
-      if (this.option === 'review') return 'Reviewing';
-      if (this.option === 'approve') return 'Approving';
-      return 'Viewing';
+      if (this.option === "create") return "Creating";
+      if (this.option === "edit") return "Editing";
+      if (this.option === "review") return "Reviewing";
+      if (this.option === "approve") return "Approving";
+      return "Viewing";
     },
 
     toggleRightSidebar() {
@@ -922,7 +1041,10 @@ export default {
       }
 
       try {
-        localStorage.setItem(this.createDraftStorageKey, JSON.stringify(this.createDraftPayload()));
+        localStorage.setItem(
+          this.createDraftStorageKey,
+          JSON.stringify(this.createDraftPayload())
+        );
       } catch (e) {
         console.error("Unable to save procurement request draft:", e);
       }
@@ -1004,20 +1126,27 @@ export default {
 
       const matchingApp = this.currentAppOptions
         .filter((app) => Number(app.year) === this.currentAppYear)
-        .sort((left, right) =>
-          Number(right.version || 1) - Number(left.version || 1) ||
-          Number(right.value || 0) - Number(left.value || 0)
+        .sort(
+          (left, right) =>
+            Number(right.version || 1) - Number(left.version || 1) ||
+            Number(right.value || 0) - Number(left.value || 0)
         )[0];
 
       return matchingApp ? Number(matchingApp.value) : null;
     },
     isApprovedApp(app) {
-      return String(app?.status || "").trim().toLowerCase() === "approved";
+      return (
+        String(app?.status || "")
+          .trim()
+          .toLowerCase() === "approved"
+      );
     },
 
     prefillUserDivisionAndUnit() {
       const organization = this.$page.props.user?.data?.organization || {};
-      const divisionId = organization.division_id ? Number(organization.division_id) : null;
+      const divisionId = organization.division_id
+        ? Number(organization.division_id)
+        : null;
       const unitId = organization.unit_id ? Number(organization.unit_id) : null;
 
       if (!divisionId) {
@@ -1057,7 +1186,10 @@ export default {
     },
 
     removeInvalidProcurementCodesForUnit() {
-      if (!Array.isArray(this.form.procurement_code_ids) || !this.form.procurement_code_ids.length) {
+      if (
+        !Array.isArray(this.form.procurement_code_ids) ||
+        !this.form.procurement_code_ids.length
+      ) {
         return;
       }
 
@@ -1113,13 +1245,17 @@ export default {
     },
 
     removeItemsOutsideCurrentPpmp() {
-      if (this.option !== "create" || !Array.isArray(this.form.items) || !this.form.items.length) {
+      if (
+        this.option !== "create" ||
+        !Array.isArray(this.form.items) ||
+        !this.form.items.length
+      ) {
         return;
       }
 
       const availableIds = this.availablePpmpItemIds;
-      const filteredItems = this.form.items.filter((item) =>
-        item.ppmp_item_id && availableIds.has(Number(item.ppmp_item_id))
+      const filteredItems = this.form.items.filter(
+        (item) => item.ppmp_item_id && availableIds.has(Number(item.ppmp_item_id))
       );
 
       if (filteredItems.length === this.form.items.length) {
@@ -1178,13 +1314,13 @@ export default {
           approved_by_id: data.approved_by_id ? Number(data.approved_by_id) : null,
         }))
         .post("/faims/procurements", {
-        onSuccess: () => {
-          this.clearCreateDraft();
-        },
-        onError: (errors) => {
-          console.error("Submission failed:", errors);
-        },
-      });
+          onSuccess: () => {
+            this.clearCreateDraft();
+          },
+          onError: (errors) => {
+            console.error("Submission failed:", errors);
+          },
+        });
     },
 
     update(data) {
@@ -1276,13 +1412,17 @@ export default {
           if (response) {
             this.units = response.data;
             if (preferred_unit_id) {
-              const hasPreferredUnit = this.units.some((unit) => Number(unit.value) === Number(preferred_unit_id));
+              const hasPreferredUnit = this.units.some(
+                (unit) => Number(unit.value) === Number(preferred_unit_id)
+              );
 
               if (hasPreferredUnit) {
                 this.form.unit_id = Number(preferred_unit_id);
               }
             } else if (this.form.unit_id) {
-              const hasSelectedUnit = this.units.some((unit) => Number(unit.value) === Number(this.form.unit_id));
+              const hasSelectedUnit = this.units.some(
+                (unit) => Number(unit.value) === Number(this.form.unit_id)
+              );
 
               if (!hasSelectedUnit) {
                 this.form.unit_id = null;
@@ -1396,7 +1536,7 @@ export default {
 }
 
 .hero-gradient::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -1496,7 +1636,11 @@ export default {
   border: 1px solid rgba(102, 126, 234, 0.14);
   border-radius: 14px;
   padding: 1rem;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(248, 250, 252, 0.95),
+    rgba(255, 255, 255, 0.98)
+  );
 }
 
 .pap-profile-panel__header {
@@ -1805,15 +1949,17 @@ export default {
   max-width: 300px;
 }
 
-.item-quantity, .item-unit {
+.item-quantity,
+.item-unit {
   font-weight: 600;
   color: var(--procurement-create-text);
 }
 
-.item-cost, .item-total {
+.item-cost,
+.item-total {
   font-weight: 700;
   color: #28a745;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
 }
 
 .grand-total-row {
@@ -1831,7 +1977,7 @@ export default {
   font-weight: 700;
   color: #28a745;
   font-size: 1rem;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
 }
 
 /* Action Buttons */
@@ -1846,8 +1992,6 @@ export default {
   padding: 0.4rem 0.8rem;
   transition: all 0.3s ease;
 }
-
-
 
 /* Empty State */
 .empty-state {
@@ -1957,10 +2101,10 @@ export default {
     font-size: 2rem;
   }
 
-.content-wrapper {
-  padding: 1rem;
-  overflow: visible;
-}
+  .content-wrapper {
+    padding: 1rem;
+    overflow: visible;
+  }
 
   .card-body-custom {
     padding: 1rem;
@@ -2079,20 +2223,38 @@ export default {
 }
 
 [data-bs-theme="dark"] .procurement-create-container .modern-select.multiselect.is-active,
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect.is-active {
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect.is-active {
   box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.2) !important;
 }
 
 [data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-search,
-[data-bs-theme="dark"] .procurement-create-container .modern-select.multiselect .multiselect-search,
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-tags-search {
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select.multiselect
+  .multiselect-search,
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect-tags-search {
   background: var(--procurement-create-input-bg) !important;
   color: var(--procurement-create-input-text) !important;
 }
 
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-placeholder,
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-single-label,
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-multiple-label {
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect-placeholder,
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect-single-label,
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect-multiple-label {
   color: var(--procurement-create-input-text) !important;
 }
 
@@ -2102,7 +2264,10 @@ export default {
   background-color: transparent !important;
 }
 
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-dropdown {
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect-dropdown {
   background: #232c3a !important;
   border-color: var(--procurement-create-input-border) !important;
 }
@@ -2112,9 +2277,18 @@ export default {
   color: #dbe7f5 !important;
 }
 
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-option.is-pointed,
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-option.is-selected,
-[data-bs-theme="dark"] .procurement-create-container .modern-select .multiselect-option.is-selected.is-pointed {
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect-option.is-pointed,
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect-option.is-selected,
+[data-bs-theme="dark"]
+  .procurement-create-container
+  .modern-select
+  .multiselect-option.is-selected.is-pointed {
   background: rgba(96, 165, 250, 0.18) !important;
   color: #eff6ff !important;
 }

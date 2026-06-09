@@ -48,8 +48,7 @@
           <tr class="fs-11">
             <th style="width: 6%" class="text-center">Select</th>
             <th>Item</th>
-            <th style="width: 10%" class="text-center">Qty</th>
-            <th style="width: 10%" class="text-center">Unit</th>
+            <th style="width: 16%" class="text-center">Qty/Unit</th>
             <th style="width: 14%" class="text-end">Unit Cost</th>
             <th style="width: 14%" class="text-end">ABC</th>
           </tr>
@@ -73,11 +72,13 @@
                 v-html="item.item_description || '-'"
               />
             </td>
-            <td class="text-center">{{ formatQuantity(item.item_quantity) }}</td>
+            
+          
             <td class="text-center">
-              {{ item.unit_label || unitFromQuantityLabel(item) || "-" }}
+              {{ formatQuantity(item.item_quantity) }} {{ item.item_qunatity > 1 ? item.item_unit_type_short : item.item_unit_type.name_long }}
             </td>
             <td class="text-end">{{ formatCurrency(item.item_unit_cost) }}</td>
+
             <td class="text-end fw-semibold">{{ formatCurrency(item.total_cost) }}</td>
           </tr>
 

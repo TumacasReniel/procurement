@@ -207,6 +207,7 @@
               <thead>
                 <tr>
                   <th class="text-center" style="width: 46px">Pick</th>
+
                   <th style="width: 18%">Acquisition Unit</th>
                   <th style="width: 13%">Category</th>
                   <th>Item</th>
@@ -238,6 +239,7 @@
                   </td>
                   <td>{{ item.unit_name || "-" }}</td>
                   <td>{{ item.item_category || "-" }}</td>
+
                   <td>
                     <div class="fw-semibold">{{ item.item_name }}</div>
                     <div v-if="item.item_description" class="text-muted small">
@@ -632,11 +634,18 @@ export default {
       const ppmpItem = item.ppmp_item || {};
       const ppmp = ppmpItem.ppmp || {};
       const value = item.ppmp_item_id || item.id;
+      const requestingUnitName =
+        item.requesting_unit_name ||
+        item.requesting_unit?.name ||
+        item.requesting_unit ||
+        item.unit_name_requesting ||
+        null;
 
       return {
         value,
         ppmp_item_id: item.ppmp_item_id,
         ppmp_no: ppmp.code,
+        requesting_unit_name: requestingUnitName,
         unit_name: ppmp.unit?.name || ppmp.unit_name,
         item_category_id: ppmpItem.item_category_id,
         item_category: ppmpItem.item_category?.name,
@@ -745,6 +754,7 @@ export default {
         item_quantity: item.item_quantity,
         item_description: item.item_description,
         total_cost: item.total_cost,
+        requesting_unit_name: item.requesting_unit_name || null,
       }));
       this.saveDraft();
     },

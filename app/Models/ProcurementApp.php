@@ -14,6 +14,7 @@ class ProcurementApp extends Model
         'code',
         'year',
         'version',
+        'pricing_overrides',
         'title',
         'app_type_id',
         'created_by_id',
@@ -23,6 +24,10 @@ class ProcurementApp extends Model
         'approved_by_id',
         'status_id',
         'sub_status_id',
+    ];
+
+    protected $casts = [
+        'pricing_overrides' => 'array',
     ];
 
     public function app_type()

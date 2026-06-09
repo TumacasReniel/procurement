@@ -86,6 +86,7 @@ class ProcurementPPMPController extends Controller
 
         switch ($request->option) {
             case 'update_status':
+            case 'revert_status':
             case 'approve_to_app':
             case 'add_item':
             case 'update_item':

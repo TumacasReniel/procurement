@@ -749,6 +749,9 @@ export default {
       this.form.plan_type = this.ppmp?.plan_type || null;
 
       if (editingItem) {
+        const entryItems = this.entryItemsForEdit(editingItem);
+        const representativeItem = entryItems[0] || editingItem;
+
         this.form.option = "update_item";
         this.form.item_id = editingItem.id;
         this.form.project_type = editingItem.project_type || "";
@@ -761,17 +764,26 @@ export default {
           this.ppmp?.general_description_objective || this.ppmp?.title || "";
         this.form.item_quantity = editingItem.quantity || 1;
         this.form.start_of_procurement_activity =
-          editingItem.start_of_procurement_activity || null;
+          this.dateInputValue(
+            editingItem.start_of_procurement_activity ||
+              representativeItem.start_of_procurement_activity ||
+              this.ppmp?.start_of_procurement_activity ||
+              this.ppmp?.date
+          );
         this.form.end_of_procurement_activity =
-          editingItem.end_of_procurement_activity || null;
-        this.form.expected_delivery_date = editingItem.expected_delivery_date || null;
+          this.dateInputValue(
+            editingItem.end_of_procurement_activity ||
+              representativeItem.end_of_procurement_activity
+          );
+        this.form.expected_delivery_date = this.dateInputValue(
+          editingItem.expected_delivery_date ||
+            representativeItem.expected_delivery_date
+        );
         this.form.attached_supporting_documents =
           editingItem.attached_supporting_documents || "";
         this.form.supporting_document_file = null;
         this.form.remarks = editingItem.remarks || "";
-        this.itemRows = this.entryItemsForEdit(editingItem).map((item) =>
-          this.itemToRow(item)
-        );
+        this.itemRows = entryItems.map((item) => this.itemToRow(item));
         this.modal.show = true;
         return;
       }
@@ -961,6 +973,26 @@ export default {
         item_unit_cost: Number(item.unit_price || item.item_unit_cost || 0),
         total_cost: Number(item.abc || item.total_cost || 0),
       };
+    },
+    dateInputValue(value) {
+      if (!value) {
+        return null;
+      }
+
+      const text = String(value).trim();
+      const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+
+      if (match) {
+        return match[1];
+      }
+
+      const date = new Date(text);
+
+      return Number.isNaN(date.getTime())
+        ? null
+        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+            date.getDate()
+          ).padStart(2, "0")}`;
     },
     openItemCategoryModal() {
       this.itemCategoryModal.name = "";
