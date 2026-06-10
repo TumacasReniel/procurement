@@ -277,6 +277,17 @@
                           <i class="ri-check-double-line"></i>
                         </b-button>
                         <b-button
+                          @click.stop="openTimelineModal(list)"
+                          size="sm"
+                          variant="soft-secondary"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Status Timeline"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-git-branch-line"></i>
+                        </b-button>
+                        <b-button
                           @click.stop="printPPMP(list)"
                           size="sm"
                           variant="dark"
@@ -464,6 +475,17 @@
                           <i class="ri-add-circle-line"></i>
                         </b-button>
                         <b-button
+                          @click.stop="openTimelineModal(list)"
+                          size="sm"
+                          variant="soft-secondary"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Status Timeline"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-git-branch-line"></i>
+                        </b-button>
+                        <b-button
                           @click.stop="printPPMP(list)"
                           size="sm"
                           variant="dark"
@@ -564,6 +586,20 @@
     :dropdowns="dropdowns"
   />
 
+  <b-modal
+    v-model="timelineModal.show"
+    title="Status Timeline"
+    size="xl"
+    centered
+    hide-footer
+  >
+    <PlanStatusTimeline
+      v-if="timelineModal.plan"
+      :plan="timelineModal.plan"
+      :plan-type="timelineModal.plan.plan_type || filter.plan_type"
+    />
+  </b-modal>
+
   <FloatingPlanChat
     ref="planChat"
     :plan="selectedChatPlan"
@@ -587,6 +623,7 @@ import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
 import ApproveToAppModal from "./Modals/ApproveToApp.vue";
 import RevertStatusModal from "./Modals/RevertStatus.vue";
 import FloatingPlanChat from "./Components/FloatingPlanChat.vue";
+import PlanStatusTimeline from "./Components/PlanStatusTimeline.vue";
 
 export default {
   props: ["dropdowns"],
@@ -602,6 +639,7 @@ export default {
     ApproveToAppModal,
     RevertStatusModal,
     FloatingPlanChat,
+    PlanStatusTimeline,
   },
   data() {
     return {
@@ -680,6 +718,10 @@ export default {
       pendingNotificationCommentId: null,
       pendingNotificationChatOpened: false,
       annualAppYearCache: null,
+      timelineModal: {
+        show: false,
+        plan: null,
+      },
     };
   },
   computed: {
@@ -1350,6 +1392,10 @@ export default {
       this.filter.unit = null;
       this.filter.sort = "latest";
       this.fetch();
+    },
+    openTimelineModal(plan) {
+      this.timelineModal.plan = plan;
+      this.timelineModal.show = true;
     },
     openPlanChat(item) {
       if (item?.id) {

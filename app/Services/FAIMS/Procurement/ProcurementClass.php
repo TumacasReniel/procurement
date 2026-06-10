@@ -95,10 +95,14 @@ class ProcurementClass
     protected function currentAppDropdowns(): array
     {
         $appTypeId = ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type');
+        $approvedStatusId = ListStatus::getID('Approved', 'Procurement');
 
+        // Only expose Approved APPs — PRs cannot be created against a pending or under-review APP.
+        // Ordered by year desc then version desc so the latest approved version per year is first.
         return ProcurementApp::query()
             ->with('status')
             ->when($appTypeId, fn ($query) => $query->where('app_type_id', $appTypeId))
+            ->when($approvedStatusId, fn ($query) => $query->where('status_id', $approvedStatusId))
             ->orderByDesc('year')
             ->orderByDesc('version')
             ->orderByDesc('id')
@@ -807,6 +811,9 @@ class ProcurementClass
             ->unique()
             ->values();
 
+        $consolidatedPpmpStatusIds = $this->finalPpmpStatusIds();
+        $approvedAppStatusId = ListStatus::getID('Approved', 'Procurement');
+
         return ProcurementPpmpItem::query()
             ->with([
                 'item_unit_type',
@@ -816,15 +823,21 @@ class ProcurementClass
             ->when($usedPpmpItemIds->isNotEmpty(), function ($query) use ($usedPpmpItemIds) {
                 $query->whereNotIn('id', $usedPpmpItemIds);
             })
-            ->whereHas('ppmp', function ($query) use ($ppmpUnitIds) {
+            ->whereHas('ppmp', function ($query) use ($ppmpUnitIds, $consolidatedPpmpStatusIds, $approvedAppStatusId) {
                 $query
                     ->whereIn('unit_id', $ppmpUnitIds)
+                    // PPMP must be consolidated (status = Approved/Reviewed in Procurement classification)
+                    ->when(!empty($consolidatedPpmpStatusIds), fn ($q) => $q->whereIn('status_id', $consolidatedPpmpStatusIds))
                     ->whereHas('reference_app', function ($referenceQuery) {
                         $referenceQuery->where('name', self::PLAN_NAME_APP);
                     });
 
                 if (Schema::hasColumn('procurement_ppmps', 'procurement_app_id')) {
-                    $query->whereNotNull('procurement_app_id');
+                    // PPMP must be linked to an APP that is Approved/For Implementation
+                    $query->whereNotNull('procurement_app_id')
+                        ->when($approvedAppStatusId, fn ($q) => $q->whereHas('procurement_app', function ($appQuery) use ($approvedAppStatusId) {
+                            $appQuery->where('status_id', $approvedAppStatusId);
+                        }));
                 }
             })
             ->latest('id')

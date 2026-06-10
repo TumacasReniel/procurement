@@ -329,8 +329,27 @@ class ProcurementPPMPResource extends JsonResource
                     'manual' => (float) ($pricing['manual_unit_cost'] ?? $weighted_unit_price),
                     default => $weighted_unit_price,
                 };
+                // For weighted method use accumulated sum directly (handles zero-quantity lump-sum items).
+                // For average/manual, quantity × price is intentional.
+                $final_abc = match ($method) {
+                    'average' => round($quantity * (float) (collect($group['unit_prices'])->avg() ?? 0), 2),
+                    'manual' => round($quantity * (float) ($pricing['manual_unit_cost'] ?? $weighted_unit_price), 2),
+                    default => round($abc, 2),
+                };
                 $pr_nos = $group['pr_nos'];
                 $ppmp_nos = $group['ppmp_nos'];
+
+                // Compute price variance stats across all source items' unit prices
+                $all_unit_prices = collect($group['unit_prices'])
+                    ->map(fn ($p) => round((float) $p, 2))
+                    ->filter(fn ($p) => $p > 0);
+                $distinct_prices = $all_unit_prices->unique()->values();
+                $min_unit_price = $distinct_prices->isNotEmpty() ? (float) $distinct_prices->min() : null;
+                $max_unit_price = $distinct_prices->isNotEmpty() ? (float) $distinct_prices->max() : null;
+                $price_spread_rate = ($min_unit_price !== null && $min_unit_price > 0)
+                    ? round((($max_unit_price - $min_unit_price) / $min_unit_price) * 100, 2)
+                    : null;
+                $has_price_variance = $price_spread_rate !== null && $price_spread_rate > 5.0;
 
                 unset($group['pr_nos'], $group['ppmp_nos'], $group['unit_prices']);
 
@@ -340,7 +359,11 @@ class ProcurementPPMPResource extends JsonResource
                     'quantity' => round($quantity, 2),
                     'unit_price' => round((float) $unit_price, 2),
                     'pricing_method' => $method,
-                    'abc' => round($quantity * (float) $unit_price, 2),
+                    'abc' => $final_abc,
+                    'min_unit_price' => $min_unit_price !== null ? round($min_unit_price, 2) : null,
+                    'max_unit_price' => $max_unit_price !== null ? round($max_unit_price, 2) : null,
+                    'price_spread_rate' => $price_spread_rate,
+                    'has_price_variance' => $has_price_variance,
                     'pr_no' => implode(', ', $pr_nos),
                     'ppmp_no' => implode(', ', $ppmp_nos),
                     'source_pr_nos' => array_values($pr_nos),
@@ -352,8 +375,8 @@ class ProcurementPPMPResource extends JsonResource
     protected function consolidation_group_key(array $item): string
     {
         return implode('|', [
-            $item['item_category_id'] ?? '',
-            $item['item_unit_type_id'] ?? '',
+            $item['item_category_id'] ?? '0',
+            $item['item_unit_type_id'] ?? '0',
             $this->normalize_consolidation_text($item['project_type'] ?? ''),
             $this->normalize_consolidation_text($item['name'] ?? ''),
             $this->normalize_consolidation_text($item['description'] ?? ''),
@@ -362,7 +385,8 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function normalize_consolidation_text($value): string
     {
-        $text = html_entity_decode(strip_tags(strtolower((string) $value)));
+        // Double-decode handles HTML stored as double-encoded entities (e.g. &amp;lt; → &lt; → <)
+        $text = strip_tags(html_entity_decode(html_entity_decode(strtolower((string) $value))));
         $text = preg_replace('/[^a-z0-9.\s-]+/', ' ', $text);
         $text = preg_replace('/\s+/', ' ', (string) $text);
 
@@ -416,7 +440,7 @@ class ProcurementPPMPResource extends JsonResource
                     'unit' => $representative['unit'] ?? null,
                     'quantity' => round($quantity, 2),
                     'computed_weighted_unit_cost' => $quantity > 0 ? round($abc / $quantity, 2) : 0,
-                    'average_unit_price' => round((float) $items->avg(fn ($item) => (float) ($item['unit_price'] ?? 0)), 2),
+                    'average_unit_price' => round((float) ($unit_prices->avg() ?? 0), 2),
                     'unit_price_spread' => $unit_prices->all(),
                     'minimum_unit_price' => round($minimum_unit_price, 2),
                     'maximum_unit_price' => round($maximum_unit_price, 2),

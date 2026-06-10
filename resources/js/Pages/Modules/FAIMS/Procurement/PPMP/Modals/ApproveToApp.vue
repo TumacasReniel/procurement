@@ -149,7 +149,7 @@
           <div>
             <h6 class="mb-1">Matching items with different unit costs</h6>
             <p class="text-muted mb-0 small">
-              These items match existing APP or approved PPMP items. Consolidation uses the combined ABC and quantity to compute the weighted unit cost.
+              These items match existing APP or approved PPMP items. Consolidation uses the combined ABC and quantity to compute unit cost.
             </p>
           </div>
           <b-badge variant="warning">{{ priceVarianceGroups.length }} group{{ priceVarianceGroups.length === 1 ? "" : "s" }}</b-badge>
@@ -186,6 +186,17 @@
             >
               <div class="accordion-body">
                 <div class="text-muted small mb-2">{{ plainText(group.description) }}</div>
+
+                <!-- PR conflict warning: existing item in this group already has an active PR -->
+                <div
+                  v-if="groupAffectedPrs(group).length"
+                  class="alert alert-danger py-2 mb-2 small"
+                >
+                  <strong><i class="ri-file-warning-line me-1"></i>Active PR{{ groupAffectedPrs(group).length > 1 ? 's' : '' }} will be affected:</strong>
+                  {{ groupAffectedPrs(group).join(', ') }}<br />
+                  The unit cost in {{ groupAffectedPrs(group).length > 1 ? 'these PRs' : 'this PR' }} will <em>not</em> update automatically. Coordinate with the Procurement Officer to revise {{ groupAffectedPrs(group).length > 1 ? 'them' : 'it' }} after consolidation.
+                </div>
+
                 <div
                   class="alert py-2 mb-2"
                   :class="group.requires_price_review ? 'alert-warning' : 'alert-info'"
@@ -217,6 +228,13 @@
                         </option>
                         <option value="manual">Manual unit cost</option>
                       </select>
+                      <div
+                        v-if="pricingSelections[group.group_key].method === 'average'"
+                        class="alert alert-warning py-1 px-2 mt-1 mb-0 small"
+                      >
+                        <i class="ri-information-line me-1"></i>
+                        Simple average ignores item quantities — use Weighted factor if quantities differ significantly.
+                      </div>
                     </div>
                     <div
                       v-if="pricingSelections[group.group_key].method === 'manual'"
@@ -232,6 +250,13 @@
                         @input="updateManualUnitCost(group.group_key, $event.target.value)"
                         @blur="formatManualUnitCost(group.group_key)"
                       />
+                      <div
+                        v-if="Number(pricingSelections[group.group_key].manual_unit_cost || 0) > group.maximum_unit_price"
+                        class="alert alert-warning py-1 px-2 mt-1 mb-0 small"
+                      >
+                        <i class="ri-alert-line me-1"></i>
+                        Exceeds highest source price ({{ formatCurrency(group.maximum_unit_price) }}). Verify this is intentional.
+                      </div>
                     </div>
                   </div>
                   <div class="small mt-2">
@@ -294,6 +319,61 @@
         class="ppmp-average-empty"
       >
         No matching same-spec items were found in the APP or approved PPMPs.
+      </div>
+
+      <!-- Suggested keyword matches (different specs, shared keywords — won't auto-consolidate) -->
+      <div
+        v-if="activeTab === 'matches' && suggestedMatchGroups.length"
+        class="ppmp-suggested-matches"
+      >
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+          <div>
+            <h6 class="mb-1">
+              <i class="ri-search-eye-line me-1 text-info"></i>
+              Suggested keyword matches
+            </h6>
+            <p class="text-muted mb-0 small">
+              These items share description keywords with existing APP items but have <strong>different specs</strong> — they will <em>not</em> auto-consolidate. Review to confirm they are correctly separated.
+            </p>
+          </div>
+          <b-badge variant="info">{{ suggestedMatchGroups.length }} item{{ suggestedMatchGroups.length === 1 ? "" : "s" }}</b-badge>
+        </div>
+
+        <div class="ppmp-suggested-list">
+          <div
+            v-for="group in suggestedMatchGroups"
+            :key="group.id"
+            class="ppmp-suggested-item"
+          >
+            <div class="ppmp-suggested-item__header">
+              <div class="flex-grow-1">
+                <span class="fw-semibold">{{ group.name || "-" }}</span>
+                <span class="text-muted ms-2 small">{{ formatQuantity(group.quantity) }} {{ group.unit || "" }} · {{ formatCurrency(group.unit_price) }}</span>
+              </div>
+              <span class="ppmp-suggested-item__ppmp">{{ group.ppmp_no || "" }}</span>
+            </div>
+            <div class="ppmp-suggested-item__matches">
+              <div
+                v-for="(match, mi) in group.matches.filter(m => !m.will_consolidate_automatically)"
+                :key="mi"
+                class="ppmp-suggested-match"
+              >
+                <div class="ppmp-suggested-match__info">
+                  <span class="fw-semibold small">{{ match.name || group.name }}</span>
+                  <span class="text-muted small ms-1">{{ formatQuantity(match.quantity) }} · {{ formatCurrency(match.unit_price) }}</span>
+                </div>
+                <div v-if="match.matched_keywords && match.matched_keywords.length" class="ppmp-suggested-match__keywords">
+                  <span
+                    v-for="kw in match.matched_keywords"
+                    :key="kw"
+                    class="ppmp-keyword-chip"
+                  >{{ kw }}</span>
+                </div>
+                <small class="text-muted d-block">{{ match.match_reason || "Shared keywords" }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="ppmp-review-acknowledgement">
@@ -395,6 +475,17 @@ export default {
         ? this.ppmp.consolidation_average_groups
         : [];
     },
+    matchGroups() {
+      return Array.isArray(this.ppmp?.consolidation_match_groups)
+        ? this.ppmp.consolidation_match_groups
+        : [];
+    },
+    suggestedMatchGroups() {
+      return this.matchGroups.filter((group) =>
+        Array.isArray(group.matches) &&
+        group.matches.some((m) => !m.will_consolidate_automatically)
+      );
+    },
     ppmpItems() {
       if (Array.isArray(this.ppmp?.raw_item_details)) {
         return this.ppmp.raw_item_details;
@@ -424,7 +515,7 @@ export default {
       });
     },
     sameSpecGroupCount() {
-      return this.priceVarianceGroups.length;
+      return this.priceVarianceGroups.length + this.suggestedMatchGroups.length;
     },
   },
   methods: {
@@ -472,6 +563,18 @@ export default {
       }
 
       selection.manual_unit_cost_display = this.formatDecimal(selection.manual_unit_cost);
+    },
+    groupAffectedPrs(group) {
+      if (!Array.isArray(group.items)) return [];
+      const seen = new Set();
+      const prs = [];
+      group.items.forEach((item) => {
+        if (item.source === 'This PPMP') return;
+        String(item.pr_no || '').split(',').map((p) => p.trim()).filter(Boolean).forEach((pr) => {
+          if (!seen.has(pr)) { seen.add(pr); prs.push(pr); }
+        });
+      });
+      return prs;
     },
     selectedPricingLabel(group) {
       const method = this.pricingSelections[group.group_key]?.method || "weighted";
@@ -775,6 +878,80 @@ export default {
 .ppmp-confirm__summary strong {
   color: #212529;
   font-size: 13px;
+  font-weight: 700;
+}
+
+.ppmp-suggested-matches {
+  grid-column: 1 / -1;
+  padding: 12px;
+  border: 1px solid #b6d4fe;
+  border-radius: 8px;
+  background: #f0f7ff;
+}
+
+.ppmp-suggested-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ppmp-suggested-item {
+  padding: 10px 12px;
+  border: 1px solid #c9ddf9;
+  border-left: 3px solid #0ea5e9;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ppmp-suggested-item__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.ppmp-suggested-item__ppmp {
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.ppmp-suggested-item__matches {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #e0edfd;
+}
+
+.ppmp-suggested-match {
+  padding: 6px 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #f8fbff;
+}
+
+.ppmp-suggested-match__info {
+  margin-bottom: 4px;
+}
+
+.ppmp-suggested-match__keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.ppmp-keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 10px;
   font-weight: 700;
 }
 

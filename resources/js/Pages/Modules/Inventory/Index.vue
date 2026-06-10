@@ -19,19 +19,15 @@
             <i class="ri-store-3-line"></i>
             <span>Inventory Management</span>
           </div>
-          <h2 class="inv-hero-title">Smart Inventory<br /></h2>
+          <h2 class="inv-hero-title">Inventory<br /></h2>
           <p class="inv-hero-desc">
             Catalog items, manage stocks, track receivings, withdrawals and issue slips —
             all from one workspace.
           </p>
 
           <div class="inv-hero-actions">
-            <button type="button" class="inv-hero-btn-primary" @click="openActiveCreate">
-              <i class="ri-add-circle-line"></i>
-              <span>{{ currentCreateLabel }}</span>
-              <i class="ri-arrow-right-line inv-hero-btn-arrow"></i>
-            </button>
-            <Link href="/inventory-dashboard" class="inv-hero-btn-ghost">
+
+            <Link href="/inventory-dashboard" class="inv-hero-btn-primary">
               <i class="ri-bar-chart-box-line"></i>
               <span>Dashboard</span>
             </Link>
@@ -40,7 +36,7 @@
           <!-- Quick-links strip -->
           <div class="inv-hero-quicklinks">
             <button
-              v-for="mod in modules.slice(0, 5)"
+              v-for="mod in modules"
               :key="mod.key"
               class="inv-hero-ql"
               :class="{ active: activeModule === mod.key }"
@@ -210,9 +206,7 @@
                         <div class="inv-empty-state">
                           <i class="ri-inbox-line"></i>
                           <p>No items yet.</p>
-                          <button class="inv-create-btn" @click="openItemCreate">
-                            <i class="ri-add-line"></i> Add Item
-                          </button>
+                      
                         </div>
                       </td>
                     </tr>

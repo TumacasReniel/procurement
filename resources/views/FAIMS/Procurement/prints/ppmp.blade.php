@@ -750,12 +750,8 @@
             $height = $pdf->get_height();
             $y_axis = $height - 22;
 
-            $text_code = "";
-            $pdf->page_text(28, $y_axis, $text_code, $font, $size, array(0,0,0));
-
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-            $pdf->page_text($width - $text_width - 28, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $pdf->page_text($width - 110, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

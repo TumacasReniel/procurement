@@ -2,6 +2,7 @@
   <div>
     <!-- ── FAB ─────────────────────────────────────── -->
     <button
+      v-show="!isAnyModalOpen || isOpen"
       class="ai-fab"
       :class="{ open: isOpen }"
       @click="toggleChat"
@@ -391,6 +392,7 @@ export default {
   data() {
     return {
       isOpen: false,
+      isAnyModalOpen: false,
       view: "chat",
       text: "",
       loading: false,
@@ -521,6 +523,19 @@ export default {
     currentProviderModels() {
       return Object.keys(this.providers[this.form.provider]?.models ?? {});
     },
+  },
+
+  mounted() {
+    this._modalObserver = new MutationObserver(() => {
+      this.isAnyModalOpen =
+        document.body.classList.contains('modal-open') ||
+        document.body.classList.contains('ppmp-chat-open');
+    });
+    this._modalObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  },
+
+  beforeUnmount() {
+    if (this._modalObserver) this._modalObserver.disconnect();
   },
 
   methods: {
@@ -786,7 +801,7 @@ export default {
 .ai-fab {
   position: fixed;
   right: 24px;
-  bottom: 92px;
+  bottom: 100px;
   z-index: 1055;
   width: 52px;
   height: 52px;
@@ -843,7 +858,7 @@ export default {
 .ai-panel {
   position: fixed;
   right: 24px;
-  bottom: 156px;
+  bottom: 164px;
   z-index: 1054;
   width: 430px;
   height: 640px;
@@ -1724,12 +1739,12 @@ export default {
   .ai-panel {
     width: calc(100vw - 2rem);
     right: 1rem;
-    bottom: 9.25rem;
-    height: calc(100dvh - 12.25rem);
+    bottom: 10.25rem;
+    height: calc(100dvh - 13.25rem);
   }
   .ai-fab {
     right: 1.25rem;
-    bottom: 5.75rem;
+    bottom: 6.25rem;
   }
 }
 .ai-result-table-wrap {

@@ -443,12 +443,14 @@ class ProcurementPPMPClass
         ];
     }
 
-    protected function createUpdatedAppVersion(ProcurementApp $previous_app, int $pending_status_id): ProcurementApp
+    protected function createUpdatedAppVersion(ProcurementApp $previous_app, int $approved_status_id): ProcurementApp
     {
         $next_version = ((int) ProcurementApp::query()
             ->where('year', $previous_app->year)
             ->max('version')) + 1;
 
+        // New version inherits Approved status — SPP consolidation adds to an already-approved APP,
+        // so the resulting updated version is immediately effective for PR creation.
         $app = ProcurementApp::query()->create([
             'code' => $this->generateAppVersionCode($previous_app, $next_version),
             'year' => $previous_app->year,
@@ -457,7 +459,7 @@ class ProcurementPPMPClass
             'app_type_id' => $previous_app->app_type_id,
             'created_by_id' => Auth::id(),
             'requested_by_id' => Auth::id(),
-            'status_id' => $pending_status_id,
+            'status_id' => $approved_status_id,
         ]);
 
         $this->logAppActivity($app, 'APP updated version created', [
@@ -522,15 +524,30 @@ class ProcurementPPMPClass
         ];
 
         if ($next_step['status_id'] === $status_ids['for_review']) {
-            $updates['submitted_by_id'] = Auth::id();
+            if (Schema::hasColumn('procurement_apps', 'submitted_by_id')) {
+                $updates['submitted_by_id'] = Auth::id();
+            }
+            if (Schema::hasColumn('procurement_apps', 'submitted_at')) {
+                $updates['submitted_at'] = now();
+            }
         }
 
         if ($next_step['status_id'] === $status_ids['reviewed']) {
-            $updates['reviewed_by_id'] = Auth::id();
+            if (Schema::hasColumn('procurement_apps', 'reviewed_by_id')) {
+                $updates['reviewed_by_id'] = Auth::id();
+            }
+            if (Schema::hasColumn('procurement_apps', 'reviewed_at')) {
+                $updates['reviewed_at'] = now();
+            }
         }
 
         if ($next_step['status_id'] === $status_ids['approved']) {
-            $updates['approved_by_id'] = Auth::id();
+            if (Schema::hasColumn('procurement_apps', 'approved_by_id')) {
+                $updates['approved_by_id'] = Auth::id();
+            }
+            if (Schema::hasColumn('procurement_apps', 'approved_at')) {
+                $updates['approved_at'] = now();
+            }
         }
 
         $app->update($updates);
@@ -852,7 +869,7 @@ class ProcurementPPMPClass
                 && (int) $app->status_id === (int) $approved_status_id
                 && $this->appHasConsolidatedPpmpSources($app, $app_type_id)
             ) {
-                $app = $this->createUpdatedAppVersion($app, $pending_status_id);
+                $app = $this->createUpdatedAppVersion($app, $approved_status_id);
                 $info = "The selected {$plan_label} was added to {$app->code} as APP version {$app->version}.";
             } elseif (! $is_spp_plan) {
                 $this->ensureAppCanAcceptPpmp($app, $pending_status_id);

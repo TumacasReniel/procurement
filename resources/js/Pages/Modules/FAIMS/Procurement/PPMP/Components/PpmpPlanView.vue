@@ -27,7 +27,7 @@
     </div>
 
     <div class="row g-3">
-      <div class="col-lg-8">
+      <div class="col-12">
         <div class="section-panel">
           <div class="section-heading compact">
             <h6 class="mb-0 fs-14">Plan Information</h6>
@@ -45,40 +45,20 @@
                 <strong>{{ ppmp.division?.name || "-" }}</strong>
               </div>
             </div>
-          
           </div>
-        </div>
-      </div>
-
-      <div class="col-lg-4">
-        <div class="section-panel h-100">
-          <div class="section-heading compact">
-            <h6 class="mb-0 fs-14">Review and Approval</h6>
-          </div>
-          <div class="signatory-list">
-            <div v-if="showReviewAction">
-              <span>{{ reviewActionLabel }}</span>
-              <strong>{{ reviewActionUser }}</strong>
-              <small v-if="reviewActionDate" class="text-muted">
-                {{ formatDate(reviewActionDate) }}
-              </small>
-            </div>
-            <div v-if="showFinalAction">
-              <span>{{ finalActionLabel }}</span>
-              <strong>{{ finalActionUser }}</strong>
-              <small v-if="finalActionDate" class="text-muted">
-                {{ formatDate(finalActionDate) }}
-              </small>
-            </div>
-            <div v-if="!showReviewAction && !showFinalAction">
-              <span>Status</span>
-              <strong>{{ ppmp.ppmp_status || "Pending" }}</strong>
-            </div>
-          </div>
-
         </div>
       </div>
     </div>
+
+    <b-modal
+      v-model="showTimelineModal"
+      title="Status Timeline"
+      size="xl"
+      centered
+      hide-footer
+    >
+      <PlanStatusTimeline :plan="ppmp" plan-type="PPMP" />
+    </b-modal>
 
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
       <div class="ppmp-view-tabs">
@@ -101,6 +81,17 @@
       </div>
 
       <div class="d-flex flex-wrap align-items-center gap-2">
+        <b-button
+          variant="soft-secondary"
+          size="sm"
+          @click="showTimelineModal = true"
+        >
+          <i class="ri-git-branch-line align-bottom me-1"></i>
+          Status Timeline
+          <b-badge :variant="planStatusVariant" class="ms-1">
+            {{ ppmp.ppmp_status || "Pending" }}
+          </b-badge>
+        </b-button>
         <b-button
           v-if="canAddDraftItem"
           variant="success"
@@ -208,15 +199,15 @@
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(item.start_of_procurement_activity || ppmp.start_of_procurement_activity || ppmp.date) }}
+                {{ formatMonthYear(item.start_of_procurement_activity || ppmp.start_of_procurement_activity || ppmp.date) }}
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(item.end_of_procurement_activity) }}
+                {{ formatMonthYear(item.end_of_procurement_activity) }}
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(item.expected_delivery_date) }}
+                {{ formatMonthYear(item.expected_delivery_date) }}
               </td>
 
               <td class="text-center">
@@ -401,7 +392,12 @@
 </template>
 
 <script>
+import PlanStatusTimeline from "./PlanStatusTimeline.vue";
+
 export default {
+  components: {
+    PlanStatusTimeline,
+  },
   props: {
     ppmp: { type: Object, required: true },
     canAddDraftItem: { type: Boolean, default: false },
@@ -413,6 +409,7 @@ export default {
       activeTab: "document",
       selectedRequest: null,
       showPrItemsModal: false,
+      showTimelineModal: false,
     };
   },
   computed: {
@@ -593,6 +590,19 @@ export default {
     showFinalAction() {
       return ["Submitted/For Consolidation", "Submitted/For Implementation", "Consolidated/Added to APP", "Consolidated/Added to SPP", "Consolidated/Added to PPMP"].includes(this.ppmp.ppmp_status);
     },
+    planStatusVariant() {
+      const status = String(this.ppmp.ppmp_status || "").toLowerCase();
+
+      if (status.includes("consolidated") || status.includes("approved")) {
+        return "success";
+      }
+
+      if (status.includes("submitted") || status.includes("reviewed") || status.includes("for")) {
+        return "warning";
+      }
+
+      return "secondary";
+    },
     groupedItemRows() {
       const rows = this.ppmp.item_details || [];
       const entryGroups = new Map();
@@ -692,6 +702,16 @@ export default {
       return new Date(value).toLocaleDateString("en-US", {
         month: "short",
         day: "2-digit",
+      });
+    },
+    formatMonthYear(value) {
+      if (!value) {
+        return "-";
+      }
+
+      return new Date(value).toLocaleDateString("en-US", {
+        month: "2-digit",
+        year: "numeric",
       });
     },
     cleanValue(value) {

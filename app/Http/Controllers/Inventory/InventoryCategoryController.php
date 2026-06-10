@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class InventoryCategoryController extends Controller
 {
-    private const CLASSIFICATION = 'Inventory Category';
+    private const CLASSIFICATION = 'Item Category';
 
     public function index()
     {
