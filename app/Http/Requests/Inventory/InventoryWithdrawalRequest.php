@@ -2,19 +2,18 @@
 
 namespace App\Http\Requests\Inventory;
 
+use App\Http\Requests\Inventory\Concerns\AuthorizesInventoryAccess;
 use Illuminate\Foundation\Http\FormRequest;
 
 class InventoryWithdrawalRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
+    use AuthorizesInventoryAccess;
 
     public function rules(): array
     {
         return [
             'inventory_id' => ['required', 'exists:inventory_items,id'],
+            'quantity' => ['required', 'numeric', 'min:0.01'],
             'requested_by_id' => ['required', 'exists:users,id'],
             'approved_by_id' => ['nullable', 'exists:users,id'],
             'status_id' => ['required', 'exists:list_statuses,id'],

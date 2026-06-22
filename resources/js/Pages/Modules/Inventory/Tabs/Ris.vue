@@ -15,8 +15,16 @@
         <div class="inv-toolbar">
           <div class="inv-search-wrap">
             <i class="ri-search-line inv-search-icon"></i>
-            <input v-model="keyword" type="text" placeholder="Search RIS…" class="inv-search-input" />
-            <button v-if="keyword" class="inv-search-clear" @click="keyword = ''"><i class="ri-close-line"></i></button>
+            <input
+              :value="keyword"
+              type="text"
+              placeholder="Search RIS no., division, purpose…"
+              class="inv-search-input"
+              @input="$emit('update:keyword', $event.target.value)"
+            />
+            <button v-if="keyword" class="inv-search-clear" @click="$emit('update:keyword', '')">
+              <i class="ri-close-line"></i>
+            </button>
           </div>
           <button class="inv-icon-btn" title="Refresh" v-b-tooltip.hover @click="$emit('refresh')">
             <i class="ri-refresh-line"></i>
@@ -37,6 +45,9 @@
       :items="items"
       :users="users"
       :statuses="statuses"
+      :ris-defaults="risDefaults"
+      :fund-clusters="fundClusters"
+      :current-user="currentUser"
       @update:form="form = $event"
       @update:errors="errors = $event"
       @submit="saveRis"
@@ -117,9 +128,7 @@
             <td colspan="7">
               <div class="inv-empty-state">
                 <i class="ri-file-list-3-line"></i>
-                <p>No RIS records yet.</p>
-                <button class="inv-create-btn" @click="$emit('create')"><i class="ri-add-line"></i> Create RIS</button>
-              </div>
+                <p>No RIS records yet.</p>               </div>
             </td>
           </tr>
           <tr v-else v-for="(row, index) in normalizedRows" :key="row.id" class="inv-table-row">
@@ -160,18 +169,20 @@ export default {
   name: 'RisLedger',
   components: { Pagination, RisModal },
   props: {
-    rows:     { type: [Array, Object], default: () => [] },
-    loading:  { type: Boolean, default: false },
-    meta:     { type: Object, default: null },
-    links:    { type: Array, default: null },
-    items:    { type: Array, default: () => [] },
-    users:    { type: Array, default: () => [] },
-    statuses: { type: Array, default: () => [] },
+    rows:        { type: [Array, Object], default: () => [] },
+    loading:     { type: Boolean, default: false },
+    meta:        { type: Object, default: null },
+    links:       { type: Array, default: null },
+    items:       { type: Array, default: () => [] },
+    users:       { type: Array, default: () => [] },
+    statuses:    { type: Array, default: () => [] },
+    risDefaults: { type: Object, default: () => ({}) },
+    fundClusters:{ type: Array, default: () => [] },
+    keyword:     { type: String, default: '' },
   },
-  emits: ['create', 'fetch', 'refresh'],
+  emits: ['create', 'fetch', 'refresh', 'update:keyword'],
   data() {
     return {
-      keyword: '',
       showModal: false,
       showViewModal: false,
       viewRecord: null,
@@ -185,6 +196,9 @@ export default {
       if (Array.isArray(this.rows)) return this.rows;
       if (Array.isArray(this.rows?.data)) return this.rows.data;
       return [];
+    },
+    currentUser() {
+      return this.$page?.props?.user?.data || null;
     },
   },
   watch: {
@@ -204,7 +218,18 @@ export default {
       };
     },
     openCreate() {
-      this.form = this.emptyForm();
+      const user = this.currentUser;
+      const org  = user?.organization || {};
+      this.form = {
+        ...this.emptyForm(),
+        status_id:          String(this.risDefaults?.pending_status_id || ''),
+        division:           org.division || '',
+        responsibility_center: org.responsibility_center_code || '',
+        requested_by_id:    user?.id ? String(user.id) : '',
+        received_by_id:     user?.id ? String(user.id) : '',
+        approved_by_id:     String(this.risDefaults?.regional_director_id || ''),
+        issued_by_id:       String(this.risDefaults?.supply_officer_id || ''),
+      };
       this.errors = {};
       this.showModal = true;
     },
@@ -246,7 +271,7 @@ export default {
       // Client-side validation first
       const clientErrors = {};
       if (!this.form.ris_date) clientErrors.ris_date = ['RIS date is required.'];
-      if (!this.form.status_id) clientErrors.status_id = ['Please select a status.'];
+      if (this.form.id && !this.form.status_id) clientErrors.status_id = ['Please select a status.'];
       if (!this.form.items?.length) {
         clientErrors.items_empty = ['Please add at least one item to the RIS.'];
       } else {

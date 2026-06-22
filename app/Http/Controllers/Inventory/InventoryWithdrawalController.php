@@ -15,23 +15,21 @@ class InventoryWithdrawalController extends Controller
     use HandlesTransaction;
     use RespondsWithInventoryResults;
 
-    public function __construct(public InventoryStockClass $inventory)
-    {
-    }
+    public function __construct(private InventoryStockClass $stockService) {}
 
     public function index(Request $request)
     {
-        if (!$this->shouldReturnJson($request)) {
+        if (! $this->shouldReturnJson($request)) {
             return redirect('/inventory-stocks?tab=withdrawals');
         }
 
-        return $this->inventory->withdrawals($request);
+        return $this->stockService->withdrawals($request);
     }
 
     public function store(InventoryWithdrawalRequest $request)
     {
         $result = $this->handleTransaction(function () use ($request) {
-            return $this->inventory->saveWithdrawal($request);
+            return $this->stockService->saveWithdrawal($request);
         });
 
         return $this->inventoryResultResponse($request, $result, 'withdrawals');
@@ -40,7 +38,7 @@ class InventoryWithdrawalController extends Controller
     public function update(InventoryWithdrawalRequest $request, InventoryWithdrawal $inventory_withdrawal)
     {
         $result = $this->handleTransaction(function () use ($request, $inventory_withdrawal) {
-            return $this->inventory->updateWithdrawal($request, $inventory_withdrawal);
+            return $this->stockService->updateWithdrawal($request, $inventory_withdrawal);
         });
 
         return $this->inventoryResultResponse($request, $result, 'withdrawals');
@@ -49,7 +47,29 @@ class InventoryWithdrawalController extends Controller
     public function destroy(Request $request, InventoryWithdrawal $inventory_withdrawal)
     {
         $result = $this->handleTransaction(function () use ($inventory_withdrawal) {
-            return $this->inventory->deleteWithdrawal($inventory_withdrawal);
+            return $this->stockService->deleteWithdrawal($inventory_withdrawal);
+        });
+
+        return $this->inventoryResultResponse($request, $result, 'withdrawals');
+    }
+
+    public function void(Request $request, InventoryWithdrawal $inventory_withdrawal)
+    {
+        abort_unless(auth()->user()?->hasAnyRole(['Administrator', 'Supply Officer']), 403);
+
+        $result = $this->handleTransaction(function () use ($inventory_withdrawal) {
+            return $this->stockService->voidWithdrawal($inventory_withdrawal);
+        });
+
+        return $this->inventoryResultResponse($request, $result, 'withdrawals');
+    }
+
+    public function partialIssue(Request $request, InventoryWithdrawal $inventory_withdrawal)
+    {
+        abort_unless(auth()->user()?->hasAnyRole(['Administrator', 'Supply Officer', 'Supply Staff']), 403);
+
+        $result = $this->handleTransaction(function () use ($request, $inventory_withdrawal) {
+            return $this->stockService->partialIssueWithdrawal($request, $inventory_withdrawal);
         });
 
         return $this->inventoryResultResponse($request, $result, 'withdrawals');

@@ -2,7 +2,7 @@
   <b-modal
     v-model="showModal"
     header-class="p-3 bg-light"
-    :title="isEditing ? 'Change Item' : 'Select Items'"
+    :title="isEditing ? 'Change Item' : 'Add Items'"
     size="xl"
     class="v-modal-custom"
     modal-class="zoomIn"
@@ -87,7 +87,7 @@
           </tr>
           <tr v-else-if="!filteredItems.length">
             <td colspan="7" class="text-center text-muted py-4">
-              {{ emptyMessage }}
+              <div>{{ emptyMessage }}</div>
             </td>
           </tr>
         </tbody>
@@ -133,6 +133,7 @@
 
     <template v-slot:footer>
       <b-button @click="hide" variant="light" block>Cancel</b-button>
+
       <b-button @click="saveSelection" variant="primary" :disabled="!selectedCount" block>
         {{ isEditing ? "Update Selected Item" : "Use Selected Items" }}
       </b-button>
@@ -160,7 +161,7 @@ export default {
       default: "itemsAdded",
     },
   },
-  emits: ["refresh"],
+  emits: ["refresh", "switch-to-manual"],
   data() {
     return {
       showModal: false,
@@ -170,6 +171,7 @@ export default {
       itemsPerPage: 10,
       isEditing: false,
       editIndex: null,
+      itemMode: "ppmp",
     };
   },
   watch: {
@@ -303,6 +305,7 @@ export default {
       this.page = 1;
       this.isEditing = false;
       this.editIndex = null;
+      this.itemMode = "ppmp";
       this.showModal = true;
     },
     edit(item, index) {
@@ -311,6 +314,7 @@ export default {
       this.page = 1;
       this.isEditing = true;
       this.editIndex = index;
+      this.itemMode = "ppmp";
       this.showModal = true;
     },
     hide() {
@@ -320,6 +324,11 @@ export default {
       this.page = 1;
       this.isEditing = false;
       this.editIndex = null;
+      this.itemMode = "ppmp";
+    },
+    switchToManual() {
+      this.hide();
+      this.$emit("switch-to-manual");
     },
     isSelected(itemId) {
       return this.selectedIds.some((id) => Number(id) === Number(itemId));
@@ -470,6 +479,7 @@ export default {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .ppmp-page-size {

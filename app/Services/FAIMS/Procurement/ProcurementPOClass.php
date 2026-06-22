@@ -13,8 +13,11 @@ use App\Models\ProcurementNoaPo;
 use App\Models\ProcurementPoDelivery;
 use App\Models\ProcurementPoNtp;
 use App\Models\ProcurementPoIar;
-use App\Models\Inventory;
+use App\Models\InventoryItem;
 use App\Models\InventoryStock;
+use App\Models\InventoryReceiving;
+use App\Models\InventoryReceivingTransfer;
+use App\Models\UnitType;
 use App\Models\ListDropdown;
 use App\Models\OrgChart;
 use App\Http\Resources\FAIMS\Procurement\ProcurementNoaPoResource;
@@ -1567,21 +1570,23 @@ class ProcurementPOClass
 
         $categoryId = $this->defaultInventoryCategoryId();
         if (!$categoryId) {
-            Log::warning('Inventory sync skipped: missing Inventory Category dropdown.', [
+            Log::warning('Inventory sync skipped: missing Item Category dropdown.', [
                 'po_id' => $po->id,
-                'procurement_id' => $po->procurement_id,
+                'procurement_id' => $po->procurement_id ?? null,
             ]);
             return;
         }
+
+        $completedStatusId = ListStatus::getID('Completed', 'Inventory');
 
         $items = ProcurementItem::with('item_unit_type')
             ->whereIn('id', $itemIds)
             ->get();
 
         foreach ($items as $item) {
-            $unitId = $this->resolveInventoryUnitIdFromProcurementItem($item);
-            if (!$unitId) {
-                Log::warning('Inventory sync skipped item: unit mapping not found.', [
+            $unitTypeId = $this->resolveUnitTypeIdFromProcurementItem($item);
+            if (!$unitTypeId) {
+                Log::warning('Inventory sync skipped item: unit type mapping not found.', [
                     'po_id' => $po->id,
                     'procurement_item_id' => $item->id,
                     'item_unit_type_id' => $item->item_unit_type_id,
@@ -1594,31 +1599,43 @@ class ProcurementPOClass
                 $itemName = 'Procurement Item #' . $item->id;
             }
 
-            $inventory = Inventory::firstOrCreate(
-                [
-                    'name' => $itemName,
-                    'unit_id' => $unitId,
-                ],
-                [
-                    'description' => $item->item_description,
-                    'category_id' => $categoryId,
-                    'min_stock_level' => 0,
-                ]
+            $invItem = InventoryItem::firstOrCreate(
+                ['name' => $itemName],
+                ['category_id' => $categoryId]
             );
 
             $stock = InventoryStock::firstOrNew([
-                'inventory_id' => $inventory->id,
-                'location_id' => $po->place_of_delivery_id,
+                'item_id' => $invItem->id,
+                'unit_id' => $unitTypeId,
             ]);
 
-            $currentQuantity = (float) ($stock->quantity ?? 0);
             $incomingQuantity = (float) ($item->item_quantity ?? 0);
-            $newQuantity = $currentQuantity + $incomingQuantity;
-
-            $stock->quantity = $newQuantity;
-            $stock->status = $this->resolveInventoryStockStatus($newQuantity, (float) $inventory->min_stock_level);
-            $stock->last_updated = now();
+            $stock->quantity = (float) ($stock->quantity ?? 0) + $incomingQuantity;
+            if (! $stock->unit_cost) {
+                $stock->unit_cost = (float) ($item->item_unit_cost ?? 0);
+            }
             $stock->save();
+
+            InventoryReceivingTransfer::create([
+                'po_id'               => $po->id,
+                'procurement_item_id' => $item->id,
+                'inventory_id'        => $invItem->id,
+                'inventory_stock_id'  => $stock->id,
+                'quantity'            => $incomingQuantity,
+                'transferred_at'      => now(),
+            ]);
+
+            if ($completedStatusId) {
+                InventoryReceiving::create([
+                    'item_id'     => $invItem->id,
+                    'quantity'    => $incomingQuantity,
+                    'po_id'       => $po->id,
+                    'procurement_item_id' => $item->id,
+                    'status_id'   => $completedStatusId,
+                    'received_at' => now(),
+                    'remarks'     => 'Auto-received from PO #' . ($po->code ?? $po->id),
+                ]);
+            }
         }
     }
 
@@ -1629,49 +1646,26 @@ class ProcurementPOClass
             return;
         }
 
-        $items = ProcurementItem::with('item_unit_type')
-            ->whereIn('id', $itemIds)
+        $transfers = InventoryReceivingTransfer::where('po_id', $po->id)
+            ->whereIn('procurement_item_id', $itemIds)
             ->get();
 
-        foreach ($items as $item) {
-            $unitId = $this->resolveInventoryUnitIdFromProcurementItem($item);
-            if (!$unitId) {
-                continue;
+        foreach ($transfers as $transfer) {
+            $stock = InventoryStock::find($transfer->inventory_stock_id);
+            if ($stock) {
+                $stock->quantity = max((float) $stock->quantity - (float) $transfer->quantity, 0);
+                $stock->save();
             }
 
-            $itemName = trim((string) $item->item_description);
-            if ($itemName === '') {
-                $itemName = 'Procurement Item #' . $item->id;
-            }
-
-            $inventory = Inventory::where('name', $itemName)
-                ->where('unit_id', $unitId)
-                ->first();
-
-            if (!$inventory) {
-                continue;
-            }
-
-            $stock = InventoryStock::where('inventory_id', $inventory->id)
-                ->where('location_id', $po->place_of_delivery_id)
-                ->first();
-
-            if (!$stock) {
-                continue;
-            }
-
-            $currentQuantity = (float) ($stock->quantity ?? 0);
-            $outgoingQuantity = (float) ($item->item_quantity ?? 0);
-            $newQuantity = max($currentQuantity - $outgoingQuantity, 0);
-
-            $stock->quantity = $newQuantity;
-            $stock->status = $this->resolveInventoryStockStatus($newQuantity, (float) $inventory->min_stock_level);
-            $stock->last_updated = now();
-            $stock->save();
+            $transfer->delete();
         }
+
+        InventoryReceiving::where('po_id', $po->id)
+            ->whereIn('procurement_item_id', $itemIds)
+            ->delete();
     }
 
-    private function resolveInventoryUnitIdFromProcurementItem(ProcurementItem $item): ?int
+    private function resolveUnitTypeIdFromProcurementItem(ProcurementItem $item): ?int
     {
         $unitType = $item->item_unit_type;
         if (!$unitType) {
@@ -1684,24 +1678,23 @@ class ProcurementPOClass
         ])->filter()->map(fn($name) => trim((string) $name))->filter()->values();
 
         foreach ($candidates as $candidate) {
-            $unit = ListDropdown::where('classification', 'Unit')
-                ->where(function ($query) use ($candidate) {
-                    $query->whereRaw('LOWER(name) = ?', [strtolower($candidate)])
-                        ->orWhereRaw('LOWER(others) = ?', [strtolower($candidate)]);
-                })
-                ->first();
+            $unit = UnitType::where(function ($query) use ($candidate) {
+                $query->whereRaw('LOWER(name_short) = ?', [strtolower($candidate)])
+                    ->orWhereRaw('LOWER(name_long) = ?', [strtolower($candidate)]);
+            })->first();
 
             if ($unit) {
                 return (int) $unit->id;
             }
         }
 
-        return null;
+        // Fallback: use the procurement item's own unit type ID if it is a UnitType
+        return UnitType::find($item->item_unit_type_id) ? (int) $item->item_unit_type_id : null;
     }
 
     private function defaultInventoryCategoryId(): ?int
     {
-        return ListDropdown::where('classification', 'Inventory Category')
+        return ListDropdown::where('classification', 'Item Category')
             ->orderBy('id')
             ->value('id');
     }

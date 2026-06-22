@@ -6,29 +6,29 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
+        if (Schema::hasTable('inventory_item_properties')) {
+            return;
+        }
+
         Schema::create('inventory_item_properties', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inventory_item_id')->constrained()->onDelete('cascade');
+            $table->unsignedInteger('inventory_item_id');
             $table->string('property_code');
             $table->string('model');
             $table->string('serial_no');
-            $table->date('aquisition_date');
+            $table->date('acquisition_date');
             $table->decimal('acquisition_cost', 10, 2);
             $table->decimal('depreciation_rate', 5, 2);
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->text('remarks')->nullable();
             $table->timestamps();
+
+            $table->foreign('inventory_item_id')->references('id')->on('inventory_items')->cascadeOnDelete();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('inventory_item_properties');

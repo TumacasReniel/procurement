@@ -44,31 +44,6 @@
         </BCol>
 
         <BCol lg="4">
-          <InputLabel value="Item Category" />
-          <div class="item-category-control">
-            <Multiselect
-              :class="multiselectInvalidClass('item_category_id')"
-              :options="itemCategoryOptions"
-              v-model="form.item_category_id"
-              :searchable="true"
-              label="name"
-              placeholder="Select item category"
-            />
-            <button
-              type="button"
-              class="btn btn-outline-primary btn-icon item-category-control__add"
-              title="Add item category"
-              @click="openItemCategoryModal"
-            >
-              <i class="ri-add-line"></i>
-            </button>
-          </div>
-          <div v-if="fieldError('item_category_id')" class="invalid-feedback d-block">
-            {{ fieldError("item_category_id") }}
-          </div>
-        </BCol>
-
-        <BCol lg="4">
           <InputLabel value="Recommended Mode of Procurement(Column 4)" />
           <Multiselect
             :class="multiselectInvalidClass('recommended_mode_of_procurement')"
@@ -87,11 +62,31 @@
           </div>
         </BCol>
 
+
+          <BCol lg="4">
+          <InputLabel value="Pre-Procurement Conference(Column 5)" />
+          <Multiselect
+            :class="multiselectInvalidClass('pre_procurement_conference')"
+            :options="preProcurementConferenceOptions"
+            v-model="form.pre_procurement_conference"
+            :searchable="false"
+            label="label"
+            value-prop="value"
+            placeholder="Select option"
+          />
+          <div
+            v-if="fieldError('pre_procurement_conference')"
+            class="invalid-feedback d-block"
+          >
+            {{ fieldError("pre_procurement_conference") }}
+          </div>
+        </BCol>
+
         <BCol lg="4" class="mt-3">
           <InputLabel value="Start of Procurement Activity(Column 6)" />
           <TextInput
             v-model="form.start_of_procurement_activity"
-            type="date"
+            type="month"
             class="form-control"
             :class="inputInvalidClass('start_of_procurement_activity')"
           />
@@ -107,7 +102,7 @@
           <InputLabel value="End of Procurement Activity(Column 7)" />
           <TextInput
             v-model="form.end_of_procurement_activity"
-            type="date"
+            type="month"
             class="form-control"
             :class="inputInvalidClass('end_of_procurement_activity')"
           />
@@ -123,7 +118,7 @@
           <InputLabel value="Expected Delivery Date(Column 8)" />
           <TextInput
             v-model="form.expected_delivery_date"
-            type="date"
+            type="month"
             class="form-control"
             :class="inputInvalidClass('expected_delivery_date')"
           />
@@ -152,24 +147,7 @@
           </div>
         </BCol>
 
-        <BCol lg="6" class="mt-3">
-          <InputLabel value="Pre-Procurement Conference(Column 5)" />
-          <Multiselect
-            :class="multiselectInvalidClass('pre_procurement_conference')"
-            :options="preProcurementConferenceOptions"
-            v-model="form.pre_procurement_conference"
-            :searchable="false"
-            label="label"
-            value-prop="value"
-            placeholder="Select option"
-          />
-          <div
-            v-if="fieldError('pre_procurement_conference')"
-            class="invalid-feedback d-block"
-          >
-            {{ fieldError("pre_procurement_conference") }}
-          </div>
-        </BCol>
+      
 
         <BCol lg="12" class="mt-3">
           <InputLabel value="Attachment" />
@@ -211,7 +189,28 @@
           </div>
         </BCol>
 
-        <BCol lg="12" class="mt-3">
+        <BCol lg="12" class="mt-3" v-if="!isEditing">
+          <div class="mb-2 fw-semibold text-dark" style="font-size:13px;">Does this project have items? <span class="text-danger">*</span></div>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" :id="'hasItemsYes_' + $.uid" v-model="hasItems" :value="true" @change="showHasItemsError = false" />
+              <label class="form-check-label" :for="'hasItemsYes_' + $.uid">Yes — list items below</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" :id="'hasItemsNo_' + $.uid" v-model="hasItems" :value="false" @change="showHasItemsError = false" />
+              <label class="form-check-label" :for="'hasItemsNo_' + $.uid">No — enter total budget</label>
+            </div>
+          </div>
+          <div v-if="showHasItemsError" class="text-danger small mt-1">Please select whether this project has items.</div>
+        </BCol>
+
+        <BCol lg="12" class="mt-3" v-if="hasItems === false">
+          <label class="form-label fw-semibold">Total Budget (ABC) <span class="text-danger">*</span></label>
+          <Amount ref="totalBudgetAmount" @amount="onTotalBudgetAmount" />
+          <div v-if="form.errors.project_total_budget" class="text-danger small mt-1">{{ form.errors.project_total_budget }}</div>
+        </BCol>
+
+        <BCol lg="12" class="mt-3" v-if="hasItems === true || isEditing">
           <div class="items-table-toolbar">
             <div>
               <h6 class="items-table-title">Items(Column 3)</h6>
@@ -221,7 +220,6 @@
               </span>
             </div>
             <b-button
-              v-if="!isEditing"
               type="button"
               size="sm"
               variant="primary"
@@ -362,7 +360,7 @@
           </div>
         </BCol>
 
-        <BCol lg="12" class="mt-3">
+        <BCol lg="12" class="mt-3" v-if="hasItems !== false">
           <div class="item-total-preview">
             <span>{{
               isEditing
@@ -375,8 +373,8 @@
               formatCurrency(itemRows.length ? itemRowsTotalCost : itemTotalCost)
             }}</strong>
           </div>
-          <div v-if="form.errors.item" class="text-danger small fw-semibold mt-2">
-            {{ form.errors.item }}
+          <div v-if="form.errors['item']" class="text-danger small fw-semibold mt-2">
+            {{ form.errors['item'] }}
           </div>
           <div v-if="itemTableError" class="text-danger small fw-semibold mt-2">
             {{ itemTableError }}
@@ -386,9 +384,12 @@
     </form>
 
     <template v-slot:footer>
+      <div v-if="backendError" class="w-100 mb-2">
+        <div class="alert alert-danger py-2 px-3 mb-0 small">{{ backendError }}</div>
+      </div>
       <b-button @click="hide" variant="light" block>Cancel</b-button>
-      <b-button @click="submit" variant="primary" :disabled="form.processing" block>
-        {{ form.processing ? "Saving..." : "Save" }}
+      <b-button @click="submit" variant="primary" :disabled="form.processing || !isFormValid" block>
+        {{ form.processing ? "Saving..." : submitLabel }}
       </b-button>
     </template>
   </b-modal>
@@ -396,48 +397,11 @@
   <AddItemTableModal
     ref="itemTableModal"
     :unit-type-options="unitTypeOptions"
+    :item-category-options="itemCategoryOptions"
     :errors="form.errors"
     @save="saveItemRow"
+    @category-added="onCategoryAdded"
   />
-
-  <b-modal
-    v-model="itemCategoryModal.show"
-    header-class="p-3"
-    title="Add Item Category"
-    class="v-modal-custom"
-    modal-class="zoomIn"
-    centered
-    no-close-on-backdrop
-    hide-footer
-  >
-    <div>
-      <InputLabel value="Item Category" />
-      <TextInput
-        v-model="itemCategoryModal.name"
-        type="text"
-        class="form-control"
-        :class="{ 'is-invalid': Boolean(itemCategoryModal.error) }"
-        placeholder="Enter item category"
-        @keyup.enter="storeItemCategory"
-      />
-      <div v-if="itemCategoryModal.error" class="invalid-feedback d-block">
-        {{ itemCategoryModal.error }}
-      </div>
-      <div class="d-flex justify-content-end gap-2 mt-3">
-        <b-button type="button" variant="light" @click="closeItemCategoryModal">
-          Cancel
-        </b-button>
-        <b-button
-          type="button"
-          variant="primary"
-          :disabled="itemCategoryModal.processing"
-          @click="storeItemCategory"
-        >
-          {{ itemCategoryModal.processing ? "Saving..." : "Save Category" }}
-        </b-button>
-      </div>
-    </div>
-  </b-modal>
 </template>
 
 <script>
@@ -447,9 +411,10 @@ import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
 import TextInput from "@/Shared/Components/Forms/TextInput.vue";
 import FileDropzone from "@/Shared/Components/Forms/FileDropzone.vue";
 import AddItemTableModal from "./AddItemTableModal.vue";
+import Amount from "@/Shared/Components/Forms/Amount.vue";
 
 export default {
-  components: { Multiselect, InputLabel, TextInput, FileDropzone, AddItemTableModal },
+  components: { Multiselect, InputLabel, TextInput, FileDropzone, AddItemTableModal, Amount },
   props: {
     ppmp: {
       type: Object,
@@ -475,6 +440,9 @@ export default {
         show: false,
       },
       editingItem: null,
+      hasItems: null,
+      showHasItemsError: false,
+      backendError: null,
       form: useForm({
         option: "add_item",
         plan_type: null,
@@ -483,13 +451,14 @@ export default {
         item_description: "",
         general_description_objective: "",
         project_type: "",
-        item_category_id: null,
         recommended_mode_of_procurement: "",
         pre_procurement_conference: "",
         item_quantity: 1,
         item_unit_type_id: null,
         item_unit_cost: null,
         items: [],
+        target_ppmp_id: null,
+        project_total_budget: null,
         start_of_procurement_activity: null,
         end_of_procurement_activity: null,
         expected_delivery_date: null,
@@ -501,12 +470,6 @@ export default {
       page: 1,
       itemsPerPage: 5,
       extraItemCategories: [],
-      itemCategoryModal: {
-        show: false,
-        name: "",
-        error: "",
-        processing: false,
-      },
     };
   },
   computed: {
@@ -550,13 +513,6 @@ export default {
           (option) => !categoryIds.has(Number(option.value ?? option.id))
         ),
       ].sort((first, second) => String(first.name).localeCompare(String(second.name)));
-    },
-    selectedItemCategoryName() {
-      const category = this.itemCategoryOptions.find(
-        (option) => Number(option.value) === Number(this.form.item_category_id)
-      );
-
-      return category?.name || "";
     },
     preProcurementConferenceOptions() {
       return [
@@ -620,8 +576,11 @@ export default {
     paginationEnd() {
       return Math.min(this.page * this.itemsPerPage, this.itemRows.length);
     },
+    isEditingProject() {
+      return Boolean(this.editingItem?._isPpmpProject);
+    },
     isEditing() {
-      return Boolean(this.editingItem);
+      return Boolean(this.editingItem) && !this.editingItem?._isPpmpProject;
     },
     planLabel() {
       switch (this.ppmp?.plan_type) {
@@ -638,30 +597,14 @@ export default {
       }
     },
     modalTitle() {
+      if (this.isEditingProject) return `Edit ${this.planLabel} Project`;
       return this.isEditing
         ? `Edit ${this.planLabel} Item`
         : `Add ${this.planLabel} Item`;
     },
     isFormValid() {
-      if (this.isEditing) {
-        return Boolean(
-          this.form.project_type &&
-            this.form.item_category_id &&
-            this.form.recommended_mode_of_procurement &&
-            this.form.pre_procurement_conference &&
-            this.form.general_description_objective &&
-            this.form.start_of_procurement_activity &&
-            this.form.end_of_procurement_activity &&
-            this.form.expected_delivery_date &&
-            this.form.attached_supporting_documents &&
-            this.form.remarks &&
-            this.itemRows.length > 0
-        );
-      }
-
-      return Boolean(
+      const projectFieldsValid = Boolean(
         this.form.project_type &&
-          this.form.item_category_id &&
           this.form.recommended_mode_of_procurement &&
           this.form.pre_procurement_conference &&
           this.form.general_description_objective &&
@@ -669,19 +612,32 @@ export default {
           this.form.end_of_procurement_activity &&
           this.form.expected_delivery_date &&
           this.form.attached_supporting_documents &&
-          this.form.supporting_document_file &&
-          this.form.remarks &&
-          this.itemRows.length > 0
+          this.form.remarks
       );
+
+      if (this.isEditingProject) {
+        if (this.hasItems === true) return projectFieldsValid && this.itemRows.length > 0;
+        return projectFieldsValid && Number(this.form.project_total_budget || 0) > 0;
+      }
+
+      if (this.isEditing) {
+        return projectFieldsValid && this.itemRows.length > 0;
+      }
+
+      if (this.hasItems === null) return false;
+
+      if (this.hasItems === false) {
+        return projectFieldsValid && Number(this.form.project_total_budget || 0) > 0;
+      }
+
+      return projectFieldsValid && this.itemRows.length > 0;
     },
     canAddItemRow() {
       return this.itemRows.length > 0;
     },
     submitLabel() {
-      if (this.isEditing) {
-        return `Update ${this.planLabel} Item`;
-      }
-
+      if (this.isEditingProject) return `Update ${this.planLabel} Project`;
+      if (this.isEditing) return `Update ${this.planLabel} Item`;
       return this.mode === "draft" ? "Use Item" : `Add ${this.planLabel} Item`;
     },
   },
@@ -691,14 +647,6 @@ export default {
     },
     "form.project_type"(value) {
       this.clearErrorWhenFilled("project_type", value);
-    },
-    "form.item_category_id"(value) {
-      this.clearErrorWhenFilled("item_category_id", value);
-    },
-    "itemCategoryModal.name"(value) {
-      if (String(value || "").trim()) {
-        this.itemCategoryModal.error = "";
-      }
     },
     "form.recommended_mode_of_procurement"(value) {
       this.clearErrorWhenFilled("recommended_mode_of_procurement", value);
@@ -724,6 +672,14 @@ export default {
     "form.remarks"(value) {
       this.clearErrorWhenFilled("remarks", value);
     },
+    hasItems(val) {
+      if (val === false) {
+        if (this.form.project_total_budget === null) {
+          this.form.project_total_budget = 0;
+        }
+        this.syncTotalBudgetAmount();
+      }
+    },
     itemRows: {
       deep: true,
       handler(value) {
@@ -748,14 +704,34 @@ export default {
       this.editingItem = editingItem;
       this.form.plan_type = this.ppmp?.plan_type || null;
 
+      if (editingItem?._isPpmpProject) {
+        this.editingItem = editingItem;
+        this.hasItems = false;
+        this.form.option = "update_project";
+        this.form.target_ppmp_id = editingItem.ppmp_id;
+        this.form.general_description_objective = editingItem.general_description_objective || "";
+        this.form.project_type = editingItem.project_type || "";
+        this.form.recommended_mode_of_procurement = editingItem.recommended_mode_of_procurement || "";
+        this.form.pre_procurement_conference = editingItem.pre_procurement_conference || "No";
+        this.form.start_of_procurement_activity = this.dateInputValue(editingItem.start_of_procurement_activity);
+        this.form.end_of_procurement_activity = this.dateInputValue(editingItem.end_of_procurement_activity);
+        this.form.expected_delivery_date = this.dateInputValue(editingItem.expected_delivery_date);
+        this.form.attached_supporting_documents = editingItem.attached_supporting_documents || "";
+        this.form.remarks = editingItem.remarks || "";
+        this.form.project_total_budget = editingItem.project_total_budget || null;
+        this.modal.show = true;
+        this.syncTotalBudgetAmount();
+        return;
+      }
+
       if (editingItem) {
+        this.hasItems = true;
         const entryItems = this.entryItemsForEdit(editingItem);
         const representativeItem = entryItems[0] || editingItem;
 
         this.form.option = "update_item";
         this.form.item_id = editingItem.id;
         this.form.project_type = editingItem.project_type || "";
-        this.form.item_category_id = editingItem.item_category_id || null;
         this.form.recommended_mode_of_procurement =
           editingItem.recommended_mode_of_procurement || "";
         this.form.pre_procurement_conference =
@@ -792,7 +768,6 @@ export default {
 
       if (draftItem) {
         this.form.project_type = draftItem.project_type || "";
-        this.form.item_category_id = draftItem.item_category_id || null;
         this.form.recommended_mode_of_procurement =
           draftItem.recommended_mode_of_procurement || "";
         this.form.pre_procurement_conference =
@@ -818,6 +793,7 @@ export default {
             item_unit_type_id: draftItem.item_unit_type_id ?? null,
             item_unit_cost: Number(draftItem.item_unit_cost || 0),
             total_cost: Number(draftItem.item_unit_cost || 0),
+            item_category_id: draftItem.item_category_id ?? null,
           },
         ];
       } else {
@@ -832,15 +808,46 @@ export default {
       this.form.clearErrors();
       this.form.reset();
       this.editingItem = null;
+      this.hasItems = null;
       this.form.item_quantity = 1;
       this.form.item_unit_cost = 0.0;
+      this.form.target_ppmp_id = null;
+      this.form.project_total_budget = null;
+      this.$refs.totalBudgetAmount?.empty();
       this.form.supporting_document_file = null;
       this.itemRows = [];
       this.page = 1;
+      this.showHasItemsError = false;
+      this.backendError = null;
     },
     submit() {
+      this.backendError = null;
+      if (!this.isEditing && !this.isEditingProject && this.hasItems === null) {
+        this.showHasItemsError = true;
+        return;
+      }
+
       const rowsToSubmit = this.itemRows;
       this.form.items = rowsToSubmit.map(({ key, total_cost, ...row }) => row);
+      this.form.start_of_procurement_activity = this.monthValueToDate(this.form.start_of_procurement_activity);
+      this.form.end_of_procurement_activity = this.monthValueToDate(this.form.end_of_procurement_activity);
+      this.form.expected_delivery_date = this.monthValueToDate(this.form.expected_delivery_date);
+
+      if (this.isEditingProject) {
+        if (this.hasItems === false) {
+          this.form.items = [];
+          this.form.option = "update_project";
+        } else {
+          this.form.option = rowsToSubmit.length > 0 ? "add_item" : "update_project";
+        }
+        this.form.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
+          forceFormData: true,
+          preserveScroll: true,
+          onSuccess: (page) => this.handleSuccess(page),
+          onError: () => this.restoreMonthValues(),
+        });
+        return;
+      }
 
       if (this.isEditing) {
         const firstRow = rowsToSubmit[0];
@@ -855,27 +862,26 @@ export default {
         this.form.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
           forceFormData: true,
           preserveScroll: true,
-          onSuccess: () => this.hide(),
+          onSuccess: (page) => this.handleSuccess(page),
+          onError: () => this.restoreMonthValues(),
         });
         return;
       }
 
       this.form.option = "add_item";
 
-      if (this.mode === "draft") {
+      if (this.hasItems === false) {
+        this.form.items = [];
+      }
+
+      if (this.mode === "draft" && this.hasItems !== false) {
         const firstRow = rowsToSubmit[0];
 
-        if (!firstRow) {
-          this.form.setError("items", "Please add at least one item to the table.");
-          return;
-        }
-
         this.$emit("draft", {
-          item_name: firstRow.item_name,
+          item_name: firstRow?.item_name,
           item_description: firstRow.item_description,
           project_type: this.form.project_type,
-          item_category_id: this.form.item_category_id,
-          item_category: this.selectedItemCategoryName,
+          item_category_id: firstRow.item_category_id ?? null,
           recommended_mode_of_procurement: this.form.recommended_mode_of_procurement,
           pre_procurement_conference: this.form.pre_procurement_conference,
           general_description_objective: this.form.general_description_objective,
@@ -902,7 +908,36 @@ export default {
       this.form.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
         forceFormData: true,
         preserveScroll: true,
-        onSuccess: () => this.hide(),
+        onSuccess: (page) => this.handleSuccess(page),
+        onError: () => this.restoreMonthValues(),
+      });
+    },
+    handleSuccess(page) {
+      const flash = page?.props?.flash;
+      if (flash && flash.status === false) {
+        this.backendError = flash.message || "An error occurred while saving. Please try again.";
+        this.restoreMonthValues();
+        return;
+      }
+      this.hide();
+    },
+    restoreMonthValues() {
+      this.form.start_of_procurement_activity = this.dateInputValue(this.form.start_of_procurement_activity);
+      this.form.end_of_procurement_activity = this.dateInputValue(this.form.end_of_procurement_activity);
+      this.form.expected_delivery_date = this.dateInputValue(this.form.expected_delivery_date);
+    },
+    onTotalBudgetAmount(val) {
+      this.form.project_total_budget = this.cleanCurrency(val);
+    },
+    cleanCurrency(value) {
+      if (!value) return 0;
+      const cleaned = value.toString().replace(/[^0-9.]/g, "");
+      return parseFloat(cleaned) || 0;
+    },
+    syncTotalBudgetAmount() {
+      this.$nextTick(() => {
+        const budget = Number(this.form.project_total_budget || 0);
+        this.$refs.totalBudgetAmount?.emitValue(budget.toFixed(2));
       });
     },
     formatCurrency(value) {
@@ -972,6 +1007,7 @@ export default {
         item_unit_type_id: item.item_unit_type_id ?? null,
         item_unit_cost: Number(item.unit_price || item.item_unit_cost || 0),
         total_cost: Number(item.abc || item.total_cost || 0),
+        item_category_id: item.item_category_id ?? null,
       };
     },
     dateInputValue(value) {
@@ -980,82 +1016,41 @@ export default {
       }
 
       const text = String(value).trim();
-      const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+      const fullMatch = text.match(/^(\d{4}-\d{2})-\d{2}/);
 
-      if (match) {
-        return match[1];
+      if (fullMatch) {
+        return fullMatch[1];
+      }
+
+      const monthMatch = text.match(/^(\d{4}-\d{2})$/);
+
+      if (monthMatch) {
+        return monthMatch[1];
       }
 
       const date = new Date(text);
 
       return Number.isNaN(date.getTime())
         ? null
-        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-            date.getDate()
-          ).padStart(2, "0")}`;
+        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     },
-    openItemCategoryModal() {
-      this.itemCategoryModal.name = "";
-      this.itemCategoryModal.error = "";
-      this.itemCategoryModal.show = true;
-    },
-    closeItemCategoryModal(force = false) {
-      if (this.itemCategoryModal.processing && !force) {
-        return;
+    monthValueToDate(value) {
+      if (!value) {
+        return null;
       }
 
-      this.itemCategoryModal.show = false;
-      this.itemCategoryModal.error = "";
-      this.itemCategoryModal.name = "";
+      const match = String(value).trim().match(/^(\d{4}-\d{2})$/);
+
+      return match ? `${match[1]}-01` : value;
     },
-    storeItemCategory() {
-      const name = String(this.itemCategoryModal.name || "").trim();
-
-      if (!name) {
-        this.itemCategoryModal.error = "Please enter the item category name.";
-        return;
-      }
-
-      const existingCategory = this.itemCategoryOptions.find(
-        (option) =>
-          String(option.name || "")
-            .trim()
-            .toLowerCase() === name.toLowerCase()
+    onCategoryAdded(category) {
+      const alreadyExists = this.extraItemCategories.some(
+        (o) => Number(o.value ?? o.id) === Number(category.value ?? category.id)
       );
 
-      if (existingCategory) {
-        this.form.item_category_id = existingCategory.value ?? existingCategory.id;
-        this.closeItemCategoryModal();
-        return;
+      if (!alreadyExists) {
+        this.extraItemCategories.push(category);
       }
-
-      this.itemCategoryModal.processing = true;
-      this.itemCategoryModal.error = "";
-
-      axios
-        .post("/faims/procurement-ppmp/item-categories", { name })
-        .then((response) => {
-          const category = response.data?.data;
-
-          if (!category?.value) {
-            this.itemCategoryModal.error = "Unable to save this item category.";
-            return;
-          }
-
-          this.extraItemCategories.push(category);
-          this.form.item_category_id = category.value;
-          this.form.clearErrors("item_category_id");
-          this.closeItemCategoryModal(true);
-        })
-        .catch((error) => {
-          this.itemCategoryModal.error =
-            error.response?.data?.errors?.name?.[0] ||
-            error.response?.data?.message ||
-            "Unable to save this item category.";
-        })
-        .finally(() => {
-          this.itemCategoryModal.processing = false;
-        });
     },
     fieldError(field) {
       return this.form.errors?.[field] || "";
@@ -1173,19 +1168,6 @@ export default {
   color: #0f766e;
   font-size: 15px;
   font-weight: 800;
-}
-
-.item-category-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.item-category-control__add {
-  width: 38px;
-  min-width: 38px;
-  height: 38px;
 }
 
 .ppmp-page-size {

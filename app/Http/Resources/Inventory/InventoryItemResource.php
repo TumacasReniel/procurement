@@ -22,6 +22,7 @@ class InventoryItemResource extends JsonResource
             'category'       => $this->category?->name ?? '—',
             'total_quantity' => (float) ($this->stocks_sum_quantity ?? $this->stocks?->sum('quantity') ?? 0),
             'stock_count'    => (int)  ($this->stocks_count ?? $this->stocks?->count() ?? 0),
+            'total_value'    => (float) ($this->total_value ?? 0),
         ];
     }
 }

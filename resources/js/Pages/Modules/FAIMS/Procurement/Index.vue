@@ -98,6 +98,16 @@
                                     ></i>
                                     Create by Category
                                 </b-button>
+                                <b-button
+                                    type="button"
+                                    variant="outline-secondary"
+                                    title="Procurement Calendar"
+                                    v-b-tooltip.hover
+                                    @click="openCalendar"
+                                >
+                                    <i class="ri-calendar-event-line align-bottom me-1"></i>
+                                    Calendar
+                                </b-button>
                             </div>
                         </b-col>
                     </b-row>
@@ -372,6 +382,105 @@
         </div>
     </BRow>
     <Cancel @update="fetch()" ref="cancel" />
+
+    <!-- ── Procurement Calendar Modal ─────────────────────── -->
+    <b-modal
+        v-model="showCalendarModal"
+        title="Procurement Calendar"
+        size="xl"
+        centered
+        scrollable
+        hide-footer
+        header-class="border-bottom pb-2"
+        body-class="p-3"
+        @shown="onCalendarModalShown"
+    >
+        <template #header>
+            <div class="d-flex align-items-center gap-2 w-100">
+                <span class="avatar-title bg-primary-subtle rounded p-2" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center">
+                    <i class="ri-calendar-event-line text-primary"></i>
+                </span>
+                <div>
+                    <div class="fw-bold fs-14">Procurement Calendar</div>
+                    <div class="text-muted fs-12">All purchase requests from all users, visualized by date</div>
+                </div>
+                <button type="button" class="btn-close ms-auto" @click="showCalendarModal = false"></button>
+            </div>
+        </template>
+
+        <!-- Toolbar -->
+        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+            <div class="input-group" style="max-width:240px">
+                <span class="input-group-text"><i class="ri-search-line"></i></span>
+                <input
+                    v-model="calKeyword"
+                    type="text"
+                    class="form-control"
+                    placeholder="Filter events…"
+                    @input="onCalKeywordInput"
+                />
+                <button v-if="calKeyword" class="btn btn-outline-secondary" type="button" @click="calKeyword = ''; loadCalEvents()">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+
+            <select v-model="calStatus" class="form-select" style="max-width:165px" @change="loadCalEvents">
+                <option value="">All Statuses</option>
+                <option v-for="s in dropdowns.statuses" :key="s.id" :value="s.id">{{ s.name }}</option>
+            </select>
+
+            <button class="btn btn-outline-secondary" type="button" :disabled="calLoading" title="Refresh" v-b-tooltip.hover @click="loadCalEvents">
+                <i class="bx bx-refresh" :class="{'cal-spin': calLoading}"></i>
+            </button>
+
+            <!-- Legend -->
+            <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
+                <span v-for="s in calLegend" :key="s.label" class="d-inline-flex align-items-center gap-1 small">
+                    <span class="cal-legend-dot" :style="{background: s.color}"></span>
+                    <span class="text-muted">{{ s.label }}</span>
+                </span>
+            </div>
+
+            <!-- View switcher -->
+            <div class="d-flex gap-1">
+                <button v-for="v in calViews" :key="v.key" type="button"
+                    class="btn btn-sm"
+                    :class="calActiveView === v.key ? 'btn-primary' : 'btn-outline-secondary'"
+                    @click="switchCalView(v.key)"
+                >{{ v.label }}</button>
+            </div>
+        </div>
+
+        <div v-if="calLoading && !calendarReady" class="text-center py-5 text-muted">
+            <div class="spinner-border text-primary"></div>
+            <div class="mt-2 small">Loading events…</div>
+        </div>
+
+        <FullCalendar
+            ref="calRef"
+            :options="calendarOptions"
+            class="proc-fc"
+        />
+
+        <!-- Event detail popover-like card -->
+        <div v-if="calDetail" class="cal-detail-card">
+            <button type="button" class="btn-close cal-detail-close" @click="calDetail = null"></button>
+            <div class="fw-bold text-primary mb-1">{{ calDetail.code }}</div>
+            <div class="small text-muted mb-1">{{ formatCalDate(calDetail.date) }}</div>
+            <div class="fw-semibold mb-1">{{ calDetail.title || calDetail.purpose || '—' }}</div>
+            <div class="d-flex gap-2 align-items-center mb-2">
+                <span class="badge" :style="{background: calStatusColor(calDetail.status?.name), color:'#fff'}">
+                    {{ calDetail.status?.name ?? '—' }}
+                </span>
+                <span class="small text-muted">{{ calDetail.requested_by?.name ?? calDetail.user?.name ?? '' }}</span>
+            </div>
+            <div class="small fw-semibold mb-2">₱{{ formatCalNumber(calDetail.total_amount) }}</div>
+            <a :href="`/procurements/${calDetail.id}`" class="btn btn-sm btn-primary w-100">
+                <i class="ri-eye-line me-1"></i>View Full PR
+            </a>
+        </div>
+    </b-modal>
+
     <FloatingRequestChat
         :requests="chatRequests"
         :requests-loading="chatRequestsLoading"
@@ -393,8 +502,13 @@ import FloatingRequestChat from "./Pages/Components/FloatingRequestChat.vue";
 import { router } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
 import Cancel from "./Modals/Cancel.vue";
+import FullCalendar from "@fullcalendar/vue3";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import listPlugin from "@fullcalendar/list";
+import interactionPlugin from "@fullcalendar/interaction";
+import axios from "axios";
 export default {
-    components: { PageHeader, Pagination, Multiselect, Cancel, FloatingRequestChat },
+    components: { PageHeader, Pagination, Multiselect, Cancel, FloatingRequestChat, FullCalendar },
     props: ["dropdowns", "roles", "comment_request_id"],
     data() {
         return {
@@ -429,6 +543,42 @@ export default {
             activeChatRequest: null,
             pendingChatRequestId: this.comment_request_id ? Number(this.comment_request_id) : null,
             procurementRequestChannel: null,
+            // Calendar
+            showCalendarModal: false,
+            calendarReady: false,
+            calLoading: false,
+            calKeyword: "",
+            calStatus: "",
+            calKeywordTimer: null,
+            calRefreshTimer: null,
+            calDetail: null,
+            calActiveView: "dayGridMonth",
+            calViews: [
+                { key: "dayGridMonth", label: "Month" },
+                { key: "dayGridWeek",  label: "Week"  },
+                { key: "listMonth",    label: "List"  },
+            ],
+            calLegend: [
+                { label: "Pending",   color: "#6c757d" },
+                { label: "Submitted", color: "#0d6efd" },
+                { label: "Approved",  color: "#198754" },
+                { label: "Ongoing",   color: "#fd7e14" },
+                { label: "Completed", color: "#0dcaf0" },
+                { label: "Rejected",  color: "#dc3545" },
+            ],
+            calendarOptions: {
+                plugins: [dayGridPlugin, listPlugin, interactionPlugin],
+                initialView: "dayGridMonth",
+                headerToolbar: { left: "prev,next today", center: "title", right: "" },
+                height: 560,
+                events: [],
+                eventClick: null,
+                datesSet: null,
+                noEventsContent: "No purchase requests found for this period.",
+                eventDidMount(info) {
+                    info.el.setAttribute("title", info.event.extendedProps.tooltip ?? info.event.title);
+                },
+            },
         };
     },
     computed: {
@@ -459,6 +609,12 @@ export default {
         "filter.expense"(newVal) {
             this.fetch();
         },
+        showCalendarModal(isOpen) {
+            if (!isOpen) {
+                clearInterval(this.calRefreshTimer);
+                this.calRefreshTimer = null;
+            }
+        },
     },
     created() {
         this.fetch();
@@ -468,6 +624,8 @@ export default {
         this.subscribeToProcurementRequestChanges();
     },
     beforeUnmount() {
+        clearTimeout(this.calKeywordTimer);
+        clearInterval(this.calRefreshTimer);
         this.unsubscribeFromProcurementRequestChanges();
     },
     methods: {
@@ -964,6 +1122,100 @@ export default {
             this.filter.sort = "latest";
             this.fetch();
         },
+
+        // ── Calendar ──────────────────────────────────────
+        openCalendar() {
+            this.calDetail = null;
+            this.calKeyword = "";
+            this.calStatus = "";
+            this.showCalendarModal = true;
+        },
+        onCalendarModalShown() {
+            this.calendarReady = true;
+            clearInterval(this.calRefreshTimer);
+            this.$nextTick(() => {
+                const api = this.$refs.calRef?.getApi();
+                if (api) {
+                    api.on("datesSet", () => this.loadCalEvents());
+                    api.setOption("eventClick", (info) => {
+                        this.calDetail = info.event.extendedProps.pr;
+                    });
+                }
+                this.loadCalEvents();
+                this.calRefreshTimer = setInterval(() => this.loadCalEvents(), 30000);
+            });
+        },
+        onCalKeywordInput() {
+            clearTimeout(this.calKeywordTimer);
+            this.calKeywordTimer = setTimeout(() => this.loadCalEvents(), 350);
+        },
+        switchCalView(view) {
+            this.calActiveView = view;
+            this.$refs.calRef?.getApi()?.changeView(view);
+        },
+        calStatusColor(name) {
+            const palette = {
+                pending: "#6c757d", draft: "#6c757d",
+                submitted: "#0d6efd", approved: "#198754",
+                rejected: "#dc3545", cancelled: "#dc3545",
+                completed: "#0dcaf0", ongoing: "#fd7e14",
+                reviewed: "#20c997", awarded: "#6f42c1",
+            };
+            const key = (name ?? "").toLowerCase().replace(/\s+/g, "");
+            for (const [k, v] of Object.entries(palette)) {
+                if (key.includes(k)) return v;
+            }
+            return "#4b5b93";
+        },
+        async loadCalEvents() {
+            this.calLoading = true;
+            try {
+                const api = this.$refs.calRef?.getApi();
+                const start = api?.view?.currentStart;
+                const end   = api?.view?.currentEnd;
+                const response = await axios.get("/procurements", {
+                    params: {
+                        option:    "lists",
+                        calendar:   1,
+                        json:      1,
+                        keyword:   this.calKeyword   || undefined,
+                        status_id: this.calStatus    || undefined,
+                        date_from: start ? start.toISOString().slice(0, 10) : undefined,
+                        date_to:   end   ? end.toISOString().slice(0, 10)   : undefined,
+                    },
+                });
+                const rows = response.data?.data ?? response.data ?? [];
+                this.calendarOptions = {
+                    ...this.calendarOptions,
+                    events: rows.map(pr => ({
+                        id:    String(pr.id),
+                        title: this.calendarEventTitle(pr),
+                        start: pr.calendar_start_at || pr.created_at || pr.date_iso || pr.date,
+                        color: this.calStatusColor(pr.status?.name ?? pr.status),
+                        extendedProps: {
+                            pr,
+                            tooltip: [this.calendarEventTitle(pr), pr.title || pr.purpose, pr.status?.name]
+                                .filter(Boolean).join(" · "),
+                        },
+                    })),
+                };
+            } finally {
+                this.calLoading = false;
+            }
+        },
+        formatCalDate(val) {
+            if (!val) return "—";
+            return new Date(String(val).replace(" ", "T"))
+                .toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
+        },
+        calendarEventTitle(pr) {
+            return pr?.pr_no || pr?.code || "PR";
+        },
+        formatCalNumber(val) {
+            const n = parseFloat(val ?? 0);
+            return isNaN(n) ? "0.00"
+                : new Intl.NumberFormat("en-PH", { minimumFractionDigits: 2 }).format(n);
+        },
     },
 };
 </script>
@@ -1017,5 +1269,60 @@ export default {
 
 :global([data-bs-theme="dark"]) .procurement-empty-state__title {
     color: #e5edf7;
+}
+
+/* ── Calendar modal ─────────────────────────────────── */
+@keyframes cal-spin { to { transform: rotate(360deg); } }
+.cal-spin { animation: cal-spin 0.75s linear infinite; display: inline-block; }
+
+.cal-legend-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.proc-fc :deep(.fc-toolbar-title) {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.proc-fc :deep(.fc-event) {
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 1px 4px;
+    border: none;
+}
+
+.proc-fc :deep(.fc-daygrid-day-number) {
+    font-size: 0.8rem;
+}
+
+.proc-fc :deep(.fc-list-event:hover td) {
+    background: #f0f5ff;
+    cursor: pointer;
+}
+
+.cal-detail-card {
+    position: fixed;
+    bottom: 80px;
+    right: 32px;
+    width: 260px;
+    background: #fff;
+    border: 1px solid #dce4f2;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.14);
+    padding: 1rem;
+    z-index: 2000;
+}
+
+.cal-detail-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
 }
 </style>

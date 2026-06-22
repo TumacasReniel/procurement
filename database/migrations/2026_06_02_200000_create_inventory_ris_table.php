@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('inventory_ris')) {
+            return;
+        }
+
         Schema::create('inventory_ris', function (Blueprint $table) {
             $table->id();
             $table->string('ris_no')->unique();
@@ -40,7 +44,7 @@ return new class extends Migration
             $table->text('remarks')->nullable();
             $table->timestamps();
 
-            $table->foreign('item_id')->references('id')->on('inventory_items')->cascadeOnDelete();
+            $table->foreign('item_id')->references('id')->on('inventory_items')->restrictOnDelete();
         });
     }
 

@@ -1,5 +1,16 @@
 <template>
   <div class="plan-status-flow-wrap">
+    <!-- APP-specific context banner -->
+    <div v-if="normalizedPlanType === 'APP'" class="app-timeline-banner">
+      <i class="ri-file-chart-2-line app-timeline-banner__icon"></i>
+      <div>
+        <div class="app-timeline-banner__title">Annual Procurement Plan Lifecycle</div>
+        <div class="app-timeline-banner__desc">
+          Pending → For Review → Reviewed/For Submission → Submitted/For Implementation. The APP ends at final submission, unlike PPMP/SPP which continue to consolidation.
+        </div>
+      </div>
+    </div>
+
     <div class="plan-status-flow">
       <div
         v-for="(step, index) in resolvedSteps"
@@ -62,6 +73,12 @@ export default {
     planType: { type: String, default: "PPMP" },
   },
   computed: {
+    normalizedPlanType() {
+      const t = (this.planType ?? "").toLowerCase();
+      if (t === "app" || t === "annual" || t.includes("annual procurement")) return "APP";
+      if (t === "spp" || t === "supplemental") return "SPP";
+      return "PPMP";
+    },
     currentStatus() {
       return String(
         this.plan.ppmp_status ||
@@ -75,13 +92,52 @@ export default {
       return this.currentStatus.toLowerCase();
     },
     lifecycleSteps() {
-      // Both PPMP and SPP consolidate into the APP — final label is always "Consolidated/Added to APP"
-      const finalLabel = this.planType === "APP"
+      if (this.normalizedPlanType === "APP") {
+        return this.appLifecycleSteps;
+      }
+      return this.ppmpLifecycleSteps;
+    },
+    appLifecycleSteps() {
+      return [
+        {
+          key: "pending",
+          label: "Pending",
+          date: this.plan.created_at || this.plan.date,
+          user: this.userName(this.plan.created_by),
+          note: "APP created and consolidated from approved PPMP/SPP entries.",
+          pendingMeta: "Not started",
+        },
+        {
+          key: "for-review",
+          label: "For Review",
+          date: this.appStatusDate("for-review"),
+          user: this.statusUser("for-review"),
+          note: "APP submitted for BAC Secretariat review.",
+          pendingMeta: "Awaiting submission for review",
+        },
+        {
+          key: "reviewed",
+          label: "Reviewed/For Submission",
+          date: this.appStatusDate("reviewed"),
+          user: this.statusUser("reviewed"),
+          note: "APP reviewed and endorsed by the BAC.",
+          pendingMeta: "Awaiting BAC review",
+        },
+        {
+          key: "submitted",
+          label: "Submitted/For Implementation",
+          date: this.appStatusDate("submitted"),
+          user: this.statusUser("submitted"),
+          note: "APP submitted for implementation. Approved by the Head of the Procuring Entity.",
+          pendingMeta: "Awaiting final submission",
+        },
+      ];
+    },
+    ppmpLifecycleSteps() {
+      const finalPlanName = this.normalizedPlanType === "SPP" ? "SPP" : "APP";
+      const finalSubmissionLabel = this.normalizedPlanType === "SPP"
         ? "Submitted/For Implementation"
         : "Submitted/For Consolidation";
-      const consolidatedLabel = this.planType === "APP"
-        ? "Approved/For Implementation"
-        : "Consolidated/Added to APP";
 
       return [
         {
@@ -95,66 +151,67 @@ export default {
         {
           key: "for-review",
           label: "For Review",
-          date: this.plan.submitted_for_review_at,
-          user: this.userName(this.plan.submitted_for_review_by),
+          date: this.ppmpStatusDate("for-review"),
+          user: this.statusUser("for-review"),
           note: "Submitted for review by the responsible office.",
           pendingMeta: "Awaiting submission",
         },
         {
           key: "reviewed",
           label: "Reviewed/For Submission",
-          date: this.plan.reviewed_at,
-          user: this.userName(this.plan.reviewed_by),
+          date: this.ppmpStatusDate("reviewed"),
+          user: this.statusUser("reviewed"),
           note: "Budget review is done and the plan is ready for submission.",
           pendingMeta: "Awaiting budget review",
         },
         {
           key: "submitted",
-          label: finalLabel,
-          date: this.plan.submitted_at || this.plan.approved_at,
-          user: this.userName(this.plan.submitted_by || this.plan.approved_by),
-          note: this.planType === "APP"
-            ? "APP is submitted for implementation."
+          label: finalSubmissionLabel,
+          date: this.ppmpStatusDate("submitted"),
+          user: this.statusUser("submitted"),
+          note: this.normalizedPlanType === "SPP"
+            ? "SPP is submitted for implementation."
             : "Plan is submitted for BAC consolidation.",
           pendingMeta: "Awaiting procurement review",
         },
         {
           key: "consolidated",
-          label: consolidatedLabel,
-          date: this.plan.consolidated_at || this.plan.approved_at,
-          user: this.userName(this.plan.consolidated_by || this.plan.approved_by),
-          note: this.planType === "APP"
-            ? "APP implementation status is recorded."
-            : "Plan has been added to the consolidated procurement plan.",
+          label: `Consolidated/Added to ${finalPlanName}`,
+          date: this.ppmpStatusDate("consolidated"),
+          user: this.statusUser("consolidated"),
+          note: "Plan has been added to the consolidated procurement plan.",
           pendingMeta: "Awaiting consolidation",
         },
       ];
     },
     activeIndex() {
-      const index = this.lifecycleSteps.findIndex(
+      if (this.normalizedPlanType === "APP") {
+        return this.appActiveIndex;
+      }
+      return this.ppmpActiveIndex;
+    },
+    appActiveIndex() {
+      const s = this.normalizedStatus;
+      // Match the actual status labels used by the backend for APP
+      if (s.includes("implementation") || s.includes("submitted/for"))  return 3;
+      if (s.includes("reviewed") || s.includes("for submission"))        return 2;
+      if (s.includes("for review"))                                       return 1;
+      // Fallback: derive from timestamps if status name isn't set
+      if (this.plan.approved_at) return 3;
+      if (this.plan.reviewed_at) return 2;
+      if (this.plan.submitted_for_review_at || this.plan.submitted_at) return 1;
+      return 0;
+    },
+    ppmpActiveIndex() {
+      const index = this.ppmpLifecycleSteps.findIndex(
         (step) => this.normalizedStatus === step.label.toLowerCase()
       );
-
-      if (index >= 0) {
-        return index;
-      }
-
-      if (this.normalizedStatus.includes("consolidated")) {
-        return this.lifecycleSteps.length - 1;
-      }
-
-      if (this.normalizedStatus.includes("submitted")) {
-        return 3;
-      }
-
-      if (this.normalizedStatus.includes("reviewed")) {
-        return 2;
-      }
-
-      if (this.normalizedStatus.includes("for review")) {
-        return 1;
-      }
-
+      if (index >= 0) return index;
+      if (this.normalizedStatus.includes("implementation")) return 3;
+      if (this.normalizedStatus.includes("consolidated")) return this.ppmpLifecycleSteps.length - 1;
+      if (this.normalizedStatus.includes("submitted")) return 3;
+      if (this.normalizedStatus.includes("reviewed")) return 2;
+      if (this.normalizedStatus.includes("for review")) return 1;
       return 0;
     },
     resolvedSteps() {
@@ -170,6 +227,35 @@ export default {
     },
   },
   methods: {
+    appStatusDate(statusKey) {
+      const dates = {
+        "for-review": this.plan.submitted_for_review_at || this.plan.submitted_at,
+        reviewed: this.plan.reviewed_at,
+        submitted: this.plan.approved_at || this.plan.submitted_for_implementation_at,
+      };
+
+      return dates[statusKey] || null;
+    },
+    ppmpStatusDate(statusKey) {
+      const dates = {
+        "for-review": this.plan.submitted_for_review_at || this.plan.submitted_at,
+        reviewed: this.plan.reviewed_at,
+        submitted: this.plan.submitted_for_consolidation_at || this.plan.submitted_for_implementation_at || this.plan.approved_at,
+        consolidated: this.plan.consolidated_at,
+      };
+
+      return dates[statusKey] || null;
+    },
+    statusUser(statusKey) {
+      const users = {
+        "for-review": this.plan.submitted_for_review_by || this.plan.submitted_by,
+        reviewed: this.plan.reviewed_by,
+        submitted: this.plan.submitted_for_consolidation_by || this.plan.submitted_for_implementation_by || this.plan.approved_by,
+        consolidated: this.plan.consolidated_by,
+      };
+
+      return this.userName(users[statusKey]);
+    },
     formatTimelineDate(value) {
       if (!value) {
         return "-";
@@ -384,6 +470,47 @@ export default {
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
+
+/* APP banner */
+.app-timeline-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.7), rgba(255, 251, 235, 0.9));
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  margin-bottom: 4px;
+}
+
+.app-timeline-banner__icon {
+  font-size: 1.25rem;
+  color: #d97706;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.app-timeline-banner__title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #92400e;
+  margin-bottom: 2px;
+}
+
+.app-timeline-banner__desc {
+  font-size: 11px;
+  color: #b45309;
+  line-height: 1.4;
+}
+
+[data-bs-theme="dark"] .app-timeline-banner {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.25), rgba(92, 45, 12, 0.22));
+  border-color: rgba(251, 191, 36, 0.18);
+}
+
+[data-bs-theme="dark"] .app-timeline-banner__title { color: #fcd34d; }
+[data-bs-theme="dark"] .app-timeline-banner__desc  { color: #fbbf24; }
 
 /* Progress pill row */
 .plan-status-flow__progress {

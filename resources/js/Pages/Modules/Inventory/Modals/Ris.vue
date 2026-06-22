@@ -17,7 +17,7 @@
           <div class="ris-modal-icon"><i class="ri-file-list-3-line"></i></div>
           <div>
             <h5 class="mb-0 fw-bold text-white">{{ form?.id ? 'Edit RIS' : 'New Requisition and Issue Slip' }}</h5>
-            <p class="mb-0 small" style="color:rgba(255,255,255,.72)">{{ form?.id ? form.ris_no : 'Auto-generated RIS number' }}</p>
+            <p class="mb-0 small" style="color:rgba(255,255,255,.72)">{{ form?.id ? form.ris_no : 'Auto-generated · Status: Pending' }}</p>
           </div>
         </div>
         <button type="button" class="ris-modal-close" @click="hide"><i class="ri-close-line"></i></button>
@@ -38,14 +38,28 @@
       </div>
 
       <!-- Header fields -->
-      <div class="row g-3 mb-4">
+      <div class="row g-3 mb-3">
+        <!-- RIS Date -->
         <div class="col-sm-6 col-lg-3">
           <label class="form-label fw-semibold">RIS Date <span class="text-danger">*</span></label>
           <input type="date" :value="form.ris_date" class="form-control" :class="{'is-invalid': errors.ris_date}"
             @change="updateField('ris_date', $event.target.value)" />
           <div v-if="errors.ris_date" class="invalid-feedback">{{ errors.ris_date[0] }}</div>
         </div>
+
+        <!-- Fund Cluster (dropdown) -->
         <div class="col-sm-6 col-lg-3">
+          <label class="form-label fw-semibold">Fund Cluster</label>
+          <select :value="form.fund_cluster" class="form-select" :class="{'is-invalid': errors.fund_cluster}"
+            @change="updateField('fund_cluster', $event.target.value)">
+            <option value="">— Select —</option>
+            <option v-for="fc in fundClusters" :key="fc.id" :value="fc.name">{{ fc.name }}</option>
+          </select>
+          <div v-if="errors.fund_cluster" class="invalid-feedback">{{ errors.fund_cluster[0] }}</div>
+        </div>
+
+        <!-- Status — only visible on edit -->
+        <div v-if="form.id" class="col-sm-6 col-lg-3">
           <label class="form-label fw-semibold">Status <span class="text-danger">*</span></label>
           <select :value="form.status_id" class="form-select" :class="{'is-invalid': errors.status_id}"
             @change="updateField('status_id', $event.target.value)">
@@ -54,30 +68,17 @@
           </select>
           <div v-if="errors.status_id" class="invalid-feedback">{{ errors.status_id[0] }}</div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-          <label class="form-label fw-semibold">Fund Cluster</label>
-          <input type="text" :value="form.fund_cluster" class="form-control"
-            :class="{'is-invalid': errors.fund_cluster}"
-            placeholder="e.g. 01"
-            @input="updateField('fund_cluster', $event.target.value)" />
-          <div v-if="errors.fund_cluster" class="invalid-feedback">{{ errors.fund_cluster[0] }}</div>
+
+        <!-- Pending badge — shown on create -->
+        <div v-else class="col-sm-6 col-lg-3 d-flex align-items-end">
+          <div class="ris-auto-badge">
+            <i class="ri-checkbox-circle-line me-1"></i>
+            Status: <strong>Pending</strong>
+          </div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-          <label class="form-label fw-semibold">Division / Office</label>
-          <input type="text" :value="form.division" class="form-control"
-            :class="{'is-invalid': errors.division}"
-            placeholder="e.g. Admin"
-            @input="updateField('division', $event.target.value)" />
-          <div v-if="errors.division" class="invalid-feedback">{{ errors.division[0] }}</div>
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Responsibility Center</label>
-          <input type="text" :value="form.responsibility_center" class="form-control"
-            :class="{'is-invalid': errors.responsibility_center}"
-            @input="updateField('responsibility_center', $event.target.value)" />
-          <div v-if="errors.responsibility_center" class="invalid-feedback">{{ errors.responsibility_center[0] }}</div>
-        </div>
-        <div class="col-sm-6">
+
+        <!-- Purpose -->
+        <div class="col-sm-12 col-lg-3">
           <label class="form-label fw-semibold">Purpose</label>
           <input type="text" :value="form.purpose" class="form-control"
             :class="{'is-invalid': errors.purpose}"
@@ -85,45 +86,105 @@
             @input="updateField('purpose', $event.target.value)" />
           <div v-if="errors.purpose" class="invalid-feedback">{{ errors.purpose[0] }}</div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-          <label class="form-label fw-semibold">Requested By</label>
-          <select :value="form.requested_by_id" class="form-select"
-            :class="{'is-invalid': errors.requested_by_id}"
-            @change="updateField('requested_by_id', $event.target.value)">
-            <option value="">— Select —</option>
-            <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
-          </select>
-          <div v-if="errors.requested_by_id" class="invalid-feedback">{{ errors.requested_by_id[0] }}</div>
+
+        <!-- Division / Office -->
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Division / Office</label>
+          <input type="text" :value="form.division" class="form-control"
+            :class="{'is-invalid': errors.division}"
+            placeholder="e.g. Admin Division"
+            @input="updateField('division', $event.target.value)" />
+          <div v-if="errors.division" class="invalid-feedback">{{ errors.division[0] }}</div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-          <label class="form-label fw-semibold">Approved By</label>
-          <select :value="form.approved_by_id" class="form-select"
-            :class="{'is-invalid': errors.approved_by_id}"
-            @change="updateField('approved_by_id', $event.target.value)">
-            <option value="">— Select —</option>
-            <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
-          </select>
-          <div v-if="errors.approved_by_id" class="invalid-feedback">{{ errors.approved_by_id[0] }}</div>
+
+        <!-- Responsibility Center -->
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Responsibility Center</label>
+          <input type="text" :value="form.responsibility_center" class="form-control"
+            :class="{'is-invalid': errors.responsibility_center}"
+            placeholder="e.g. 01-001"
+            @input="updateField('responsibility_center', $event.target.value)" />
+          <div v-if="errors.responsibility_center" class="invalid-feedback">{{ errors.responsibility_center[0] }}</div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-          <label class="form-label fw-semibold">Issued By</label>
-          <select :value="form.issued_by_id" class="form-select"
-            :class="{'is-invalid': errors.issued_by_id}"
-            @change="updateField('issued_by_id', $event.target.value)">
-            <option value="">— Select —</option>
-            <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
-          </select>
-          <div v-if="errors.issued_by_id" class="invalid-feedback">{{ errors.issued_by_id[0] }}</div>
+      </div>
+
+      <!-- Signatories section -->
+      <div class="ris-signatories-section mb-4">
+        <div class="ris-signatories-header">
+          <i class="ri-user-3-line me-1"></i> Signatories
         </div>
-        <div class="col-sm-6 col-lg-3">
-          <label class="form-label fw-semibold">Received By</label>
-          <select :value="form.received_by_id" class="form-select"
-            :class="{'is-invalid': errors.received_by_id}"
-            @change="updateField('received_by_id', $event.target.value)">
-            <option value="">— Select —</option>
-            <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
-          </select>
-          <div v-if="errors.received_by_id" class="invalid-feedback">{{ errors.received_by_id[0] }}</div>
+        <div class="row g-3 px-3 pb-3">
+          <!-- Requested By -->
+          <div class="col-sm-6 col-lg-3">
+            <label class="form-label fw-semibold">Requested By</label>
+            <template v-if="!form.id">
+              <div class="ris-auto-field">
+                <i class="ri-user-line me-1 text-primary"></i>
+                <span>{{ currentUser?.name || '—' }}</span>
+                <span class="ris-auto-tag">Auto</span>
+              </div>
+            </template>
+            <template v-else>
+              <select :value="form.requested_by_id" class="form-select"
+                :class="{'is-invalid': errors.requested_by_id}"
+                @change="updateField('requested_by_id', $event.target.value)">
+                <option value="">— Select —</option>
+                <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
+              </select>
+            </template>
+            <div v-if="errors.requested_by_id" class="invalid-feedback d-block">{{ errors.requested_by_id[0] }}</div>
+          </div>
+
+          <!-- Approved By -->
+          <div class="col-sm-6 col-lg-3">
+            <label class="form-label fw-semibold">Approved By</label>
+            <select :value="form.approved_by_id" class="form-select"
+              :class="{'is-invalid': errors.approved_by_id}"
+              @change="updateField('approved_by_id', $event.target.value)">
+              <option value="">— Select —</option>
+              <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
+            </select>
+            <div v-if="errors.approved_by_id" class="invalid-feedback">{{ errors.approved_by_id[0] }}</div>
+            <div v-if="!form.id && risDefaults?.regional_director_id" class="ris-pre-hint">
+              <i class="ri-arrow-up-circle-line"></i> Pre-set to Regional Director
+            </div>
+          </div>
+
+          <!-- Issued By -->
+          <div class="col-sm-6 col-lg-3">
+            <label class="form-label fw-semibold">Issued By</label>
+            <select :value="form.issued_by_id" class="form-select"
+              :class="{'is-invalid': errors.issued_by_id}"
+              @change="updateField('issued_by_id', $event.target.value)">
+              <option value="">— Select —</option>
+              <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
+            </select>
+            <div v-if="errors.issued_by_id" class="invalid-feedback">{{ errors.issued_by_id[0] }}</div>
+            <div v-if="!form.id && risDefaults?.supply_officer_id" class="ris-pre-hint">
+              <i class="ri-arrow-up-circle-line"></i> Pre-set to Supply Officer
+            </div>
+          </div>
+
+          <!-- Received By -->
+          <div class="col-sm-6 col-lg-3">
+            <label class="form-label fw-semibold">Received By</label>
+            <template v-if="!form.id">
+              <div class="ris-auto-field">
+                <i class="ri-user-line me-1 text-primary"></i>
+                <span>{{ currentUser?.name || '—' }}</span>
+                <span class="ris-auto-tag">Auto</span>
+              </div>
+            </template>
+            <template v-else>
+              <select :value="form.received_by_id" class="form-select"
+                :class="{'is-invalid': errors.received_by_id}"
+                @change="updateField('received_by_id', $event.target.value)">
+                <option value="">— Select —</option>
+                <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
+              </select>
+            </template>
+            <div v-if="errors.received_by_id" class="invalid-feedback d-block">{{ errors.received_by_id[0] }}</div>
+          </div>
         </div>
       </div>
 
@@ -216,13 +277,16 @@ export default {
   name: 'RisModal',
   components: { Multiselect },
   props: {
-    modelValue: { type: Boolean, default: false },
-    form:       { type: Object, default: () => ({}) },
-    errors:     { type: Object, default: () => ({}) },
-    saving:     { type: Boolean, default: false },
-    items:      { type: Array, default: () => [] },
-    users:      { type: Array, default: () => [] },
-    statuses:   { type: Array, default: () => [] },
+    modelValue:  { type: Boolean, default: false },
+    form:        { type: Object, default: () => ({}) },
+    errors:      { type: Object, default: () => ({}) },
+    saving:      { type: Boolean, default: false },
+    items:       { type: Array, default: () => [] },
+    users:       { type: Array, default: () => [] },
+    statuses:    { type: Array, default: () => [] },
+    risDefaults: { type: Object, default: () => ({}) },
+    fundClusters:{ type: Array, default: () => [] },
+    currentUser: { type: Object, default: null },
   },
   emits: ['update:modelValue', 'update:form', 'submit', 'update:errors'],
   computed: {
@@ -299,6 +363,39 @@ export default {
   font-size: 1.1rem; flex-shrink: 0; transition: background .15s;
 }
 .ris-modal-close:hover { background: rgba(255,255,255,.22); }
+
+.ris-auto-badge {
+  height: 38px; border-radius: 10px; padding: 0 .85rem;
+  background: rgba(75,91,147,.08); border: 1px solid rgba(75,91,147,.2);
+  color: #4b5b93; font-size: .84rem; font-weight: 600;
+  display: inline-flex; align-items: center; gap: .25rem; width: 100%;
+}
+
+.ris-signatories-section {
+  border: 1px solid #dce4f2; border-radius: 14px; overflow: hidden;
+  background: #f8fbff;
+}
+.ris-signatories-header {
+  background: linear-gradient(180deg, #f0f4ff, #e8eeff);
+  border-bottom: 1px solid #dce4f2; padding: .55rem .85rem;
+  font-size: .78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: #4b5b93;
+}
+.ris-auto-field {
+  height: 38px; border-radius: 10px; padding: 0 .85rem;
+  background: #fff; border: 1px dashed #a5b4d6;
+  font-size: .84rem; color: #1e2d6b; font-weight: 600;
+  display: flex; align-items: center; gap: .35rem; width: 100%;
+}
+.ris-auto-tag {
+  margin-left: auto; font-size: .68rem; font-weight: 700;
+  padding: .15rem .45rem; border-radius: 6px;
+  background: rgba(75,91,147,.1); color: #4b5b93; letter-spacing: .04em;
+}
+.ris-pre-hint {
+  font-size: .72rem; color: #64748b; margin-top: .3rem;
+  display: flex; align-items: center; gap: .25rem;
+}
 .ris-items-section {
   border: 1px solid #dce4f2; border-radius: 12px; padding: 1rem;
   background: #f8fbff; transition: border-color .2s;

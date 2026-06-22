@@ -34,6 +34,8 @@ class UserResource extends JsonResource
                 'division' => $this->organization?->division?->name,
                 'unit_id' => $this->organization?->unit_id,
                 'unit' => $this->organization?->unit?->name,
+                'unit_short' => $this->organization?->unit?->short,
+                'responsibility_center_code' => $this->organization?->unit?->responsibility_center?->code,
             ],
             'signatory' => $this->signatory,
             'is_active' => $this->is_active,

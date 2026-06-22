@@ -7,6 +7,16 @@
         <div class="plan-detail-banner__copy">
           Supplemental procurement plan for {{ implementingUnitLabel }}
         </div>
+        <a
+          v-if="ppmp.attachment_url"
+          :href="ppmp.attachment_url"
+          target="_blank"
+          rel="noopener"
+          class="detail-attachment mt-2"
+        >
+          <i class="ri-attachment-2 align-bottom me-1"></i>
+          {{ ppmp.attachment_original_name || "View Line-Item Budget" }}
+        </a>
       </div>
       <div class="plan-detail-banner__meta">
         <div>
@@ -75,11 +85,27 @@
 
     <b-modal
       v-model="showTimelineModal"
-      title="Status Timeline"
       size="xl"
       centered
       hide-footer
+      header-class="border-bottom pb-2"
     >
+      <template #header>
+        <div class="d-flex align-items-center gap-2 w-100">
+          <span class="avatar-title bg-success-subtle rounded p-2" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="ri-git-branch-line text-success"></i>
+          </span>
+          <div class="flex-grow-1">
+            <div class="fw-bold fs-14">SPP Status Timeline</div>
+            <div class="text-muted fs-12">
+              {{ ppmp.code || ppmp.ppmp_no || 'Supplemental Plan' }}
+              &nbsp;·&nbsp;
+              {{ ppmp.ppmp_status || ppmp.approval_status || 'Pending' }}
+            </div>
+          </div>
+          <button type="button" class="btn-close" @click="showTimelineModal = false"></button>
+        </div>
+      </template>
       <PlanStatusTimeline :plan="ppmp" plan-type="SPP" />
     </b-modal>
 

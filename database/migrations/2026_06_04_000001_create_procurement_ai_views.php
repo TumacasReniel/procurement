@@ -7,7 +7,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement(<<<SQL
+        try { DB::statement(<<<SQL
 CREATE OR REPLACE VIEW ai_ppmp_view AS
 SELECT
     p.id,
@@ -282,6 +282,9 @@ SELECT
     CAST(NULL AS DATETIME) AS created_at
 WHERE 1 = 0
 SQL);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('AI views migration skipped: ' . $e->getMessage());
+        }
     }
 
     public function down(): void

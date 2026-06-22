@@ -8,19 +8,25 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('inventory_withdrawals')) {
+            return;
+        }
+
         Schema::create('inventory_withdrawals', function (Blueprint $table) {
             $table->increments('id');
             $table->timestamp('released_at')->nullable();
             $table->text('remarks')->nullable();
             $table->timestamps();
             $table->unsignedInteger('inventory_id');
-            $table->unsignedInteger('requested_by_id');
+            $table->decimal('quantity', 12, 2)->default(0);
+            $table->decimal('issued_quantity', 12, 2)->default(0);
+            $table->unsignedInteger('requested_by_id')->nullable();
             $table->unsignedInteger('approved_by_id')->nullable();
             $table->unsignedTinyInteger('status_id');
 
             $table->foreign('inventory_id')->references('id')->on('inventory_items')->onDelete('cascade');
-            $table->foreign('requested_by_id')->references('id')->on('users');
-            $table->foreign('approved_by_id')->references('id')->on('users');
+            $table->foreign('requested_by_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('approved_by_id')->references('id')->on('users')->nullOnDelete();
             $table->foreign('status_id')->references('id')->on('list_statuses');
         });
     }

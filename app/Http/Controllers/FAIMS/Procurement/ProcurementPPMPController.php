@@ -91,6 +91,8 @@ class ProcurementPPMPController extends Controller
             case 'add_item':
             case 'update_item':
             case 'delete_item':
+            case 'clear_project':
+            case 'update_project':
                 broadcast(new ProcurementPlanStatusUpdated([
                     'id' => (int) $id,
                     'plan_type' => $request->input('plan_type', 'PPMP'),

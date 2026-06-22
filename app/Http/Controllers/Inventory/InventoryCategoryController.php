@@ -3,70 +3,48 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\ListDropdown;
+use App\Http\Controllers\Inventory\Concerns\RespondsWithInventoryResults;
+use App\Http\Requests\Inventory\InventoryCategoryRequest;
+use App\Services\Inventory\InventoryStockClass;
+use App\Traits\HandlesTransaction;
 use Illuminate\Http\Request;
 
 class InventoryCategoryController extends Controller
 {
-    private const CLASSIFICATION = 'Item Category';
+    use HandlesTransaction;
+    use RespondsWithInventoryResults;
+
+    public function __construct(private InventoryStockClass $stockService) {}
 
     public function index()
     {
-        return response()->json(
-            ListDropdown::where('classification', self::CLASSIFICATION)
-                ->orderBy('name')
-                ->get(['id', 'name', 'is_active'])
-        );
+        return $this->stockService->categories();
     }
 
-    public function store(Request $request)
+    public function store(InventoryCategoryRequest $request)
     {
-        $request->validate([
-            'name' => [
-                'required', 'string', 'max:100',
-                \Illuminate\Validation\Rule::unique('list_dropdowns', 'name')
-                    ->where('classification', self::CLASSIFICATION),
-            ],
-        ]);
+        $result = $this->handleTransaction(function () use ($request) {
+            return $this->stockService->saveCategory($request);
+        });
 
-        $category = ListDropdown::create([
-            'name'           => $request->name,
-            'classification' => self::CLASSIFICATION,
-            'type'           => 'n/a',
-            'color'          => 'n/a',
-            'others'         => 'n/a',
-            'is_active'      => $request->boolean('is_active', true),
-        ]);
-
-        return response()->json(['data' => $category, 'message' => 'Category created.'], 201);
+        return $this->inventoryResultResponse($request, $result, 'categories');
     }
 
-    public function update(Request $request, $id)
+    public function update(InventoryCategoryRequest $request, int $id)
     {
-        $category = ListDropdown::where('classification', self::CLASSIFICATION)->findOrFail($id);
+        $result = $this->handleTransaction(function () use ($request, $id) {
+            return $this->stockService->updateCategory($request, $id);
+        });
 
-        $request->validate([
-            'name' => [
-                'required', 'string', 'max:100',
-                \Illuminate\Validation\Rule::unique('list_dropdowns', 'name')
-                    ->where('classification', self::CLASSIFICATION)
-                    ->ignore($id),
-            ],
-        ]);
-
-        $category->update([
-            'name'      => $request->name,
-            'is_active' => $request->boolean('is_active', (bool) $category->is_active),
-        ]);
-
-        return response()->json(['data' => $category, 'message' => 'Category updated.']);
+        return $this->inventoryResultResponse($request, $result, 'categories');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, int $id)
     {
-        $category = ListDropdown::where('classification', self::CLASSIFICATION)->findOrFail($id);
-        $category->delete();
+        $result = $this->handleTransaction(function () use ($id) {
+            return $this->stockService->deleteCategory($id);
+        });
 
-        return response()->json(['message' => 'Category deleted.']);
+        return $this->inventoryResultResponse($request, $result, 'categories');
     }
 }

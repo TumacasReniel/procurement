@@ -103,7 +103,7 @@
 
         <div class="col-12">
           <label class="form-label fw-semibold" for="stock_unit_cost">
-            Unit Cost <span class="text-danger">*</span>
+            Unit Cost
           </label>
           <div class="input-group" :class="{ 'is-invalid': errors.unit_cost }">
             <span class="input-group-text">₱</span>

@@ -83,11 +83,27 @@
 
     <b-modal
       v-model="showTimelineModal"
-      title="Status Timeline"
-      size="xl"
+      size="lg"
       centered
       hide-footer
+      header-class="border-bottom pb-2"
     >
+      <template #header>
+        <div class="d-flex align-items-center gap-2 w-100">
+          <span class="avatar-title bg-warning-subtle rounded p-2" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="ri-git-branch-line text-warning"></i>
+          </span>
+          <div class="flex-grow-1">
+            <div class="fw-bold fs-14">APP Status Timeline</div>
+            <div class="text-muted fs-12">
+              {{ ppmp.code || ppmp.ppmp_no || 'Annual Procurement Plan' }}
+              &nbsp;·&nbsp;
+              {{ ppmp.ppmp_status || ppmp.approval_status || 'Pending' }}
+            </div>
+          </div>
+          <button type="button" class="btn-close" @click="showTimelineModal = false"></button>
+        </div>
+      </template>
       <PlanStatusTimeline :plan="ppmp" :plan-type="planShortName" />
     </b-modal>
 

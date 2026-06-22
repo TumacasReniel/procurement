@@ -18,6 +18,7 @@ class ProcurementPPMPPlanRequest extends FormRequest
                 'option' => ['required', 'in:create_ppmp'],
                 'unit_id' => ['required', 'integer', 'exists:list_units,id'],
                 'year' => ['required', 'integer', 'min:2000', 'max:' . (date('Y') + 10)],
+                'attachment_file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
             ];
         }
 
@@ -30,6 +31,7 @@ class ProcurementPPMPPlanRequest extends FormRequest
 
         if ($this->plan_type === 'SPP') {
             $rules['unit_id'] = ['required', 'integer', 'exists:list_units,id'];
+            $rules['attachment_file'] = ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'];
         }
 
         return $rules;

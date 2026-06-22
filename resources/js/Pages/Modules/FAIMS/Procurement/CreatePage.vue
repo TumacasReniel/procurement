@@ -244,19 +244,30 @@
                   <div class="card-header-custom">
                     <i class="ri-shopping-bag-line card-header-icon"></i>
                     <h5 class="card-header-title">Items</h5>
-                    <div class="ms-auto">
+                    <div v-if="canManageRequestDetails" class="ms-auto d-flex gap-2">
                       <b-button
-                        v-if="canManageRequestDetails"
+                        v-if="option === 'create'"
+                        :disabled="!canAddItems"
+                        @click="openManualItem()"
+                        variant="outline-primary"
+                        size="sm"
+                        class="add-item-btn"
+                        v-b-tooltip.hover
+                        :title="canAddItems ? 'Add item manually' : addItemDisabledReason"
+                      >
+                        <i class="ri-pencil-line me-1"></i>Add Manually
+                      </b-button>
+                      <b-button
                         :disabled="!canAddItems"
                         @click="openAddItem()"
-                        variant="primary"
+                        variant="success"
                         size="sm"
                         class="add-item-btn"
                         v-b-tooltip.hover
                         :title="addItemDisabledReason"
                       >
                         <i class="ri-add-line me-1"></i>
-                        Select Items
+                        {{ option === 'create' ? 'Select Items' : 'Add Item' }}
                       </b-button>
                     </div>
                   </div>
@@ -299,7 +310,13 @@
                                 </span>
                               </td>
                               <td class="item-description">
-                                <span> {{ item.item_name || "-" }}</span>
+                                <span>{{ item.item_name || "-" }}</span>
+                                <b-badge
+                                  v-if="!item.ppmp_item_id && option === 'create'"
+                                  variant="secondary"
+                                  class="ms-1"
+                                  style="font-size: 9px; vertical-align: middle"
+                                >Manual</b-badge>
                                 <div v-html="item.item_description"></div>
                               </td>
                               <td class="text-center item-quantity">
@@ -359,10 +376,8 @@
                       <div class="empty-state-icon">
                         <i class="ri-shopping-bag-line"></i>
                       </div>
-                      <h6 class="empty-state-title">No Items Selected</h6>
-                      <p class="empty-state-text">
-                        Click "Select Items" to add items to this PR.
-                      </p>
+                      <h6 class="empty-state-title">No Items Added</h6>
+                      <p class="empty-state-text">Select from PPMP items or add items manually.</p>
                     </div>
                   </div>
                 </div>
@@ -499,7 +514,20 @@
       :existing-items="form.items || []"
       :is-loading="isLoadingPpmpItems"
       @refresh="getDataFromLocalStorage()"
+      @switch-to-manual="openManualItem"
       ref="ppmpItemSelector"
+    />
+
+    <AddItemTableModal
+      v-if="option === 'create'"
+      ref="manualItemModal"
+      :unit-type-options="unitTypeOptions"
+      :item-category-options="itemCategoryOptions"
+      :project-options="ppmpProjectOptions"
+      :show-project-select="true"
+      :existing-form-items="form.items || []"
+      @save="saveManualItem"
+      @category-added="onManualCategoryAdded"
     />
 
     <Item v-else :dropdowns="dropdowns" @refresh="getDataFromLocalStorage()" ref="item" />
@@ -508,6 +536,7 @@
 <script>
 import Item from "./Modals/Item.vue";
 import SelectPpmpItems from "./Modals/SelectPpmpItems.vue";
+import AddItemTableModal from "./PPMP/Modals/AddItemTableModal.vue";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import { useForm } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
@@ -526,6 +555,7 @@ export default {
     Multiselect,
     Item,
     SelectPpmpItems,
+    AddItemTableModal,
     RightSidebar,
   },
   props: ["procurement", "dropdowns", "option", "regional_director"],
@@ -554,12 +584,14 @@ export default {
       showModal: false,
       units: [],
       ppmpItems: [],
+      ppmpProjects: [],
       isLoadingPpmpItems: false,
       latestPpmpItemsKey: "",
       createDraftStorageKey: "procurementRequestCreateDraft",
       isRestoringCreateDraft: false,
       isRightCollapsed: false,
       isCollapsed: false,
+      localItemCategories: [],
     };
   },
 
@@ -651,6 +683,22 @@ export default {
   computed: {
     canManageRequestDetails() {
       return ["create", "edit", "review"].includes(this.option);
+    },
+    unitTypeOptions() {
+      const options = this.dropdowns?.unit_types ?? [];
+      return Array.isArray(options) ? options : Object.values(options);
+    },
+    ppmpProjectOptions() {
+      return this.ppmpProjects;
+    },
+    itemCategoryOptions() {
+      const base = this.dropdowns?.item_categories ?? [];
+      const baseArr = Array.isArray(base) ? base : Object.values(base);
+      const existingIds = new Set(baseArr.map((o) => Number(o.value ?? o.id)));
+      return [
+        ...baseArr,
+        ...this.localItemCategories.filter((o) => !existingIds.has(Number(o.value ?? o.id))),
+      ];
     },
     totalCostSum() {
       if (!Array.isArray(this.form.items)) return 0;
@@ -954,9 +1002,7 @@ export default {
         this.form.fund_cluster_id &&
         this.form.purpose &&
         this.form.requested_by_id &&
-        this.form.approved_by_id &&
-        this.form.items &&
-        this.form.items.length > 0
+        this.form.approved_by_id
       );
     },
   },
@@ -1173,6 +1219,35 @@ export default {
       this.$refs.item?.show();
     },
 
+    openManualItem() {
+      this.$refs.manualItemModal?.show();
+    },
+
+    saveManualItem({ row, editIndex }) {
+      const unitType = this.unitTypeOptions.find(
+        (u) => Number(u.value) === Number(row.item_unit_type_id)
+      ) || null;
+
+      const item = {
+        ...row,
+        ppmp_item_id: null,
+        item_unit_type: unitType,
+      };
+
+      let items = Array.isArray(this.form.items) ? [...this.form.items] : [];
+      if (editIndex !== null && editIndex !== undefined && editIndex >= 0 && editIndex < items.length) {
+        items[editIndex] = item;
+      } else {
+        items.push(item);
+      }
+      this.form.items = items;
+      localStorage.setItem("itemsAdded", JSON.stringify(items));
+    },
+
+    onManualCategoryAdded(category) {
+      this.localItemCategories.push(category);
+    },
+
     procurementCodeBelongsToSelectedUnit(option) {
       if (!this.ppmpSelectionUnitId) {
         return false;
@@ -1209,6 +1284,7 @@ export default {
 
       if (!this.ppmpSelectionUnitId) {
         this.ppmpItems = [];
+        this.ppmpProjects = [];
         this.removeItemsOutsideCurrentPpmp();
         return;
       }
@@ -1217,24 +1293,25 @@ export default {
       this.latestPpmpItemsKey = requestKey;
       this.isLoadingPpmpItems = true;
 
-      axios
-        .get("/faims/procurements/create", {
-          params: {
-            option: "ppmp_items",
-            unit_id: this.ppmpSelectionUnitId,
-          },
-        })
-        .then((response) => {
+      const params = { unit_id: this.ppmpSelectionUnitId };
+
+      Promise.all([
+        axios.get("/faims/procurements/create", { params: { ...params, option: "ppmp_items" } }),
+        axios.get("/faims/procurements/create", { params: { ...params, option: "ppmp_projects" } }),
+      ])
+        .then(([itemsRes, projectsRes]) => {
           if (this.latestPpmpItemsKey !== requestKey) {
             return;
           }
 
-          this.ppmpItems = Array.isArray(response.data) ? response.data : [];
+          this.ppmpItems = Array.isArray(itemsRes.data) ? itemsRes.data : [];
+          this.ppmpProjects = Array.isArray(projectsRes.data) ? projectsRes.data : [];
           this.removeItemsOutsideCurrentPpmp();
         })
         .catch((err) => {
           console.log(err);
           this.ppmpItems = [];
+          this.ppmpProjects = [];
           this.removeItemsOutsideCurrentPpmp();
         })
         .finally(() => {
@@ -1255,7 +1332,7 @@ export default {
 
       const availableIds = this.availablePpmpItemIds;
       const filteredItems = this.form.items.filter(
-        (item) => item.ppmp_item_id && availableIds.has(Number(item.ppmp_item_id))
+        (item) => !item.ppmp_item_id || availableIds.has(Number(item.ppmp_item_id))
       );
 
       if (filteredItems.length === this.form.items.length) {
@@ -1275,12 +1352,16 @@ export default {
     },
 
     editItem(index) {
+      const item = this.form.items[index];
       if (this.option === "create") {
-        this.$refs.ppmpItemSelector?.edit(this.form.items[index], index);
+        if (!item.ppmp_item_id) {
+          this.$refs.manualItemModal?.show(item, index);
+          return;
+        }
+        this.$refs.ppmpItemSelector?.edit(item, index);
         return;
       }
-
-      this.$refs.item?.edit(this.form.items[index], index);
+      this.$refs.item?.edit(item, index);
     },
 
     removeItem(index) {

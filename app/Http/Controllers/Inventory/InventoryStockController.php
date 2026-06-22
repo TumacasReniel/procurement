@@ -27,7 +27,7 @@ class InventoryStockController extends Controller
         }
 
         return Inertia::render('Modules/Inventory/Index', array_merge(
-            ['initialTab' => $this->resolveTab((string) $request->query('tab', 'stocks'))],
+            ['initialTab' => $this->resolveTab((string) $request->query('tab', 'items'))],
             $this->inventory->indexData($request)
         ));
     }
@@ -61,7 +61,7 @@ class InventoryStockController extends Controller
 
     protected function resolveTab(string $tab): string
     {
-        return in_array($tab, ['stocks', 'items', 'categories', 'receivings', 'withdrawals', 'ris', 'report'], true)
+        return in_array($tab, ['stocks', 'items', 'categories', 'receivings', 'withdrawals', 'ris', 'from-procurement', 'report'], true)
             ? $tab
             : 'items';
     }

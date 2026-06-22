@@ -45,6 +45,20 @@
                 <strong>{{ ppmp.division?.name || "-" }}</strong>
               </div>
             </div>
+            <div v-if="ppmp.attachment_url" class="col-12">
+              <div class="info-row">
+                <span>Line-Item Budget</span>
+                <a
+                  :href="ppmp.attachment_url"
+                  target="_blank"
+                  rel="noopener"
+                  class="detail-attachment"
+                >
+                  <i class="ri-attachment-2 align-bottom me-1"></i>
+                  {{ ppmp.attachment_original_name || "View attachment" }}
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -52,11 +66,27 @@
 
     <b-modal
       v-model="showTimelineModal"
-      title="Status Timeline"
       size="xl"
       centered
       hide-footer
+      header-class="border-bottom pb-2"
     >
+      <template #header>
+        <div class="d-flex align-items-center gap-2 w-100">
+          <span class="avatar-title bg-primary-subtle rounded p-2" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="ri-git-branch-line text-primary"></i>
+          </span>
+          <div class="flex-grow-1">
+            <div class="fw-bold fs-14">PPMP Status Timeline</div>
+            <div class="text-muted fs-12">
+              {{ ppmp.code || ppmp.ppmp_no || 'Procurement Plan' }}
+              &nbsp;·&nbsp;
+              {{ ppmp.ppmp_status || ppmp.approval_status || 'Pending' }}
+            </div>
+          </div>
+          <button type="button" class="btn-close" @click="showTimelineModal = false"></button>
+        </div>
+      </template>
       <PlanStatusTimeline :plan="ppmp" plan-type="PPMP" />
     </b-modal>
 
@@ -99,7 +129,7 @@
           @click="$emit('add-item')"
         >
           <i class="ri-add-line align-bottom me-1"></i>
-          Add Item
+          Add Procurement Project
         </b-button>
       </div>
     </div>
@@ -214,8 +244,8 @@
                 {{ ppmp.source_of_funds || ppmp.fund_cluster?.name || "-" }}
               </td>
 
-              <td class="text-end fw-semibold">
-                {{ formatCurrency(item.abc) }}
+              <td v-if="item.entryRowspan" :rowspan="item.entryRowspan" class="text-end fw-semibold">
+                {{ formatCurrency(item.entryTotalAbc) }}
               </td>
 
               <td v-if="item.supportRowspan" :rowspan="item.supportRowspan" class="text-center ppmp-entry-cell">
@@ -267,7 +297,66 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!ppmp.item_details?.length">
+            <tr v-for="(projectRow, idx) in (ppmp.project_rows || [])" :key="'proj-' + idx">
+              <td class="ppmp-entry-cell">
+                {{ projectRow.general_description_objective || "-" }}
+              </td>
+              <td class="text-center ppmp-entry-cell">
+                {{ projectRow.project_type || "-" }}
+              </td>
+              <td>—</td>
+              <td>
+                {{ projectRow.recommended_mode_of_procurement || "-" }}
+              </td>
+              <td class="text-center">
+                {{ projectRow.pre_procurement_conference || "No" }}
+              </td>
+              <td class="text-center">
+                {{ formatMonthYear(projectRow.start_of_procurement_activity) }}
+              </td>
+              <td class="text-center">
+                {{ formatMonthYear(projectRow.end_of_procurement_activity) }}
+              </td>
+              <td class="text-center">
+                {{ formatMonthYear(projectRow.expected_delivery_date) }}
+              </td>
+              <td class="text-center">{{ projectRow.source_of_funds || "-" }}</td>
+              <td class="text-end fw-semibold">
+                {{ projectRow.project_total_budget ? formatCurrency(projectRow.project_total_budget) : "—" }}
+              </td>
+              <td class="text-center ppmp-entry-cell">
+                <div>{{ projectRow.attached_supporting_documents || "-" }}</div>
+              </td>
+              <td class="text-center ppmp-entry-cell">
+                {{ projectRow.remarks || "-" }}
+              </td>
+              <td class="text-center text-muted">—</td>
+              <td v-if="canEditIndicativeItems" class="text-center">
+                <div class="d-flex justify-content-center gap-1">
+                  <b-button
+                    type="button"
+                    variant="success"
+                    size="sm"
+                    class="btn-icon"
+                    style="border-radius: 8px;"
+                    @click="$emit('edit-item', { _isPpmpProject: true, ppmp_id: projectRow.ppmp_id, ...projectRow })"
+                  >
+                    <i class="ri-edit-2-line"></i>
+                  </b-button>
+                  <b-button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    class="btn-icon"
+                    style="border-radius: 8px;"
+                    @click="$emit('delete-item', { _isPpmpProject: true, ppmp_id: projectRow.ppmp_id, name: projectRow.general_description_objective })"
+                  >
+                    <i class="ri-delete-bin-line"></i>
+                  </b-button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!ppmp.item_details?.length && !(ppmp.project_rows?.length)">
               <td :colspan="canEditIndicativeItems ? 14 : 13" class="text-center text-muted py-4">No items found.</td>
             </tr>
           </tbody>
@@ -645,12 +734,14 @@ export default {
 
       return Array.from(entryGroups.values()).flatMap((supportGroups) => {
         const entryItems = Array.from(supportGroups.values()).flat();
+        const entryTotalAbc = entryItems.reduce((sum, i) => sum + Number(i.abc || 0), 0);
         let isFirstEntryRow = true;
 
         return Array.from(supportGroups.values()).flatMap((supportItems) => supportItems.map((item, index) => {
           const row = {
             ...item,
             entryRowspan: isFirstEntryRow ? entryItems.length : 0,
+            entryTotalAbc: isFirstEntryRow ? entryTotalAbc : 0,
             supportRowspan: index === 0 ? supportItems.length : 0,
             __entry_items: entryItems,
           };

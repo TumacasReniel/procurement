@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use Illuminate\Database\QueryException;
+use Illuminate\Validation\ValidationException;
 use PDOException;
 
 trait HandlesTransaction
@@ -14,12 +15,13 @@ trait HandlesTransaction
 
         try {
             $result = \DB::transaction($callback);
-            // $status = ($result['status'] === 'error') ? false : true;
             $data = $result['data'];
             $info = $result['info'];
             $message = $result['message'];
-            // $status = $status;
             $status = isset($result['status']) ? $result['status'] : true;
+        } catch (ValidationException $e) {
+            // Re-throw so Inertia receives a proper 422 with form errors
+            throw $e;
         } catch (QueryException $e) {
             $info = 'Transaction failed: ' . $e->getMessage();
             $message = 'Error occured';
@@ -27,8 +29,8 @@ trait HandlesTransaction
             $info = 'Transaction failed due to a database driver error: ' . $e->getMessage();
             $message = 'Error occured';
         } catch (\Exception $e) {
-            $info = 'An unexpected error occurred: ' . $e->getMessage();
-            $message = 'Error occured';
+            $info = null;
+            $message = $e->getMessage();
         }
 
         return [

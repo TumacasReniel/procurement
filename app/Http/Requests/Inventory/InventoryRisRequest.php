@@ -2,15 +2,13 @@
 
 namespace App\Http\Requests\Inventory;
 
+use App\Http\Requests\Inventory\Concerns\AuthorizesInventoryAccess;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class InventoryRisRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
+    use AuthorizesInventoryAccess;
 
     public function rules(): array
     {
@@ -28,7 +26,7 @@ class InventoryRisRequest extends FormRequest
             'approved_by_id'        => ['nullable', 'exists:users,id'],
             'issued_by_id'          => ['nullable', 'exists:users,id'],
             'received_by_id'        => ['nullable', 'exists:users,id'],
-            'status_id'             => ['required', 'exists:list_statuses,id'],
+            'status_id'             => [$this->isMethod('PUT') ? 'required' : 'nullable', 'exists:list_statuses,id'],
             'items'                 => ['nullable', 'array'],
             'items.*.item_id'           => ['required', 'exists:inventory_items,id'],
             'items.*.unit_of_issue'     => ['nullable', 'string', 'max:50'],

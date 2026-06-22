@@ -4,15 +4,32 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class InventoryItem extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['code', 'name', 'category_id'])
+            ->setDescriptionForEvent(fn(string $e) => "{$e} inventory item")
+            ->useLogName('Inventory')
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     protected $fillable = [
         'code',
         'name',
+        'reorder_level',
         'category_id',
+    ];
+
+    protected $casts = [
+        'category_id' => 'integer',
     ];
 
     public function stocks()
@@ -52,7 +69,7 @@ class InventoryItem extends Model
 
         $lastCode = self::where('code', 'like', $prefix . '%')
             ->lockForUpdate()
-            ->orderByDesc('code')
+            ->orderByRaw('CAST(SUBSTRING(code, ?) AS UNSIGNED) DESC', [strlen($prefix) + 1])
             ->value('code');
 
         $nextNumber = 1;

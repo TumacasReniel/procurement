@@ -42,6 +42,27 @@
             {{ form.errors.unit_id }}
           </div>
         </BCol>
+
+        <BCol lg="12" class="mt-3">
+          <label class="form-label">Supporting Document</label>
+          <FileDropzone
+            :file="form.attachment_file"
+            :invalid="!!form.errors.attachment_file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            :allowed-extensions="['pdf', 'jpg', 'jpeg', 'png']"
+            :max-size-mb="10"
+            invalid-type-message="Please attach a PDF or image file only."
+            invalid-size-message="Please attach a file up to 10 MB only."
+            title="Drop attachment here or click to browse"
+            hint="PDF or image files only, up to 10 MB"
+            @selected="form.attachment_file = $event; form.clearErrors('attachment_file')"
+            @rejected="form.setError('attachment_file', $event.message)"
+            @remove="form.attachment_file = null"
+          />
+          <div v-if="form.errors.attachment_file" class="invalid-feedback d-block">
+            {{ form.errors.attachment_file }}
+          </div>
+        </BCol>
       </BRow>
     </form>
 
@@ -50,7 +71,7 @@
       <b-button
         @click="$emit('submit')"
         variant="warning"
-        :disabled="form.processing || !form.unit_id || !form.year"
+        :disabled="form.processing || !form.unit_id || !form.year || !form.attachment_file"
         block
       >
         {{ form.processing ? "Creating..." : "Create SPP" }}
@@ -61,9 +82,10 @@
 
 <script>
 import Multiselect from "@vueform/multiselect";
+import FileDropzone from "@/Shared/Components/Forms/FileDropzone.vue";
 
 export default {
-  components: { Multiselect },
+  components: { Multiselect, FileDropzone },
   props: {
     modelValue: { type: Boolean, default: false },
     form: { type: Object, required: true },

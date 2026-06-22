@@ -49,8 +49,9 @@ class ProcurementPPMPResource extends JsonResource
         $consolidated_item_details = $plan_type === 'ppmp'
             ? $item_details
             : $this->consolidated_item_details($item_details, $this->procurement_app?->pricing_overrides ?? []);
+        $no_item_budget = collect($this->no_item_ppmps ?? [])->sum(fn ($p) => (float) ($p->project_total_budget ?? 0));
         $display_total_amount = $plan_type === 'ppmp'
-            ? $total_amount
+            ? $total_amount + $no_item_budget
             : (float) $consolidated_item_details->sum('abc');
 
         return [
@@ -68,20 +69,25 @@ class ProcurementPPMPResource extends JsonResource
             'can_revert_status' => $this->can_revert_status($is_consolidated),
             'plan_name' => $plan_name ?: 'PPMP',
             'plan_type' => $plan_type,
+            'ppmp_type' => $this->ppmp_type ?? 'indicative',
+            'ppmp_type_version' => (int) ($this->ppmp_type_version ?? 1),
+            'ppmp_type_label' => $this->ppmpTypeLabel($plan_type),
             'date' => $this->date,
             'formatted_date' => $this->date ? date('F j, Y', strtotime($this->date)) : null,
             'general_description_objective' => $this->title ?: $this->purpose,
             'type_of_project' => $this->classification_override ?: $this->classification?->name,
+            'project_type' => $this->project_type,
             'quantity_and_size' => $this->quantity_and_size($items),
-            'recommended_mode_of_procurement' => $this->mode_of_procurement(),
-            'pre_procurement_conference' => null,
-            'start_of_procurement_activity' => $start_date,
-            'end_of_procurement_activity' => null,
-            'expected_delivery_implementation_period' => null,
+            'recommended_mode_of_procurement' => $this->recommended_mode_of_procurement ?: $this->mode_of_procurement(),
+            'pre_procurement_conference' => $this->pre_procurement_conference,
+            'start_of_procurement_activity' => $this->start_of_procurement_activity ?: $start_date,
+            'end_of_procurement_activity' => $this->end_of_procurement_activity,
+            'expected_delivery_implementation_period' => $this->expected_delivery_date,
+            'expected_delivery_date' => $this->expected_delivery_date,
             'source_of_funds' => $this->source_of_funds_override ?: $this->fund_cluster?->name,
             'estimated_budget' => round($display_total_amount, 2),
-            'attached_supporting_documents' => null,
-            'remarks' => null,
+            'attached_supporting_documents' => $this->attached_supporting_documents,
+            'remarks' => $this->remarks,
             'purpose' => $this->purpose,
             'title' => $this->title,
             'division' => $this->division,
@@ -130,6 +136,23 @@ class ProcurementPPMPResource extends JsonResource
             'consolidated_items_count' => $consolidated_item_details->count(),
             'ppmp_count' => $this->aggregated_ppmp_count ?: 1,
             'total_amount' => round($display_total_amount, 2),
+            'attachment_path' => $this->attachment_path,
+            'attachment_original_name' => $this->attachment_original_name,
+            'attachment_url' => $this->attachment_path ? asset('storage/'.ltrim($this->attachment_path, '/')) : null,
+            'project_rows' => collect($this->no_item_ppmps ?? [])->map(fn ($p) => [
+                'ppmp_id' => $p->id,
+                'general_description_objective' => $p->title ?: $p->purpose,
+                'project_type' => $p->project_type,
+                'recommended_mode_of_procurement' => $p->recommended_mode_of_procurement,
+                'pre_procurement_conference' => $p->pre_procurement_conference,
+                'start_of_procurement_activity' => $p->start_of_procurement_activity,
+                'end_of_procurement_activity' => $p->end_of_procurement_activity,
+                'expected_delivery_date' => $p->expected_delivery_date,
+                'source_of_funds' => $p->fund_cluster?->name,
+                'project_total_budget' => (float) ($p->project_total_budget ?? 0),
+                'attached_supporting_documents' => $p->attached_supporting_documents,
+                'remarks' => $p->remarks,
+            ])->values()->all(),
             'status' => $this->status,
             'sub_status' => $this->sub_status,
         ];
@@ -717,6 +740,15 @@ class ProcurementPPMPResource extends JsonResource
             ?? data_get($value, 'value');
 
         return $label ? (string) $label : null;
+    }
+
+    protected function ppmpTypeLabel(string $plan_type): ?string
+    {
+        if (in_array($plan_type, ['ppmp', 'supplemental'], true)) {
+            return ucfirst($this->ppmp_type ?? 'indicative');
+        }
+
+        return null;
     }
 
     protected function can_mark_final_ppmp(?string $plan_name, string $plan_type): bool

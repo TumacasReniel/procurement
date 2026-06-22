@@ -82,14 +82,6 @@ class ProcurementRequest extends FormRequest
             }
 
             $submittedItems = collect($this->input('items', []));
-            if ($this->isMethod('post') && $submittedItems->contains(fn ($item) => blank(data_get($item, 'ppmp_item_id')))) {
-                $validator->errors()->add(
-                    'items',
-                    'Select each PR item from the items assigned to the selected procurement code.'
-                );
-
-                return;
-            }
 
             $isCreateByCategory = $this->isCreateByCategoryRequest();
 

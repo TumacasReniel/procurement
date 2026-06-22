@@ -4,13 +4,29 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\ProcurementNoaPo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class InventoryReceiving extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['item_id', 'quantity', 'status_id', 'approved_by_id', 'received_at', 'remarks'])
+            ->setDescriptionForEvent(fn(string $e) => "{$e} inventory receiving")
+            ->useLogName('Inventory')
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     protected $fillable = [
         'item_id',
+        'quantity',
+        'po_id',
+        'procurement_item_id',
         'approved_by_id',
         'status_id',
         'received_at',
@@ -18,6 +34,7 @@ class InventoryReceiving extends Model
     ];
 
     protected $casts = [
+        'quantity'    => 'decimal:2',
         'received_at' => 'datetime',
     ];
 
@@ -28,11 +45,16 @@ class InventoryReceiving extends Model
 
     public function approvedBy()
     {
-        return $this->belongsTo(User::class, 'approved_by_id')->with('profile');
+        return $this->belongsTo(User::class, 'approved_by_id');
     }
 
     public function status()
     {
         return $this->belongsTo(ListStatus::class, 'status_id');
+    }
+
+    public function po()
+    {
+        return $this->belongsTo(ProcurementNoaPo::class, 'po_id');
     }
 }

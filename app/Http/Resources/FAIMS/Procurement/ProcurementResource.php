@@ -18,7 +18,11 @@ class ProcurementResource extends JsonResource
         return [
             'id' => $this->id,
             'code' =>  $this->code,
+            'pr_no' =>  $this->code,
             'date' => (new \DateTime($this->date))->format('F j, Y'),
+            'date_iso' => $this->date,
+            'created_at' => $this->created_at?->toDateTimeString(),
+            'calendar_start_at' => $this->created_at?->toDateTimeString(),
             'purpose' =>  $this->purpose,
             'title' =>  $this->title,
             'unit' =>  $this->unit,

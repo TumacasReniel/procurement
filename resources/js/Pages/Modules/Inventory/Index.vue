@@ -183,7 +183,6 @@
                 <table class="inv-table">
                   <thead>
                     <tr>
-                      <th style="width: 36px"></th>
                       <th style="width: 80px" class="text-center">Order</th>
                       <th style="width: 130px">Code</th>
                       <th>Name</th>
@@ -194,7 +193,7 @@
                   </thead>
                   <tbody>
                     <tr v-if="loading" class="inv-table-empty">
-                      <td colspan="7">
+                      <td colspan="6">
                         <div class="inv-loading-state">
                           <div class="inv-spinner"></div>
                           <span>Loading...</span>
@@ -202,11 +201,10 @@
                       </td>
                     </tr>
                     <tr v-else-if="sortedItemRows.length === 0" class="inv-table-empty">
-                      <td colspan="7">
+                      <td colspan="6">
                         <div class="inv-empty-state">
                           <i class="ri-inbox-line"></i>
                           <p>No items yet.</p>
-                      
                         </div>
                       </td>
                     </tr>
@@ -215,26 +213,9 @@
                       v-for="(item, index) in sortedItemRows"
                       :key="item.id"
                     >
-                      <tr
-                        class="inv-table-row"
-                        :class="{ 'item-row-open': isItemExpanded(item.id) }"
-                        style="cursor: pointer"
-                        @click="toggleItemExpand(item)"
-                      >
-                        <!-- Expand chevron (visual only, click handled by row) -->
-                        <td class="text-center" style="padding: 0.4rem">
-                          <span
-                            class="item-expand-btn"
-                            :class="{ active: isItemExpanded(item.id) }"
-                          >
-                            <i
-                              class="ri-arrow-right-s-line item-expand-icon"
-                              :class="{ rotated: isItemExpanded(item.id) }"
-                            ></i>
-                          </span>
-                        </td>
-                        <!-- Order controls — stop row click from firing -->
-                        <td class="text-center" @click.stop>
+                      <tr class="inv-table-row">
+                        <!-- Order controls -->
+                        <td class="text-center">
                           <div class="inventory-order-controls">
                             <button
                               type="button"
@@ -282,7 +263,7 @@
                             >{{ item.stock_count }}</span
                           >
                         </td>
-                        <td class="text-center" @click.stop>
+                        <td class="text-center">
                           <div class="inv-row-actions">
                             <button
                               class="inv-action-btn view"
@@ -321,209 +302,6 @@
                         </td>
                       </tr>
 
-                      <!-- ── Expanded stocks sub-row ─────────────────────── -->
-                      <tr v-if="isItemExpanded(item.id)" class="item-sub-row">
-                        <td colspan="7" class="p-0">
-                          <div class="item-stocks-panel">
-                            <!-- Panel header -->
-                            <div class="isp-header">
-                              <div class="isp-header-left">
-                                <span class="isp-header-icon"
-                                  ><i class="ri-stack-line"></i
-                                ></span>
-                                <div>
-                                  <span class="isp-header-title">Stock Entries</span>
-                                  <span class="isp-header-sub">{{ item.name }}</span>
-                                </div>
-                              </div>
-                              <div class="isp-header-right">
-                                <template v-if="itemStocksCache[item.id]?.length">
-                                  <span class="isp-summary-chip">
-                                    <i class="ri-archive-line"></i>
-                                    {{ itemStocksCache[item.id].length }} entr{{
-                                      itemStocksCache[item.id].length === 1 ? "y" : "ies"
-                                    }}
-                                  </span>
-                                  <span class="isp-summary-chip green">
-                                    <i class="ri-money-dollar-circle-line"></i>
-                                    ₱{{
-                                      formatNumber(
-                                        itemStocksCache[item.id].reduce(
-                                          (s, r) =>
-                                            s +
-                                            Number(r.quantity || 0) *
-                                              Number(r.unit_cost || 0),
-                                          0
-                                        )
-                                      )
-                                    }}
-                                  </span>
-                                </template>
-                                <button
-                                  class="isp-add-btn"
-                                  @click.stop="openStockCreate(item)"
-                                >
-                                  <i class="ri-add-line"></i> Add Stock
-                                </button>
-                              </div>
-                            </div>
-
-                            <!-- Loading -->
-                            <div v-if="itemStocksLoading[item.id]" class="isp-loading">
-                              <div class="isp-spinner"></div>
-                              <span>Loading stock entries…</span>
-                            </div>
-
-                            <!-- Empty -->
-                            <div
-                              v-else-if="!itemStocksCache[item.id]?.length"
-                              class="isp-empty"
-                            >
-                              <div class="isp-empty-icon">
-                                <i class="ri-inbox-line"></i>
-                              </div>
-                              <p class="isp-empty-title">No stock entries yet</p>
-                              <p class="isp-empty-sub">
-                                Click <strong>Add Stock</strong> to record the first entry
-                                for this item.
-                              </p>
-                            </div>
-
-                            <!-- Stocks table -->
-                            <template v-else>
-                              <div class="isp-table-wrap">
-                                <table class="isp-table">
-                                  <thead>
-                                    <tr>
-                                      <th class="text-center" style="width: 36px">#</th>
-                                      <th style="width: 200px">Qty / Unit</th>
-                                      <th class="text-center" style="width: 120px">
-                                        Unit Cost
-                                      </th>
-                                      <th class="text-end" style="width: 140px">
-                                        Total Value
-                                      </th>
-                                      <th class="text-center" style="width: 115px">
-                                        Date Added
-                                      </th>
-                                      <th style="min-width: 140px">Description</th>
-                                      <th class="text-center" style="width: 80px">
-                                        Actions
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr
-                                      v-for="(stock, si) in itemStocksCache[item.id]"
-                                      :key="stock.id"
-                                      class="isp-row"
-                                    >
-                                      <td class="text-center">
-                                        <span class="isp-row-num">{{ si + 1 }}</span>
-                                      </td>
-                                      <td>
-                                        <div class="isp-qty-cell">
-                                          <span class="isp-qty-val">{{
-                                            formatNumber(stock.quantity)
-                                          }}</span>
-                                          <span class="isp-unit-pill">{{
-                                            stock.unit || "—"
-                                          }}</span>
-                                        </div>
-                                        <span
-                                          v-if="
-                                            stock.unit_long &&
-                                            stock.unit_long !== stock.unit
-                                          "
-                                          class="isp-unit-long"
-                                          >{{ stock.unit_long }}</span
-                                        >
-                                      </td>
-                                      <td class="text-center">
-                                        <span class="isp-cost-val"
-                                          >₱{{ formatNumber(stock.unit_cost) }}</span
-                                        >
-                                      </td>
-                                      <td class="text-end">
-                                        <span class="isp-total-val"
-                                          >₱{{
-                                            formatNumber(
-                                              Number(stock.quantity) *
-                                                Number(stock.unit_cost)
-                                            )
-                                          }}</span
-                                        >
-                                      </td>
-                                      <td class="text-center">
-                                        <span class="isp-date">
-                                          <i class="ri-calendar-line me-1"></i
-                                          >{{
-                                            stock.created_at
-                                              ? stock.created_at.slice(0, 10)
-                                              : "—"
-                                          }}
-                                        </span>
-                                      </td>
-                                      <td>
-                                        <span v-if="stock.description" class="isp-desc">{{
-                                          stock.description
-                                        }}</span>
-                                        <span v-else class="isp-desc-empty">—</span>
-                                      </td>
-                                      <td class="text-center">
-                                        <div class="inv-row-actions">
-                                          <button
-                                            class="inv-action-btn edit"
-                                            title="Edit"
-                                            v-b-tooltip.hover
-                                            @click.stop="openStockEdit(stock)"
-                                          >
-                                            <i class="ri-pencil-line"></i>
-                                          </button>
-                                          <button
-                                            class="inv-action-btn del"
-                                            title="Delete"
-                                            v-b-tooltip.hover
-                                            @click.stop="removeExpandedStock(stock)"
-                                          >
-                                            <i class="ri-delete-bin-line"></i>
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  </tbody>
-                                  <tfoot>
-                                    <tr class="isp-totals-row">
-                                      <td colspan="2" class="text-end">
-                                        <span class="isp-totals-label"
-                                          >Total across all entries</span
-                                        >
-                                      </td>
-                                      <td></td>
-                                      <td class="text-end">
-                                        <span class="isp-totals-value">
-                                          ₱{{
-                                            formatNumber(
-                                              itemStocksCache[item.id].reduce(
-                                                (s, r) =>
-                                                  s +
-                                                  Number(r.quantity || 0) *
-                                                    Number(r.unit_cost || 0),
-                                                0
-                                              )
-                                            )
-                                          }}
-                                        </span>
-                                      </td>
-                                      <td colspan="3"></td>
-                                    </tr>
-                                  </tfoot>
-                                </table>
-                              </div>
-                            </template>
-                          </div>
-                        </td>
-                      </tr>
                     </template>
                   </tbody>
                 </table>
@@ -612,12 +390,10 @@
                       </div>
                       <div class="inv-stock-stat-sep"></div>
                       <div class="inv-stock-stat">
-                        <span class="inv-stock-stat-val">{{
-                          item.unit_cost != null
-                            ? formatNumber(item.unit_cost)
-                            : "&#8212;"
-                        }}</span
-                        ><span class="inv-stock-stat-lbl">Cost</span>
+                        <span class="inv-stock-stat-val" style="font-size:0.95rem">
+                          ₱{{ formatNumber(item.total_value ?? 0) }}
+                        </span
+                        ><span class="inv-stock-stat-lbl">Total Cost</span>
                       </div>
                     </div>
                   </div>
@@ -645,95 +421,147 @@
           <!-- Categories Module -->
           <div
             v-else-if="activeModule === 'categories'"
-            class="card bg-light-subtle shadow-none border ledger-card"
+            class="inv-module-card"
           >
-            <div class="card-header bg-light-subtle">
-              <div
-                class="d-flex flex-wrap align-items-center justify-content-between gap-3"
-              >
-                <div class="d-flex align-items-center gap-3">
-                  <span
-                    class="avatar-title bg-primary-subtle rounded p-2"
-                    style="width: 2.5rem; height: 2.5rem"
-                  >
-                    <i class="ri-price-tag-3-line text-primary fs-20"></i>
-                  </span>
-                  <div>
-                    <h5 class="mb-0 fs-14">Inventory Categories</h5>
-                    <p class="text-muted fs-12 mb-0">
-                      Organize items into logical groups for filtering and reporting.
-                    </p>
-                  </div>
+            <!-- Header -->
+            <div class="inv-module-header">
+              <div class="inv-module-header-left">
+                <div class="inv-module-header-icon">
+                  <i class="ri-price-tag-3-line"></i>
+                </div>
+                <div>
+                  <h5 class="inv-module-title">Inventory Categories</h5>
+                  <p class="inv-module-subtitle">
+                    {{ filteredCategoryRows.length }} of {{ categoryRows.length }} categories
+                  </p>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="inv-search-wrap">
+                  <i class="ri-search-line inv-search-icon"></i>
+                  <input
+                    v-model="categorySearch"
+                    type="search"
+                    class="inv-search-input"
+                    placeholder="Search categories…"
+                  />
                 </div>
                 <button
                   type="button"
-                  class="btn btn-primary btn-sm rounded-pill px-3"
+                  class="inv-create-btn"
                   @click="openCategoryCreate"
                 >
-                  <i class="ri-add-line me-1"></i>Add Category
+                  <i class="ri-add-line"></i> Add Category
                 </button>
               </div>
             </div>
-            <div class="card-body bg-white rounded-bottom" style="padding: 0.85rem">
-              <div class="table-responsive inv-table-wrap">
-                <table class="table table-hover align-middle mb-0 inv-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th class="text-center" style="width: 110px">Status</th>
-                      <th class="text-center" style="width: 110px">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-if="categoriesLoading">
-                      <td colspan="3" class="text-center text-muted py-4">
-                        Loading categories...
-                      </td>
-                    </tr>
-                    <tr v-else-if="categoryRows.length === 0">
-                      <td colspan="3" class="text-center text-muted py-4">
-                        No categories yet. Click <strong>Add Category</strong> to create
-                        one.
-                      </td>
-                    </tr>
-                    <tr v-else v-for="cat in categoryRows" :key="cat.id">
-                      <td class="fw-semibold">{{ cat.name }}</td>
-                      <td class="text-center">
-                        <span
-                          class="badge rounded-pill fw-semibold"
-                          :class="
-                            cat.is_active
-                              ? 'bg-success-subtle text-success'
-                              : 'bg-secondary-subtle text-secondary'
-                          "
+
+            <!-- Table -->
+            <div class="inv-table-shell">
+              <table class="inv-table">
+                <thead>
+                  <tr>
+                    <th style="width:50px" class="text-center">#</th>
+                    <th>Name</th>
+                    <th class="text-center" style="width:110px">Status</th>
+                    <th class="text-center" style="width:110px">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="categoriesLoading" class="inv-table-empty">
+                    <td colspan="4">
+                      <div class="inv-loading-state">
+                        <div class="inv-spinner"></div>
+                        <span>Loading categories…</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-else-if="pagedCategoryRows.length === 0" class="inv-table-empty">
+                    <td colspan="4">
+                      <div class="inv-empty-state">
+                        <i class="ri-inbox-line"></i>
+                        <p>
+                          {{ categorySearch ? 'No categories match your search.' : 'No categories yet. Click Add Category to create one.' }}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr
+                    v-else
+                    v-for="(cat, idx) in pagedCategoryRows"
+                    :key="cat.id"
+                    class="inv-table-row"
+                  >
+                    <td class="text-center text-muted small">
+                      {{ (categoryPage - 1) * categoryPerPage + idx + 1 }}
+                    </td>
+                    <td class="fw-semibold">{{ cat.name }}</td>
+                    <td class="text-center">
+                      <span
+                        class="badge rounded-pill fw-semibold"
+                        :class="
+                          cat.is_active
+                            ? 'bg-success-subtle text-success'
+                            : 'bg-secondary-subtle text-secondary'
+                        "
+                      >
+                        {{ cat.is_active ? "Active" : "Inactive" }}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <div class="inv-row-actions">
+                        <button
+                          class="inv-action-btn edit"
+                          @click="openCategoryEdit(cat)"
+                          title="Edit"
+                          v-b-tooltip.hover
                         >
-                          {{ cat.is_active ? "Active" : "Inactive" }}
-                        </span>
-                      </td>
-                      <td class="text-center">
-                        <div class="d-inline-flex gap-1">
-                          <button
-                            class="btn btn-sm btn-outline-warning"
-                            @click="openCategoryEdit(cat)"
-                            title="Edit"
-                            v-b-tooltip.hover
-                          >
-                            <i class="ri-pencil-line"></i>
-                          </button>
-                          <button
-                            class="btn btn-sm btn-outline-danger"
-                            @click="removeCategory(cat)"
-                            title="Delete"
-                            v-b-tooltip.hover
-                          >
-                            <i class="ri-delete-bin-line"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                          <i class="ri-pencil-line"></i>
+                        </button>
+                        <button
+                          class="inv-action-btn del"
+                          @click="removeCategory(cat)"
+                          title="Delete"
+                          v-b-tooltip.hover
+                        >
+                          <i class="ri-delete-bin-line"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div v-if="categoryTotalPages > 1" class="inv-pagination-bar">
+              <span class="text-muted small">
+                Page {{ categoryPage }} of {{ categoryTotalPages }}
+                &nbsp;·&nbsp;
+                {{ filteredCategoryRows.length }} total
+              </span>
+              <nav>
+                <ul class="pagination pagination-sm mb-0">
+                  <li class="page-item" :class="{ disabled: categoryPage === 1 }">
+                    <button class="page-link" @click="categoryPage--">‹</button>
+                  </li>
+                  <template v-for="page in categoryVisiblePages" :key="page">
+                    <li v-if="page === '...'" class="page-item disabled">
+                      <span class="page-link">…</span>
+                    </li>
+                    <li
+                      v-else
+                      class="page-item"
+                      :class="{ active: categoryPage === page }"
+                    >
+                      <button class="page-link" @click="categoryPage = page">{{ page }}</button>
+                    </li>
+                  </template>
+                  <li class="page-item" :class="{ disabled: categoryPage === categoryTotalPages }">
+                    <button class="page-link" @click="categoryPage++">›</button>
+                  </li>
+                </ul>
+              </nav>
             </div>
           </div>
 
@@ -769,13 +597,17 @@
             :rows="risRows"
             :loading="risLoading"
             :meta="risMeta"
+            :ris-defaults="risDefaults"
+            :fund-clusters="fund_clusters"
             :links="risLinks"
             :items="itemOptionRows"
             :users="userOptions"
             :statuses="statusOptions"
+            :keyword="risKeyword"
             @create="openRisCreate"
             @fetch="fetchRis"
-            @refresh="() => fetchRis()"
+            @refresh="() => { risKeyword = ''; fetchRis(); }"
+            @update:keyword="handleRisKeywordChange"
           />
 
           <!-- Report Module -->
@@ -993,7 +825,7 @@ export default {
     ReportPanel,
   },
   props: {
-    initialTab: { type: String, default: "stocks" },
+    initialTab: { type: String, default: "items" },
     dropdowns: { type: Object, default: () => ({}) },
     users: { type: Array, default: () => [] },
     stockOptions: { type: Array, default: () => [] },
@@ -1002,6 +834,8 @@ export default {
     items: { type: [Array, Object], default: () => [] },
     receivings: { type: [Array, Object], default: () => [] },
     withdrawals: { type: [Array, Object], default: () => [] },
+    fund_clusters: { type: Array, default: () => [] },
+    risDefaults: { type: Object, default: () => ({}) },
   },
   data() {
     return {
@@ -1032,9 +866,12 @@ export default {
       withdrawalLinks: null,
       stockKeyword: "",
       stockSearchTimer: null,
+      risKeyword: "",
+      risSearchTimer: null,
       stockOptionRows: [],
       itemOptionRows: [],
       itemSort: "latest",
+      itemCategoryFilter: "",
       itemSearchTimer: null,
       manualItemOrder: [],
       lockItemStock: false,
@@ -1077,6 +914,9 @@ export default {
         remarks: "",
       },
       categoryRows: [],
+      categorySearch: "",
+      categoryPage: 1,
+      categoryPerPage: 10,
       categoryForm: { id: null, name: "", is_active: true },
       categoryErrors: {},
       showCategoryModal: false,
@@ -1092,14 +932,36 @@ export default {
       itemErrors: {},
       receivingErrors: {},
       withdrawalErrors: {},
-      expandedItems: {},
-      itemStocksCache: {},
-      itemStocksLoading: {},
     };
   },
   computed: {
     categories() {
       return this.categoryRows;
+    },
+    filteredCategoryRows() {
+      const kw = (this.categorySearch || "").toLowerCase().trim();
+      if (!kw) return this.categoryRows;
+      return this.categoryRows.filter((c) =>
+        (c.name || "").toLowerCase().includes(kw)
+      );
+    },
+    categoryTotalPages() {
+      return Math.max(1, Math.ceil(this.filteredCategoryRows.length / this.categoryPerPage));
+    },
+    pagedCategoryRows() {
+      const start = (this.categoryPage - 1) * this.categoryPerPage;
+      return this.filteredCategoryRows.slice(start, start + this.categoryPerPage);
+    },
+    categoryVisiblePages() {
+      const current = this.categoryPage;
+      const last    = this.categoryTotalPages;
+      if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
+      const pages = [1];
+      if (current > 3) pages.push("...");
+      for (let p = Math.max(2, current - 1); p <= Math.min(last - 1, current + 1); p++) pages.push(p);
+      if (current < last - 2) pages.push("...");
+      pages.push(last);
+      return pages;
     },
     userOptions() {
       return this.users || [];
@@ -1246,9 +1108,7 @@ export default {
       "withdrawals",
       "ris",
       "report",
-    ].includes(this.initialTab)
-      ? this.initialTab
-      : "items";
+    ].includes(this.initialTab) ? this.initialTab : "items";
 
     this.assignPaginated("itemRows", "itemMeta", "itemLinks", this.items);
     this.assignPaginated(
@@ -1266,7 +1126,7 @@ export default {
     this.stockOptionRows = [...this.stockOptions];
     this.itemOptionRows = [...this.itemOptions];
     this.hydrateManualItemOrder();
-    // Seed categories from server-side Inertia prop (list_dropdowns with 'Inventory Category')
+    // Seed categories from server-side Inertia prop (list_dropdowns with 'Item Category')
     const serverCategories = this.dropdowns?.categories || [];
     this.categoryRows = Array.isArray(serverCategories)
       ? serverCategories
@@ -1293,6 +1153,9 @@ export default {
 
       this.fetchItems();
     },
+    itemCategoryFilter() {
+      this.fetchItems();
+    },
     showStockModal(value) {
       if (!value) this.stockErrors = {};
     },
@@ -1304,6 +1167,10 @@ export default {
     activeModule(value) {
       if (value === "ris" && this.risRows.length === 0) this.fetchRis();
       if (value === "stocks" && this.stockRows.length === 0) this.fetchStocks();
+      if (value === "categories") this.fetchCategories();
+    },
+    categorySearch() {
+      this.categoryPage = 1;
     },
   },
   beforeUnmount() {
@@ -1367,6 +1234,7 @@ export default {
           params: this.collectionParams({
             keyword: this.itemKeyword || undefined,
             sort: this.itemSort === "custom" ? "latest" : this.itemSort,
+            category_id: this.itemCategoryFilter || undefined,
           }),
         });
         this.assignPaginated("itemRows", "itemMeta", "itemLinks", response.data);
@@ -1412,11 +1280,18 @@ export default {
     async fetchRis(pageUrl = "/inventory-ris") {
       this.risLoading = true;
       try {
-        const response = await axios.get(pageUrl, { params: this.collectionParams() });
+        const response = await axios.get(pageUrl, {
+          params: this.collectionParams({ keyword: this.risKeyword || undefined }),
+        });
         this.assignPaginated("risRows", "risMeta", "risLinks", response.data);
       } finally {
         this.risLoading = false;
       }
+    },
+    handleRisKeywordChange(value) {
+      this.risKeyword = value;
+      clearTimeout(this.risSearchTimer);
+      this.risSearchTimer = setTimeout(() => this.fetchRis(), 300);
     },
     openRisCreate() {
       this.$refs.risLedger?.openCreate();
@@ -1472,6 +1347,8 @@ export default {
 
       if (type === "stock") {
         this.fetchStockItems(row.id);
+      } else if (type === "item") {
+        this.fetchItemStocks(row.id);
       }
     },
     handleViewModalVisibility(value) {
@@ -1518,6 +1395,28 @@ export default {
         if (
           this.viewRecordType === "stock" &&
           Number(this.viewRecord?.id) === currentStockId
+        ) {
+          this.viewStockItemsLoading = false;
+        }
+      }
+    },
+    async fetchItemStocks(itemId) {
+      const currentItemId = Number(itemId);
+      this.viewStockItemsLoading = true;
+      try {
+        const response = await axios.get("/inventory-stocks", {
+          params: { json: 1, item_id: currentItemId, count: 100 },
+        });
+        if (
+          this.viewRecordType === "item" &&
+          Number(this.viewRecord?.id) === currentItemId
+        ) {
+          this.viewStockItems = response.data?.data || [];
+        }
+      } finally {
+        if (
+          this.viewRecordType === "item" &&
+          Number(this.viewRecord?.id) === currentItemId
         ) {
           this.viewStockItemsLoading = false;
         }
@@ -1633,55 +1532,8 @@ export default {
       this.withdrawalErrors = {};
       this.showWithdrawalModal = true;
     },
-    isItemExpanded(itemId) {
-      return !!this.expandedItems[itemId];
-    },
-    async toggleItemExpand(item) {
-      if (this.expandedItems[item.id]) {
-        const next = { ...this.expandedItems };
-        delete next[item.id];
-        this.expandedItems = next;
-      } else {
-        this.expandedItems = { ...this.expandedItems, [item.id]: true };
-        if (!this.itemStocksCache[item.id]) {
-          await this.fetchItemExpandStocks(item.id);
-        }
-      }
-    },
-    async fetchItemExpandStocks(itemId) {
-      this.itemStocksLoading = { ...this.itemStocksLoading, [itemId]: true };
-      try {
-        const resp = await axios.get("/inventory-stocks", {
-          params: { json: 1, item_id: itemId, count: 200 },
-        });
-        const rows = Array.isArray(resp.data?.data)
-          ? resp.data.data
-          : Array.isArray(resp.data)
-          ? resp.data
-          : [];
-        this.itemStocksCache = { ...this.itemStocksCache, [itemId]: rows };
-      } finally {
-        const next = { ...this.itemStocksLoading };
-        delete next[itemId];
-        this.itemStocksLoading = next;
-      }
-    },
-    async removeExpandedStock(stock) {
-      if (!confirm("Delete this stock entry?")) return;
-      await axios.delete(`/inventory-stocks/${stock.id}`);
-      if (this.itemStocksCache[stock.item_id]) {
-        this.itemStocksCache = {
-          ...this.itemStocksCache,
-          [stock.item_id]: this.itemStocksCache[stock.item_id].filter(
-            (s) => s.id !== stock.id
-          ),
-        };
-      }
-      this.fetchItems();
-    },
     async saveStock() {
       const { _lock_item, ...payload } = this.stockForm;
-      const lockedItemId = this.stockForm.item_id;
       const response = await this.submitEntity(
         "/inventory-stocks",
         payload,
@@ -1692,10 +1544,6 @@ export default {
       if (response) {
         this.syncOptionRow("stockOptionRows", response?.data?.data);
         await this.fetchItems();
-        // Refresh the expanded sub-row for this item if it's open
-        if (lockedItemId && this.expandedItems[lockedItemId]) {
-          await this.fetchItemExpandStocks(lockedItemId);
-        }
       }
     },
     async saveItem() {
@@ -1758,6 +1606,13 @@ export default {
       } catch (error) {
         if (error?.response?.status === 422) {
           this[errorKey] = error.response.data.errors || {};
+        } else {
+          const msg =
+            error?.response?.data?.info ||
+            error?.response?.data?.message ||
+            error?.message ||
+            "An unexpected error occurred.";
+          alert("Error: " + msg);
         }
 
         return null;
@@ -2656,316 +2511,11 @@ export default {
 .inv-table-row:hover td {
   background: #f8fbff;
 }
-.inv-table-row.item-row-open td {
-  background: #f0f5ff;
-  border-bottom-color: transparent;
-}
 .inv-table-empty td {
   padding: 0;
   border: 0;
 }
 
-/* ── Expand toggle button ───────────────────────────── */
-.item-expand-btn {
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--inv-border);
-  border-radius: 7px;
-  background: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  color: var(--inv-muted);
-  padding: 0;
-}
-.item-expand-btn:hover,
-.item-expand-btn.active {
-  background: var(--inv-brand-soft);
-  border-color: var(--inv-brand);
-  color: var(--inv-brand);
-}
-.item-expand-icon {
-  font-size: 1rem;
-  transition: transform 0.2s ease;
-  display: block;
-}
-.item-expand-icon.rotated {
-  transform: rotate(90deg);
-}
-
-/* ── Sub-row shell ───────────────────────────────────── */
-.item-sub-row > td {
-  padding: 0 !important;
-  border-bottom: 2px solid var(--inv-border) !important;
-  border-top: 0 !important;
-}
-
-/* ══ Inventory Stocks Panel (isp) ══════════════════════ */
-.item-stocks-panel {
-  background: #f4f7ff;
-  border-left: 3px solid var(--inv-brand);
-}
-
-/* Panel header */
-.isp-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.6rem 1rem 0.6rem 1.25rem;
-  background: linear-gradient(
-    90deg,
-    rgba(75, 91, 147, 0.09) 0%,
-    rgba(75, 91, 147, 0.03) 100%
-  );
-  border-bottom: 1px solid rgba(75, 91, 147, 0.12);
-}
-.isp-header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-.isp-header-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--inv-brand);
-  color: #fff;
-  font-size: 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.isp-header-title {
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: var(--inv-ink);
-  line-height: 1.2;
-}
-.isp-header-sub {
-  font-size: 0.72rem;
-  color: var(--inv-muted);
-  line-height: 1.2;
-}
-.isp-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
-}
-.isp-summary-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 20px;
-  background: rgba(75, 91, 147, 0.1);
-  color: var(--inv-brand);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-.isp-summary-chip.green {
-  background: rgba(16, 185, 129, 0.1);
-  color: #059669;
-}
-.isp-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.28rem 0.75rem;
-  border-radius: 8px;
-  border: 0;
-  background: var(--inv-brand);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.isp-add-btn:hover {
-  opacity: 0.85;
-}
-
-/* Loading state */
-.isp-loading {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 1.25rem 1.5rem;
-  color: var(--inv-muted);
-  font-size: 0.84rem;
-}
-.isp-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #dde4f5;
-  border-top-color: var(--inv-brand);
-  border-radius: 50%;
-  animation: inv-spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-/* Empty state */
-.isp-empty {
-  text-align: center;
-  padding: 2rem 1rem;
-}
-.isp-empty-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: rgba(75, 91, 147, 0.1);
-  color: var(--inv-brand);
-  font-size: 1.4rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.65rem;
-}
-.isp-empty-title {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--inv-ink);
-  margin: 0 0 0.25rem;
-}
-.isp-empty-sub {
-  font-size: 0.78rem;
-  color: var(--inv-muted);
-  margin: 0;
-}
-
-/* Table wrapper */
-.isp-table-wrap {
-  overflow-x: auto;
-}
-.isp-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-.isp-table thead th {
-  padding: 0.42rem 0.85rem;
-  font-size: 0.67rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--inv-brand);
-  background: rgba(75, 91, 147, 0.06);
-  border-bottom: 1px solid rgba(75, 91, 147, 0.12);
-  white-space: nowrap;
-}
-
-/* Data rows */
-.isp-row td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid rgba(75, 91, 147, 0.06);
-  font-size: 0.83rem;
-  vertical-align: middle;
-  background: transparent;
-  transition: background 0.1s;
-}
-.isp-row:last-child td {
-  border-bottom: 0;
-}
-.isp-row:hover td {
-  background: rgba(75, 91, 147, 0.05);
-}
-
-/* Row number */
-.isp-row-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(75, 91, 147, 0.1);
-  color: var(--inv-brand);
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-/* Qty + unit */
-.isp-qty-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.isp-qty-val {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--inv-ink);
-}
-.isp-unit-pill {
-  display: inline-block;
-  padding: 0.12rem 0.45rem;
-  border-radius: 20px;
-  background: rgba(75, 91, 147, 0.12);
-  color: var(--inv-brand);
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-.isp-unit-long {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--inv-muted);
-  margin-top: 0.1rem;
-}
-
-/* Cost / total */
-.isp-cost-val {
-  font-size: 0.83rem;
-  color: var(--inv-muted);
-}
-.isp-total-val {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #059669;
-}
-
-/* Date */
-.isp-date {
-  font-size: 0.76rem;
-  color: var(--inv-muted);
-}
-
-/* Description */
-.isp-desc {
-  font-size: 0.8rem;
-  color: var(--inv-ink);
-}
-.isp-desc-empty {
-  color: #cbd5e1;
-  font-size: 0.8rem;
-}
-
-/* Totals footer row */
-.isp-totals-row td {
-  padding: 0.5rem 0.85rem;
-  background: linear-gradient(
-    90deg,
-    rgba(75, 91, 147, 0.07) 0%,
-    rgba(75, 91, 147, 0.03) 100%
-  );
-  border-top: 1px solid rgba(75, 91, 147, 0.15);
-  font-size: 0.83rem;
-}
-.isp-totals-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--inv-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.isp-totals-value {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: #059669;
-}
 
 /* ── Stock count badge (inline in qty cell) ─────────── */
 .inv-stock-badge {

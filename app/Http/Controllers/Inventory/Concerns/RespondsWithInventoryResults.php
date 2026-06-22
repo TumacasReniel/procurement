@@ -28,4 +28,9 @@ trait RespondsWithInventoryResults
             'status' => $result['status'],
         ]);
     }
+
+    protected function validationError(string $message, int $status = 422)
+    {
+        return response()->json(['message' => $message], $status);
+    }
 }

@@ -24,6 +24,9 @@ return new class extends Migration
                 $table->unsignedTinyInteger('status_id')->nullable();
                 $table->unsignedTinyInteger('sub_status_id')->nullable();
                 $table->unsignedInteger('submitted_by_id')->nullable();
+                $table->timestamp('submitted_at')->nullable();
+                $table->timestamp('reviewed_at')->nullable();
+                $table->timestamp('approved_at')->nullable();
                 $table->timestamps();
             });
         }

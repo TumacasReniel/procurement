@@ -4,10 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class InventoryRis extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['ris_no', 'status_id', 'requested_by_id', 'approved_by_id', 'issued_by_id', 'received_by_id', 'ris_date', 'purpose'])
+            ->setDescriptionForEvent(fn(string $e) => "{$e} RIS")
+            ->useLogName('Inventory')
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     protected $table = 'inventory_ris';
 
@@ -36,22 +48,22 @@ class InventoryRis extends Model
 
     public function requestedBy()
     {
-        return $this->belongsTo(User::class, 'requested_by_id')->with('profile');
+        return $this->belongsTo(User::class, 'requested_by_id');
     }
 
     public function approvedBy()
     {
-        return $this->belongsTo(User::class, 'approved_by_id')->with('profile');
+        return $this->belongsTo(User::class, 'approved_by_id');
     }
 
     public function issuedBy()
     {
-        return $this->belongsTo(User::class, 'issued_by_id')->with('profile');
+        return $this->belongsTo(User::class, 'issued_by_id');
     }
 
     public function receivedBy()
     {
-        return $this->belongsTo(User::class, 'received_by_id')->with('profile');
+        return $this->belongsTo(User::class, 'received_by_id');
     }
 
     public function status()
@@ -76,7 +88,7 @@ class InventoryRis extends Model
         $prefix = "RIS-{$year}-";
 
         $last = self::where('ris_no', 'like', $prefix . '%')
-            ->orderByDesc('ris_no')
+            ->orderByRaw('CAST(SUBSTRING(ris_no, ?) AS UNSIGNED) DESC', [strlen($prefix) + 1])
             ->value('ris_no');
 
         $next = 1;
