@@ -57,6 +57,7 @@ class ProcurementPpmp extends Model
 
     protected $casts = [
         'is_supplemental' => 'boolean',
+        'is_current' => 'boolean',
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'approved_at' => 'datetime',

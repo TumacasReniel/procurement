@@ -777,13 +777,14 @@ class ProcurementPPMPResource extends JsonResource
             return false;
         }
 
-        if (ProcurementPpmp::where('source_ppmp_id', $this->id)->where('ppmp_type', 'final')->exists()) {
+        $user = auth()->user();
+
+        if (! $user || ! ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'))) {
             return false;
         }
 
-        $user = auth()->user();
-
-        return $user && ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'));
+        // Query last: it runs per row, so skip it entirely for users without the role
+        return ! ProcurementPpmp::where('source_ppmp_id', $this->id)->where('ppmp_type', 'final')->exists();
     }
 
     protected function can_create_revision(?string $plan_name, string $plan_type): bool

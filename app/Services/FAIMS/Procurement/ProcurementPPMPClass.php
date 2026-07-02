@@ -152,12 +152,17 @@ class ProcurementPPMPClass
         $year           = $this->yearForProcurement($procurement);
         $pendingStatusId = $this->statusId(self::STATUS_PENDING);
 
-        $payload = $this->buildPpmpClonePayload($procurement, $year, $pendingStatusId, [
+        $overrides = [
             'ppmp_type'         => self::PPMP_TYPE_FINAL,
             'ppmp_type_version' => 1,
             'source_ppmp_id'    => $procurement->id,
-            'is_current'        => true,
-        ]);
+        ];
+
+        if (Schema::hasColumn('procurement_ppmps', 'is_current')) {
+            $overrides['is_current'] = true;
+        }
+
+        $payload = $this->buildPpmpClonePayload($procurement, $year, $pendingStatusId, $overrides);
 
         $finalPpmp = ProcurementPpmp::query()->create($payload);
 
@@ -203,15 +208,23 @@ class ProcurementPPMPClass
         $year           = $this->yearForProcurement($current);
         $pendingStatusId = $this->statusId(self::STATUS_PENDING);
         $nextVersion    = ((int) ($current->ppmp_type_version ?? 1)) + 1;
+        $hasIsCurrent   = Schema::hasColumn('procurement_ppmps', 'is_current');
 
-        $current->update(['is_current' => false]);
+        if ($hasIsCurrent) {
+            $current->update(['is_current' => false]);
+        }
 
-        $payload = $this->buildPpmpClonePayload($current, $year, $pendingStatusId, [
+        $overrides = [
             'ppmp_type'         => self::PPMP_TYPE_FINAL,
             'ppmp_type_version' => $nextVersion,
             'source_ppmp_id'    => $current->source_ppmp_id ?? $current->id,
-            'is_current'        => true,
-        ]);
+        ];
+
+        if ($hasIsCurrent) {
+            $overrides['is_current'] = true;
+        }
+
+        $payload = $this->buildPpmpClonePayload($current, $year, $pendingStatusId, $overrides);
 
         $revision = ProcurementPpmp::query()->create($payload);
 
@@ -352,9 +365,13 @@ class ProcurementPPMPClass
             $updates = ['procurement_app_id' => $final_app->id];
 
             if ($has_ppmp_type) {
-                $next_ppmp_version = $this->nextPpmpTypeVersion($year, (int) $procurement->unit_id, self::PPMP_TYPE_FINAL);
+                $next_ppmp_version = $this->nextPpmpTypeVersion($year, (int) $procurement->unit_id, self::PPMP_TYPE_FINAL, $procurement->quarter ? (int) $procurement->quarter : null);
                 $updates['ppmp_type'] = self::PPMP_TYPE_FINAL;
                 $updates['ppmp_type_version'] = $next_ppmp_version;
+            }
+
+            if (Schema::hasColumn('procurement_ppmps', 'is_current')) {
+                $updates['is_current'] = true;
             }
 
             if ($has_consolidated_by) {
@@ -698,6 +715,14 @@ class ProcurementPPMPClass
             ? collect([$procurement])
             : $this->aggregateSourceQuery($procurement, $plan_type)->get();
 
+        // Keep only the opened PPMP's own group (same type + quarter) so the
+        // aggregated view always renders the record the user actually opened.
+        if ($plan_type === self::PLAN_TYPE_PPMP) {
+            $procurements = $procurements
+                ->filter(fn (ProcurementPpmp $p) => $this->sameSiblingGroup($p, $procurement))
+                ->values();
+        }
+
         switch ($plan_type) {
             case self::PLAN_TYPE_PPMP:
             case self::PLAN_TYPE_SPP:
@@ -845,6 +870,8 @@ class ProcurementPPMPClass
 
         $this->ensureUserCanCreatePlanForUnit($unit);
         $this->validatePpmpSetup($pending_status_id, $fund_cluster_id);
+        // The dropdown already hides taken quarters; this guards direct posts and concurrent submissions
+        $this->ensureUnitHasNoPpmpThisQuarter($unit, $year, $quarter);
 
         $payload = $this->ppmpPayload($year, $unit, $pending_status_id, $fund_cluster_id, self::PPMP_TYPE_INDICATIVE, false, $quarter);
 
@@ -1507,21 +1534,23 @@ class ProcurementPPMPClass
 
         $procurement->update($updates);
 
-        // Also consolidate all sibling PPMPs in the same unit/year that haven't been consolidated yet
+        // Also consolidate sibling PPMPs (same unit/year/type/quarter group) that haven't been consolidated yet
         if (! $is_spp_plan) {
-            ProcurementPpmp::query()
-                ->where('unit_id', $procurement->unit_id)
-                ->whereYear('date', $year)
-                ->where('id', '!=', $procurement->id)
-                ->whereNull('reference_app_id')
-                ->where(function ($q) {
-                    $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
-                })
-                ->where(function ($q) {
-                    $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
-                })
-                ->whereDoesntHave('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_SPP))
-                ->update($updates);
+            $this->scopeSiblingGroup(
+                ProcurementPpmp::query()
+                    ->where('unit_id', $procurement->unit_id)
+                    ->whereYear('date', $year)
+                    ->where('id', '!=', $procurement->id)
+                    ->whereNull('reference_app_id')
+                    ->where(function ($q) {
+                        $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
+                    })
+                    ->whereDoesntHave('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_SPP)),
+                $procurement
+            )->update($updates);
         }
 
         $snapshot = $this->consolidationSnapshot(
@@ -1637,23 +1666,25 @@ class ProcurementPPMPClass
                 )
                 ->update($updates);
         } else {
-            // PPMP: advance the selected record AND all non-consolidated sibling PPMPs in the same unit/year
+            // PPMP: advance the selected record AND its sibling records (same unit/year/type/quarter group)
             // SPP: update only the selected record
             if (! $is_spp_plan) {
                 $year = $this->yearForProcurement($procurement);
-                $updated = ProcurementPpmp::query()
-                    ->where('unit_id', $procurement->unit_id)
-                    ->whereYear('date', $year)
-                    ->where('status_id', $current_status_id)
-                    ->whereNull('reference_app_id')
-                    ->where(function ($q) {
-                        $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
-                    })
-                    ->where(function ($q) {
-                        $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
-                    })
-                    ->whereDoesntHave('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_SPP))
-                    ->update($updates);
+                $updated = $this->scopeSiblingGroup(
+                    ProcurementPpmp::query()
+                        ->where('unit_id', $procurement->unit_id)
+                        ->whereYear('date', $year)
+                        ->where('status_id', $current_status_id)
+                        ->whereNull('reference_app_id')
+                        ->where(function ($q) {
+                            $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
+                        })
+                        ->where(function ($q) {
+                            $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
+                        })
+                        ->whereDoesntHave('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_SPP)),
+                    $procurement
+                )->update($updates);
 
                 if ($updated === 0) {
                     $procurement->update($updates);
@@ -1919,7 +1950,11 @@ class ProcurementPPMPClass
 
         if (Schema::hasColumn('procurement_ppmps', 'ppmp_type')) {
             $payload['ppmp_type'] = $original->ppmp_type ?? self::PPMP_TYPE_INDICATIVE;
-            $payload['ppmp_type_version'] = $this->nextPpmpTypeVersion($year, (int) $original->unit_id, $payload['ppmp_type']);
+            $payload['ppmp_type_version'] = $this->nextPpmpTypeVersion($year, (int) $original->unit_id, $payload['ppmp_type'], $original->quarter ? (int) $original->quarter : null);
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'quarter')) {
+            $payload['quarter'] = $original->quarter;
         }
 
         if (Schema::hasColumn('procurement_ppmps', 'is_supplemental')) {
@@ -2132,7 +2167,8 @@ class ProcurementPPMPClass
     {
         $is_spp_plan = $procurement->reference_app?->name === self::PLAN_NAME_SPP;
 
-        if ((int) $procurement->status_id === $approved_status_id && ! $procurement->reference_app_id) {
+        // SPPs always carry a reference_app_id from creation, so they are exempt from that check
+        if ((int) $procurement->status_id === $approved_status_id && (! $procurement->reference_app_id || $is_spp_plan)) {
             return;
         }
 
@@ -2983,8 +3019,42 @@ class ProcurementPPMPClass
             return false;
         }
 
+        // Archived finals (superseded by a revision) are read-only
+        if (($procurement->ppmp_type ?? null) === self::PPMP_TYPE_FINAL
+            && Schema::hasColumn('procurement_ppmps', 'is_current')
+            && ! $procurement->is_current) {
+            return true;
+        }
+
         return $procurement->reference_app_id
             || in_array($procurement->status?->name, [self::STATUS_REVIEWED, self::STATUS_APPROVED], true);
+    }
+
+    // Two PPMPs are in the same sibling group when they share type and quarter —
+    // sibling records (project rows) aggregate together; other quarters do not.
+    protected function sameSiblingGroup(ProcurementPpmp $a, ProcurementPpmp $b): bool
+    {
+        return ($a->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) === ($b->ppmp_type ?? self::PPMP_TYPE_INDICATIVE)
+            && (int) ($a->quarter ?? 0) === (int) ($b->quarter ?? 0);
+    }
+
+    protected function scopeSiblingGroup($query, ProcurementPpmp $procurement)
+    {
+        $type = $procurement->ppmp_type ?? self::PPMP_TYPE_INDICATIVE;
+
+        $query->where(function ($q) use ($type) {
+            $type === self::PPMP_TYPE_INDICATIVE
+                ? $q->whereNull('ppmp_type')->orWhere('ppmp_type', self::PPMP_TYPE_INDICATIVE)
+                : $q->where('ppmp_type', $type);
+        });
+
+        if (Schema::hasColumn('procurement_ppmps', 'quarter')) {
+            $procurement->quarter
+                ? $query->where('quarter', $procurement->quarter)
+                : $query->whereNull('quarter');
+        }
+
+        return $query;
     }
 
     protected function createPpmpRequest(): RequestModel

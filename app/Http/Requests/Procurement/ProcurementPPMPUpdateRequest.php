@@ -40,7 +40,8 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             $rules['end_of_procurement_activity'] = ['required', 'date'];
             $rules['expected_delivery_date'] = ['required', 'date'];
             $rules['attached_supporting_documents'] = ['required', 'string', 'max:255'];
-            $rules['supporting_document_file'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+            // Nullable: edits of existing projects reuse the add_item option without re-uploading the PDF
+            $rules['supporting_document_file'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
             $rules['remarks'] = ['required', 'string'];
             $rules['project_total_budget'] = [empty($this->input('items')) ? 'required' : 'nullable', 'numeric', 'min:0.01'];
         }
