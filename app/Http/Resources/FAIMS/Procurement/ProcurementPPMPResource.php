@@ -64,6 +64,8 @@ class ProcurementPPMPResource extends JsonResource
             'is_final' => $is_final,
             'is_pending_app_approval' => $approval_status === 'Submitted/For Consolidation',
             'can_submit_final' => $this->can_mark_final_ppmp($plan_name, $plan_type),
+            'can_mark_as_final' => $this->can_mark_as_final($plan_name, $plan_type),
+            'can_create_revision' => $this->can_create_revision($plan_name, $plan_type),
             'can_add_items' => $can_add_items,
             'can_approve_to_app' => $this->can_approve_to_app($approval_status),
             'can_revert_status' => $this->can_revert_status($is_consolidated),
@@ -72,6 +74,9 @@ class ProcurementPPMPResource extends JsonResource
             'ppmp_type' => $this->ppmp_type ?? 'indicative',
             'ppmp_type_version' => (int) ($this->ppmp_type_version ?? 1),
             'ppmp_type_label' => $this->ppmpTypeLabel($plan_type),
+            'source_ppmp_id' => $this->source_ppmp_id,
+            'quarter' => $this->quarter ? (int) $this->quarter : null,
+            'is_current' => $this->ppmp_type === 'final' ? (bool) ($this->is_current ?? false) : null,
             'date' => $this->date,
             'formatted_date' => $this->date ? date('F j, Y', strtotime($this->date)) : null,
             'general_description_objective' => $this->title ?: $this->purpose,
@@ -155,6 +160,7 @@ class ProcurementPPMPResource extends JsonResource
             ])->values()->all(),
             'status' => $this->status,
             'sub_status' => $this->sub_status,
+            'created_at' => $this->created_at,
         ];
     }
 
@@ -165,7 +171,10 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function total_amount(Collection $items): float
     {
-        return (float) $items->sum(fn ($item) => (float) ($item->total_cost ?? 0));
+        return (float) $items->sum(function ($item) {
+            $stored = (float) ($item->total_cost ?? 0);
+            return $stored ?: ((float) ($item->item_quantity ?? 0) * (float) ($item->item_unit_cost ?? 0));
+        });
     }
 
     protected function mode_of_procurement(): ?string
@@ -249,6 +258,10 @@ class ProcurementPPMPResource extends JsonResource
                     'quantity_adjustment_reason' => $item->quantity_adjustment_reason,
                     'price_variance_reason' => $item->price_variance_reason,
                     'abc' => round((float) ($item->total_cost ?? ($quantity * $unit_cost)), 2),
+                    'q1_indicative_amount' => $item->q1_indicative_amount !== null ? round((float) $item->q1_indicative_amount, 2) : null,
+                    'q2_indicative_amount' => $item->q2_indicative_amount !== null ? round((float) $item->q2_indicative_amount, 2) : null,
+                    'q3_indicative_amount' => $item->q3_indicative_amount !== null ? round((float) $item->q3_indicative_amount, 2) : null,
+                    'q4_indicative_amount' => $item->q4_indicative_amount !== null ? round((float) $item->q4_indicative_amount, 2) : null,
                     'start_of_procurement_activity' => $item->start_of_procurement_activity,
                     'end_of_procurement_activity' => $item->end_of_procurement_activity,
                     'expected_delivery_date' => $item->expected_delivery_date,
@@ -744,11 +757,52 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function ppmpTypeLabel(string $plan_type): ?string
     {
-        if (in_array($plan_type, ['ppmp', 'supplemental'], true)) {
-            return ucfirst($this->ppmp_type ?? 'indicative');
+        if (! in_array($plan_type, ['ppmp', 'supplemental'], true)) {
+            return null;
         }
 
-        return null;
+        return match ($this->ppmp_type ?? 'indicative') {
+            'final'     => 'Final',
+            default     => 'Indicative',
+        };
+    }
+
+    protected function can_mark_as_final(?string $plan_name, string $plan_type): bool
+    {
+        if (! in_array($plan_type, ['ppmp', 'supplemental'], true)) {
+            return false;
+        }
+
+        if (($this->ppmp_type ?? 'indicative') !== 'indicative') {
+            return false;
+        }
+
+        if (ProcurementPpmp::where('source_ppmp_id', $this->id)->where('ppmp_type', 'final')->exists()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return $user && ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'));
+    }
+
+    protected function can_create_revision(?string $plan_name, string $plan_type): bool
+    {
+        if (! in_array($plan_type, ['ppmp', 'supplemental'], true)) {
+            return false;
+        }
+
+        if (($this->ppmp_type ?? 'indicative') !== 'final') {
+            return false;
+        }
+
+        if (! (bool) ($this->is_current ?? false)) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return $user && ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'));
     }
 
     protected function can_mark_final_ppmp(?string $plan_name, string $plan_type): bool
@@ -783,7 +837,9 @@ class ProcurementPPMPResource extends JsonResource
 
     protected function is_final_ppmp(?string $plan_name): bool
     {
-        return (bool) $plan_name || $this->status?->name === 'Approved';
+        return (bool) $plan_name
+            || $this->status?->name === 'Approved'
+            || $this->ppmp_type === 'final';
     }
 
     protected function has_completed_status(): bool

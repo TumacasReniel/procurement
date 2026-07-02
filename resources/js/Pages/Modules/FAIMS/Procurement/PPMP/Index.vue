@@ -6,7 +6,7 @@
     <div class="col-md-12">
       <div class="card bg-light-subtle ppmp-shell shadow-none border">
         <div class="card-header bg-light-subtle ppmp-shell__header">
-          <div class="d-flex mb-n3">
+          <div class="d-flex mb-n3 align-items-start">
             <div class="flex-shrink-0 me-3">
               <div style="height: 2.5rem; width: 2.5rem">
                 <span class="avatar-title bg-primary-subtle rounded p-2 mt-n1">
@@ -21,6 +21,26 @@
               <p class="text-muted text-truncate-two-lines fs-12">
                 {{ activePlanDescription }}
               </p>
+            </div>
+            <div class="d-flex gap-2 ms-2 flex-shrink-0">
+              <b-button
+                variant="light"
+                size="sm"
+                v-b-tooltip.hover="{ title: 'Open the Procurement User Manual' }"
+                @click="userManualModal.show = true"
+              >
+                <i class="ri-book-open-fill text-primary me-1"></i>
+                User Manual
+              </b-button>
+              <b-button
+                variant="light"
+                size="sm"
+                v-b-tooltip.hover="{ title: 'Procurement Process Guide (PPMP → APP → SPP → RFQ → PO)' }"
+                @click="processInfoModal.show = true"
+              >
+                <i class="ri-question-line text-primary me-1"></i>
+                Process Guide
+              </b-button>
             </div>
           </div>
         </div>
@@ -132,6 +152,7 @@
                 >
                   <i class="bx bx-refresh search-icon"></i>
                 </span>
+
                 <b-button
                   v-if="canShowCreatePlanButton"
                   :variant="appIsApprovedThisYear ? 'warning' : 'primary'"
@@ -199,13 +220,17 @@
                     <td>
                       <div class="fw-semibold text-primary">
                         {{ list.ppmp_no || "-" }}
-
-                        <span> Version No. </span>
-                        {{ list.version }}
                       </div>
-                      <small class="text-muted">{{
-                        list.plan_name || "Annual Procurement Plan"
-                      }}</small>
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        <b-badge
+                          :variant="list.plan_phase === 'final' ? 'success' : 'warning'"
+                          style="font-size: 10px"
+                        >
+                          <i :class="list.plan_phase === 'final' ? 'ri-flag-2-line' : 'ri-draft-line'" class="me-1"></i>
+                          {{ list.plan_phase_label || list.plan_name || "Annual Procurement Plan" }}
+                        </b-badge>
+                        <span v-if="list.version" class="version-badge">Version {{ list.version }}</span>
+                      </div>
                     </td>
                     <td>
                       <div class="fw-medium">{{ fiscalYear(list) }}</div>
@@ -250,21 +275,20 @@
                         </b-button>
                         <b-button
                           v-if="canApprovePPMP(list)"
-                          @click.stop="openApproveFinalModal(list)"
+                          @click.stop="goViewPage(list, filter.plan_type)"
                           size="sm"
                           variant="success"
                           class="btn-icon"
                           v-b-tooltip.hover
                           :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
-                          :disabled="form.processing"
                         >
                           <i class="ri-check-double-line"></i>
                         </b-button>
                         <b-button
                           @click.stop="openTimelineModal(list)"
                           size="sm"
-                          variant="soft-secondary"
+                          variant="light"
                           class="btn-icon"
                           v-b-tooltip.hover
                           title="Status Timeline"
@@ -348,12 +372,22 @@
                         >
                           {{ list.ppmp_type_label }}
                         </b-badge>
+                        <span class="version-badge">Version {{ list.ppmp_type_version || 1 }}</span>
                         <b-badge
                           v-if="filter.plan_type === 'ALL'"
                           :variant="normalizedPlanType(list.plan_type) === 'SPP' ? 'warning' : 'primary'"
                           style="font-size: 10px"
                         >
                           {{ normalizedPlanType(list.plan_type) === 'SPP' ? 'SPP' : 'PPMP' }}
+                        </b-badge>
+                        <b-badge
+                          v-if="ppmpQuarter(list)"
+                          :variant="ppmpQuarterVariant(list)"
+                          style="font-size: 10px"
+                          v-b-tooltip.hover
+                          :title="`Created: ${formatDate(list.created_at)}`"
+                        >
+                          {{ ppmpQuarter(list) }}
                         </b-badge>
                       </div>
                     </td>
@@ -403,14 +437,13 @@
                         </b-button>
                         <b-button
                           v-if="canApprovePPMP(list)"
-                          @click.stop="openApproveFinalModal(list)"
+                          @click.stop="goViewPage(list, filter.plan_type === 'APP' ? 'APP' : (normalizedPlanType(list.plan_type) === 'SPP' ? 'SPP' : 'PPMP'))"
                           size="sm"
                           variant="success"
                           class="btn-icon"
                           v-b-tooltip.hover
                           :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
-                          :disabled="form.processing"
                         >
                           <i class="ri-check-double-line"></i>
                         </b-button>
@@ -478,7 +511,7 @@
                         <b-button
                           @click.stop="openTimelineModal(list)"
                           size="sm"
-                          variant="soft-secondary"
+                          variant="light"
                           class="btn-icon"
                           v-b-tooltip.hover
                           title="Status Timeline"
@@ -524,16 +557,6 @@
     </div>
   </BRow>
 
-  <SubmitForApprovalModal
-    v-model:show="approveFinalModal.show"
-    :ppmp="approveFinalModal.data"
-    :plan-type="filter.plan_type"
-    :processing="form.processing"
-    :error="approveFinalModal.error"
-    @cancel="closeApproveFinalModal"
-    @confirm="updateStatus"
-  />
-
   <ApproveToAppModal
     v-model:show="approveAppModal.show"
     :ppmp="approveAppModal.data"
@@ -566,8 +589,9 @@
   <CreateAppModal
     v-model:show="createAppModal.show"
     :form="createAppForm"
-    :year-options="availableAppYearOptions"
-    :year-has-existing="appYearHasExisting"
+    :year-options="yearOptions"
+    :indicative-app-years="indicativeAppYears"
+    :final-app-years="finalAppYears"
     @close="closeCreateAppModal"
     @submit="submitCreateApp"
   />
@@ -639,6 +663,17 @@
     :show-trigger="true"
     @comment-added="syncPlanCommentCount"
   />
+
+  <ProcurementProcessInfoModal
+    v-model:show="processInfoModal.show"
+    @close="processInfoModal.show = false"
+  />
+
+  <ProcurementUserManualModal
+    :show="userManualModal.show"
+    @update:show="userManualModal.show = $event"
+    @close="userManualModal.show = false"
+  />
 </template>
 
 <script>
@@ -651,11 +686,12 @@ import CreateUnitPpmpModal from "./Modals/CreateUnitPpmp.vue";
 import CreateAppModal from "./Modals/CreateApp.vue";
 import CreateSppModal from "./Modals/CreateSpp.vue";
 import AddItemModal from "./Modals/AddItem.vue";
-import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
 import ApproveToAppModal from "./Modals/ApproveToApp.vue";
 import RevertStatusModal from "./Modals/RevertStatus.vue";
 import FloatingPlanChat from "./Components/FloatingPlanChat.vue";
 import PlanStatusTimeline from "./Components/PlanStatusTimeline.vue";
+import ProcurementProcessInfoModal from "./Modals/ProcurementProcessInfoModal.vue";
+import ProcurementUserManualModal from "./Modals/ProcurementUserManualModal.vue";
 
 export default {
   props: ["dropdowns"],
@@ -667,11 +703,12 @@ export default {
     CreateAppModal,
     CreateSppModal,
     AddItemModal,
-    SubmitForApprovalModal,
     ApproveToAppModal,
     RevertStatusModal,
     FloatingPlanChat,
     PlanStatusTimeline,
+    ProcurementProcessInfoModal,
+    ProcurementUserManualModal,
   },
   data() {
     return {
@@ -686,6 +723,8 @@ export default {
         plan_type: "ALL",
         sort: "latest",
       },
+      processInfoModal: { show: false },
+      userManualModal: { show: false },
       createPpmpModal: {
         show: false,
         loading: false,
@@ -700,12 +739,15 @@ export default {
         option: "create_ppmp",
         unit_id: null,
         year: new Date().getFullYear(),
+        quarter: Math.ceil((new Date().getMonth() + 1) / 3),
         plan_type: "PPMP",
         attachment_file: null,
+        requested_by_id: null,
       }),
       createAppForm: useForm({
         year: new Date().getFullYear(),
         plan_type: "APP",
+        plan_phase: "indicative",
       }),
       approveAppForm: useForm({
         option: "approve_to_app",
@@ -733,20 +775,12 @@ export default {
         plan_type: "SPP",
         unit_id: null,
         attachment_file: null,
+        requested_by_id: null,
       }),
       availablePpmpUnits: [],
       availableSppUnits: [],
       addSppItemModal: {
         ppmp: null,
-      },
-      form: useForm({
-        option: "update_status",
-        plan_type: "PPMP",
-      }),
-      approveFinalModal: {
-        show: false,
-        data: null,
-        error: "",
       },
       pendingNotificationPlanId: null,
       pendingNotificationCommentId: null,
@@ -869,11 +903,20 @@ export default {
       const years = this.dropdowns?.annual_app_years || [];
       return Array.isArray(years) ? years.map((year) => Number(year)) : [];
     },
+    indicativeAppYears() {
+      const years = this.dropdowns?.indicative_app_years || [];
+      return Array.isArray(years) ? years.map(Number) : [];
+    },
+    finalAppYears() {
+      const years = this.dropdowns?.final_app_years || [];
+      return Array.isArray(years) ? years.map(Number) : [];
+    },
     availableAppYearOptions() {
-      const usedYears = new Set(this.annualAppYears);
-      return this.yearOptions.filter((year) => !usedYears.has(Number(year.value)));
+      // Show all years — per-phase duplicate check is done in the modal and server-side
+      return this.yearOptions;
     },
     appYearHasExisting() {
+      // Kept for any legacy use; per-phase check is now in CreateAppModal
       return this.annualAppYears.includes(Number(this.createAppForm.year));
     },
     activePlanTitle() {
@@ -959,10 +1002,25 @@ export default {
         this.fetchAvailablePpmpUnits();
       }
     },
+    "createPpmpForm.quarter"(quarter) {
+      if (!this.createPpmpForm.unit_id) return;
+      const unit = this.availablePpmpUnits.find((u) => Number(u.value) === Number(this.createPpmpForm.unit_id));
+      if (unit && (unit.taken_quarters ?? []).includes(quarter)) {
+        this.createPpmpForm.unit_id = null;
+        this.createPpmpForm.requested_by_id = null;
+      }
+    },
+    "createPpmpForm.unit_id"(unitId) {
+      this.autoSetRequestedBy(this.createPpmpForm, this.availablePpmpUnits, unitId);
+      this.autoSetFirstAvailableQuarter(unitId);
+    },
     "createSppForm.year"() {
       if (this.createSppModal.show) {
         this.fetchAvailableSppUnits();
       }
+    },
+    "createSppForm.unit_id"(unitId) {
+      this.autoSetRequestedBy(this.createSppForm, this.availableSppUnits, unitId);
     },
     "$page.url"() {
       this.hydrateNotificationChatParams(true);
@@ -978,9 +1036,11 @@ export default {
   },
   mounted() {
     this.subscribeToPlanStatusUpdates();
+    document.addEventListener("visibilitychange", this._onVisibilityChange);
   },
   beforeUnmount() {
     this.unsubscribeFromPlanStatusUpdates();
+    document.removeEventListener("visibilitychange", this._onVisibilityChange);
   },
   methods: {
     hasRole(roleName) {
@@ -988,6 +1048,11 @@ export default {
         Array.isArray(this.$page?.props?.roles) &&
         this.$page.props.roles.includes(roleName)
       );
+    },
+    _onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        this.fetch();
+      }
     },
     subscribeToPlanStatusUpdates() {
       if (!window.Echo) {
@@ -1087,7 +1152,8 @@ export default {
       );
     },
     hasPpmpItems(item) {
-      return Number(item?.items_count || 0) > 0;
+      return Number(item?.items_count || 0) > 0
+        || (item?.project_rows?.length || 0) > 0;
     },
     requiresItemsBeforeAdvance(item) {
       return ["PPMP", "SPP"].includes(this.normalizedPlanType(item?.plan_type));
@@ -1217,6 +1283,16 @@ export default {
       const year = new Date(sourceDate).getFullYear();
 
       return Number.isNaN(year) ? "-" : year;
+    },
+    ppmpQuarter(item) {
+      if (item?.quarter) return 'Q' + item.quarter;
+      const d = item?.created_at || item?.date;
+      if (!d) return null;
+      return 'Q' + Math.ceil((new Date(d).getMonth() + 1) / 3);
+    },
+    ppmpQuarterVariant(item) {
+      const variants = { Q1: 'info', Q2: 'success', Q3: 'warning', Q4: 'danger' };
+      return variants[this.ppmpQuarter(item)] || 'secondary';
     },
     sourcePpmpCount(item) {
       if (Array.isArray(item?.source_ppmps)) {
@@ -1364,56 +1440,6 @@ export default {
       router.get(`/faims/procurement-ppmp/${data.id}`, {
         option: "view",
         plan_type: plan_type,
-      });
-    },
-    openApproveFinalModal(data) {
-      if (!data?.id || this.form.processing) {
-        return;
-      }
-
-      this.form.clearErrors();
-      this.approveFinalModal.error = "";
-      this.form.option = "update_status";
-      this.form.plan_type = this.filter.plan_type === "ALL"
-        ? (this.normalizedPlanType(data?.plan_type) === "SPP" ? "SPP" : "PPMP")
-        : this.filter.plan_type;
-      this.approveFinalModal.data = data;
-      this.approveFinalModal.show = true;
-    },
-    closeApproveFinalModal() {
-      if (this.form.processing) {
-        return;
-      }
-
-      this.approveFinalModal.show = false;
-      this.approveFinalModal.data = null;
-      this.approveFinalModal.error = "";
-      this.form.clearErrors();
-    },
-    updateStatus() {
-      const data = this.approveFinalModal.data;
-      if (!data?.id || this.form.processing) {
-        return;
-      }
-
-      if (this.requiresItemsBeforeAdvance(data) && !this.hasPpmpItems(data)) {
-        this.approveFinalModal.error =
-          "Please add at least one item before updating or submitting this PPMP for review.";
-        return;
-      }
-
-      this.approveFinalModal.error = "";
-      this.form.patch(`/faims/procurement-ppmp/${data.id}`, {
-        preserveScroll: true,
-        onSuccess: () => {
-          this.approveFinalModal.show = false;
-          this.approveFinalModal.data = null;
-          this.approveFinalModal.error = "";
-          this.fetch();
-        },
-        onError: (errors) => {
-          this.approveFinalModal.error = this.firstFormError(errors);
-        },
       });
     },
     printPPMP(data) {
@@ -1582,11 +1608,14 @@ export default {
       }
     },
     openCreatePpmpModal() {
-      const currentYear = new Date().getFullYear();
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
 
       this.createPpmpForm.clearErrors();
       this.createPpmpForm.unit_id = this.defaultUserUnitId;
       this.createPpmpForm.year = currentYear;
+      this.createPpmpForm.quarter = currentQuarter;
       this.createPpmpModal.show = true;
       this.fetchAvailablePpmpUnits();
     },
@@ -1595,16 +1624,33 @@ export default {
       this.createPpmpForm.clearErrors();
       this.createPpmpForm.attachment_file = null;
     },
+    autoSetRequestedBy(form, unitOptions, unitId) {
+      const unit = unitOptions.find((u) => Number(u.value) === Number(unitId));
+      if (!unit?.users?.length) {
+        form.requested_by_id = null;
+        return;
+      }
+      const head = unit.users.find((u) => u.is_head) ?? unit.users[0];
+      form.requested_by_id = head?.value ?? null;
+    },
+    autoSetFirstAvailableQuarter(unitId) {
+      const unit = this.availablePpmpUnits.find((u) => Number(u.value) === Number(unitId));
+      const taken = unit?.taken_quarters ?? [];
+      const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+      const all = [1, 2, 3, 4];
+      // Keep current selection if still available, otherwise pick first free quarter
+      if (!taken.includes(this.createPpmpForm.quarter)) return;
+      const firstFree = all.find((q) => !taken.includes(q)) ?? currentQuarter;
+      this.createPpmpForm.quarter = firstFree;
+    },
     openCreateAppModal() {
       this.createAppForm.clearErrors();
       const currentYear = new Date().getFullYear();
-      const currentYearAvailable = this.availableAppYearOptions.some(
-        (year) => Number(year.value) === currentYear
-      );
-      this.createAppForm.year = currentYearAvailable
-        ? currentYear
-        : this.availableAppYearOptions[0]?.value || null;
+      this.createAppForm.year = currentYear;
       this.createAppForm.plan_type = "APP";
+      // Default to Indicative if no Indicative APP yet, otherwise Final
+      const hasIndicativeThisYear = this.indicativeAppYears.includes(currentYear);
+      this.createAppForm.plan_phase = hasIndicativeThisYear ? "final" : "indicative";
       this.createAppModal.show = true;
     },
     openApproveToAppModal(data) {
@@ -1803,11 +1849,8 @@ export default {
         return;
       }
 
-      if (this.appYearHasExisting) {
-        this.createAppForm.setError(
-          "year",
-          "An APP already exists for the selected year."
-        );
+      if (!this.createAppForm.plan_phase) {
+        this.createAppForm.setError("plan_phase", "Please select the APP phase.");
         return;
       }
 
@@ -1848,6 +1891,7 @@ export default {
 </script>
 
 <style scoped>
+
 .ppmp-index-page {
   --ppmp-bg: #f3f6ff;
   --ppmp-card: #ffffff;
@@ -2696,4 +2740,5 @@ html[data-bs-theme="dark"] .ppmp-index-page .btn-primary * {
 .ppmp-index-page .btn-warning * {
   color: #ffffff !important;
 }
+
 </style>

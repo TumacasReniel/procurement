@@ -14,6 +14,7 @@ class ProcurementApp extends Model
         'code',
         'year',
         'version',
+        'plan_phase',
         'pricing_overrides',
         'title',
         'app_type_id',

@@ -201,9 +201,9 @@
               </td>
               <td>{{ item.recommended_mode_of_procurement || ppmp.recommended_mode_of_procurement || "-" }}</td>
               <td class="text-center">{{ item.pre_procurement_conference || ppmp.pre_procurement_conference || "No" }}</td>
-              <td class="text-center">{{ formatPrintDate(ppmp.start_of_procurement_activity || ppmp.date) }}</td>
-              <td class="text-center">{{ formatPrintDate(item.end_of_procurement_activity || ppmp.end_of_procurement_activity) }}</td>
-              <td class="text-center">{{ formatPrintDate(item.expected_delivery_date || ppmp.expected_delivery_implementation_period) }}</td>
+              <td class="text-center">{{ formatMonthYear(ppmp.start_of_procurement_activity || ppmp.date) }}</td>
+              <td class="text-center">{{ formatMonthYear(item.end_of_procurement_activity || ppmp.end_of_procurement_activity) }}</td>
+              <td class="text-center">{{ formatMonthYear(item.expected_delivery_date || ppmp.expected_delivery_implementation_period) }}</td>
               <td class="text-center">{{ ppmp.source_of_funds || ppmp.fund_cluster?.name || "-" }}</td>
               <td class="text-end fw-semibold">{{ formatCurrency(item.abc) }}</td>
               <td v-if="item.supportRowspan" :rowspan="item.supportRowspan" class="text-center ppmp-entry-cell">
@@ -579,6 +579,13 @@ export default {
         style: "currency",
         currency: "PHP",
       }).format(Number(value || 0));
+    },
+    formatMonthYear(value) {
+      if (!value) return "-";
+      const match = String(value).match(/^(\d{4})-(\d{2})/);
+      if (!match) return "-";
+      const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return `${months[parseInt(match[2], 10) - 1] ?? match[2]} ${match[1]}`;
     },
     formatPrintDate(value) {
       if (!value) {

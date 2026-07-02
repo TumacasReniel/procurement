@@ -37,6 +37,10 @@ class ProcurementPpmpItem extends Model
         'quantity_adjustment_reason',
         'price_variance_reason',
         'total_cost',
+        'q1_indicative_amount',
+        'q2_indicative_amount',
+        'q3_indicative_amount',
+        'q4_indicative_amount',
         'status_id',
     ];
 
@@ -48,6 +52,10 @@ class ProcurementPpmpItem extends Model
         'item_unit_cost' => 'float',
         'price_basis_amount' => 'float',
         'total_cost' => 'float',
+        'q1_indicative_amount' => 'float',
+        'q2_indicative_amount' => 'float',
+        'q3_indicative_amount' => 'float',
+        'q4_indicative_amount' => 'float',
     ];
 
     public function procurement()
@@ -110,6 +118,10 @@ class ProcurementPpmpItem extends Model
                 'quantity_adjustment_reason',
                 'price_variance_reason',
                 'total_cost',
+                'q1_indicative_amount',
+                'q2_indicative_amount',
+                'q3_indicative_amount',
+                'q4_indicative_amount',
                 'status_id',
             ])
             ->setDescriptionForEvent(fn (string $eventName) => "PPMP item {$eventName}")

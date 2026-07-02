@@ -24,6 +24,26 @@
           <small>Fund Source</small>
         </div>
       </div>
+      <div v-if="hasQuarterlyData" class="plan-detail-banner__quarterly mt-2">
+        <div class="quarterly-label">Quarterly Indicative Budget</div>
+        <div class="quarterly-chips">
+          <span class="quarterly-chip">
+            <em>Q1</em> {{ formatCurrency(quarterlyTotals.q1) }}
+          </span>
+          <span class="quarterly-chip">
+            <em>Q2</em> {{ formatCurrency(quarterlyTotals.q2) }}
+          </span>
+          <span class="quarterly-chip">
+            <em>Q3</em> {{ formatCurrency(quarterlyTotals.q3) }}
+          </span>
+          <span class="quarterly-chip">
+            <em>Q4</em> {{ formatCurrency(quarterlyTotals.q4) }}
+          </span>
+        </div>
+        <div v-if="hasProjectRowsOnly" class="quarterly-note">
+          Line-item quarterly figures only — project-based budget not broken down by quarter.
+        </div>
+      </div>
     </div>
 
     <div class="row g-3">
@@ -181,7 +201,7 @@
               <th>End of Procurement Activity</th>
               <th>Expected Delivery/Implementation Period</th>
               <th>Source of Funds</th>
-              <th>Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
+              <th>Estimated Budget / ABC (PHP)</th>
             </tr>
             <tr class="fs-12 text-center ppmp-column-number-row">
               <th>Column 1</th>
@@ -579,7 +599,8 @@ export default {
       return this.ppmp.ppmp_status === "Reviewed/For Submission";
     },
     hasPpmpItems() {
-      return Number(this.ppmp?.items_count || 0) > 0;
+      return Number(this.ppmp?.items_count || 0) > 0
+        || (this.ppmp?.project_rows?.length || 0) > 0;
     },
     canShowAdvanceAction() {
       if (!this.ppmp.can_submit_final) {
@@ -692,6 +713,24 @@ export default {
 
       return "secondary";
     },
+    quarterlyTotals() {
+      const items = this.ppmp.item_details || [];
+      return {
+        q1: items.reduce((s, i) => s + (Number(i.q1_indicative_amount) || 0), 0),
+        q2: items.reduce((s, i) => s + (Number(i.q2_indicative_amount) || 0), 0),
+        q3: items.reduce((s, i) => s + (Number(i.q3_indicative_amount) || 0), 0),
+        q4: items.reduce((s, i) => s + (Number(i.q4_indicative_amount) || 0), 0),
+      };
+    },
+    hasQuarterlyData() {
+      const t = this.quarterlyTotals;
+      return t.q1 > 0 || t.q2 > 0 || t.q3 > 0 || t.q4 > 0;
+    },
+    hasProjectRowsOnly() {
+      const hasItems = (this.ppmp.item_details || []).length > 0;
+      const hasProjectRows = (this.ppmp.project_rows || []).length > 0;
+      return !hasItems && hasProjectRows;
+    },
     groupedItemRows() {
       const rows = this.ppmp.item_details || [];
       const entryGroups = new Map();
@@ -796,14 +835,11 @@ export default {
       });
     },
     formatMonthYear(value) {
-      if (!value) {
-        return "-";
-      }
-
-      return new Date(value).toLocaleDateString("en-US", {
-        month: "2-digit",
-        year: "numeric",
-      });
+      if (!value) return "-";
+      const match = String(value).match(/^(\d{4})-(\d{2})/);
+      if (!match) return "-";
+      const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return `${months[parseInt(match[2], 10) - 1] ?? match[2]} ${match[1]}`;
     },
     cleanValue(value) {
       return this.plainText(value).replace(/\s+/g, " ").trim();
@@ -919,8 +955,10 @@ export default {
 .ppmp-col-mode { width: 250px; }
 .ppmp-col-conference { width: 190px; }
 .ppmp-col-date { width: 165px; }
-.ppmp-col-funds { width: 210px; }
-.ppmp-col-budget { width: 230px; }
+.ppmp-col-funds { width: 180px; }
+.ppmp-col-quarter { width: 130px; }
+.ppmp-col-budget { width: 200px; }
+.quarter-cell { font-size: 12px; }
 .ppmp-col-docs { width: 260px; }
 .ppmp-col-remarks { width: 240px; }
 .ppmp-col-status { width: 150px; }
@@ -966,5 +1004,48 @@ export default {
 .ppmp-entry-cell {
   background: var(--ppmp-surface-soft, var(--bs-tertiary-bg, #f8fafc));
   color: var(--ppmp-text, var(--bs-body-color, #212529));
+}
+
+.plan-detail-banner__quarterly {
+  width: 100%;
+}
+.quarterly-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ppmp-muted, #6c757d);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 6px;
+}
+.quarterly-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.quarterly-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--bs-primary-bg-subtle, #cfe2ff);
+  border: 1px solid var(--bs-primary-border-subtle, #9ec5fe);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bs-primary-text-emphasis, #084298);
+}
+.quarterly-chip em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--bs-primary, #405189);
+  opacity: .75;
+}
+.quarterly-note {
+  font-size: 11px;
+  color: var(--ppmp-muted, #6c757d);
+  margin-top: 6px;
+  font-style: italic;
 }
 </style>

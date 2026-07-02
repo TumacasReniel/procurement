@@ -2,7 +2,19 @@
   <div class="card-body ppmp-view-body">
     <div class="plan-detail-banner mb-3 plan-detail-banner--annual">
       <div>
-        <div class="plan-detail-banner__eyebrow">Agency consolidated plan</div>
+        <div class="plan-detail-banner__eyebrow d-flex align-items-center gap-2">
+          <span>Agency consolidated plan</span>
+          <span
+            v-if="ppmp.plan_phase && planKind !== 'SPP'"
+            class="badge"
+            :style="ppmp.plan_phase === 'final'
+              ? 'background:rgba(10,179,156,0.15);color:#0a6640;font-size:10px;font-weight:700'
+              : 'background:rgba(255,193,7,0.15);color:#856404;font-size:10px;font-weight:700'"
+          >
+            <i :class="ppmp.plan_phase === 'final' ? 'ri-flag-2-line' : 'ri-draft-line'" class="me-1"></i>
+            {{ ppmp.plan_phase === 'final' ? 'Post-GAA' : 'Pre-Budget' }}
+          </span>
+        </div>
         <div class="plan-detail-banner__title">{{ planLongName }}</div>
         <div class="plan-detail-banner__copy">{{ planDescription }}</div>
       </div>
@@ -669,14 +681,22 @@ export default {
       return this.planKind === "SPP" ? "SPP" : "APP";
     },
     planLongName() {
-      return this.planKind === "SPP"
-        ? "Supplemental Procurement Plan"
-        : "Annual Procurement Plan";
+      if (this.planKind === "SPP") return "Supplemental Procurement Plan";
+      if (this.ppmp.plan_phase === "final") return "Final Annual Procurement Plan";
+      if (this.ppmp.plan_phase === "indicative") return "Indicative Annual Procurement Plan";
+      return this.ppmp.plan_phase_label || "Annual Procurement Plan";
     },
     planDescription() {
-      return this.planKind === "SPP"
-        ? `Supplemental procurement plan for ${this.implementingUnitLabel}`
-        : "Agency-wide consolidated annual procurement plan";
+      if (this.planKind === "SPP") {
+        return `Supplemental procurement plan for ${this.implementingUnitLabel}`;
+      }
+      if (this.ppmp.plan_phase === "final") {
+        return "Post-GAA controlling document — mandatory PhilGEPS posting within 30 days of budget approval (RA 9184, Sec. 7)";
+      }
+      if (this.ppmp.plan_phase === "indicative") {
+        return "Pre-budget transparency document — based on proposed appropriations, superseded by the Final APP after GAA enactment";
+      }
+      return "Agency-wide consolidated annual procurement plan";
     },
     implementingUnitLabel() {
       return this.ppmp.unit?.name || (this.planKind === "SPP" ? "Unit" : "Agency-wide");
@@ -825,14 +845,11 @@ export default {
       });
     },
     formatMonthYear(value) {
-      if (!value) {
-        return "-";
-      }
-
-      return new Date(value).toLocaleDateString("en-US", {
-        month: "2-digit",
-        year: "numeric",
-      });
+      if (!value) return "-";
+      const match = String(value).match(/^(\d{4})-(\d{2})/);
+      if (!match) return "-";
+      const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return `${months[parseInt(match[2], 10) - 1] ?? match[2]} ${match[1]}`;
     },
     formatPrintDate(value) {
       if (!value) {

@@ -102,6 +102,14 @@ class ProcurementPPMPController extends Controller
                 ]))->toOthers();
 
                 break;
+
+            case 'mark_as_final':
+            case 'create_revision':
+                $new_ppmp_id = $result['data']['new_ppmp_id'] ?? null;
+                if (! empty($new_ppmp_id)) {
+                    return redirect("/faims/procurement-ppmp/{$new_ppmp_id}")->with($result);
+                }
+                break;
         }
 
         return back()->with($result);

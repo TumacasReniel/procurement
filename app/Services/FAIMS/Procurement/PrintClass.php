@@ -217,6 +217,8 @@ class PrintClass
                 'source_ppmps.created_by.org_chart.designation',
                 'source_ppmps.created_by.organization.position',
                 'source_ppmps.requested_by.profile',
+                'source_ppmps.requested_by.org_chart.designation',
+                'source_ppmps.requested_by.organization.position',
                 'source_ppmps.reviewed_by.profile',
                 'source_ppmps.approved_by.profile',
             ])->findOrFail($id);
@@ -237,6 +239,8 @@ class PrintClass
                 'created_by.org_chart.designation',
                 'created_by.organization.position',
                 'requested_by.profile',
+                'requested_by.org_chart.designation',
+                'requested_by.organization.position',
                 'reviewed_by.profile',
                 'approved_by.profile'
             )->findOrFail($id);

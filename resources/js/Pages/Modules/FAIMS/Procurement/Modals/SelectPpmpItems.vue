@@ -156,6 +156,10 @@ export default {
       type: Array,
       default: () => [],
     },
+    selectedCodeIds: {
+      type: Array,
+      default: () => [],
+    },
     storageKey: {
       type: String,
       default: "itemsAdded",
@@ -222,11 +226,22 @@ export default {
       );
     },
     availableItems() {
+      const activeCodes = new Set(
+        (this.selectedCodeIds || []).map((id) => Number(id)).filter(Boolean)
+      );
+
+      const codeFiltered =
+        activeCodes.size > 0
+          ? this.ppmpItems.filter((item) =>
+              (item.pap_code_ids || []).some((id) => activeCodes.has(Number(id)))
+            )
+          : this.ppmpItems;
+
       if (this.isEditing) {
-        return this.ppmpItems;
+        return codeFiltered;
       }
 
-      return this.ppmpItems.filter(
+      return codeFiltered.filter(
         (item) => !this.selectedExistingPpmpItemIds.has(Number(item.value))
       );
     },

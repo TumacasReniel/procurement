@@ -1388,3 +1388,28 @@ File: Custom Css File
     color: var(--module-text) !important;
   }
 }
+
+.version-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.6;
+    background: rgba(64, 81, 137, 0.1);
+    color: #405189;
+    border: 1px solid rgba(64, 81, 137, 0.2);
+    white-space: nowrap;
+}
+
+// Bootstrap-Vue3 tooltips are teleported outside the component DOM, so scoped
+// styles cannot reach them. This global rule ensures the text is always legible
+// regardless of how the --vz-body-bg variable resolves.
+.tooltip-inner {
+    color: #fff !important;
+    background-color: #212529;
+}
+.tooltip .tooltip-arrow::before {
+    border-top-color: #212529 !important;
+}

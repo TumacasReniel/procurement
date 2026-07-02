@@ -513,6 +513,7 @@
       :ppmp-items="ppmpItems"
       :existing-items="form.items || []"
       :is-loading="isLoadingPpmpItems"
+      :selected-code-ids="form.procurement_code_ids || []"
       @refresh="getDataFromLocalStorage()"
       @switch-to-manual="openManualItem"
       ref="ppmpItemSelector"

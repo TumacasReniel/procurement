@@ -20,6 +20,22 @@
                   <b-badge :variant="planBadgeVariant">
                     {{ planShortName }}
                   </b-badge>
+                  <b-badge
+                    v-if="ppmp.ppmp_type_label"
+                    :variant="ppmp.ppmp_type === 'final' ? 'success' : 'info'"
+                    style="font-size: 10px"
+                  >
+                    {{ ppmp.ppmp_type_label }}
+                    V{{ normalizedPlanType === 'APP' ? (ppmp.version || 1) : (ppmp.ppmp_type_version || 1) }}
+                  </b-badge>
+                  <b-badge
+                    v-if="ppmp.ppmp_type === 'final' && ppmp.is_current === false"
+                    variant="secondary"
+                    style="font-size: 10px"
+                  >Archived</b-badge>
+                  <span v-else-if="!ppmp.ppmp_type_label" class="version-badge">
+                    Version {{ normalizedPlanType === 'APP' ? (ppmp.version || 1) : (ppmp.ppmp_type_version || 1) }}
+                  </span>
                 </div>
                 <p v-if="normalizedPlanType === 'PPMP'" class="ppmp-subtitle mb-0">
                   {{ planDescription }} with {{ ppmp.items_count || 0 }}
@@ -31,6 +47,13 @@
               </div>
             </div>
             <div class="d-flex gap-2">
+              <b-button
+                variant="light"
+                v-b-tooltip="{ title: 'Procurement Process Guide (PPMP → APP → SPP → RFQ → PO)', variant: 'primary' }"
+                @click="processInfoModal.show = true"
+              >
+                <i class="ri-question-line align-bottom text-primary"></i>
+              </b-button>
               <b-button variant="light" @click="goBack">
                 <i class="ri-arrow-left-line align-bottom me-1"></i>
                 Back
@@ -48,6 +71,35 @@
               >
                 <i class="ri-check-double-line align-bottom me-1"></i>
                 {{ advanceActionLabel }}
+              </b-button>
+              <b-button
+                v-if="canMarkAsFinal"
+                variant="warning"
+                :disabled="markFinalForm.processing"
+                @click="openMarkAsFinalModal"
+              >
+                <i class="ri-flag-line align-bottom me-1"></i>
+                Mark as Final
+              </b-button>
+              <b-button
+                v-if="canCreateRevision"
+                variant="warning"
+                :disabled="createRevisionForm.processing"
+                @click="openCreateRevisionModal"
+              >
+                <i class="ri-git-branch-line align-bottom me-1"></i>
+                Create Revision
+              </b-button>
+              <b-button
+                v-if="canFinalizeToFinalApp"
+                variant="success"
+                :disabled="finalizeAppForm.processing"
+                v-b-tooltip.hover
+                title="Mark this APP and its PPMPs as Final (post-GAA)"
+                @click="openFinalizeAppModal"
+              >
+                <i class="ri-flag-2-fill align-bottom me-1"></i>
+                Proceed to Final APP
               </b-button>
               <b-button
                 v-if="canAddSppItem"
@@ -118,6 +170,7 @@
     v-model:show="approveAppModal.show"
     :ppmp="ppmp"
     :processing="approveAppForm.processing"
+    :error="approveAppModal.error"
     @cancel="closeApproveAppModal"
     @confirm="approveToApp"
   />
@@ -133,6 +186,38 @@
   />
 
   <FloatingPlanChat ref="planChat" :plan="ppmp" :show-trigger="true" />
+
+  <MarkAsFinalModal
+    v-model:show="markFinalModal.show"
+    :ppmp="ppmp"
+    :processing="markFinalForm.processing"
+    :error="markFinalModal.error"
+    @cancel="closeMarkAsFinalModal"
+    @confirm="markAsFinal"
+  />
+
+  <CreateRevisionModal
+    v-model:show="createRevisionModal.show"
+    :ppmp="ppmp"
+    :processing="createRevisionForm.processing"
+    :error="createRevisionModal.error"
+    @cancel="closeCreateRevisionModal"
+    @confirm="createRevision"
+  />
+
+  <ProcurementProcessInfoModal
+    v-model:show="processInfoModal.show"
+    @close="processInfoModal.show = false"
+  />
+
+  <FinalizeToFinalAppModal
+    v-model:show="finalizeAppModal.show"
+    :ppmp="ppmp"
+    :processing="finalizeAppForm.processing"
+    :error="finalizeAppModal.error"
+    @cancel="closeFinalizeAppModal"
+    @confirm="finalizeToFinalApp"
+  />
 </template>
 
 <script>
@@ -143,13 +228,17 @@ import DeleteItemModal from "./Modals/DeleteItem.vue";
 import ApproveToAppModal from "./Modals/ApproveToApp.vue";
 import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
 import RevertStatusModal from "./Modals/RevertStatus.vue";
+import MarkAsFinalModal from "./Modals/MarkAsFinal.vue";
+import CreateRevisionModal from "./Modals/CreateRevision.vue";
 import AppPlanView from "./Components/AppPlanView.vue";
 import SppPlanView from "./Components/SppPlanView.vue";
 import PpmpPlanView from "./Components/PpmpPlanView.vue";
 import FloatingPlanChat from "./Components/FloatingPlanChat.vue";
+import ProcurementProcessInfoModal from "./Modals/ProcurementProcessInfoModal.vue";
+import FinalizeToFinalAppModal from "./Modals/FinalizeToFinalAppModal.vue";
 
 export default {
-  props: ["ppmp", "dropdowns"],
+  props: ["ppmp", "dropdowns", "versions"],
   components: {
     PageHeader,
     AddItemModal,
@@ -157,10 +246,14 @@ export default {
     ApproveToAppModal,
     SubmitForApprovalModal,
     RevertStatusModal,
+    MarkAsFinalModal,
+    CreateRevisionModal,
     AppPlanView,
     SppPlanView,
     PpmpPlanView,
     FloatingPlanChat,
+    ProcurementProcessInfoModal,
+    FinalizeToFinalAppModal,
   },
   data() {
     return {
@@ -180,6 +273,7 @@ export default {
       }),
       approveAppModal: {
         show: false,
+        error: "",
       },
       revertStatusForm: useForm({
         option: "revert_status",
@@ -187,6 +281,31 @@ export default {
         revert_reason: "",
       }),
       revertStatusModal: {
+        show: false,
+        error: "",
+      },
+      markFinalForm: useForm({
+        option: "mark_as_final",
+        plan_type: this.ppmp?.plan_type || "PPMP",
+      }),
+      markFinalModal: {
+        show: false,
+        error: "",
+      },
+      createRevisionForm: useForm({
+        option: "create_revision",
+        plan_type: this.ppmp?.plan_type || "PPMP",
+      }),
+      createRevisionModal: {
+        show: false,
+        error: "",
+      },
+      processInfoModal: { show: false },
+      finalizeAppForm: useForm({
+        option: "finalize_to_final_app",
+        app_id: null,
+      }),
+      finalizeAppModal: {
         show: false,
         error: "",
       },
@@ -207,6 +326,19 @@ export default {
     },
     canEditIndicativeItems() {
       return this.canAddDraftItem;
+    },
+    canMarkAsFinal() {
+      return this.normalizedPlanType === "PPMP" && Boolean(this.ppmp?.can_mark_as_final);
+    },
+    canCreateRevision() {
+      return this.normalizedPlanType === "PPMP" && Boolean(this.ppmp?.can_create_revision);
+    },
+    canFinalizeToFinalApp() {
+      return (
+        this.normalizedPlanType === "APP" &&
+        this.ppmp?.plan_phase === "indicative" &&
+        (this.isProcurementOfficer || this.isAdministrator)
+      );
     },
     isPpmpCreator() {
       const currentUserId = this.$page?.props?.user?.data?.id;
@@ -355,7 +487,8 @@ export default {
       return this.isPpmpCreator || this.isSameUserUnit || this.isProcurementUser || this.isAdministrator;
     },
     hasPpmpItems() {
-      return Number(this.ppmp?.items_count || 0) > 0;
+      return Number(this.ppmp?.items_count || 0) > 0
+        || (this.ppmp?.project_rows?.length || 0) > 0;
     },
     requiresItemsBeforeAdvance() {
       return ["PPMP", "SPP"].includes(this.normalizedPlanType);
@@ -395,15 +528,11 @@ export default {
       return "End-user unit plan";
     },
     planBadgeVariant() {
-      if (this.normalizedPlanType === "APP") {
-        return "primary";
-      }
-
       if (this.normalizedPlanType === "SPP") {
         return "warning";
       }
 
-      return "info";
+      return "primary";
     },
     ppmpStatusVariant() {
       const status = String(this.ppmp.ppmp_status || "").toLowerCase();
@@ -570,10 +699,16 @@ export default {
       this.approveAppForm.plan_type = this.normalizedPlanType;
       this.approveAppForm.consolidation_review_acknowledged = Boolean(review.consolidation_review_acknowledged);
       this.approveAppForm.consolidation_pricing = review.consolidation_pricing || [];
+      this.approveAppModal.error = "";
       this.approveAppForm.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
         preserveScroll: true,
         onSuccess: () => {
           this.approveAppModal.show = false;
+          this.approveAppModal.error = "";
+        },
+        onError: (errors) => {
+          const first = Object.values(errors || {}).flat().find(Boolean);
+          this.approveAppModal.error = first || "Consolidation failed. Please try again.";
         },
       });
     },
@@ -606,7 +741,85 @@ export default {
       }
 
       this.approveAppModal.show = false;
+      this.approveAppModal.error = "";
       this.approveAppForm.clearErrors();
+    },
+    openMarkAsFinalModal() {
+      if (this.markFinalForm.processing) {
+        return;
+      }
+      this.markFinalModal.error = "";
+      this.markFinalModal.show = true;
+    },
+    closeMarkAsFinalModal() {
+      if (this.markFinalForm.processing) return;
+      this.markFinalModal.show = false;
+      this.markFinalModal.error = "";
+      this.markFinalForm.clearErrors();
+    },
+    markAsFinal() {
+      this.markFinalModal.error = "";
+      this.markFinalForm.option = "mark_as_final";
+      this.markFinalForm.plan_type = this.normalizedPlanType;
+      this.markFinalForm.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
+        onSuccess: () => {
+          this.markFinalModal.show = false;
+        },
+        onError: (errors) => {
+          this.markFinalModal.error = this.firstFormError(errors);
+        },
+      });
+    },
+    openCreateRevisionModal() {
+      if (this.createRevisionForm.processing) return;
+      this.createRevisionModal.error = "";
+      this.createRevisionModal.show = true;
+    },
+    closeCreateRevisionModal() {
+      if (this.createRevisionForm.processing) return;
+      this.createRevisionModal.show = false;
+      this.createRevisionModal.error = "";
+      this.createRevisionForm.clearErrors();
+    },
+    createRevision() {
+      this.createRevisionModal.error = "";
+      this.createRevisionForm.option = "create_revision";
+      this.createRevisionForm.plan_type = this.normalizedPlanType;
+      this.createRevisionForm.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
+        onSuccess: () => {
+          this.createRevisionModal.show = false;
+        },
+        onError: (errors) => {
+          this.createRevisionModal.error = this.firstFormError(errors);
+        },
+      });
+    },
+    openFinalizeAppModal() {
+      if (this.finalizeAppForm.processing) return;
+      this.finalizeAppModal.error = "";
+      this.finalizeAppModal.show = true;
+    },
+    closeFinalizeAppModal() {
+      if (this.finalizeAppForm.processing) return;
+      this.finalizeAppModal.show = false;
+      this.finalizeAppModal.error = "";
+      this.finalizeAppForm.clearErrors();
+    },
+    finalizeToFinalApp() {
+      this.finalizeAppModal.error = "";
+      this.finalizeAppForm.option = "finalize_to_final_app";
+      this.finalizeAppForm.app_id = this.ppmp.id;
+      this.finalizeAppForm.post("/faims/procurement-ppmp", {
+        preserveScroll: true,
+        onSuccess: () => {
+          this.finalizeAppModal.show = false;
+          this.finalizeAppModal.error = "";
+          router.get("/faims/procurement-ppmp", { plan_type: "APP" });
+        },
+        onError: (errors) => {
+          this.finalizeAppModal.error = this.firstFormError(errors);
+        },
+      });
     },
     openAddItemModal() {
       this.$refs.addItemModal?.show();
@@ -644,7 +857,7 @@ export default {
       window.history.replaceState({}, "", url.toString());
     },
     emptyPpmpItemsMessage() {
-      return "Please add at least one item before updating or submitting this PPMP for review.";
+      return "Please add at least one procurement project before updating or submitting this PPMP for review.";
     },
     firstFormError(errors) {
       const firstError = Object.values(errors || {}).flat().find(Boolean);

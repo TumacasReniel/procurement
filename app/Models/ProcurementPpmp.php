@@ -38,6 +38,7 @@ class ProcurementPpmp extends Model
         'sub_status_id',
         'ppmp_type',
         'ppmp_type_version',
+        'source_ppmp_id',
         'is_supplemental',
         'attachment_path',
         'attachment_original_name',
@@ -50,6 +51,8 @@ class ProcurementPpmp extends Model
         'attached_supporting_documents',
         'remarks',
         'project_total_budget',
+        'is_current',
+        'quarter',
     ];
 
     protected $casts = [
@@ -143,6 +146,16 @@ class ProcurementPpmp extends Model
     public function items()
     {
         return $this->hasMany(ProcurementPpmpItem::class, 'procurement_ppmp_id');
+    }
+
+    public function sourcePpmp()
+    {
+        return $this->belongsTo(ProcurementPpmp::class, 'source_ppmp_id');
+    }
+
+    public function derivedVersions()
+    {
+        return $this->hasMany(ProcurementPpmp::class, 'source_ppmp_id');
     }
 
     public function status()

@@ -84,12 +84,13 @@
 
         <BCol lg="4" class="mt-3">
           <InputLabel value="Start of Procurement Activity(Column 6)" />
-          <TextInput
-            v-model="form.start_of_procurement_activity"
-            type="month"
-            class="form-control"
-            :class="inputInvalidClass('start_of_procurement_activity')"
-          />
+          <div class="position-relative month-picker-wrap">
+            <i class="ri-calendar-2-line month-picker-icon"></i>
+            <flat-pickr
+              v-model="form.start_of_procurement_activity"
+              :config="monthPickerConfig"
+            />
+          </div>
           <div
             v-if="fieldError('start_of_procurement_activity')"
             class="invalid-feedback d-block"
@@ -100,12 +101,13 @@
 
         <BCol lg="4" class="mt-3">
           <InputLabel value="End of Procurement Activity(Column 7)" />
-          <TextInput
-            v-model="form.end_of_procurement_activity"
-            type="month"
-            class="form-control"
-            :class="inputInvalidClass('end_of_procurement_activity')"
-          />
+          <div class="position-relative month-picker-wrap">
+            <i class="ri-calendar-2-line month-picker-icon"></i>
+            <flat-pickr
+              v-model="form.end_of_procurement_activity"
+              :config="monthPickerConfig"
+            />
+          </div>
           <div
             v-if="fieldError('end_of_procurement_activity')"
             class="invalid-feedback d-block"
@@ -116,12 +118,13 @@
 
         <BCol lg="4" class="mt-3">
           <InputLabel value="Expected Delivery Date(Column 8)" />
-          <TextInput
-            v-model="form.expected_delivery_date"
-            type="month"
-            class="form-control"
-            :class="inputInvalidClass('expected_delivery_date')"
-          />
+          <div class="position-relative month-picker-wrap">
+            <i class="ri-calendar-2-line month-picker-icon"></i>
+            <flat-pickr
+              v-model="form.expected_delivery_date"
+              :config="monthPickerConfig"
+            />
+          </div>
           <div
             v-if="fieldError('expected_delivery_date')"
             class="invalid-feedback d-block"
@@ -206,8 +209,14 @@
 
         <BCol lg="12" class="mt-3" v-if="hasItems === false">
           <label class="form-label fw-semibold">Total Budget (ABC) <span class="text-danger">*</span></label>
-          <Amount ref="totalBudgetAmount" @amount="onTotalBudgetAmount" />
-          <div v-if="form.errors.project_total_budget" class="text-danger small mt-1">{{ form.errors.project_total_budget }}</div>
+          <Amount
+            ref="totalBudgetAmount"
+            :class="{ 'is-invalid': Boolean(form.errors.project_total_budget) }"
+            @amount="onTotalBudgetAmount"
+          />
+          <div v-if="form.errors.project_total_budget" class="invalid-feedback d-block">
+            {{ form.errors.project_total_budget }}
+          </div>
         </BCol>
 
         <BCol lg="12" class="mt-3" v-if="hasItems === true || isEditing">
@@ -373,9 +382,6 @@
               formatCurrency(itemRows.length ? itemRowsTotalCost : itemTotalCost)
             }}</strong>
           </div>
-          <div v-if="form.errors['item']" class="text-danger small fw-semibold mt-2">
-            {{ form.errors['item'] }}
-          </div>
           <div v-if="itemTableError" class="text-danger small fw-semibold mt-2">
             {{ itemTableError }}
           </div>
@@ -384,11 +390,14 @@
     </form>
 
     <template v-slot:footer>
+      <div v-if="form.errors['item']" class="w-100 mb-2">
+        <div class="alert alert-danger py-2 px-3 mb-0 small">{{ form.errors['item'] }}</div>
+      </div>
       <div v-if="backendError" class="w-100 mb-2">
         <div class="alert alert-danger py-2 px-3 mb-0 small">{{ backendError }}</div>
       </div>
       <b-button @click="hide" variant="light" block>Cancel</b-button>
-      <b-button @click="submit" variant="primary" :disabled="form.processing || !isFormValid" block>
+      <b-button @click="submit" variant="primary" :disabled="form.processing" block>
         {{ form.processing ? "Saving..." : submitLabel }}
       </b-button>
     </template>
@@ -412,9 +421,12 @@ import TextInput from "@/Shared/Components/Forms/TextInput.vue";
 import FileDropzone from "@/Shared/Components/Forms/FileDropzone.vue";
 import AddItemTableModal from "./AddItemTableModal.vue";
 import Amount from "@/Shared/Components/Forms/Amount.vue";
+import flatPickr from "vue-flatpickr-component";
+import monthSelectPlugin from "flatpickr/dist/plugins/monthSelect/index.js";
+import "flatpickr/dist/plugins/monthSelect/style.css";
 
 export default {
-  components: { Multiselect, InputLabel, TextInput, FileDropzone, AddItemTableModal, Amount },
+  components: { Multiselect, InputLabel, TextInput, FileDropzone, AddItemTableModal, Amount, flatPickr },
   props: {
     ppmp: {
       type: Object,
@@ -436,6 +448,22 @@ export default {
   emits: ["draft"],
   data() {
     return {
+      monthPickerConfig: {
+        plugins: [
+          new monthSelectPlugin({
+            shorthand: false,
+            dateFormat: "Y-m",
+            altFormat: "F Y",
+          }),
+        ],
+        altInput: true,
+        altInputClass: "form-control",
+        onReady(_dates, _str, instance) {
+          if (instance.altInput) {
+            instance.altInput.placeholder = "Month YYYY";
+          }
+        },
+      },
       modal: {
         show: false,
       },
@@ -600,7 +628,7 @@ export default {
       if (this.isEditingProject) return `Edit ${this.planLabel} Project`;
       return this.isEditing
         ? `Edit ${this.planLabel} Item`
-        : `Add ${this.planLabel} Item`;
+        : `Add Procurement Project`;
     },
     isFormValid() {
       const projectFieldsValid = Boolean(
@@ -797,6 +825,7 @@ export default {
           },
         ];
       } else {
+        this.hasItems = null;
         this.form.item_quantity = 1;
         this.form.item_unit_cost = 0.0;
       }
@@ -822,9 +851,48 @@ export default {
     },
     submit() {
       this.backendError = null;
-      if (!this.isEditing && !this.isEditingProject && this.hasItems === null) {
-        this.showHasItemsError = true;
-        return;
+      this.showHasItemsError = false;
+      this.form.clearErrors();
+
+      if (!this.isEditing && !this.isEditingProject) {
+        const errors = {};
+
+        if (!this.form.general_description_objective?.trim())
+          errors.general_description_objective = 'General description and objective is required.';
+        if (!this.form.project_type)
+          errors.project_type = 'Type of project is required.';
+        if (!this.form.recommended_mode_of_procurement)
+          errors.recommended_mode_of_procurement = 'Recommended mode of procurement is required.';
+        if (!this.form.pre_procurement_conference)
+          errors.pre_procurement_conference = 'Pre-procurement conference is required.';
+        if (!this.form.start_of_procurement_activity)
+          errors.start_of_procurement_activity = 'Start of procurement activity is required.';
+        if (!this.form.end_of_procurement_activity)
+          errors.end_of_procurement_activity = 'End of procurement activity is required.';
+        if (!this.form.expected_delivery_date)
+          errors.expected_delivery_date = 'Expected delivery date is required.';
+        if (!this.form.attached_supporting_documents?.trim())
+          errors.attached_supporting_documents = 'Supporting document type is required.';
+        if (!this.form.supporting_document_file)
+          errors.supporting_document_file = 'Attachment is required.';
+        if (!this.form.remarks?.trim())
+          errors.remarks = 'Remarks is required.';
+
+        if (this.hasItems === null) {
+          this.showHasItemsError = true;
+        } else if (this.hasItems === true && this.itemRows.length === 0) {
+          errors.items = 'At least one item is required.';
+        } else if (this.hasItems === false && Number(this.form.project_total_budget || 0) <= 0) {
+          errors.project_total_budget = 'Total Budget (ABC) must be greater than zero.';
+        }
+
+        if (Object.keys(errors).length > 0) {
+          this.form.setError(errors);
+        }
+
+        if (Object.keys(errors).length > 0 || this.showHasItemsError) {
+          return;
+        }
       }
 
       const rowsToSubmit = this.itemRows;
@@ -902,6 +970,7 @@ export default {
       }
 
       if (!this.ppmp?.id) {
+        this.backendError = "Unable to save: no procurement plan selected. Please refresh the page and try again.";
         return;
       }
 
@@ -909,7 +978,12 @@ export default {
         forceFormData: true,
         preserveScroll: true,
         onSuccess: (page) => this.handleSuccess(page),
-        onError: () => this.restoreMonthValues(),
+        onError: (errors) => {
+          this.restoreMonthValues();
+          if (!Object.keys(errors || {}).length) {
+            this.backendError = "An error occurred while saving. Please try again.";
+          }
+        },
       });
     },
     handleSuccess(page) {
@@ -928,6 +1002,9 @@ export default {
     },
     onTotalBudgetAmount(val) {
       this.form.project_total_budget = this.cleanCurrency(val);
+      if (Number(this.form.project_total_budget) > 0) {
+        this.form.clearErrors('project_total_budget');
+      }
     },
     cleanCurrency(value) {
       if (!value) return 0;
@@ -1008,6 +1085,10 @@ export default {
         item_unit_cost: Number(item.unit_price || item.item_unit_cost || 0),
         total_cost: Number(item.abc || item.total_cost || 0),
         item_category_id: item.item_category_id ?? null,
+        q1_indicative_amount: item.q1_indicative_amount ?? null,
+        q2_indicative_amount: item.q2_indicative_amount ?? null,
+        q3_indicative_amount: item.q3_indicative_amount ?? null,
+        q4_indicative_amount: item.q4_indicative_amount ?? null,
       };
     },
     dateInputValue(value) {
@@ -1323,5 +1404,26 @@ export default {
     align-items: stretch;
     flex-direction: column;
   }
+}
+
+.month-picker-wrap {
+  display: block;
+}
+
+.month-picker-icon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #6c757d;
+  z-index: 2;
+  font-size: 14px;
+}
+
+:deep(.month-picker-wrap .flatpickr-alt-input),
+:deep(.month-picker-wrap input.form-control) {
+  padding-left: 2rem;
+  width: 100%;
 }
 </style>

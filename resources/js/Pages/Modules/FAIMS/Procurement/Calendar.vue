@@ -136,7 +136,7 @@
       </div>
       <template #footer>
         <b-button variant="light" @click="showDetail = false">Close</b-button>
-        <Link :href="`/procurements/${detailPr?.id}`" class="btn btn-primary" @click="showDetail = false">
+        <Link v-if="canViewPr(detailPr)" :href="`/faims/procurements/${detailPr?.id}?option=view`" class="btn btn-primary" @click="showDetail = false">
           <i class="ri-eye-line me-1"></i>View Full PR
         </Link>
       </template>
@@ -150,8 +150,10 @@ import { Head, Link } from "@inertiajs/vue3";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import FullCalendar from "@fullcalendar/vue3";
 import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
+import bootstrapPlugin from "@fullcalendar/bootstrap";
 
 const STATUS_PALETTE = {
   pending:    "#6c757d",
@@ -188,7 +190,8 @@ export default {
       activeView:     "dayGridMonth",
       views: [
         { key: "dayGridMonth", label: "Month" },
-        { key: "dayGridWeek",  label: "Week" },
+        { key: "timeGridWeek", label: "Week" },
+        { key: "timeGridDay",  label: "Day" },
         { key: "listMonth",    label: "List" },
       ],
       statusColors: [
@@ -200,7 +203,12 @@ export default {
         { label: "Rejected",      color: "#dc3545" },
       ],
       calendarOptions: {
-        plugins: [dayGridPlugin, listPlugin, interactionPlugin],
+        timeZone: "Asia/Manila",
+        themeSystem: "bootstrap",
+        navLinks: true,
+        showNonCurrentDates: false,
+        fixedWeekCount: false,
+        plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, bootstrapPlugin],
         initialView: "dayGridMonth",
         headerToolbar: {
           left:   "prev,next today",
@@ -248,15 +256,7 @@ export default {
       return STATUS_PALETTE.default;
     },
     async loadEvents() {
-      // Pulling PR code/number from backend response.
-      // If modal is blank, we need to ensure `detailPr` exists and has fields.
-      // (No console logs here.)
       this.calLoading = true;
-      // NOTE: PR code/number may be in different JSON keys depending on backend resource.
-      // We'll defensively build a few candidate fields.
-      // (Leaving no console logs to avoid clutter/hydration issues.)
-
-      
       try {
         const api = this.$refs.calRef?.getApi();
         const start = api?.view?.currentStart;
@@ -273,23 +273,29 @@ export default {
           date_to:   end   ? end.toISOString().slice(0, 10)   : undefined,
         };
 
-        const response = await axios.get("/procurements", { params });
+        const response = await axios.get("/faims/procurements", { params });
         const rows = response.data?.data ?? response.data ?? [];
 
-        this.calendarOptions = {
-          ...this.calendarOptions,
-          events: rows.map(pr => ({
-            id:    String(pr.id),
-            title: this.calendarEventTitle(pr),
-            start: pr.calendar_start_at || pr.created_at || pr.date_iso || pr.date,
-            color: this.statusColor(pr.status?.name ?? pr.status),
-            extendedProps: {
-              pr,
-              tooltip: [this.calendarEventTitle(pr), pr.title || pr.purpose, pr.status?.name, this.calendarPersonName(pr.requested_by || pr.user)]
-                .filter(Boolean).join(" · "),
-            },
-          })),
-        };
+        const events = rows.map(pr => ({
+          id:    String(pr.id),
+          title: this.calendarEventTitle(pr),
+          start: pr.date_iso || pr.created_at,
+          color: this.statusColor(pr.status?.name),
+          extendedProps: {
+            pr,
+            tooltip: [this.calendarEventTitle(pr), pr.title || pr.purpose, pr.status?.name, this.calendarPersonName(pr.requested_by || pr.user)]
+              .filter(Boolean).join(" · "),
+          },
+        }));
+
+        if (api) {
+          api.removeAllEvents();
+          events.forEach(event => api.addEvent(event));
+        } else {
+          this.calendarOptions = { ...this.calendarOptions, events };
+        }
+      } catch (e) {
+        // silently fail — calendar stays with previous events
       } finally {
         this.calLoading = false;
       }
@@ -316,6 +322,18 @@ export default {
     formatNumber(val) {
       const n = parseFloat(val ?? 0);
       return isNaN(n) ? "0.00" : new Intl.NumberFormat("en-PH", { minimumFractionDigits: 2 }).format(n);
+    },
+    canViewPr(pr) {
+      if (!pr) return false;
+      const roles = this.$page.props.roles || [];
+      const elevated = ["Administrator", "Procurement Officer", "Procurement Staff", "Procurement Encoder"];
+      if (elevated.some(r => roles.includes(r))) return true;
+      const uid = Number(this.$page.props.user?.data?.id || 0);
+      return (
+        Number(pr.created_by_id) === uid ||
+        Number(pr.requested_by_id) === uid ||
+        Number(pr.approved_by_id) === uid
+      );
     },
   },
 };

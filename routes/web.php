@@ -60,6 +60,7 @@ Route::middleware(['auth','verified'])->group(function () {
     Route::resource('/inventory-par', App\Http\Controllers\Inventory\InventoryParController::class)->only(['index','show','store','update','destroy']);
 
     // Print routes
+    Route::get('/procurement/user-manual/print', fn() => view('FAIMS.Procurement.prints.user-manual'))->name('procurement.user-manual.print');
     Route::get('/inventory-print/stock-card/{item}', [App\Http\Controllers\Inventory\InventoryPrintController::class, 'stockCard'])->name('inventory.print.stock-card');
     Route::get('/inventory-print/ris/{inventory_ri}', [App\Http\Controllers\Inventory\InventoryPrintController::class, 'ris'])->name('inventory.print.ris');
     Route::get('/inventory-print/ics/{inventory_ic}', [App\Http\Controllers\Inventory\InventoryPrintController::class, 'ics'])->name('inventory.print.ics');

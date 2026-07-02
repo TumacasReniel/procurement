@@ -175,86 +175,119 @@
             </div>
           </div>
 
-          <div class="category-action-bar mt-3">
-            <div class="selection-total">
-              <span class="selection-count">{{ selectedItems.length }}</span>
-              <span>selected</span>
-              <span class="divider-dot"></span>
-              <strong>{{ formatCurrency(selectedTotal) }}</strong>
-            </div>
-            <b-button
-              v-if="!isLockedMode"
-              type="button"
-              variant="primary"
-              :disabled="!canLoadItems || loadingItems"
-              @click="fetchItems"
-            >
-              <span
-                v-if="loadingItems"
-                class="spinner-border spinner-border-sm me-1"
-              ></span>
-              <i v-else class="ri-download-cloud-2-line align-bottom me-1"></i>
-              Load Items
-            </b-button>
-          </div>
         </div>
       </div>
 
       <div class="content-card">
+        <div class="card-header-custom">
+          <i class="ri-shopping-bag-line card-header-icon"></i>
+          <h5 class="card-header-title">Items</h5>
+          <div v-if="!isLockedMode" class="ms-auto d-flex gap-2">
+            <b-button
+              @click="openManualItem()"
+              variant="outline-primary"
+              size="sm"
+              class="add-item-btn"
+            >
+              <i class="ri-pencil-line me-1"></i>Add Manually
+            </b-button>
+            <b-button
+              :disabled="!canLoadItems || loadingItems"
+              @click="fetchItems"
+              variant="success"
+              size="sm"
+              class="add-item-btn"
+            >
+              <span v-if="loadingItems" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="ri-add-line me-1"></i>
+              Select Items
+            </b-button>
+          </div>
+        </div>
         <div class="card-body-custom">
-          <div class="table-responsive category-items-table">
-            <table class="items-table mb-0">
-              <thead>
-                <tr>
-                  <th class="text-center" style="width: 46px">Pick</th>
-
-                  <th style="width: 18%">Acquisition Unit</th>
-                  <th style="width: 13%">Category</th>
-                  <th>Item</th>
-                  <th style="width: 11%">Quantity/Unit</th>
-                  <th style="width: 12%">Unit Cost</th>
-                  <th style="width: 12%">ABC</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="loadingItems">
-                  <td colspan="8" class="text-center text-muted py-4">
-                    Loading items...
-                  </td>
-                </tr>
-                <tr v-else-if="items.length === 0">
-                  <td colspan="8" class="text-center text-muted py-4">
-                    {{ emptyItemsMessage }}
-                  </td>
-                </tr>
-                <tr v-for="item in items" :key="item.value" class="item-row">
-                  <td class="text-center">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      :checked="selectedIds.includes(item.value)"
-                      @change="toggleItem(item)"
-                      :disabled="isLockedMode"
-                    />
-                  </td>
-                  <td>{{ item.unit_name || "-" }}</td>
-                  <td>{{ item.item_category || "-" }}</td>
-
-                  <td>
-                    <div class="fw-semibold">{{ item.item_name }}</div>
-                    <div v-if="item.item_description" class="text-muted small">
-                      <span v-html="item.item_description"></span>
-                    </div>
-                  </td>
-                  <td>{{ item.quantity_label || item.item_quantity }}</td>
-                  <td>{{ formatCurrency(item.item_unit_cost) }}</td>
-                  <td class="fw-semibold">{{ formatCurrency(item.total_cost) }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div v-if="form.errors.items" class="text-danger small fw-semibold mt-2">
-              {{ form.errors.items }}
+          <div v-if="form.items && form.items.length > 0" class="items-table-container">
+            <div class="table-responsive">
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th class="text-center">#</th>
+                    <th>Unit</th>
+                    <th>Name/Description</th>
+                    <th class="text-center">Qty</th>
+                    <th class="text-end">Unit Cost</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-center"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(item, index) in form.items" :key="index" class="item-row">
+                    <td class="text-center item-number">{{ index + 1 }}</td>
+                    <td class="item-unit">
+                      <span class="unit-badge">
+                        {{
+                          item.item_quantity > 1
+                            ? item.item_unit_type?.[0]?.name_long || item.item_unit_type?.name_long || ""
+                            : item.item_unit_type?.[0]?.name_short || item.item_unit_type?.name_short || ""
+                        }}
+                      </span>
+                    </td>
+                    <td class="item-description">
+                      <span>{{ item.item_name || "-" }}</span>
+                      <b-badge
+                        v-if="!item.ppmp_item_id"
+                        variant="secondary"
+                        class="ms-1"
+                        style="font-size: 9px; vertical-align: middle"
+                      >Manual</b-badge>
+                      <div v-html="item.item_description"></div>
+                    </td>
+                    <td class="text-center item-quantity">{{ item.item_quantity }}</td>
+                    <td class="text-end item-cost">{{ formatCurrency(item.item_unit_cost) }}</td>
+                    <td class="text-end item-total">{{ formatCurrency(item.total_cost) }}</td>
+                    <td class="text-center">
+                      <div v-if="!isLockedMode" class="d-flex justify-content-center gap-1">
+                        <b-button
+                          @click="editItem(index)"
+                          variant="success"
+                          size="sm"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Edit Item"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-edit-2-line"></i>
+                        </b-button>
+                        <b-button
+                          @click="removeItem(index)"
+                          variant="danger"
+                          size="sm"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Remove Item"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-delete-bin-line"></i>
+                        </b-button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="grand-total-row">
+                    <td colspan="6" class="text-end grand-total-label">Grand Total:</td>
+                    <td class="text-end grand-total-amount">{{ formatCurrency(totalCostSum) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
+          </div>
+          <div v-else class="empty-state">
+            <div class="empty-state-icon"><i class="ri-shopping-bag-line"></i></div>
+            <h6 class="empty-state-title">No Items Added</h6>
+            <p class="empty-state-text">Select from approved PPMP items or add items manually.</p>
+          </div>
+          <div v-if="form.errors.items" class="text-danger small fw-semibold mt-2">
+            {{ form.errors.items }}
           </div>
 
           <div class="action-footer">
@@ -312,16 +345,14 @@
               </div>
             </div>
             <div class="footer-buttons">
-              <b-button type="submit" variant="success" :disabled="form.processing">
-                <span
-                  v-if="form.processing"
-                  class="spinner-border spinner-border-sm me-1"
-                ></span>
-                <i v-else class="ri-check-line align-bottom me-1"></i>
+              <b-button type="submit" variant="success" :disabled="form.processing" class="action-btn success-btn">
+                <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>
+                <i v-else class="ri-check-line me-2"></i>
                 {{ submitLabel }}
               </b-button>
-              <b-button type="button" variant="outline-secondary" @click="goBack"
-                >Back to List
+              <b-button type="button" variant="outline-secondary" class="action-btn back-btn" @click="goBack">
+                <i class="ri-arrow-left-line me-2"></i>
+                Back to List
               </b-button>
             </div>
           </div>
@@ -335,6 +366,17 @@
       :selected-ids="selectedIds"
       @load="loadSelectedItems"
     />
+
+    <AddItemTableModal
+      ref="manualItemModal"
+      :unit-type-options="unitTypeOptions"
+      :item-category-options="itemCategoryOptions"
+      :project-options="[]"
+      :show-project-select="false"
+      :existing-form-items="form.items || []"
+      @save="saveManualItem"
+      @category-added="onManualCategoryAdded"
+    />
   </div>
 </template>
 
@@ -345,9 +387,10 @@ import Multiselect from "@vueform/multiselect";
 import InputLabel from "@/Shared/Components/Forms/InputLabel.vue";
 import TextInput from "@/Shared/Components/Forms/TextInput.vue";
 import CategoryItemSelectionModal from "./Modals/CategoryItemSelection.vue";
+import AddItemTableModal from "./PPMP/Modals/AddItemTableModal.vue";
 
 export default {
-  components: { Head, InputLabel, TextInput, Multiselect, CategoryItemSelectionModal },
+  components: { Head, InputLabel, TextInput, Multiselect, CategoryItemSelectionModal, AddItemTableModal },
   props: ["dropdowns", "option", "procurement"],
   data() {
     return {
@@ -358,9 +401,8 @@ export default {
       items: [],
       selectedIds: [],
       availableItems: [],
-      itemSelectionModal: {
-        show: false,
-      },
+      itemSelectionModal: { show: false },
+      localItemCategories: [],
       form: useForm({
         id: null,
         option: "create_by_category",
@@ -413,11 +455,6 @@ export default {
 
       return "Save";
     },
-    emptyItemsMessage() {
-      return this.isLockedMode
-        ? "No items are attached to this purchase request."
-        : "Choose a fund cluster and item category, then load items.";
-    },
     canLoadItems() {
       return Boolean(this.form.item_category_id && this.form.fund_cluster_id);
     },
@@ -439,6 +476,23 @@ export default {
         ppmpCategories.length > 0 ? ppmpCategories : this.dropdowns.item_categories || [];
       return this.normalizeDropdownOptions(options);
     },
+    unitTypeOptions() {
+      const options = this.dropdowns?.unit_types ?? [];
+      return Array.isArray(options) ? options : Object.values(options);
+    },
+    itemCategoryOptions() {
+      const base = this.dropdowns?.item_categories ?? [];
+      const baseArr = Array.isArray(base) ? base : Object.values(base);
+      const existingIds = new Set(baseArr.map((o) => Number(o.value ?? o.id)));
+      return [
+        ...baseArr,
+        ...this.localItemCategories.filter((o) => !existingIds.has(Number(o.value ?? o.id))),
+      ];
+    },
+    totalCostSum() {
+      if (!Array.isArray(this.form.items)) return 0;
+      return this.form.items.reduce((sum, item) => sum + (parseFloat(item.total_cost) || 0), 0);
+    },
     referenceAppOptions() {
       const options = this.normalizeList(this.dropdowns?.reference_apps);
       const fallbackOptions = this.normalizeList(this.dropdowns?.app_types);
@@ -455,18 +509,6 @@ export default {
     selectedItems() {
       return this.items.filter((item) => this.selectedIds.includes(item.value));
     },
-    selectedTotal() {
-      return this.selectedItems.reduce(
-        (sum, item) => sum + Number(item.total_cost || 0),
-        0
-      );
-    },
-    allVisibleSelected() {
-      return (
-        this.items.length > 0 &&
-        this.items.every((item) => this.selectedIds.includes(item.value))
-      );
-    },
     canSubmit() {
       if (this.isReviewMode && !this.form.procurement_app_id) {
         return false;
@@ -477,7 +519,7 @@ export default {
           this.form.fund_cluster_id &&
           this.form.purpose &&
           this.form.procurement_code_ids.length > 0 &&
-          this.selectedItems.length > 0
+          this.form.items.length > 0
       );
     },
   },
@@ -717,36 +759,11 @@ export default {
     },
     loadSelectedItems(items) {
       this.items = items;
-      this.selectedIds = this.items.map((item) => item.value);
-      this.syncFormItems();
-      this.clearErrorWhenFilled("items", this.selectedItems);
-      this.itemSelectionModal.show = false;
-      this.saveDraft();
-    },
-    toggleItem(item) {
-      if (this.isLockedMode) return;
-
-      if (this.selectedIds.includes(item.value)) {
-        this.selectedIds = this.selectedIds.filter((id) => id !== item.value);
-      } else {
-        this.selectedIds = [...this.selectedIds, item.value];
-      }
-      this.syncFormItems();
-      this.clearErrorWhenFilled("items", this.selectedItems);
-      this.saveDraft();
-    },
-    toggleAll() {
-      if (this.isLockedMode) return;
-
-      this.selectedIds = this.allVisibleSelected
-        ? []
-        : this.items.map((item) => item.value);
-      this.syncFormItems();
-      this.clearErrorWhenFilled("items", this.selectedItems);
-      this.saveDraft();
-    },
-    syncFormItems() {
-      this.form.items = this.selectedItems.map((item) => ({
+      this.selectedIds = items.map((item) => item.value);
+      const manualItems = Array.isArray(this.form.items)
+        ? this.form.items.filter((i) => !i.ppmp_item_id)
+        : [];
+      const ppmpItems = items.map((item) => ({
         ppmp_item_id: item.value,
         item_unit_type_id: item.item_unit_type_id,
         item_name: item.item_name,
@@ -755,7 +772,29 @@ export default {
         item_description: item.item_description,
         total_cost: item.total_cost,
         requesting_unit_name: item.requesting_unit_name || null,
+        item_unit_type: null,
       }));
+      this.form.items = [...ppmpItems, ...manualItems];
+      this.form.clearErrors("items");
+      this.itemSelectionModal.show = false;
+      this.saveDraft();
+    },
+    syncFormItems() {
+      const manualItems = Array.isArray(this.form.items)
+        ? this.form.items.filter((i) => !i.ppmp_item_id)
+        : [];
+      const ppmpItems = this.selectedItems.map((item) => ({
+        ppmp_item_id: item.value,
+        item_unit_type_id: item.item_unit_type_id,
+        item_name: item.item_name,
+        item_unit_cost: item.item_unit_cost,
+        item_quantity: item.item_quantity,
+        item_description: item.item_description,
+        total_cost: item.total_cost,
+        requesting_unit_name: item.requesting_unit_name || null,
+        item_unit_type: null,
+      }));
+      this.form.items = [...ppmpItems, ...manualItems];
       this.saveDraft();
     },
     draftPayload() {
@@ -910,8 +949,8 @@ export default {
         errors.procurement_app_id = "Current APP is required.";
       }
 
-      if (!this.selectedItems.length) {
-        errors.items = "Please load and select at least one item.";
+      if (!this.form.items.length) {
+        errors.items = "Please add at least one item.";
       }
 
       if (Object.keys(errors).length) {
@@ -942,6 +981,40 @@ export default {
     },
     multiselectInvalidClass(field) {
       return { "is-invalid": Boolean(this.form.errors[field]) };
+    },
+    openManualItem() {
+      this.$refs.manualItemModal?.show();
+    },
+    saveManualItem({ row, editIndex }) {
+      const unitType = this.unitTypeOptions.find(
+        (u) => Number(u.value) === Number(row.item_unit_type_id)
+      ) || null;
+      const item = { ...row, ppmp_item_id: null, item_unit_type: unitType };
+      const items = Array.isArray(this.form.items) ? [...this.form.items] : [];
+      if (editIndex !== null && editIndex !== undefined && editIndex >= 0 && editIndex < items.length) {
+        items[editIndex] = item;
+      } else {
+        items.push(item);
+      }
+      this.form.items = items;
+      this.saveDraft();
+    },
+    editItem(index) {
+      this.$refs.manualItemModal?.show(this.form.items[index], index);
+    },
+    removeItem(index) {
+      const items = [...this.form.items];
+      items.splice(index, 1);
+      this.form.items = items;
+      this.items = items.filter((i) => i.ppmp_item_id).map((i) => ({
+        ...i,
+        value: i.ppmp_item_id,
+      }));
+      this.selectedIds = this.items.map((i) => i.value);
+      this.saveDraft();
+    },
+    onManualCategoryAdded(category) {
+      this.localItemCategories.push(category);
     },
     goBack() {
       router.get("/faims/procurements");
@@ -1154,9 +1227,46 @@ export default {
   color: var(--procurement-create-text);
 }
 
-.category-items-table {
-  max-height: calc(100vh - 430px);
-  overflow: auto;
+.card-header-custom {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.card-header-icon {
+  font-size: 1.2rem;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  padding: 0.45rem;
+  border-radius: 10px;
+}
+
+.card-header-title {
+  font-size: 1.05rem;
+  color: var(--procurement-create-text);
+  margin: 0;
+}
+
+.add-item-btn {
+  border-radius: 25px;
+  padding: 0.4rem 1.15rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.add-item-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+
+.items-table-container {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--procurement-create-table-border);
 }
 
 .items-table {
@@ -1165,30 +1275,93 @@ export default {
   background: white;
 }
 
-.items-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: #f8fafc;
-  color: #334155;
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.85rem 0.75rem;
-  border-bottom: 1px solid var(--procurement-create-table-border);
+.items-table thead {
+  background: #4c5f98;
+  color: white;
+}
+
+.items-table th {
+  padding: 0.75rem 0.85rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .items-table td {
-  padding: 0.8rem 0.75rem;
+  padding: 0.75rem 0.85rem;
   border-bottom: 1px solid var(--procurement-create-table-border);
-  vertical-align: middle;
+  vertical-align: top;
+  background: white;
 }
 
-.items-table tbody tr:nth-child(even) {
+.items-table tbody tr:nth-child(even) td {
   background: var(--procurement-create-table-row-alt);
 }
 
-.items-table tbody tr:hover {
+.items-table tbody tr:hover td {
   background: var(--procurement-create-table-row-hover);
+}
+
+.item-number { font-weight: 600; color: #667eea; }
+.item-description { font-weight: 500; max-width: 300px; }
+.item-quantity, .item-unit { font-weight: 600; }
+.item-cost, .item-total { font-weight: 700; color: #28a745; font-family: "Courier New", monospace; }
+
+.unit-badge {
+  background: linear-gradient(135deg, #e9ecef, #dee2e6);
+  color: #495057;
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.grand-total-row { background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-top: 2px solid #667eea; }
+.grand-total-label { font-weight: 700; font-size: 0.9rem; }
+.grand-total-amount { font-weight: 700; color: #28a745; font-size: 1rem; font-family: "Courier New", monospace; }
+
+.empty-state { text-align: center; padding: 2rem 1rem; }
+.empty-state-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; color: #6c757d; margin: 0 auto 1rem;
+}
+.empty-state-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+.empty-state-text { color: #64748b; font-size: 0.9rem; }
+
+.action-btn {
+  border-radius: 25px;
+  padding: 0.55rem 1.2rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  min-width: 145px;
+}
+
+.success-btn {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  border: none;
+  color: white;
+}
+
+.success-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+}
+
+.back-btn {
+  border: 2px solid #6c757d;
+  color: #6c757d;
+  background: transparent;
+}
+
+.back-btn:hover {
+  background: #6c757d;
+  color: #ffffff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
 }
 
 .action-footer {

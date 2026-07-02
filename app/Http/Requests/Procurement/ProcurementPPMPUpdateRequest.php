@@ -14,7 +14,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'option' => ['required', 'in:update_status,revert_status,approve_to_app,add_item,update_item,delete_item,clear_project,update_project'],
+            'option' => ['required', 'in:update_status,revert_status,approve_to_app,add_item,update_item,delete_item,clear_project,update_project,mark_as_final,create_revision'],
             'plan_type' => ['nullable', 'in:PPMP,ppmp,APP,SPP,annual,supplemental'],
         ];
 
@@ -40,9 +40,9 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             $rules['end_of_procurement_activity'] = ['required', 'date'];
             $rules['expected_delivery_date'] = ['required', 'date'];
             $rules['attached_supporting_documents'] = ['required', 'string', 'max:255'];
-            $rules['supporting_document_file'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+            $rules['supporting_document_file'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
             $rules['remarks'] = ['required', 'string'];
-            $rules['project_total_budget'] = [empty($this->input('items')) ? 'required' : 'nullable', 'numeric', 'min:0'];
+            $rules['project_total_budget'] = [empty($this->input('items')) ? 'required' : 'nullable', 'numeric', 'min:0.01'];
         }
 
         if ($this->option === 'update_item') {
@@ -88,7 +88,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             $rules['attached_supporting_documents'] = ['required', 'string', 'max:255'];
             $rules['supporting_document_file'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
             $rules['remarks'] = ['required', 'string'];
-            $rules['project_total_budget'] = ['required', 'numeric', 'min:0'];
+            $rules['project_total_budget'] = ['required', 'numeric', 'min:0.01'];
         }
 
         if ($this->option === 'clear_project') {
@@ -145,6 +145,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
             'item_unit_type_id.required' => 'Please select the unit type.',
             'item_unit_cost.required' => 'Please enter the unit cost.',
             'project_total_budget.required' => 'Please enter the total budget for this project.',
+            'project_total_budget.min' => 'Total Budget (ABC) must be greater than zero.',
         ];
     }
 
