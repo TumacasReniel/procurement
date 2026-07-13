@@ -374,11 +374,10 @@
                         </b-badge>
                         <span class="version-badge">Version {{ list.ppmp_type_version || 1 }}</span>
                         <b-badge
-                          v-if="filter.plan_type === 'ALL'"
-                          :variant="normalizedPlanType(list.plan_type) === 'SPP' ? 'warning' : 'primary'"
+                          :variant="isSppRow(list) ? 'warning' : 'primary'"
                           style="font-size: 10px"
                         >
-                          {{ normalizedPlanType(list.plan_type) === 'SPP' ? 'SPP' : 'PPMP' }}
+                          {{ isSppRow(list) ? 'SPP' : 'PPMP' }}
                         </b-badge>
                         <b-badge
                           v-if="ppmpQuarter(list)"
@@ -1283,6 +1282,15 @@ export default {
       const year = new Date(sourceDate).getFullYear();
 
       return Number.isNaN(year) ? "-" : year;
+    },
+    isSppRow(item) {
+      const name = String(item?.plan_name || "").toLowerCase();
+      const code = String(item?.ppmp_no || item?.code || "");
+
+      return this.normalizedPlanType(item?.plan_type) === "SPP"
+        || name === "spp"
+        || name.includes("supplemental")
+        || code.startsWith("SPP-");
     },
     ppmpQuarter(item) {
       if (item?.quarter) return 'Q' + item.quarter;

@@ -424,20 +424,55 @@ class InventoryStockClass
     {
         $stocks = InventoryStock::where('item_id', $itemId)
             ->where('quantity', '>', 0)
-            ->orderByDesc('quantity')
+            ->orderBy('id') // FIFO: oldest stock first
+            ->lockForUpdate()
             ->get();
+
+        $available = (float) $stocks->sum('quantity');
+
+        if ($needed > $available + 0.0001) {
+            $item = InventoryItem::find($itemId);
+            $name = $item?->name ?? "item #{$itemId}";
+            throw new \Exception("Insufficient stock for {$name}: requested {$needed}, only {$available} on hand.");
+        }
 
         foreach ($stocks as $stock) {
             if ($needed <= 0) {
                 break;
             }
 
-            $available = (float) $stock->quantity;
-            $deduct    = min($available, $needed);
-            $stock->quantity = $available - $deduct;
+            $rowQty = (float) $stock->quantity;
+            $deduct = min($rowQty, $needed);
+            $stock->quantity = $rowQty - $deduct;
             $stock->save();
             $needed -= $deduct;
         }
+    }
+
+    protected function restoreStock(int $itemId, float $qty): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $stock = InventoryStock::where('item_id', $itemId)
+            ->orderByDesc('quantity')
+            ->lockForUpdate()
+            ->first();
+
+        if ($stock) {
+            $stock->quantity = (float) $stock->quantity + $qty;
+            $stock->save();
+
+            return;
+        }
+
+        // No stock row left for this item — create one so the restored quantity is not lost
+        InventoryStock::create([
+            'item_id'  => $itemId,
+            'quantity' => $qty,
+            'unit_id'  => UnitType::orderBy('id')->value('id') ?? 1,
+        ]);
     }
 
     public function icsList(Request $request)
