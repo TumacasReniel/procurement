@@ -1,6 +1,6 @@
 <template>
   <BButton
-    v-if="showTrigger && !open"
+    v-if="showTrigger && !open && !isAnyModalOpen"
     variant="primary"
     class="ppmp-plan-chat-fab"
     title="Open plan comments"
@@ -196,6 +196,7 @@ export default {
   data() {
     return {
       open: false,
+      isAnyModalOpen: false,
       loading: false,
       submitting: false,
       comment: "",
@@ -312,13 +313,25 @@ export default {
     },
   },
   watch: {
+    open(val) {
+      document.body.classList.toggle('ppmp-chat-open', val);
+    },
     mentionQuery(newValue) {
       this.queueMentionSearch(newValue);
     },
   },
+  mounted() {
+    this._modalObserver = new MutationObserver(() => {
+      this.isAnyModalOpen = document.body.classList.contains('modal-open');
+    });
+    this._modalObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  },
+
   beforeUnmount() {
     this.clearMentionSearchTimer();
     this.teardownCommentChannel();
+    if (this._modalObserver) this._modalObserver.disconnect();
+    document.body.classList.remove('ppmp-chat-open');
   },
   methods: {
     openChat() {
@@ -729,8 +742,8 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -771,7 +784,7 @@ export default {
   display: flex;
   justify-content: flex-end;
   align-items: flex-end;
-  padding: 24px 24px 1px;
+  padding: 24px;
   background: rgba(15, 23, 42, .28);
 }
 

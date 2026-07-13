@@ -42,6 +42,48 @@
             {{ form.errors.unit_id }}
           </div>
         </BCol>
+
+        <BCol lg="12" class="mt-2">
+          <label class="form-label">Requested By <span class="text-muted">(Unit Head)</span></label>
+          <Multiselect
+            :options="selectedUnitUsers"
+            v-model="form.requested_by_id"
+            label="name"
+            value-prop="value"
+            :searchable="true"
+            :class="{ 'is-invalid': form.errors.requested_by_id }"
+            placeholder="Select unit head"
+          >
+            <template #option="{ option }">
+              <span>{{ option.name }}</span>
+              <small v-if="option.designation" class="text-muted ms-1">— {{ option.designation }}</small>
+            </template>
+          </Multiselect>
+          <div v-if="form.errors.requested_by_id" class="invalid-feedback d-block">
+            {{ form.errors.requested_by_id }}
+          </div>
+        </BCol>
+
+        <BCol lg="12" class="mt-3">
+          <label class="form-label">Supporting Document</label>
+          <FileDropzone
+            :file="form.attachment_file"
+            :invalid="!!form.errors.attachment_file"
+            accept=".pdf"
+            :allowed-extensions="['pdf']"
+            :max-size-mb="10"
+            invalid-type-message="Please attach a PDF file only."
+            invalid-size-message="Please attach a file up to 10 MB only."
+            title="Drop attachment here or click to browse"
+            hint="PDF files only, up to 10 MB"
+            @selected="form.attachment_file = $event; form.clearErrors('attachment_file')"
+            @rejected="form.setError('attachment_file', $event.message)"
+            @remove="form.attachment_file = null"
+          />
+          <div v-if="form.errors.attachment_file" class="invalid-feedback d-block">
+            {{ form.errors.attachment_file }}
+          </div>
+        </BCol>
       </BRow>
     </form>
 
@@ -50,7 +92,7 @@
       <b-button
         @click="$emit('submit')"
         variant="warning"
-        :disabled="form.processing || !form.unit_id || !form.year"
+        :disabled="form.processing || !form.unit_id || !form.year || !form.attachment_file"
         block
       >
         {{ form.processing ? "Creating..." : "Create SPP" }}
@@ -61,9 +103,10 @@
 
 <script>
 import Multiselect from "@vueform/multiselect";
+import FileDropzone from "@/Shared/Components/Forms/FileDropzone.vue";
 
 export default {
-  components: { Multiselect },
+  components: { Multiselect, FileDropzone },
   props: {
     modelValue: { type: Boolean, default: false },
     form: { type: Object, required: true },
@@ -79,6 +122,10 @@ export default {
       set(value) {
         this.$emit("update:modelValue", value);
       },
+    },
+    selectedUnitUsers() {
+      const unit = this.unitOptions?.find((u) => Number(u.value) === Number(this.form.unit_id));
+      return unit?.users ?? [];
     },
   },
 };

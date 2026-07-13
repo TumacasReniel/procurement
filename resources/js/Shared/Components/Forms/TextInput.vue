@@ -1,8 +1,9 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 
-defineProps({
+const props = defineProps({
     modelValue: String,
+    type: { type: String, default: 'text' },
     light: Boolean,
     readonly: Boolean
 });
@@ -21,7 +22,7 @@ defineExpose({ focus: () => input.value.focus() });
 </script>
 
 <template>
-    <input ref="input" class="form-control" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" style="min-height: 38.4px !important;" :style="(light) ? 'background-color: #f5f6f7;' : ''" :readonly="readonly">
+    <input ref="input" :type="props.type" class="form-control" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" style="min-height: 38.4px !important;" :style="(light) ? 'background-color: #f5f6f7;' : ''" :readonly="readonly">
 </template>
 <style scoped>
 input::placeholder {

@@ -34,6 +34,15 @@ class ProcurementPPMPClass
 
     protected const PLAN_TITLE_PPMP = 'Project Procurement Management Plan';
 
+    protected const PPMP_TYPE_INDICATIVE = 'indicative';
+
+    protected const PPMP_TYPE_FINAL = 'final';
+
+    // APP plan phase (RA 9184): indicative = pre-budget, final = post-GAA
+    protected const PLAN_PHASE_INDICATIVE = 'indicative';
+
+    protected const PLAN_PHASE_FINAL = 'final';
+
     protected const STATUS_PENDING = 'Pending';
 
     protected const STATUS_FOR_REVIEW = 'For Review';
@@ -80,6 +89,7 @@ class ProcurementPPMPClass
     {
         return match ($request->option) {
             'create_ppmp' => $this->createPpmp($request),
+            'finalize_to_final_app' => $this->finalizeToFinalApp($request),
             default => match ($this->normalizePlanType($request->plan_type)) {
                 self::PLAN_TYPE_APP => $this->createApp($request),
                 self::PLAN_TYPE_SPP => $this->createSpp($request),
@@ -92,11 +102,310 @@ class ProcurementPPMPClass
     {
         return match ($request->option) {
             'update_status', 'approve_to_app' => $this->updateStatus($id, $request),
+            'revert_status' => $this->revertStatus($id, $request),
             'add_item' => $this->addItem($id, $request),
             'update_item' => $this->updateItem($id, $request),
             'delete_item' => $this->deleteItem($id, $request),
+            'clear_project' => $this->clearProject($id, $request),
+            'update_project' => $this->updateProject($id, $request),
+            'mark_as_final' => $this->markAsFinal($id),
+            'create_revision' => $this->createRevision($id),
             default => abort(404),
         };
+    }
+
+    protected function markAsFinal(int $id): array
+    {
+        $procurement = ProcurementPpmp::with('items')->lockForUpdate()->findOrFail($id);
+
+        if (($procurement->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) !== self::PPMP_TYPE_INDICATIVE) {
+            throw ValidationException::withMessages([
+                'ppmp_type' => 'Only an indicative PPMP can be marked as final.',
+            ]);
+        }
+
+        if (ProcurementPpmp::where('source_ppmp_id', $procurement->id)->where('ppmp_type', self::PPMP_TYPE_FINAL)->exists()) {
+            throw ValidationException::withMessages([
+                'ppmp_type' => 'A final version already exists. Use "Create Revision" to create a new version.',
+            ]);
+        }
+
+        $hasItems        = $procurement->items->isNotEmpty();
+        $hasProjectBudget = (float) ($procurement->project_total_budget ?? 0) > 0;
+
+        if (! $hasItems && ! $hasProjectBudget) {
+            throw ValidationException::withMessages([
+                'ppmp_type' => 'Cannot mark as final: this PPMP has no items or projects added yet.',
+            ]);
+        }
+
+        $totalBudget = $hasItems
+            ? $procurement->items->sum(fn ($item) => (float) ($item->total_cost ?? ($item->item_quantity * $item->item_unit_cost)))
+            : (float) $procurement->project_total_budget;
+
+        if ($totalBudget <= 0) {
+            throw ValidationException::withMessages([
+                'ppmp_type' => 'Cannot mark as final: total budget must be greater than zero.',
+            ]);
+        }
+
+        $year           = $this->yearForProcurement($procurement);
+        $pendingStatusId = $this->statusId(self::STATUS_PENDING);
+
+        $overrides = [
+            'ppmp_type'         => self::PPMP_TYPE_FINAL,
+            'ppmp_type_version' => 1,
+            'source_ppmp_id'    => $procurement->id,
+        ];
+
+        if (Schema::hasColumn('procurement_ppmps', 'is_current')) {
+            $overrides['is_current'] = true;
+        }
+
+        $payload = $this->buildPpmpClonePayload($procurement, $year, $pendingStatusId, $overrides);
+
+        $finalPpmp = ProcurementPpmp::query()->create($payload);
+
+        $this->cloneItemsTo($procurement->items, $finalPpmp->id);
+
+        $this->logPpmpActivity($finalPpmp, 'Final PPMP V1 created from indicative', [
+            'source_ppmp_id' => $procurement->id,
+            'year'           => $year,
+            'unit_id'        => $procurement->unit_id,
+        ]);
+
+        return [
+            'status'  => true,
+            'data'    => ['new_ppmp_id' => $finalPpmp->id],
+            'info'    => "Final PPMP V1 created from indicative #{$procurement->id}.",
+            'message' => 'Final PPMP created successfully.',
+        ];
+    }
+
+    protected function createRevision(int $id): array
+    {
+        $current = ProcurementPpmp::with('items')->lockForUpdate()->findOrFail($id);
+
+        if (($current->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) !== self::PPMP_TYPE_FINAL) {
+            throw ValidationException::withMessages([
+                'ppmp_type' => 'Only a final PPMP can be revised.',
+            ]);
+        }
+
+        $notCurrent = Schema::hasColumn('procurement_ppmps', 'is_current')
+            ? ! $current->is_current
+            : ProcurementPpmp::where('source_ppmp_id', $current->source_ppmp_id ?? $current->id)
+                ->where('ppmp_type', self::PPMP_TYPE_FINAL)
+                ->where('id', '!=', $current->id)
+                ->exists();
+
+        if ($notCurrent) {
+            throw ValidationException::withMessages([
+                'ppmp_type' => 'Only the latest final version can be revised.',
+            ]);
+        }
+
+        $year           = $this->yearForProcurement($current);
+        $pendingStatusId = $this->statusId(self::STATUS_PENDING);
+        $nextVersion    = ((int) ($current->ppmp_type_version ?? 1)) + 1;
+        $hasIsCurrent   = Schema::hasColumn('procurement_ppmps', 'is_current');
+
+        if ($hasIsCurrent) {
+            $current->update(['is_current' => false]);
+        }
+
+        $overrides = [
+            'ppmp_type'         => self::PPMP_TYPE_FINAL,
+            'ppmp_type_version' => $nextVersion,
+            'source_ppmp_id'    => $current->source_ppmp_id ?? $current->id,
+        ];
+
+        if ($hasIsCurrent) {
+            $overrides['is_current'] = true;
+        }
+
+        $payload = $this->buildPpmpClonePayload($current, $year, $pendingStatusId, $overrides);
+
+        $revision = ProcurementPpmp::query()->create($payload);
+
+        $this->cloneItemsTo($current->items, $revision->id);
+
+        $prevVersion = $nextVersion - 1;
+        $this->logPpmpActivity($revision, "Final PPMP V{$nextVersion} created (revision)", [
+            'source_ppmp_id'    => $current->source_ppmp_id,
+            'previous_ppmp_id'  => $current->id,
+            'version'           => $nextVersion,
+        ]);
+
+        return [
+            'status'  => true,
+            'data'    => ['new_ppmp_id' => $revision->id],
+            'info'    => "Final V{$nextVersion} created from V{$prevVersion}.",
+            'message' => "Revision V{$nextVersion} created successfully.",
+        ];
+    }
+
+    private function buildPpmpClonePayload(ProcurementPpmp $source, int $year, int $pendingStatusId, array $overrides): array
+    {
+        $payload = [
+            'code'                            => $this->generateUnitPpmpCode($year, (int) $source->unit_id),
+            'date'                            => $source->date,
+            'purpose'                         => $source->purpose,
+            'title'                           => $source->title,
+            'division_id'                     => $source->division_id,
+            'unit_id'                         => $source->unit_id,
+            'fund_cluster_id'                 => $source->fund_cluster_id,
+            'classification_id'               => $source->classification_id,
+            'project_type'                    => $source->project_type,
+            'recommended_mode_of_procurement' => $source->recommended_mode_of_procurement,
+            'pre_procurement_conference'      => $source->pre_procurement_conference,
+            'start_of_procurement_activity'   => $source->start_of_procurement_activity,
+            'end_of_procurement_activity'     => $source->end_of_procurement_activity,
+            'expected_delivery_date'          => $source->expected_delivery_date,
+            'attached_supporting_documents'   => $source->attached_supporting_documents,
+            'remarks'                         => $source->remarks,
+            'project_total_budget'            => $source->project_total_budget,
+            'attachment_path'                 => $source->attachment_path,
+            'attachment_original_name'        => $source->attachment_original_name,
+            'is_supplemental'                 => $source->is_supplemental ?? false,
+            'requested_by_id'                 => $source->requested_by_id,
+            'created_by_id'                   => Auth::id(),
+            'status_id'                       => $pendingStatusId,
+        ];
+
+        if (Schema::hasColumn('procurement_ppmps', 'quarter')) {
+            $payload['quarter'] = $source->quarter;
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'request_id')) {
+            $payload['request_id'] = $this->createPpmpRequest()->id;
+        }
+
+        return array_merge($payload, $overrides);
+    }
+
+    private function cloneItemsTo(\Illuminate\Support\Collection $items, int $targetPpmpId): void
+    {
+        foreach ($items as $item) {
+            $data = $item->only([
+                'item_no', 'item_unit_type_id', 'item_name', 'item_description',
+                'project_type', 'item_category_id', 'recommended_mode_of_procurement',
+                'pre_procurement_conference', 'start_of_procurement_activity',
+                'end_of_procurement_activity', 'expected_delivery_date',
+                'attached_supporting_documents', 'supporting_document_path',
+                'supporting_document_original_name', 'remarks',
+                'item_quantity', 'item_unit_cost', 'total_cost',
+                'requested_quantity', 'funded_quantity', 'is_partial_funding',
+                'price_basis', 'price_basis_amount',
+                'quantity_adjustment_reason', 'price_variance_reason',
+                'q1_indicative_amount', 'q2_indicative_amount',
+                'q3_indicative_amount', 'q4_indicative_amount',
+            ]);
+            $data['procurement_ppmp_id'] = $targetPpmpId;
+            ProcurementPpmpItem::query()->create($data);
+        }
+    }
+
+    protected function finalizeToFinalApp($request): array
+    {
+        $app_id = (int) $request->app_id;
+
+        $indicative_app = ProcurementApp::query()
+            ->where('plan_phase', self::PLAN_PHASE_INDICATIVE)
+            ->findOrFail($app_id);
+
+        $year = (int) $indicative_app->year;
+
+        $this->ensureUserCanCreateApp();
+        $this->ensureAppDoesNotExist($year, self::PLAN_PHASE_FINAL);
+
+        $app_type_id = ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type');
+        $pending_status_id = $this->statusId(self::STATUS_PENDING);
+
+        if (! $app_type_id) {
+            throw ValidationException::withMessages([
+                'app_id' => 'APP Type list data is missing. Please contact the administrator.',
+            ]);
+        }
+
+        if (! $pending_status_id) {
+            throw ValidationException::withMessages([
+                'app_id' => 'Status configuration is missing. Please contact the administrator.',
+            ]);
+        }
+
+        $source_ppmps = $indicative_app->source_ppmps()->lockForUpdate()->get();
+
+        if ($source_ppmps->isEmpty()) {
+            throw ValidationException::withMessages([
+                'app_id' => 'This Indicative APP has no source PPMPs to finalize. Please consolidate unit PPMPs first.',
+            ]);
+        }
+
+        [$next_version, $next_code] = $this->nextAppVersionAndCode($year);
+
+        $final_app = ProcurementApp::query()->create([
+            'code' => $next_code,
+            'year' => $year,
+            'version' => $next_version,
+            'title' => self::PLAN_NAME_APP,
+            'app_type_id' => $app_type_id,
+            'created_by_id' => Auth::id(),
+            'requested_by_id' => Auth::id(),
+            'status_id' => $pending_status_id,
+            'plan_phase' => self::PLAN_PHASE_FINAL,
+        ]);
+
+        $has_consolidated_by = Schema::hasColumn('procurement_ppmps', 'consolidated_by_id');
+        $has_consolidated_at = Schema::hasColumn('procurement_ppmps', 'consolidated_at');
+        $has_ppmp_type = Schema::hasColumn('procurement_ppmps', 'ppmp_type');
+
+        $count = 0;
+        foreach ($source_ppmps as $procurement) {
+            $updates = ['procurement_app_id' => $final_app->id];
+
+            if ($has_ppmp_type) {
+                $next_ppmp_version = $this->nextPpmpTypeVersion($year, (int) $procurement->unit_id, self::PPMP_TYPE_FINAL, $procurement->quarter ? (int) $procurement->quarter : null);
+                $updates['ppmp_type'] = self::PPMP_TYPE_FINAL;
+                $updates['ppmp_type_version'] = $next_ppmp_version;
+            }
+
+            if (Schema::hasColumn('procurement_ppmps', 'is_current')) {
+                $updates['is_current'] = true;
+            }
+
+            if ($has_consolidated_by) {
+                $updates['consolidated_by_id'] = Auth::id();
+            }
+
+            if ($has_consolidated_at) {
+                $updates['consolidated_at'] = now();
+            }
+
+            $procurement->update($updates);
+            $this->logPpmpActivity($procurement, 'PPMP finalized and moved to Final APP', [
+                'from_indicative_app_id' => $indicative_app->id,
+                'to_final_app_id' => $final_app->id,
+            ]);
+
+            $count++;
+        }
+
+        $this->logAppActivity($final_app, 'Final APP created from Indicative APP', [
+            'plan_type' => self::PLAN_TYPE_APP,
+            'plan_phase' => self::PLAN_PHASE_FINAL,
+            'year' => $year,
+            'indicative_app_id' => $indicative_app->id,
+            'indicative_app_code' => $indicative_app->code,
+            'ppmps_finalized' => $count,
+        ]);
+
+        return [
+            'data' => $this->appResource($final_app->fresh($this->appRelations())),
+            'message' => 'Final APP created successfully!',
+            'info' => "{$count} PPMP ".($count === 1 ? 'entry was' : 'entries were')." finalized and consolidated into {$final_app->code} (Final APP).",
+            'status' => true,
+        ];
     }
 
     public function storeItemCategory(string $name): array
@@ -150,6 +459,8 @@ class ProcurementPPMPClass
                 'supporting_document_types' => $this->supportingDocumentTypeDropdowns(),
                 'app_types' => $this->dropdown->dropdowns('APP Type'),
                 'annual_app_years' => $this->registeredPlanYears(self::PLAN_NAME_APP),
+                'indicative_app_years' => $this->registeredAppYearsByPhase(self::PLAN_PHASE_INDICATIVE),
+                'final_app_years' => $this->registeredAppYearsByPhase(self::PLAN_PHASE_FINAL),
             ],
         ];
     }
@@ -158,6 +469,7 @@ class ProcurementPPMPClass
     {
         return [
             'ppmp' => $this->show($id, $request),
+            'versions' => $this->ppmpVersionsForView((int) $id),
             'dropdowns' => [
                 'units' => $this->dropdown->list_units(),
                 'unit_types' => $this->dropdown->unit_types(),
@@ -169,31 +481,126 @@ class ProcurementPPMPClass
         ];
     }
 
+    protected function ppmpVersionsForView(int $id): array
+    {
+        if (! Schema::hasColumn('procurement_ppmps', 'ppmp_type')) {
+            return [];
+        }
+
+        $ppmp = ProcurementPpmp::query()
+            ->select(['id', 'unit_id', 'date', 'source_ppmp_id'])
+            ->find($id);
+
+        if (! $ppmp) {
+            return [];
+        }
+
+        $year = $this->yearForProcurement($ppmp);
+
+        // Collect the "family" root: if this PPMP has a source, use that source's ID as root
+        $rootId = $ppmp->source_ppmp_id ?? $ppmp->id;
+
+        // Load all PPMPs that belong to this family:
+        // the root itself + anything that points to the root
+        $hasIsCurrentCol = Schema::hasColumn('procurement_ppmps', 'is_current');
+
+        $versions = ProcurementPpmp::query()
+            ->select(array_filter([
+                'id', 'code', 'ppmp_type', 'ppmp_type_version', 'source_ppmp_id',
+                'status_id', 'date', 'created_at',
+                $hasIsCurrentCol ? 'is_current' : null,
+            ]))
+            ->withCount('items')
+            ->with('status:id,name')
+            ->where('unit_id', $ppmp->unit_id)
+            ->whereYear('date', $year)
+            ->where(function ($q) {
+                $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
+            })
+            ->where(function ($q) {
+                $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
+            })
+            ->where(function ($q) use ($rootId) {
+                $q->where('id', $rootId)
+                    ->orWhere('source_ppmp_id', $rootId);
+            })
+            ->orderBy('ppmp_type')          // indicative first
+            ->orderBy('ppmp_type_version')  // then by version asc
+            ->get()
+            ->map(function ($v) use ($id, $hasIsCurrentCol) {
+                $type    = $v->ppmp_type ?? 'indicative';
+                $version = (int) ($v->ppmp_type_version ?? 1);
+                $isCurrent = $hasIsCurrentCol ? (bool) $v->is_current : ($v->id === $id);
+
+                return [
+                    'id'                => $v->id,
+                    'code'              => $v->code,
+                    'ppmp_type'         => $type,
+                    'ppmp_type_version' => $version,
+                    'ppmp_type_label'   => $type === self::PPMP_TYPE_FINAL ? 'Final' : 'Indicative',
+                    'version_label'     => ($type === self::PPMP_TYPE_FINAL ? 'Final' : 'Indicative') . " V{$version}",
+                    'status'            => $v->status?->name ?? 'Pending',
+                    'items_count'       => (int) $v->items_count,
+                    'created_at'        => $v->created_at?->format('M j, Y'),
+                    'is_current'        => $isCurrent,
+                    'source_ppmp_id'    => $v->source_ppmp_id,
+                    'is_active_view'    => $v->id === $id,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return $versions;
+    }
+
     public function availablePpmpUnits($request): array
     {
         $year = (int) ($request->year ?: now()->year);
         $employee_unit_id = $this->employeeOnlyUnitId();
-        $used_unit_ids = ProcurementPpmp::query()
-            ->whereYear('date', $year)
-            ->whereNotNull('unit_id')
-            ->pluck('unit_id')
-            ->map(fn ($id) => (int) $id)
-            ->unique();
+        $hasIsSupplemental = Schema::hasColumn('procurement_ppmps', 'is_supplemental');
+        $hasQuarterCol     = Schema::hasColumn('procurement_ppmps', 'quarter');
 
-        return ListUnit::query()
+        // Get taken quarters per unit for this year
+        $takenQuartersByUnit = ProcurementPpmp::query()
+            ->whereYear('date', $year)
+            ->when($hasIsSupplemental,
+                fn ($q) => $q->where(fn ($q2) => $q2->whereNull('is_supplemental')->orWhere('is_supplemental', false)),
+                fn ($q) => $q->where(function ($q2) {
+                    $q2->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
+                })->where(function ($q2) {
+                    $q2->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
+                })
+            )
+            ->get(['unit_id', $hasQuarterCol ? 'quarter' : 'id'])
+            ->groupBy('unit_id')
+            ->map(fn ($rows) => $hasQuarterCol
+                ? $rows->pluck('quarter')->filter()->unique()->sort()->values()->all()
+                : [] // legacy: no quarter column → quarter tracking not available, don't block units
+            );
+
+        // Only show units that still have at least one free quarter
+        $fullyTakenUnitIds = $takenQuartersByUnit
+            ->filter(fn ($quarters) => count($quarters) >= 4)
+            ->keys();
+
+        $units = ListUnit::query()
             ->where('is_active', 1)
+            ->whereNotIn('id', $fullyTakenUnitIds)
             ->when($employee_unit_id, fn ($query, $unit_id) => $query->where('id', $unit_id))
-            ->whereNotIn('id', $used_unit_ids)
             ->orderBy('name')
-            ->get()
-            ->map(fn ($unit) => [
-                'value' => $unit->id,
-                'name' => $unit->name,
-                'short' => $unit->short,
-                'division_id' => $unit->division_id,
-            ])
-            ->values()
-            ->all();
+            ->get();
+
+        $unitIds       = $units->pluck('id')->all();
+        $usersByUnit   = $this->batchUnitUsers($unitIds);
+
+        return $units->map(fn ($unit) => [
+            'value'          => $unit->id,
+            'name'           => $unit->name,
+            'short'          => $unit->short,
+            'division_id'    => $unit->division_id,
+            'users'          => $usersByUnit[$unit->id] ?? [],
+            'taken_quarters' => $takenQuartersByUnit[$unit->id] ?? [],
+        ])->values()->all();
     }
 
     public function availableSppUnits($request): array
@@ -203,20 +610,86 @@ class ProcurementPPMPClass
         // A unit can create multiple SPPs. Eligibility depends only on having a PPMP already consolidated into the APP.
         $unit_ids = $this->consolidatedPpmpUnitIdsForYear($year);
 
-        return ListUnit::query()
+        $units = ListUnit::query()
             ->where('is_active', 1)
             ->whereIn('id', $unit_ids)
             ->when($employee_unit_id, fn ($query, $unit_id) => $query->where('id', $unit_id))
             ->orderBy('name')
+            ->get();
+
+        $unitIds = $units->pluck('id')->all();
+        $usersByUnit = $this->batchUnitUsers($unitIds);
+
+        return $units->map(fn ($unit) => [
+            'value'       => $unit->id,
+            'name'        => $unit->name,
+            'short'       => $unit->short,
+            'division_id' => $unit->division_id,
+            'users'       => $usersByUnit[$unit->id] ?? [],
+        ])->values()->all();
+    }
+
+    protected function batchUnitUsers(array $unitIds): array
+    {
+        if (empty($unitIds)) {
+            return [];
+        }
+
+        $byUnit = array_fill_keys($unitIds, []);
+
+        User::query()
+            ->with(['profile', 'org_chart.designation', 'organization'])
+            ->whereHas('organization', fn ($q) => $q->whereIn('unit_id', $unitIds))
+            ->where('is_active', 1)
+            ->orderBy('id')
             ->get()
-            ->map(fn ($unit) => [
-                'value' => $unit->id,
-                'name' => $unit->name,
-                'short' => $unit->short,
-                'division_id' => $unit->division_id,
-            ])
-            ->values()
-            ->all();
+            ->each(function ($user) use (&$byUnit) {
+                $unitId = $user->organization?->unit_id;
+
+                if (! $unitId || ! array_key_exists($unitId, $byUnit)) {
+                    return;
+                }
+
+                $designation = $user->org_chart?->designation?->name ?? null;
+                $byUnit[$unitId][] = [
+                    'value'       => $user->id,
+                    'name'        => $user->profile?->full_name ?? $user->name,
+                    'designation' => $designation,
+                    'is_head'     => $this->isUnitHeadDesignation($designation),
+                ];
+            });
+
+        foreach ($byUnit as &$users) {
+            usort($users, fn ($a, $b) => (int) $b['is_head'] - (int) $a['is_head']);
+        }
+        unset($users);
+
+        return $byUnit;
+    }
+
+    protected function unitUsers(int $unit_id): array
+    {
+        $byUnit = $this->batchUnitUsers([$unit_id]);
+
+        return $byUnit[$unit_id] ?? [];
+    }
+
+    protected function isUnitHeadDesignation(?string $designation): bool
+    {
+        if (! $designation) {
+            return false;
+        }
+
+        $lower = strtolower($designation);
+
+        return str_contains($lower, 'chief')
+            || str_contains($lower, 'head')
+            || str_contains($lower, 'director')
+            || str_contains($lower, 'supervisor')
+            || str_contains($lower, 'manager')
+            || str_contains($lower, 'officer-in-charge')
+            || str_contains($lower, 'officer in charge')
+            || str_contains($lower, 'oic');
     }
 
     public function show($id, $request = null): array
@@ -241,6 +714,14 @@ class ProcurementPPMPClass
         $procurements = $plan_type === self::PLAN_TYPE_SPP
             ? collect([$procurement])
             : $this->aggregateSourceQuery($procurement, $plan_type)->get();
+
+        // Keep only the opened PPMP's own group (same type + quarter) so the
+        // aggregated view always renders the record the user actually opened.
+        if ($plan_type === self::PLAN_TYPE_PPMP) {
+            $procurements = $procurements
+                ->filter(fn (ProcurementPpmp $p) => $this->sameSiblingGroup($p, $procurement))
+                ->values();
+        }
 
         switch ($plan_type) {
             case self::PLAN_TYPE_PPMP:
@@ -289,16 +770,23 @@ class ProcurementPPMPClass
         $fund_cluster_id = $this->regularFundClusterId();
 
         $this->validateSppSetup($app_type_id, $approved_status_id, $pending_status_id);
-        $this->ensureApprovedAppExists($year, $approved_status_id);
+        $this->ensureUserCanCreatePlanForUnit($unit);
+        $this->ensureApprovedFinalAppExists($year, $approved_status_id);
         $this->ensureUnitHasConsolidatedPpmpForYear($unit, $year);
 
-        $procurement = ProcurementPpmp::query()->create($this->sppPayload(
-            $year,
-            $unit,
-            $app_type_id,
-            $pending_status_id,
-            $fund_cluster_id
-        ));
+        $sppPayload = $this->sppPayload($year, $unit, $app_type_id, $pending_status_id, $fund_cluster_id);
+
+        if ($request->hasFile('attachment_file') && Schema::hasColumn('procurement_ppmps', 'attachment_path')) {
+            $file = $request->file('attachment_file');
+            $sppPayload['attachment_path'] = $file->store('procurement/ppmp/attachments', 'public');
+            $sppPayload['attachment_original_name'] = $file->getClientOriginalName();
+        }
+
+        if ($request->requested_by_id) {
+            $sppPayload['requested_by_id'] = (int) $request->requested_by_id;
+        }
+
+        $procurement = ProcurementPpmp::query()->create($sppPayload);
         $this->attachRequestIfSupported($procurement);
         $this->logPpmpActivity($procurement, 'SPP created', [
             'plan_type' => self::PLAN_TYPE_SPP,
@@ -317,16 +805,20 @@ class ProcurementPPMPClass
     public function createApp($request): array
     {
         $year = (int) $request->year;
+        $plan_phase = in_array($request->plan_phase, [self::PLAN_PHASE_INDICATIVE, self::PLAN_PHASE_FINAL], true)
+            ? $request->plan_phase
+            : self::PLAN_PHASE_INDICATIVE;
         $app_type_id = ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type');
         $approved_status_id = $this->statusId(self::STATUS_APPROVED);
         $pending_status_id = $this->statusId(self::STATUS_PENDING);
 
         $this->validateAppSetup($app_type_id, $approved_status_id);
         $this->validateAppPendingSetup($pending_status_id);
-        $this->ensureAppDoesNotExist($year);
+        $this->ensureUserCanCreateApp();
+        $this->ensureAppDoesNotExist($year, $plan_phase);
 
         if ($this->hasSeparateAppRegister()) {
-            return $this->createSeparateApp($year, $app_type_id, $approved_status_id, $pending_status_id);
+            return $this->createSeparateApp($year, $app_type_id, $approved_status_id, $pending_status_id, $plan_phase);
         }
 
         $source_query = ProcurementPpmp::query()
@@ -374,16 +866,30 @@ class ProcurementPPMPClass
         $pending_status_id = $this->statusId(self::STATUS_PENDING);
         $fund_cluster_id = $this->regularFundClusterId();
 
-        $this->ensureUserCanCreatePpmpForUnit($unit);
-        $this->validatePpmpSetup($pending_status_id, $fund_cluster_id);
-        $this->ensureUnitHasNoPpmpForYear($unit, $year);
+        $quarter = (int) ($request->quarter ?? (int) ceil(now()->month / 3));
 
-        $procurement = ProcurementPpmp::query()->create($this->ppmpPayload(
-            $year,
-            $unit,
-            $pending_status_id,
-            $fund_cluster_id
-        ));
+        $this->ensureUserCanCreatePlanForUnit($unit);
+        $this->validatePpmpSetup($pending_status_id, $fund_cluster_id);
+        // The dropdown already hides taken quarters; this guards direct posts and concurrent submissions
+        $this->ensureUnitHasNoPpmpThisQuarter($unit, $year, $quarter);
+
+        $payload = $this->ppmpPayload($year, $unit, $pending_status_id, $fund_cluster_id, self::PPMP_TYPE_INDICATIVE, false, $quarter);
+
+        if (Schema::hasColumn('procurement_ppmps', 'quarter')) {
+            $payload['quarter'] = $quarter;
+        }
+
+        if ($request->hasFile('attachment_file') && Schema::hasColumn('procurement_ppmps', 'attachment_path')) {
+            $file = $request->file('attachment_file');
+            $payload['attachment_path'] = $file->store('procurement/ppmp/attachments', 'public');
+            $payload['attachment_original_name'] = $file->getClientOriginalName();
+        }
+
+        if ($request->requested_by_id) {
+            $payload['requested_by_id'] = (int) $request->requested_by_id;
+        }
+
+        $procurement = ProcurementPpmp::query()->create($payload);
         $this->logPpmpActivity($procurement, 'PPMP created', [
             'plan_type' => self::PLAN_TYPE_PPMP,
             'year' => $year,
@@ -398,55 +904,95 @@ class ProcurementPPMPClass
         ];
     }
 
-    protected function createSeparateApp(int $year, int $app_type_id, int $approved_status_id, int $pending_status_id): array
+    protected function createSeparateApp(int $year, int $app_type_id, int $approved_status_id, int $pending_status_id, string $plan_phase = self::PLAN_PHASE_INDICATIVE): array
     {
+        $has_phase_col = Schema::hasColumn('procurement_apps', 'plan_phase');
+
+        // For Final APP: pull in PPMPs already consolidated into an Indicative APP (they move up to Final),
+        //   as well as any PPMPs explicitly marked final that have no APP yet.
+        // For Indicative APP: only include PPMPs not yet in any APP.
         $source_query = ProcurementPpmp::query()
             ->whereYear('date', $year)
-            ->whereNull('reference_app_id')
-            ->whereNull('procurement_app_id')
-            ->where('status_id', $approved_status_id);
+            ->where('status_id', $approved_status_id)
+            ->when($plan_phase === self::PLAN_PHASE_FINAL && $has_phase_col, function ($q) {
+                $q->where(function ($inner) {
+                    // Already consolidated into an Indicative APP — move them up to the Final APP
+                    $inner->whereHas('procurement_app', fn ($a) => $a->where('plan_phase', self::PLAN_PHASE_INDICATIVE))
+                          // OR explicitly marked final but not yet in any APP
+                          ->orWhere(function ($or) {
+                              $or->where('ppmp_type', self::PPMP_TYPE_FINAL)
+                                 ->whereNull('procurement_app_id');
+                          });
+                });
+            }, function ($q) use ($has_phase_col) {
+                $q->whereNull('procurement_app_id');
+                if ($has_phase_col) {
+                    $q->where(function ($inner) {
+                        $inner->whereNull('ppmp_type')->orWhere('ppmp_type', self::PPMP_TYPE_INDICATIVE);
+                    });
+                }
+            });
 
-        $app = ProcurementApp::query()->create([
-            'code' => $this->generateAppCode($year, 1),
+        [$next_version, $next_code] = $this->nextAppVersionAndCode($year);
+
+        $app_payload = [
+            'code' => $next_code,
             'year' => $year,
-            'version' => 1,
+            'version' => $next_version,
             'title' => self::PLAN_NAME_APP,
             'app_type_id' => $app_type_id,
             'created_by_id' => Auth::id(),
             'requested_by_id' => Auth::id(),
             'status_id' => $pending_status_id,
-        ]);
+        ];
 
-        $updated = $source_query->update([
+        if ($has_phase_col) {
+            $app_payload['plan_phase'] = $plan_phase;
+        }
+
+        $app = ProcurementApp::query()->create($app_payload);
+
+        $update_data = [
             'reference_app_id' => $app_type_id,
             'procurement_app_id' => $app->id,
             'updated_at' => now(),
-        ]);
+        ];
 
+        // Mark PPMPs as final when they're moved into a Final APP
+        if ($has_phase_col && $plan_phase === self::PLAN_PHASE_FINAL) {
+            $update_data['ppmp_type'] = self::PPMP_TYPE_FINAL;
+        }
+
+        $updated = $source_query->update($update_data);
+
+        $phase_label = $this->planPhaseLabel($plan_phase);
         $info = $updated
-            ? "{$updated} PPMP ".($updated === 1 ? 'entry was' : 'entries were')." linked to {$app->code}."
-            : "{$app->code} was created for {$year}. PPMPs can be consolidated into it once they are ready.";
+            ? "{$updated} PPMP ".($updated === 1 ? 'entry was' : 'entries were')." linked to {$app->code} ({$phase_label})."
+            : "{$app->code} ({$phase_label}) was created for {$year}. PPMPs can be consolidated into it once they are ready.";
         $this->logAppActivity($app, 'APP created', [
             'plan_type' => self::PLAN_TYPE_APP,
+            'plan_phase' => $plan_phase,
             'year' => $year,
             'affected_ppmps' => $updated,
         ]);
 
         return [
             'data' => $this->appResource($app->fresh($this->appRelations())),
-            'message' => 'APP created successfully!',
+            'message' => "{$phase_label} created successfully!",
             'info' => $info,
             'status' => true,
         ];
     }
 
-    protected function createUpdatedAppVersion(ProcurementApp $previous_app, int $pending_status_id): ProcurementApp
+    protected function createUpdatedAppVersion(ProcurementApp $previous_app, int $approved_status_id): ProcurementApp
     {
         $next_version = ((int) ProcurementApp::query()
             ->where('year', $previous_app->year)
             ->max('version')) + 1;
 
-        $app = ProcurementApp::query()->create([
+        // New version inherits Approved status — SPP consolidation adds to an already-approved APP,
+        // so the resulting updated version is immediately effective for PR creation.
+        $new_app_payload = [
             'code' => $this->generateAppVersionCode($previous_app, $next_version),
             'year' => $previous_app->year,
             'version' => $next_version,
@@ -454,8 +1000,13 @@ class ProcurementPPMPClass
             'app_type_id' => $previous_app->app_type_id,
             'created_by_id' => Auth::id(),
             'requested_by_id' => Auth::id(),
-            'status_id' => $pending_status_id,
-        ]);
+            'status_id' => $approved_status_id,
+        ];
+        // SPP updates are always against the Final APP — inherit its plan_phase
+        if (Schema::hasColumn('procurement_apps', 'plan_phase')) {
+            $new_app_payload['plan_phase'] = $previous_app->plan_phase ?? self::PLAN_PHASE_FINAL;
+        }
+        $app = ProcurementApp::query()->create($new_app_payload);
 
         $this->logAppActivity($app, 'APP updated version created', [
             'plan_type' => self::PLAN_TYPE_APP,
@@ -488,6 +1039,36 @@ class ProcurementPPMPClass
         return 'APP-'.$year.'-'.str_pad((string) $version, 2, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Find the next available (version, code) pair for a new APP row in the given year.
+     * Loads existing rows into PHP to avoid SQL type-cast issues with the year/version columns.
+     *
+     * @return array{0: int, 1: string}  [$version, $code]
+     */
+    protected function nextAppVersionAndCode(int $year): array
+    {
+        $existing = ProcurementApp::query()->get(['year', 'version', 'code']);
+
+        $usedVersions = $existing
+            ->filter(fn ($r) => (int) $r->year === $year && $r->version !== null)
+            ->pluck('version')
+            ->map(fn ($v) => (int) $v);
+
+        $usedCodes = $existing
+            ->pluck('code')
+            ->map(fn ($c) => (string) $c);
+
+        $version = 1;
+        while (
+            $usedVersions->contains($version)
+            || $usedCodes->contains($this->generateAppCode($year, $version))
+        ) {
+            $version++;
+        }
+
+        return [$version, $this->generateAppCode($year, $version)];
+    }
+
     protected function generateAppVersionCode(ProcurementApp $previous_app, int $version): string
     {
         $base_code = preg_replace('/-V\d+$/', '', (string) $previous_app->code);
@@ -500,6 +1081,8 @@ class ProcurementPPMPClass
         $app = ProcurementApp::query()
             ->with($this->appRelations())
             ->findOrFail($id);
+
+        $this->ensureUserCanAdvanceAppStatus($app);
 
         $status_ids = $this->submissionStatusIds();
         $next_step = $this->nextSubmissionStep(
@@ -516,12 +1099,31 @@ class ProcurementPPMPClass
             'updated_at' => now(),
         ];
 
+        if ($next_step['status_id'] === $status_ids['for_review']) {
+            if (Schema::hasColumn('procurement_apps', 'submitted_by_id')) {
+                $updates['submitted_by_id'] = Auth::id();
+            }
+            if (Schema::hasColumn('procurement_apps', 'submitted_at')) {
+                $updates['submitted_at'] = now();
+            }
+        }
+
         if ($next_step['status_id'] === $status_ids['reviewed']) {
-            $updates['reviewed_by_id'] = Auth::id();
+            if (Schema::hasColumn('procurement_apps', 'reviewed_by_id')) {
+                $updates['reviewed_by_id'] = Auth::id();
+            }
+            if (Schema::hasColumn('procurement_apps', 'reviewed_at')) {
+                $updates['reviewed_at'] = now();
+            }
         }
 
         if ($next_step['status_id'] === $status_ids['approved']) {
-            $updates['approved_by_id'] = Auth::id();
+            if (Schema::hasColumn('procurement_apps', 'approved_by_id')) {
+                $updates['approved_by_id'] = Auth::id();
+            }
+            if (Schema::hasColumn('procurement_apps', 'approved_at')) {
+                $updates['approved_at'] = now();
+            }
         }
 
         $app->update($updates);
@@ -553,6 +1155,10 @@ class ProcurementPPMPClass
             return false;
         }
 
+        if ($user->hasRole('Administrator')) {
+            return true;
+        }
+
         return match ($app->status?->name) {
             self::STATUS_PENDING => $user->hasRole('Procurement Staff')
                 || $user->hasRole('Procurement Officer'),
@@ -560,6 +1166,84 @@ class ProcurementPPMPClass
             self::STATUS_REVIEWED => $user->hasRole('Procurement Officer') ,
             default => false,
         };
+    }
+
+    protected function ensureUserCanAdvanceAppStatus(ProcurementApp $app): void
+    {
+        if ($this->can_advance_app_status($app)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'ppmp' => 'You are not allowed to update this APP at its current status.',
+        ]);
+    }
+
+    protected function ensureUserCanCreateApp(): void
+    {
+        $user = Auth::user();
+
+        if ($user && ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'))) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'plan_type' => 'Only Procurement Officers can create an APP register.',
+        ]);
+    }
+
+    protected function ensureUserCanCreatePlanForUnit(ListUnit $unit): void
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'unit_id' => 'You are not allowed to create this procurement plan.',
+            ]);
+        }
+
+        $user_unit_id = $user->organization?->unit_id;
+        $same_unit = $user_unit_id && (int) $user_unit_id === (int) $unit->id;
+
+        if (
+            $same_unit
+            || $user->hasRole('Administrator')
+            || $user->hasRole('Procurement Staff')
+            || $user->hasRole('Procurement Officer')
+        ) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'unit_id' => 'You can only create a procurement plan for your assigned unit.',
+        ]);
+    }
+
+    protected function ensureUnitHasNoPpmpThisQuarter(ListUnit $unit, int $year, int $quarter): void
+    {
+        $hasQuarterCol = Schema::hasColumn('procurement_ppmps', 'quarter');
+
+        if ($hasQuarterCol) {
+            $exists = ProcurementPpmp::query()
+                ->where('unit_id', $unit->id)
+                ->whereYear('date', $year)
+                ->where('quarter', $quarter)
+                ->exists();
+        } else {
+            $now = now()->setYear($year);
+            $quarterStart = $now->copy()->startOfYear()->addMonths(($quarter - 1) * 3);
+            $quarterEnd = (clone $quarterStart)->addMonths(3)->subSecond();
+            $exists = ProcurementPpmp::query()
+                ->where('unit_id', $unit->id)
+                ->whereBetween('created_at', [$quarterStart, $quarterEnd])
+                ->exists();
+        }
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'unit_id' => "{$unit->name} already has a PPMP for Q{$quarter} {$year}. Only one PPMP per unit per quarter is allowed.",
+            ]);
+        }
     }
 
     protected function generateUnitPpmpCode(int $year, int $unit_id): string
@@ -575,9 +1259,156 @@ class ProcurementPPMPClass
             : $this->advancePpmpStatus($id, $request);
     }
 
+    public function revertStatus($id, $request): array
+    {
+        $plan_type = $this->normalizePlanType(data_get($request, 'plan_type', self::PLAN_TYPE_PPMP));
+
+        if ($plan_type === self::PLAN_TYPE_APP && $this->hasSeparateAppRegister()) {
+            return $this->revertAppStatus((int) $id, $request);
+        }
+
+        $procurement = ProcurementPpmp::query()
+            ->with(['reference_app', 'status'])
+            ->findOrFail($id);
+
+        if ($procurement->reference_app?->name === self::PLAN_NAME_APP && $plan_type !== self::PLAN_TYPE_APP) {
+            throw ValidationException::withMessages([
+                'ppmp' => 'A consolidated plan cannot be reverted with status revert. APP composition must be amended through a new APP/SPP version.',
+            ]);
+        }
+
+        $this->ensureUserCanRevertPlanStatus();
+        $status_ids = $this->submissionStatusIds();
+        $previous_step = $this->previousSubmissionStep((int) $procurement->status_id, $status_ids, $plan_type === self::PLAN_TYPE_APP);
+        $old_status = $procurement->status?->name;
+        $updates = $this->revertAuditUpdates($previous_step['status_id'], $status_ids, 'procurement_ppmps');
+
+        if ($plan_type === self::PLAN_TYPE_APP) {
+            $updated = ProcurementPpmp::query()
+                ->whereYear('date', $this->yearForProcurement($procurement))
+                ->where('status_id', $procurement->status_id)
+                ->whereHas('reference_app', fn ($query) => $query->where('name', self::PLAN_NAME_APP))
+                ->update($updates);
+        } else {
+            $procurement->update($updates);
+            $updated = 1;
+        }
+
+        $this->logPpmpActivity($procurement->fresh(['reference_app', 'status']), $this->planShortLabel($plan_type).' status reverted', [
+            'plan_type' => $plan_type,
+            'from_status' => $old_status,
+            'to_status' => $previous_step['label'],
+            'reason' => trim((string) $request->revert_reason),
+            'affected_plans' => $updated,
+        ]);
+
+        return [
+            'data' => $this->show($id, $request),
+            'message' => $this->planShortLabel($plan_type).' status reverted successfully.',
+            'info' => "Status reverted from {$old_status} to {$previous_step['label']}.",
+            'status' => true,
+        ];
+    }
+
+    protected function revertAppStatus(int $id, $request): array
+    {
+        $app = ProcurementApp::query()->with($this->appRelations())->findOrFail($id);
+        $this->ensureUserCanRevertPlanStatus();
+        $status_ids = $this->submissionStatusIds();
+        $previous_step = $this->previousSubmissionStep((int) $app->status_id, $status_ids, true);
+        $old_status = $app->status?->name;
+        $app->update($this->revertAuditUpdates($previous_step['status_id'], $status_ids, 'procurement_apps'));
+
+        $this->logAppActivity($app->fresh(['status']), 'APP status reverted', [
+            'from_status' => $old_status,
+            'to_status' => $previous_step['label'],
+            'reason' => trim((string) $request->revert_reason),
+        ]);
+
+        return [
+            'data' => $this->appResource($app->fresh($this->appRelations())),
+            'message' => 'APP status reverted successfully.',
+            'info' => "Status reverted from {$old_status} to {$previous_step['label']}.",
+            'status' => true,
+        ];
+    }
+
+    protected function previousSubmissionStep(int $current_status_id, array $status_ids, bool $is_app): array
+    {
+        return match ($current_status_id) {
+            $status_ids['approved'] => [
+                'status_id' => $status_ids['reviewed'],
+                'label' => 'Reviewed/For Submission',
+            ],
+            $status_ids['reviewed'] => [
+                'status_id' => $status_ids['for_review'],
+                'label' => 'For Review',
+            ],
+            $status_ids['for_review'] => [
+                'status_id' => $status_ids['pending'],
+                'label' => 'Pending',
+            ],
+            default => throw ValidationException::withMessages([
+                'ppmp' => ($is_app ? 'APP' : 'PPMP/SPP').' status can only be reverted from Submitted, Reviewed, or For Review.',
+            ]),
+        };
+    }
+
+    protected function revertAuditUpdates(int $target_status_id, array $status_ids, string $table): array
+    {
+        $updates = ['status_id' => $target_status_id, 'updated_at' => now()];
+        $clear = [];
+
+        if ($target_status_id !== $status_ids['approved']) {
+            $clear = array_merge($clear, ['approved_by_id', 'approved_at']);
+        }
+        if (! in_array($target_status_id, [$status_ids['reviewed'], $status_ids['approved']], true)) {
+            $clear = array_merge($clear, ['reviewed_by_id', 'reviewed_at']);
+        }
+        if ($target_status_id === $status_ids['pending']) {
+            $clear = array_merge($clear, ['submitted_by_id', 'submitted_at']);
+        }
+
+        foreach (array_unique($clear) as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                $updates[$column] = null;
+            }
+        }
+
+        return $updates;
+    }
+
+    protected function ensureUserCanRevertPlanStatus(): void
+    {
+        $user = Auth::user();
+        if ($user && ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'))) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'ppmp' => 'Only Administrators and Procurement Officers can revert plan status.',
+        ]);
+    }
+
+    protected function canRevertPlanStatus(?int $status_id, bool $is_consolidated = false): bool
+    {
+        $user = Auth::user();
+        if (! $user || $is_consolidated || ! ($user->hasRole('Administrator') || $user->hasRole('Procurement Officer'))) {
+            return false;
+        }
+
+        $status_ids = $this->submissionStatusIds();
+
+        return in_array((int) $status_id, [
+            $status_ids['for_review'],
+            $status_ids['reviewed'],
+            $status_ids['approved'],
+        ], true);
+    }
+
     protected function consolidatePpmpToApp($id, $request): array
     {
-        $procurement = ProcurementPpmp::with(['status', 'reference_app'])->findOrFail($id);
+        $procurement = ProcurementPpmp::with(['status', 'reference_app'])->lockForUpdate()->findOrFail($id);
 
         $app_type_id = ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type');
         $approved_status_id = $this->statusId(self::STATUS_APPROVED);
@@ -594,13 +1425,24 @@ class ProcurementPPMPClass
         $this->validateAppPendingSetup($pending_status_id);
         $this->ensureUserCanConsolidateToApp();
         $this->ensurePpmpCanBeConsolidated($procurement, $approved_status_id);
-
+        $this->ensurePpmpHasItems($procurement);
         $updates = [
             'reference_app_id' => $app_type_id,
             'status_id' => $approved_status_id,
-            'approved_by_id' => Auth::id(),
             'updated_at' => now(),
         ];
+
+        if (! Schema::hasColumn('procurement_ppmps', 'consolidated_by_id')) {
+            $updates['approved_by_id'] = Auth::id();
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'consolidated_by_id')) {
+            $updates['consolidated_by_id'] = Auth::id();
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'consolidated_at')) {
+            $updates['consolidated_at'] = now();
+        }
 
         $data = [
             'id' => $procurement->id,
@@ -612,16 +1454,41 @@ class ProcurementPPMPClass
         $info = "The selected {$plan_label} was consolidated and added to the APP.";
 
         if ($this->hasSeparateAppRegister()) {
-            $app = ProcurementApp::query()
-                ->where('year', $year)
-                ->orderByDesc('version')
-                ->orderByDesc('id')
-                ->first();
+            $hasPlanPhase = Schema::hasColumn('procurement_apps', 'plan_phase')
+                && Schema::hasColumn('procurement_ppmps', 'ppmp_type');
 
-            if (! $app) {
-                throw ValidationException::withMessages([
-                    'plan_type' => 'Please create the APP register for this year before consolidating PPMPs to APP.',
-                ]);
+            if (! $is_spp_plan && $hasPlanPhase) {
+                // Route to the matching APP phase: indicative PPMP → Indicative APP, final PPMP → Final APP.
+                $ppmp_type   = $procurement->ppmp_type ?? self::PPMP_TYPE_INDICATIVE;
+                $target_phase = $ppmp_type === self::PPMP_TYPE_FINAL
+                    ? self::PLAN_PHASE_FINAL
+                    : self::PLAN_PHASE_INDICATIVE;
+
+                $app = ProcurementApp::query()
+                    ->where('year', $year)
+                    ->where('plan_phase', $target_phase)
+                    ->orderByDesc('version')
+                    ->orderByDesc('id')
+                    ->first();
+
+                if (! $app) {
+                    $phase_label = $ppmp_type === self::PPMP_TYPE_FINAL ? 'Final APP' : 'Indicative APP';
+                    throw ValidationException::withMessages([
+                        'plan_type' => "No {$phase_label} exists for {$year}. Please create it before consolidating.",
+                    ]);
+                }
+            } else {
+                $app = ProcurementApp::query()
+                    ->where('year', $year)
+                    ->orderByDesc('version')
+                    ->orderByDesc('id')
+                    ->first();
+
+                if (! $app) {
+                    throw ValidationException::withMessages([
+                        'plan_type' => 'Please create the APP register for this year before consolidating PPMPs to APP.',
+                    ]);
+                }
             }
 
             // Regular PPMP can only be added while APP is still pending.
@@ -631,7 +1498,7 @@ class ProcurementPPMPClass
                 && (int) $app->status_id === (int) $approved_status_id
                 && $this->appHasConsolidatedPpmpSources($app, $app_type_id)
             ) {
-                $app = $this->createUpdatedAppVersion($app, $pending_status_id);
+                $app = $this->createUpdatedAppVersion($app, $approved_status_id);
                 $info = "The selected {$plan_label} was added to {$app->code} as APP version {$app->version}.";
             } elseif (! $is_spp_plan) {
                 $this->ensureAppCanAcceptPpmp($app, $pending_status_id);
@@ -640,17 +1507,64 @@ class ProcurementPPMPClass
                 $info = "The selected {$plan_label} was added to {$app->code}.";
             }
 
+            $pricing_overrides = collect($request->input('consolidation_pricing', []))
+                ->filter(fn (array $pricing) => ! empty($pricing['group_key']) && ! empty($pricing['method']))
+                ->mapWithKeys(fn (array $pricing) => [
+                    $pricing['group_key'] => [
+                        'method' => $pricing['method'],
+                        'manual_unit_cost' => $pricing['method'] === 'manual'
+                            ? round((float) ($pricing['manual_unit_cost'] ?? 0), 2)
+                            : null,
+                        'updated_by_id' => Auth::id(),
+                        'updated_at' => now()->toISOString(),
+                    ],
+                ])
+                ->all();
+
+            if ($pricing_overrides !== []) {
+                $app->update([
+                    'pricing_overrides' => array_merge($app->pricing_overrides ?? [], $pricing_overrides),
+                ]);
+            }
+
             $updates['procurement_app_id'] = $app->id;
             $data['year'] = (int) $app->year;
             $data['procurement_app_id'] = $app->id;
         }
 
         $procurement->update($updates);
+
+        // Also consolidate sibling PPMPs (same unit/year/type/quarter group) that haven't been consolidated yet
+        if (! $is_spp_plan) {
+            $this->scopeSiblingGroup(
+                ProcurementPpmp::query()
+                    ->where('unit_id', $procurement->unit_id)
+                    ->whereYear('date', $year)
+                    ->where('id', '!=', $procurement->id)
+                    ->whereNull('reference_app_id')
+                    ->where(function ($q) {
+                        $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
+                    })
+                    ->whereDoesntHave('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_SPP)),
+                $procurement
+            )->update($updates);
+        }
+
+        $snapshot = $this->consolidationSnapshot(
+            $procurement->fresh(['reference_app', 'status', 'unit', 'procurement_app']),
+            $data['procurement_app_id'] ?? null
+        );
         $this->logPpmpActivity($procurement->fresh(['reference_app', 'status']), "{$plan_label} consolidated to APP", [
             'plan_type' => $is_spp_plan ? self::PLAN_TYPE_SPP : self::PLAN_TYPE_PPMP,
             'year' => $year,
             'reference_app_id' => $app_type_id,
             'procurement_app_id' => $data['procurement_app_id'] ?? null,
+            'consolidation_review_acknowledged' => $request->boolean('consolidation_review_acknowledged'),
+            'consolidation_pricing' => $request->input('consolidation_pricing', []),
+            'consolidation_snapshot' => $snapshot,
         ]);
 
         return [
@@ -673,7 +1587,7 @@ class ProcurementPPMPClass
             return $this->advanceAppStatus($id);
         }
 
-        $procurement = ProcurementPpmp::with($this->relations())->findOrFail($id);
+        $procurement = ProcurementPpmp::with($this->relations())->lockForUpdate()->findOrFail($id);
         $status_ids = $this->submissionStatusIds();
         $current_status_id = (int) $procurement->status_id;
 
@@ -701,6 +1615,20 @@ class ProcurementPPMPClass
             'updated_at' => now(),
         ];
 
+        if (
+            $next_step['status_id'] === $status_ids['for_review']
+            && Schema::hasColumn('procurement_ppmps', 'submitted_by_id')
+        ) {
+            $updates['submitted_by_id'] = Auth::id();
+        }
+
+        if (
+            $next_step['status_id'] === $status_ids['for_review']
+            && Schema::hasColumn('procurement_ppmps', 'submitted_at')
+        ) {
+            $updates['submitted_at'] = now();
+        }
+
         // Add reviewer when status becomes Reviewed
         if (
             $next_step['status_id'] === $status_ids['reviewed']
@@ -709,9 +1637,23 @@ class ProcurementPPMPClass
             $updates['reviewed_by_id'] = Auth::id();
         }
 
+        if (
+            $next_step['status_id'] === $status_ids['reviewed']
+            && Schema::hasColumn('procurement_ppmps', 'reviewed_at')
+        ) {
+            $updates['reviewed_at'] = now();
+        }
+
         // Add approver when status becomes Approved
         if ($next_step['status_id'] === $status_ids['approved']) {
             $updates['approved_by_id'] = Auth::id();
+        }
+
+        if (
+            $next_step['status_id'] === $status_ids['approved']
+            && Schema::hasColumn('procurement_ppmps', 'approved_at')
+        ) {
+            $updates['approved_at'] = now();
         }
 
         if ($is_app_plan) {
@@ -724,9 +1666,34 @@ class ProcurementPPMPClass
                 )
                 ->update($updates);
         } else {
-            // PPMP/SPP should update only the selected record
-            $procurement->update($updates);
-            $updated = 1;
+            // PPMP: advance the selected record AND its sibling records (same unit/year/type/quarter group)
+            // SPP: update only the selected record
+            if (! $is_spp_plan) {
+                $year = $this->yearForProcurement($procurement);
+                $updated = $this->scopeSiblingGroup(
+                    ProcurementPpmp::query()
+                        ->where('unit_id', $procurement->unit_id)
+                        ->whereYear('date', $year)
+                        ->where('status_id', $current_status_id)
+                        ->whereNull('reference_app_id')
+                        ->where(function ($q) {
+                            $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
+                        })
+                        ->where(function ($q) {
+                            $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
+                        })
+                        ->whereDoesntHave('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_SPP)),
+                    $procurement
+                )->update($updates);
+
+                if ($updated === 0) {
+                    $procurement->update($updates);
+                    $updated = 1;
+                }
+            } else {
+                $procurement->update($updates);
+                $updated = 1;
+            }
         }
         $this->logPpmpActivity($procurement->fresh(['reference_app', 'status']), $this->planShortLabel($plan_type)." moved to {$next_step['label']}", [
             'plan_type' => $plan_type,
@@ -753,6 +1720,7 @@ class ProcurementPPMPClass
     {
         $procurement = ProcurementPpmp::query()
             ->with(['reference_app', 'status'])
+            ->lockForUpdate()
             ->findOrFail($id);
 
         if ($this->isLockedForItemChanges($procurement)) {
@@ -763,13 +1731,40 @@ class ProcurementPPMPClass
 
         $this->ensureUserCanManagePlanItems($procurement);
 
+        $rows = $this->itemRowsFromRequest($request);
+
+        // If adding project-only (no items) and this PPMP already has project data, create a sibling record
+        if ($rows->isEmpty() && Schema::hasColumn('procurement_ppmps', 'project_type') && ! is_null($procurement->project_type)) {
+            $procurement = $this->createSiblingPpmp($procurement);
+        }
+
         $procurement->title = $request->general_description_objective;
+
+        $projectFields = [
+            'project_type', 'recommended_mode_of_procurement', 'pre_procurement_conference',
+            'start_of_procurement_activity', 'end_of_procurement_activity', 'expected_delivery_date',
+            'attached_supporting_documents', 'remarks',
+        ];
+        foreach ($projectFields as $field) {
+            if (Schema::hasColumn('procurement_ppmps', $field) && $request->filled($field)) {
+                $value = $request->input($field);
+                $procurement->{$field} = in_array($field, ['start_of_procurement_activity', 'end_of_procurement_activity', 'expected_delivery_date'], true)
+                    ? $this->toFullDate($value)
+                    : $value;
+            }
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'project_total_budget')) {
+            $procurement->project_total_budget = $rows->isEmpty()
+                ? ($request->filled('project_total_budget') ? (float) $request->input('project_total_budget') : null)
+                : null; // clear budget when items are added
+        }
+
         $procurement->save();
 
         $pending_status_id = $this->statusId(self::STATUS_PENDING);
         $supporting_document = $this->storeSupportingDocument($request);
         $next_item_no = $this->nextItemNumber($procurement);
-        $rows = $this->itemRowsFromRequest($request);
 
         $created_items = $rows->map(function ($row, $index) use ($procurement, $request, $pending_status_id, $supporting_document, $next_item_no) {
             return ProcurementPpmpItem::query()->create($this->itemPayloadFromRequest(
@@ -786,10 +1781,14 @@ class ProcurementPPMPClass
             'item_ids' => $created_items->pluck('id')->values()->all(),
         ]);
 
+        $count = $created_items->count();
+
         return [
             'data' => $this->show($procurement->id),
-            'message' => $created_items->count() === 1 ? 'PPMP item added successfully!' : 'PPMP items added successfully!',
-            'info' => $created_items->count().' '.($created_items->count() === 1 ? 'item was' : 'items were')." added to {$procurement->code}.",
+            'message' => $count === 0 ? 'Procurement project saved!' : ($count === 1 ? 'PPMP item added successfully!' : 'PPMP items added successfully!'),
+            'info' => $count === 0
+                ? "{$procurement->code} project details were saved."
+                : $count.' '.($count === 1 ? 'item was' : 'items were')." added to {$procurement->code}.",
             'status' => true,
         ];
     }
@@ -813,10 +1812,28 @@ class ProcurementPPMPClass
             ->findOrFail($request->item_id);
 
         $procurement->title = $request->general_description_objective;
+
+        $projectFields = [
+            'project_type', 'recommended_mode_of_procurement', 'pre_procurement_conference',
+            'start_of_procurement_activity', 'end_of_procurement_activity', 'expected_delivery_date',
+            'attached_supporting_documents', 'remarks',
+        ];
+        foreach ($projectFields as $field) {
+            if (Schema::hasColumn('procurement_ppmps', $field) && $request->filled($field)) {
+                $value = $request->input($field);
+                $procurement->{$field} = in_array($field, ['start_of_procurement_activity', 'end_of_procurement_activity', 'expected_delivery_date'], true)
+                    ? $this->toFullDate($value)
+                    : $value;
+            }
+        }
+
         $procurement->save();
 
         $rows = $this->itemRowsFromRequest($request);
-        $row_ids = $rows->pluck('id')->filter()->map(fn ($id) => (int) $id)->values();
+        $existing_rows = $rows->filter(fn ($row) => ! empty(data_get($row, 'id')));
+        $new_rows = $rows->filter(fn ($row) => empty(data_get($row, 'id')))->values();
+
+        $row_ids = $existing_rows->pluck('id')->map(fn ($id) => (int) $id)->values();
 
         $items = ProcurementPpmpItem::query()
             ->where('procurement_ppmp_id', $procurement->id)
@@ -834,7 +1851,7 @@ class ProcurementPPMPClass
             ? $this->storeSupportingDocument($request)
             : null;
 
-        $rows->each(function ($row) use ($items, $request, $supporting_document) {
+        $existing_rows->each(function ($row) use ($items, $request, $supporting_document) {
             $item = $items->get((int) data_get($row, 'id'));
             $item->fill($this->editableItemPayload($request, $row));
 
@@ -847,6 +1864,22 @@ class ProcurementPPMPClass
 
             $item->save();
         });
+
+        if ($new_rows->isNotEmpty()) {
+            $pending_status_id = $this->statusId(self::STATUS_PENDING);
+            $next_item_no = $this->nextItemNumber($procurement);
+
+            $new_rows->each(function ($row, $index) use ($procurement, $request, $pending_status_id, $supporting_document, $next_item_no) {
+                ProcurementPpmpItem::query()->create($this->itemPayloadFromRequest(
+                    $procurement,
+                    $request,
+                    $pending_status_id,
+                    $next_item_no + $index,
+                    $supporting_document,
+                    $row
+                ));
+            });
+        }
 
         $this->logPpmpActivity($procurement, $this->planShortLabelForProcurement($procurement).' item updated', [
             'item_id' => $item->id,
@@ -893,6 +1926,144 @@ class ProcurementPPMPClass
             'data' => $this->show($procurement->id),
             'message' => 'PPMP item deleted successfully!',
             'info' => "{$item_name} was removed from {$procurement->code}.",
+            'status' => true,
+        ];
+    }
+
+    protected function createSiblingPpmp(ProcurementPpmp $original): ProcurementPpmp
+    {
+        $year = $this->yearForProcurement($original);
+
+        $payload = [
+            'code' => $this->generateUnitPpmpCode($year, (int) $original->unit_id),
+            'date' => $original->date,
+            'purpose' => $original->purpose,
+            'title' => self::PLAN_TITLE_PPMP,
+            'division_id' => $original->division_id,
+            'unit_id' => $original->unit_id,
+            'fund_cluster_id' => $original->fund_cluster_id,
+            'created_by_id' => Auth::id(),
+            'requested_by_id' => Auth::id(),
+            'status_id' => $original->status_id,
+            'reference_app_id' => $original->reference_app_id,
+        ];
+
+        if (Schema::hasColumn('procurement_ppmps', 'ppmp_type')) {
+            $payload['ppmp_type'] = $original->ppmp_type ?? self::PPMP_TYPE_INDICATIVE;
+            $payload['ppmp_type_version'] = $this->nextPpmpTypeVersion($year, (int) $original->unit_id, $payload['ppmp_type'], $original->quarter ? (int) $original->quarter : null);
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'quarter')) {
+            $payload['quarter'] = $original->quarter;
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'is_supplemental')) {
+            $payload['is_supplemental'] = $original->is_supplemental ?? false;
+        }
+
+        return ProcurementPpmp::query()->create($payload);
+    }
+
+    public function updateProject($id, $request): array
+    {
+        $original = ProcurementPpmp::query()
+            ->with(['reference_app', 'status'])
+            ->findOrFail($id);
+
+        $targetId = (int) $request->input('target_ppmp_id', $id);
+        $procurement = $targetId !== (int) $id
+            ? ProcurementPpmp::query()
+                ->with(['reference_app', 'status'])
+                ->where('unit_id', $original->unit_id)
+                ->findOrFail($targetId)
+            : $original;
+
+        if ($this->isLockedForItemChanges($procurement)) {
+            throw ValidationException::withMessages([
+                'item' => 'Project data can only be updated while the PPMP is still indicative.',
+            ]);
+        }
+
+        $this->ensureUserCanManagePlanItems($procurement);
+
+        $procurement->title = $request->general_description_objective;
+
+        $projectFields = [
+            'project_type', 'recommended_mode_of_procurement', 'pre_procurement_conference',
+            'start_of_procurement_activity', 'end_of_procurement_activity', 'expected_delivery_date',
+            'attached_supporting_documents', 'remarks',
+        ];
+        foreach ($projectFields as $field) {
+            if (Schema::hasColumn('procurement_ppmps', $field) && $request->filled($field)) {
+                $value = $request->input($field);
+                $procurement->{$field} = in_array($field, ['start_of_procurement_activity', 'end_of_procurement_activity', 'expected_delivery_date'], true)
+                    ? $this->toFullDate($value)
+                    : $value;
+            }
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'project_total_budget')) {
+            $procurement->project_total_budget = $request->filled('project_total_budget')
+                ? (float) $request->input('project_total_budget')
+                : null;
+        }
+
+        $procurement->save();
+
+        $this->logPpmpActivity($procurement, $this->planShortLabelForProcurement($procurement).' project updated', [
+            'target_ppmp_id' => $procurement->id,
+        ]);
+
+        return [
+            'data' => $this->show($id),
+            'message' => 'Procurement project updated successfully!',
+            'status' => true,
+        ];
+    }
+
+    public function clearProject($id, $request): array
+    {
+        $original = ProcurementPpmp::query()
+            ->with(['reference_app', 'status'])
+            ->findOrFail($id);
+
+        $targetId = (int) $request->input('target_ppmp_id', $id);
+        $procurement = $targetId !== (int) $id
+            ? ProcurementPpmp::query()
+                ->with(['reference_app', 'status'])
+                ->where('unit_id', $original->unit_id)
+                ->findOrFail($targetId)
+            : $original;
+
+        if ($this->isLockedForItemChanges($procurement)) {
+            throw ValidationException::withMessages([
+                'item' => 'Project data can only be cleared while the PPMP is still indicative.',
+            ]);
+        }
+
+        $this->ensureUserCanManagePlanItems($procurement);
+
+        $projectTitle = $procurement->title;
+
+        foreach (['project_type', 'recommended_mode_of_procurement', 'pre_procurement_conference',
+                  'start_of_procurement_activity', 'end_of_procurement_activity', 'expected_delivery_date',
+                  'attached_supporting_documents', 'remarks', 'attachment_path', 'attachment_original_name',
+                  'project_total_budget'] as $field) {
+            if (Schema::hasColumn('procurement_ppmps', $field)) {
+                $procurement->{$field} = null;
+            }
+        }
+
+        $procurement->title = null;
+        $procurement->save();
+
+        $this->logPpmpActivity($procurement, $this->planShortLabelForProcurement($procurement).' project data cleared', [
+            'previous_title' => $projectTitle,
+        ]);
+
+        return [
+            'data' => $this->show($id),
+            'message' => 'Procurement project removed successfully!',
             'status' => true,
         ];
     }
@@ -996,7 +2167,8 @@ class ProcurementPPMPClass
     {
         $is_spp_plan = $procurement->reference_app?->name === self::PLAN_NAME_SPP;
 
-        if ($procurement->status_id === $approved_status_id && (! $procurement->reference_app_id || $is_spp_plan)) {
+        // SPPs always carry a reference_app_id from creation, so they are exempt from that check
+        if ((int) $procurement->status_id === $approved_status_id && (! $procurement->reference_app_id || $is_spp_plan)) {
             return;
         }
 
@@ -1067,89 +2239,98 @@ class ProcurementPPMPClass
 
     protected function ensurePpmpHasItems(ProcurementPpmp $procurement): void
     {
-        if ($procurement->items()->exists()) {
+        $year = $this->yearForProcurement($procurement);
+        $hasProjectTypeCol = Schema::hasColumn('procurement_ppmps', 'project_type');
+
+        // Base query: all PPMP records for the same unit/year (excluding SPP siblings)
+        $baseQuery = ProcurementPpmp::query()
+            ->where('unit_id', $procurement->unit_id)
+            ->whereYear('date', $year)
+            ->where(function ($q) {
+                $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
+            })
+            ->where(function ($q) {
+                $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
+            })
+            ->whereDoesntHave('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_SPP));
+
+        // Allow if any related PPMP has line items
+        if ((clone $baseQuery)->whereHas('items')->exists()) {
+            return;
+        }
+
+        // Allow if any related PPMP has been saved as a project (project_type set, even without line items)
+        if ($hasProjectTypeCol && (clone $baseQuery)->whereNotNull('project_type')->exists()) {
             return;
         }
 
         throw ValidationException::withMessages([
-            'ppmp' => 'Please add at least one item before updating or submitting this PPMP for review.',
+            'ppmp' => 'Please add at least one procurement project before updating or submitting this PPMP for review.',
         ]);
     }
 
-    // Check if the current logged-in user is allowed to move/update the PPMP status.
-    protected function ensureUserCanAdvancePpmpSubmission(ProcurementPpmp $procurement, // Current PPMP record
-                                                        $current_status_id,       // Current status ID of PPMP
-                                                        $status_ids             // Array of status IDs
-    ): void
+    protected function transitionPolicy(ProcurementPpmp $procurement, int $current_status_id, array $status_ids): array
     {
-        // Get authenticated/logged-in user
         $user = Auth::user();
- 
-        // If no user is logged in stop execution and throw validation error
+
         if (! $user) {
-            throw ValidationException::withMessages([
-                'ppmp' => 'You are not allowed to advance this PPMP.',
-            ]);
+            return [
+                'allowed' => false,
+                'message' => 'You are not allowed to advance this PPMP.',
+            ];
         }
 
-        // Check if current plan is SPP
-        $is_spp_plan =
-            $procurement->reference_app?->name === self::PLAN_NAME_SPP;
+        // Detect plan scope the same way the rest of the service does.
+        // Note: actualPlanTypeForView() returns APP / SPP / PPMP.
+        $actualPlanType = $this->actualPlanTypeForView($procurement);
+        $is_spp_plan = $actualPlanType === self::PLAN_TYPE_SPP;
 
-        // Determine who can submit a PPMP while it is still in Pending status
+        // Who can submit from Pending -> For Review
         $can_submit_pending =
-            $procurement->created_by_id === $user->id
+            (int) $procurement->created_by_id === (int) $user->id
             || $user->hasRole('Procurement Staff')
             || $user->hasRole('Procurement Officer');
 
-        //Check if user is allowed based on current PPMP status
-        $allowed = $is_spp_plan
-            //If SPP Plan
-            ? match ($current_status_id){
-                //Pending -> For Review
-                // Allowed: Creator , Procurement Staff, Procurement Officer
-                $status_ids['pending'] => $can_submit_pending,
+        // Allowed roles per status step
+        $allowed = match ($current_status_id) {
+            (int) $status_ids['pending'] => $can_submit_pending,
+            (int) $status_ids['for_review'] => $user->hasRole('Budget Officer'),
+            (int) $status_ids['reviewed'] => $user->hasRole('Procurement Officer'),
+            default => false,
+        };
 
-                // For Review-> Reviewed
-                //Allowed: Budget Officer
-                $status_ids['for_review'] =>
-                    $user->hasRole('Budget Officer'),
+        // Keep message generic but deterministic.
+        return [
+            'allowed' => (bool) $allowed,
+            'message' => $is_spp_plan
+                ? 'You are not allowed to update this SPP at its current status.'
+                : 'You are not allowed to update this PPMP at its current status.',
+        ];
+    }
 
-                //Reviewed-> Approved / Submitted
-                //Allowed:Procurement Officer
-                $status_ids['reviewed'] =>
-                    $user->hasRole('Procurement Officer'),
+    // Check if the current logged-in user is allowed to move/update the PPMP status.
+    protected function ensureUserCanAdvancePpmpSubmission(
+        ProcurementPpmp $procurement,
+        $current_status_id,
+        $status_ids
+    ): void
+    {
+        $policy = $this->transitionPolicy(
+            $procurement,
+            (int) $current_status_id,
+            $status_ids
+        );
 
-                //Any unknown status is automatically denied
-                default => false,
-            }
+        // If current user is not allowed,throw validation exception
 
-            // If regular PPMP
-            // NOTE:This logic is currently identical to the SPP logic above.
-            : match ($current_status_id) {
-                // Pending -> For Review
-                $status_ids['pending'] => $can_submit_pending,
 
-                // For Review -> Reviewed
-                $status_ids['for_review'] =>
-                    $user->hasRole('Budget Officer'),
-
-                // Reviewed -> Approved
-                $status_ids['reviewed'] =>
-                    $user->hasRole('Procurement Officer'),
-
-                // Unknown status
-                default => false,
-            };
-
-        // If user is not allowed,throw validation exception
-        if (! $allowed) {
+        if (! $policy['allowed']) {
             throw ValidationException::withMessages([
-                'ppmp' =>
-                    'You are not allowed to update this PPMP at its current status.',
+                'ppmp' => $policy['message'],
             ]);
         }
     }
+
 
     protected function submissionStatusIds(): array
     {
@@ -1168,6 +2349,29 @@ class ProcurementPPMPClass
         }
 
         return $status_ids;
+    }
+
+    protected function currentYearAppIsApproved(int $year): bool
+    {
+        $approved_status_id = $this->statusId(self::STATUS_APPROVED);
+
+        if (! $approved_status_id) {
+            return false;
+        }
+
+        if ($this->hasSeparateAppRegister()) {
+            return ProcurementApp::query()
+                ->where('year', $year)
+                ->where('status_id', $approved_status_id)
+                ->when(Schema::hasColumn('procurement_apps', 'plan_phase'), fn ($q) => $q->where('plan_phase', self::PLAN_PHASE_FINAL))
+                ->exists();
+        }
+
+        return ProcurementPpmp::query()
+            ->whereYear('date', $year)
+            ->where('status_id', $approved_status_id)
+            ->whereHas('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_APP))
+            ->exists();
     }
 
     protected function ensureApprovedAppExists(int $year, int $approved_status_id): void
@@ -1202,16 +2406,53 @@ class ProcurementPPMPClass
         }
     }
 
-    protected function ensureAppDoesNotExist(int $year): void
+    // SPP can only be created once the FINAL APP is approved (RA 9184 — supplements post-budget plan).
+    protected function ensureApprovedFinalAppExists(int $year, int $approved_status_id): void
     {
-        if ($this->hasSeparateAppRegister()) {
-            $exists = ProcurementApp::query()
+        if ($this->hasSeparateAppRegister() && Schema::hasColumn('procurement_apps', 'plan_phase')) {
+            $has_final_app = ProcurementApp::query()
                 ->where('year', $year)
+                ->where('plan_phase', self::PLAN_PHASE_FINAL)
+                ->where('status_id', $approved_status_id)
                 ->exists();
 
-            if ($exists) {
+            if (! $has_final_app) {
                 throw ValidationException::withMessages([
-                    'year' => 'An APP already exists for the selected year.',
+                    'plan_type' => 'A Supplemental Procurement Plan can only be created after the Final APP for the year is approved (RA 9184, Sec. 7).',
+                ]);
+            }
+
+            return;
+        }
+
+        // Fall back to general APP check for systems without the plan_phase column
+        $this->ensureApprovedAppExists($year, $approved_status_id);
+    }
+
+    protected function planPhaseLabel(string $plan_phase): string
+    {
+        return match ($plan_phase) {
+            self::PLAN_PHASE_INDICATIVE => 'Indicative APP',
+            self::PLAN_PHASE_FINAL      => 'Final APP',
+            default                     => 'Annual Procurement Plan',
+        };
+    }
+
+    protected function ensureAppDoesNotExist(int $year, string $plan_phase = self::PLAN_PHASE_INDICATIVE): void
+    {
+        if ($this->hasSeparateAppRegister()) {
+            $query = ProcurementApp::query()->where('year', $year)->lockForUpdate();
+
+            // With plan_phase column: a year can have one Indicative APP and one Final APP.
+            // Without it (old schema): block any second APP for the same year.
+            if (Schema::hasColumn('procurement_apps', 'plan_phase')) {
+                $query->where('plan_phase', $plan_phase);
+            }
+
+            if ($query->exists()) {
+                $label = $this->planPhaseLabel($plan_phase);
+                throw ValidationException::withMessages([
+                    'year' => "A {$label} already exists for {$year}.",
                 ]);
             }
 
@@ -1223,6 +2464,7 @@ class ProcurementPPMPClass
             ->whereHas('reference_app', function ($reference_query) {
                 $reference_query->where('name', self::PLAN_NAME_APP);
             })
+            ->lockForUpdate()
             ->exists();
 
         if ($exists) {
@@ -1237,6 +2479,15 @@ class ProcurementPPMPClass
         $exists = ProcurementPpmp::query()
             ->where('unit_id', $unit->id)
             ->whereYear('date', $year)
+            ->where(function ($query) {
+                $query->whereNull('title')
+                    ->orWhere('title', '!=', self::PLAN_NAME_SPP);
+            })
+            ->where(function ($query) {
+                $query->whereNull('code')
+                    ->orWhere('code', 'NOT LIKE', 'SPP-%');
+            })
+            ->lockForUpdate()
             ->exists();
 
         if ($exists) {
@@ -1248,10 +2499,16 @@ class ProcurementPPMPClass
 
     protected function ensureUnitHasConsolidatedPpmpForYear(ListUnit $unit, int $year): void
     {
+        $hasSeparate = $this->hasSeparateAppRegister();
+        $hasPhaseCol = $hasSeparate && Schema::hasColumn('procurement_apps', 'plan_phase');
+
         $exists = ProcurementPpmp::query()
             ->where('unit_id', $unit->id)
             ->whereYear('date', $year)
-            ->when($this->hasSeparateAppRegister(), fn ($query) => $query->whereNotNull('procurement_app_id'))
+            ->when($hasPhaseCol, fn ($q) => $q->whereHas(
+                'procurement_app',
+                fn ($a) => $a->where('plan_phase', self::PLAN_PHASE_FINAL)
+            ), fn ($q) => $q->when($hasSeparate, fn ($inner) => $inner->whereNotNull('procurement_app_id')))
             ->whereHas('reference_app', function ($reference_query) {
                 $reference_query->where('name', self::PLAN_NAME_APP);
             })
@@ -1259,7 +2516,7 @@ class ProcurementPPMPClass
 
         if (! $exists) {
             throw ValidationException::withMessages([
-                'unit_id' => 'This unit must have a PPMP consolidated/added to APP before creating an SPP.',
+                'unit_id' => 'This unit must have a PPMP consolidated into the Final APP before creating an SPP (RA 9184, Sec. 7).',
             ]);
         }
     }
@@ -1279,22 +2536,9 @@ class ProcurementPPMPClass
             ->values();
     }
 
-    protected function ensureUserCanCreatePpmpForUnit(ListUnit $unit): void
-    {
-        $employee_unit_id = $this->employeeOnlyUnitId();
-
-        if (! $employee_unit_id || (int) $unit->id === $employee_unit_id) {
-            return;
-        }
-
-        throw ValidationException::withMessages([
-            'unit_id' => 'You can only create a PPMP for your assigned unit.',
-        ]);
-    }
-
     protected function sppPayload(int $year, ListUnit $unit, int $app_type_id, int $pending_status_id, ?int $fund_cluster_id): array
     {
-        return [
+        $payload = [
             'code' => $this->generateSppCode($year, (int) $unit->id),
             'date' => $year.'-01-01',
             'purpose' => 'Supplemental Procurement Plan update for '.$unit->name,
@@ -1307,9 +2551,15 @@ class ProcurementPPMPClass
             'requested_by_id' => Auth::id(),
             'status_id' => $pending_status_id,
         ];
+
+        if (Schema::hasColumn('procurement_ppmps', 'is_supplemental')) {
+            $payload['is_supplemental'] = true;
+        }
+
+        return $payload;
     }
 
-    protected function ppmpPayload(int $year, ListUnit $unit, int $pending_status_id, int $fund_cluster_id): array
+    protected function ppmpPayload(int $year, ListUnit $unit, int $pending_status_id, int $fund_cluster_id, string $ppmp_type = self::PPMP_TYPE_INDICATIVE, bool $is_supplemental = false, ?int $quarter = null): array
     {
         $payload = [
             'code' => $this->generateUnitPpmpCode($year, (int) $unit->id),
@@ -1324,11 +2574,46 @@ class ProcurementPPMPClass
             'status_id' => $pending_status_id,
         ];
 
+        if (Schema::hasColumn('procurement_ppmps', 'ppmp_type')) {
+            $payload['ppmp_type'] = $ppmp_type;
+            $payload['ppmp_type_version'] = $this->nextPpmpTypeVersion($year, (int) $unit->id, $ppmp_type, $quarter);
+        }
+
+        if (Schema::hasColumn('procurement_ppmps', 'is_supplemental')) {
+            $payload['is_supplemental'] = $is_supplemental;
+        }
+
         if (Schema::hasColumn('procurement_ppmps', 'request_id')) {
             $payload['request_id'] = $this->createPpmpRequest()->id;
         }
 
+        if (Schema::hasColumn('procurement_ppmps', 'attachment_path')) {
+            $payload['attachment_path'] = null;
+            $payload['attachment_original_name'] = null;
+        }
+
         return $payload;
+    }
+
+    protected function nextPpmpTypeVersion(int $year, int $unit_id, string $ppmp_type, ?int $quarter = null): int
+    {
+        $max = ProcurementPpmp::query()
+            ->where('unit_id', $unit_id)
+            ->whereYear('date', $year)
+            ->where('ppmp_type', $ppmp_type)
+            // Versions are numbered per quarter family: Q1 Indicative V1, V2... / Q2 Indicative V1, V2...
+            ->when($quarter && Schema::hasColumn('procurement_ppmps', 'quarter'),
+                fn ($q) => $q->where('quarter', $quarter)
+            )
+            ->where(function ($q) {
+                $q->whereNull('title')->orWhere('title', '!=', self::PLAN_NAME_SPP);
+            })
+            ->where(function ($q) {
+                $q->whereNull('code')->orWhere('code', 'NOT LIKE', 'SPP-%');
+            })
+            ->max('ppmp_type_version');
+
+        return ((int) $max) + 1;
     }
 
     protected function generateSppCode(int $year, int $unit_id): string
@@ -1374,25 +2659,38 @@ class ProcurementPPMPClass
             'item_name' => data_get($row, 'item_name', $request->item_name),
             'item_description' => data_get($row, 'item_description', $request->item_description),
             'project_type' => $request->project_type,
-            'item_category_id' => $request->item_category_id,
+            'item_category_id' => data_get($row, 'item_category_id', $request->item_category_id),
             'recommended_mode_of_procurement' => $request->recommended_mode_of_procurement,
             'pre_procurement_conference' => $request->pre_procurement_conference,
-            'start_of_procurement_activity' => $request->start_of_procurement_activity,
-            'end_of_procurement_activity' => $request->end_of_procurement_activity,
-            'expected_delivery_date' => $request->expected_delivery_date,
+            'start_of_procurement_activity' => $this->toFullDate($request->start_of_procurement_activity),
+            'end_of_procurement_activity' => $this->toFullDate($request->end_of_procurement_activity),
+            'expected_delivery_date' => $this->toFullDate($request->expected_delivery_date),
             'attached_supporting_documents' => $request->attached_supporting_documents,
             'supporting_document_path' => $supporting_document['path'],
             'supporting_document_original_name' => $supporting_document['original_name'],
             'remarks' => $request->remarks,
+            'requested_quantity' => $quantity,
+            'funded_quantity' => $quantity,
+            'is_partial_funding' => false,
             'item_quantity' => $quantity,
             'item_unit_cost' => $unit_cost,
+            'price_basis' => null,
+            'price_basis_amount' => null,
+            'quantity_adjustment_reason' => null,
+            'price_variance_reason' => null,
             'total_cost' => $quantity * $unit_cost,
+            'q1_indicative_amount' => $this->nullableDecimal(data_get($row, 'q1_indicative_amount', $request->q1_indicative_amount)),
+            'q2_indicative_amount' => $this->nullableDecimal(data_get($row, 'q2_indicative_amount', $request->q2_indicative_amount)),
+            'q3_indicative_amount' => $this->nullableDecimal(data_get($row, 'q3_indicative_amount', $request->q3_indicative_amount)),
+            'q4_indicative_amount' => $this->nullableDecimal(data_get($row, 'q4_indicative_amount', $request->q4_indicative_amount)),
             'status_id' => $status_id,
         ];
 
         if (! Schema::hasColumn('procurement_ppmp_items', 'start_of_procurement_activity')) {
             unset($payload['start_of_procurement_activity']);
         }
+
+        $this->stripMissingItemPlanningColumns($payload);
 
         return $payload;
     }
@@ -1406,40 +2704,103 @@ class ProcurementPPMPClass
             'item_name' => data_get($row, 'item_name', $request->item_name),
             'item_description' => data_get($row, 'item_description', $request->item_description),
             'project_type' => $request->project_type,
-            'item_category_id' => $request->item_category_id,
+            'item_category_id' => data_get($row, 'item_category_id', $request->item_category_id),
             'recommended_mode_of_procurement' => $request->recommended_mode_of_procurement,
             'pre_procurement_conference' => $request->pre_procurement_conference,
-            'start_of_procurement_activity' => $request->start_of_procurement_activity,
-            'end_of_procurement_activity' => $request->end_of_procurement_activity,
-            'expected_delivery_date' => $request->expected_delivery_date,
+            'start_of_procurement_activity' => $this->toFullDate($request->start_of_procurement_activity),
+            'end_of_procurement_activity' => $this->toFullDate($request->end_of_procurement_activity),
+            'expected_delivery_date' => $this->toFullDate($request->expected_delivery_date),
             'attached_supporting_documents' => $request->attached_supporting_documents,
             'remarks' => $request->remarks,
+            'requested_quantity' => $quantity,
+            'funded_quantity' => $quantity,
+            'is_partial_funding' => false,
             'item_quantity' => $quantity,
             'item_unit_type_id' => data_get($row, 'item_unit_type_id', $request->item_unit_type_id),
             'item_unit_cost' => $unit_cost,
+            'price_basis' => null,
+            'price_basis_amount' => null,
+            'quantity_adjustment_reason' => null,
+            'price_variance_reason' => null,
             'total_cost' => $quantity * $unit_cost,
+            'q1_indicative_amount' => $this->nullableDecimal(data_get($row, 'q1_indicative_amount', $request->q1_indicative_amount)),
+            'q2_indicative_amount' => $this->nullableDecimal(data_get($row, 'q2_indicative_amount', $request->q2_indicative_amount)),
+            'q3_indicative_amount' => $this->nullableDecimal(data_get($row, 'q3_indicative_amount', $request->q3_indicative_amount)),
+            'q4_indicative_amount' => $this->nullableDecimal(data_get($row, 'q4_indicative_amount', $request->q4_indicative_amount)),
         ];
 
         if (! Schema::hasColumn('procurement_ppmp_items', 'start_of_procurement_activity')) {
             unset($payload['start_of_procurement_activity']);
         }
 
+        $this->stripMissingItemPlanningColumns($payload);
+
         return $payload;
+    }
+
+    protected function toFullDate(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+        // Convert YYYY-MM (from type="month" input) to YYYY-MM-01
+        if (preg_match('/^\d{4}-\d{2}$/', $value)) {
+            return $value.'-01';
+        }
+
+        return $value;
+    }
+
+    protected function stripMissingItemPlanningColumns(array &$payload): void
+    {
+        foreach ([
+            'requested_quantity',
+            'funded_quantity',
+            'is_partial_funding',
+            'price_basis',
+            'price_basis_amount',
+            'quantity_adjustment_reason',
+            'price_variance_reason',
+            'q1_indicative_amount',
+            'q2_indicative_amount',
+            'q3_indicative_amount',
+            'q4_indicative_amount',
+        ] as $column) {
+            if (! Schema::hasColumn('procurement_ppmp_items', $column)) {
+                unset($payload[$column]);
+            }
+        }
+    }
+
+    protected function nullableDecimal(mixed $value): ?float
+    {
+        if ($value === null || $value === '' || $value === false) {
+            return null;
+        }
+
+        $parsed = (float) $value;
+
+        return $parsed > 0 ? $parsed : null;
     }
 
     protected function itemRowsFromRequest($request): Collection
     {
-        if ($request->items) {
-            return collect($request->items);
+        if (is_array($request->items)) {
+            // Filter out any non-array entries or rows without item_name (e.g. empty FormData artifacts)
+            return collect($request->items)->filter(fn ($row) => is_array($row) && filled(data_get($row, 'item_name')));
         }
 
-        return collect([[
-            'item_name' => $request->item_name,
-            'item_description' => $request->item_description,
-            'item_quantity' => $request->item_quantity,
-            'item_unit_type_id' => $request->item_unit_type_id,
-            'item_unit_cost' => $request->item_unit_cost,
-        ]]);
+        if (filled($request->item_name)) {
+            return collect([[
+                'item_name' => $request->item_name,
+                'item_description' => $request->item_description,
+                'item_quantity' => $request->item_quantity,
+                'item_unit_type_id' => $request->item_unit_type_id,
+                'item_unit_cost' => $request->item_unit_cost,
+            ]]);
+        }
+
+        return collect([]);
     }
 
     protected function nextItemNumber(ProcurementPpmp $procurement): int
@@ -1558,8 +2919,10 @@ class ProcurementPPMPClass
             'created_by.org_chart.designation',
             'created_by.organization.position',
             'requested_by.profile',
+            'submitted_by.profile',
             'reviewed_by.profile',
             'approved_by.profile',
+            'consolidated_by.profile',
             'codes.procurement_code.mode_of_procurement',
             'codes.procurement_code.app_type',
             'items.procurement',
@@ -1656,8 +3019,42 @@ class ProcurementPPMPClass
             return false;
         }
 
+        // Archived finals (superseded by a revision) are read-only
+        if (($procurement->ppmp_type ?? null) === self::PPMP_TYPE_FINAL
+            && Schema::hasColumn('procurement_ppmps', 'is_current')
+            && ! $procurement->is_current) {
+            return true;
+        }
+
         return $procurement->reference_app_id
             || in_array($procurement->status?->name, [self::STATUS_REVIEWED, self::STATUS_APPROVED], true);
+    }
+
+    // Two PPMPs are in the same sibling group when they share type and quarter —
+    // sibling records (project rows) aggregate together; other quarters do not.
+    protected function sameSiblingGroup(ProcurementPpmp $a, ProcurementPpmp $b): bool
+    {
+        return ($a->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) === ($b->ppmp_type ?? self::PPMP_TYPE_INDICATIVE)
+            && (int) ($a->quarter ?? 0) === (int) ($b->quarter ?? 0);
+    }
+
+    protected function scopeSiblingGroup($query, ProcurementPpmp $procurement)
+    {
+        $type = $procurement->ppmp_type ?? self::PPMP_TYPE_INDICATIVE;
+
+        $query->where(function ($q) use ($type) {
+            $type === self::PPMP_TYPE_INDICATIVE
+                ? $q->whereNull('ppmp_type')->orWhere('ppmp_type', self::PPMP_TYPE_INDICATIVE)
+                : $q->where('ppmp_type', $type);
+        });
+
+        if (Schema::hasColumn('procurement_ppmps', 'quarter')) {
+            $procurement->quarter
+                ? $query->where('quarter', $procurement->quarter)
+                : $query->whereNull('quarter');
+        }
+
+        return $query;
     }
 
     protected function createPpmpRequest(): RequestModel
@@ -1723,6 +3120,23 @@ class ProcurementPPMPClass
             ->all();
     }
 
+    protected function registeredAppYearsByPhase(string $plan_phase): array
+    {
+        if (! $this->hasSeparateAppRegister() || ! Schema::hasColumn('procurement_apps', 'plan_phase')) {
+            return [];
+        }
+
+        return ProcurementApp::query()
+            ->select('year')
+            ->where('plan_phase', $plan_phase)
+            ->distinct()
+            ->orderByDesc('year')
+            ->pluck('year')
+            ->map(fn ($year) => (int) $year)
+            ->values()
+            ->all();
+    }
+
     protected function hasSeparateAppRegister(): bool
     {
         return Schema::hasTable('procurement_apps')
@@ -1741,6 +3155,8 @@ class ProcurementPPMPClass
         if (! $keyword) {
             return;
         }
+
+        $keyword = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $keyword);
 
         $query->where(function ($search_query) use ($keyword) {
             $search_query->where('code', 'LIKE', "%{$keyword}%")
@@ -1776,6 +3192,8 @@ class ProcurementPPMPClass
 
     protected function applyPlanTypeFilter($query, ?string $plan_type): void
     {
+        $hasIsSupplemental = Schema::hasColumn('procurement_ppmps', 'is_supplemental');
+
         switch ($this->normalizePlanType($plan_type)) {
             case self::PLAN_TYPE_APP:
                 $query->whereHas('reference_app', function ($reference_query) {
@@ -1784,34 +3202,44 @@ class ProcurementPPMPClass
                 break;
 
             case self::PLAN_TYPE_SPP:
-                $query->where(function ($spp_query) {
-                    $spp_query->where('title', self::PLAN_NAME_SPP)
-                        ->orWhere('code', 'LIKE', 'SPP-%')
-                        ->orWhereHas('reference_app', function ($reference_query) {
-                            $reference_query->where('name', self::PLAN_NAME_SPP);
-                        });
-                });
+                if ($hasIsSupplemental) {
+                    $query->where('is_supplemental', true);
+                } else {
+                    $query->where(function ($spp_query) {
+                        $spp_query->where('title', self::PLAN_NAME_SPP)
+                            ->orWhere('code', 'LIKE', 'SPP-%')
+                            ->orWhereHas('reference_app', function ($reference_query) {
+                                $reference_query->where('name', self::PLAN_NAME_SPP);
+                            });
+                    });
+                }
                 break;
 
             case self::PLAN_TYPE_PPMP:
             default:
-                $query->where(function ($ppmp_query) {
-                    $ppmp_query->whereNull('title')
-                        ->orWhere('title', '!=', self::PLAN_NAME_SPP);
-                })
-                    ->where(function ($ppmp_query) {
-                        $ppmp_query->whereNull('code')
-                            ->orWhere('code', 'NOT LIKE', 'SPP-%');
-                    })
-                    ->whereDoesntHave('reference_app', function ($reference_query) {
-                        $reference_query->where('name', self::PLAN_NAME_SPP);
-                    })
-                    ->where(function ($ppmp_query) {
-                        $ppmp_query->whereNull('reference_app_id')
-                            ->orWhereHas('reference_app', function ($reference_query) {
-                                $reference_query->where('name', self::PLAN_NAME_APP);
-                            });
+                if ($hasIsSupplemental) {
+                    $query->where(function ($q) {
+                        $q->whereNull('is_supplemental')->orWhere('is_supplemental', false);
                     });
+                } else {
+                    $query->where(function ($ppmp_query) {
+                        $ppmp_query->whereNull('title')
+                            ->orWhere('title', '!=', self::PLAN_NAME_SPP);
+                    })
+                        ->where(function ($ppmp_query) {
+                            $ppmp_query->whereNull('code')
+                                ->orWhere('code', 'NOT LIKE', 'SPP-%');
+                        })
+                        ->whereDoesntHave('reference_app', function ($reference_query) {
+                            $reference_query->where('name', self::PLAN_NAME_SPP);
+                        })
+                        ->where(function ($ppmp_query) {
+                            $ppmp_query->whereNull('reference_app_id')
+                                ->orWhereHas('reference_app', function ($reference_query) {
+                                    $reference_query->where('name', self::PLAN_NAME_APP);
+                                });
+                        });
+                }
                 break;
         }
     }
@@ -1886,6 +3314,7 @@ class ProcurementPPMPClass
             'app_type',
             'created_by.profile',
             'requested_by.profile',
+            'submitted_by.profile',
             'reviewed_by.profile',
             'approved_by.profile',
             'comments.user.profile',
@@ -1930,10 +3359,14 @@ class ProcurementPPMPClass
             ];
         }
 
+        $plan_phase = $app->plan_phase ?? self::PLAN_PHASE_FINAL;
+
         return array_merge($data, [
             'id' => $app->id,
             'code' => $app->code,
             'version' => (int) ($app->version ?? 1),
+            'plan_phase' => $plan_phase,
+            'plan_phase_label' => $this->planPhaseLabel($plan_phase),
             'pr_no' => $app->code,
             'ppmp_no' => $display_number,
             'ppmp_status' => $this->appStatusLabel(collect([$app->status?->name])->filter()),
@@ -1960,6 +3393,7 @@ class ProcurementPPMPClass
             'comments_count' => (int) ($app->comments_count ?? $app->comments?->count() ?? 0),
             'can_submit_final' => $this->can_advance_app_status($app),
             'can_approve_to_app' => false,
+            'can_revert_status' => $this->canRevertPlanStatus($app->status_id),
             'is_final' => true,
         ]);
     }
@@ -2041,10 +3475,11 @@ class ProcurementPPMPClass
     protected function aggregateByUnit(Collection $procurements, ?string $sort = null, ?string $plan_type = null): Collection
     {
         $plan_type = $this->normalizePlanType($plan_type);
+        $hasProjectTypeCol = Schema::hasColumn('procurement_ppmps', 'project_type');
 
         return $procurements
-            ->groupBy('unit_id')
-            ->map(function (Collection $unit_procurements) use ($plan_type) {
+            ->groupBy(fn (ProcurementPpmp $p) => $p->unit_id . '||' . ($p->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) . '||' . ($p->quarter ?? 0))
+            ->map(function (Collection $unit_procurements) use ($plan_type, $hasProjectTypeCol) {
                 $current_user_id = Auth::id();
                 $representative = $unit_procurements
                     ->sortByDesc(fn ($procurement) => (int) (
@@ -2103,9 +3538,14 @@ class ProcurementPPMPClass
                         break;
                 }
 
+                $no_item_ppmps = $hasProjectTypeCol
+                    ? $unit_procurements->filter(fn ($p) => ($p->items ?? collect())->isEmpty() && ! is_null($p->project_type))->values()
+                    : collect();
+
                 $representative->setRelations([
                     'items' => $items,
                     'codes' => $codes,
+                    'no_item_ppmps' => $no_item_ppmps,
                 ]);
 
                 $this->applyOverrides($representative, [
@@ -2274,7 +3714,10 @@ class ProcurementPPMPClass
                     'division' => $procurement->division,
                     'pr_no' => $procurement->code,
                     'items_count' => $items->count(),
-                    'total_amount' => $items->sum(fn ($item) => (float) ($item->total_cost ?? 0)),
+                    'total_amount' => $items->sum(function ($item) {
+                        $stored = (float) ($item->total_cost ?? 0);
+                        return $stored ?: ((float) ($item->item_quantity ?? 0) * (float) ($item->item_unit_cost ?? 0));
+                    }),
                     'approval_status' => $approval_status,
                 ];
             })
@@ -2291,6 +3734,146 @@ class ProcurementPPMPClass
         $procurement->forceFill($overrides);
 
         return $procurement;
+    }
+
+    protected function consolidationSnapshot(ProcurementPpmp $procurement, ?int $app_id): array
+    {
+        $year = $this->yearForProcurement($procurement);
+        $plans = ProcurementPpmp::query()
+            ->with([
+                'unit',
+                'reference_app',
+                'procurement_app',
+                'items.item_unit_type',
+                'items.item_category',
+                'items.status',
+            ])
+            ->whereYear('date', $year)
+            ->when(
+                $app_id,
+                fn ($query) => $query->where('procurement_app_id', $app_id),
+                fn ($query) => $query->whereHas(
+                    'reference_app',
+                    fn ($reference_query) => $reference_query->where('name', self::PLAN_NAME_APP)
+                )
+            )
+            ->get();
+
+        $source_items = $plans
+            ->flatMap(function (ProcurementPpmp $plan) use ($procurement) {
+                return $plan->items->map(function (ProcurementPpmpItem $item) use ($plan, $procurement) {
+                    $quantity = (float) ($item->item_quantity ?? 0);
+                    $unit_cost = (float) ($item->item_unit_cost ?? 0);
+                    $abc = (float) ($item->total_cost ?? ($quantity * $unit_cost));
+
+                    return [
+                        'source_plan_id' => $plan->id,
+                        'source_plan_code' => $plan->code,
+                        'source_plan_type' => $this->planShortLabelForProcurement($plan),
+                        'source_unit_id' => $plan->unit_id,
+                        'source_unit' => $plan->unit?->name,
+                        'is_current_consolidation' => (int) $plan->id === (int) $procurement->id,
+                        'item_id' => $item->id,
+                        'item_no' => $item->item_no,
+                        'item_name' => $item->item_name,
+                        'item_description' => $item->item_description,
+                        'item_category_id' => $item->item_category_id,
+                        'item_category' => $item->item_category?->name,
+                        'item_unit_type_id' => $item->item_unit_type_id,
+                        'item_unit_type' => $item->item_unit_type?->name,
+                        'project_type' => $item->project_type,
+                        'recommended_mode_of_procurement' => $item->recommended_mode_of_procurement,
+                        'pre_procurement_conference' => $item->pre_procurement_conference,
+                        'start_of_procurement_activity' => $item->start_of_procurement_activity,
+                        'end_of_procurement_activity' => $item->end_of_procurement_activity,
+                        'expected_delivery_date' => $item->expected_delivery_date,
+                        'attached_supporting_documents' => $item->attached_supporting_documents,
+                        'supporting_document_path' => $item->supporting_document_path,
+                        'supporting_document_original_name' => $item->supporting_document_original_name,
+                        'remarks' => $item->remarks,
+                        'requested_quantity' => round((float) ($item->requested_quantity ?? $quantity), 2),
+                        'funded_quantity' => round((float) ($item->funded_quantity ?? $quantity), 2),
+                        'is_partial_funding' => (bool) $item->is_partial_funding,
+                        'quantity' => round($quantity, 2),
+                        'unit_cost' => round($unit_cost, 2),
+                        'abc' => round($abc, 2),
+                        'status_id' => $item->status_id,
+                        'status' => $item->status?->name,
+                    ];
+                });
+            })
+            ->values();
+
+        $consolidated_items = $source_items
+            ->groupBy(fn (array $item) => $this->consolidationSnapshotGroupKey($item))
+            ->values()
+            ->map(function (Collection $items, int $index) {
+                $representative = $items->first();
+                $quantity = $items->sum('quantity');
+                $abc = $items->sum('abc');
+                $prices = $items->pluck('unit_cost')->map(fn ($price) => (float) $price);
+                $minimum_price = (float) ($prices->min() ?? 0);
+                $maximum_price = (float) ($prices->max() ?? 0);
+
+                return [
+                    'group_no' => $index + 1,
+                    'source_item_ids' => $items->pluck('item_id')->values()->all(),
+                    'source_plan_codes' => $items->pluck('source_plan_code')->filter()->unique()->values()->all(),
+                    'item_name' => $representative['item_name'],
+                    'item_description' => $representative['item_description'],
+                    'item_category_id' => $representative['item_category_id'],
+                    'item_category' => $representative['item_category'],
+                    'item_unit_type_id' => $representative['item_unit_type_id'],
+                    'item_unit_type' => $representative['item_unit_type'],
+                    'project_type' => $representative['project_type'],
+                    'quantity' => round((float) $quantity, 2),
+                    'weighted_unit_cost' => $quantity > 0 ? round((float) ($abc / $quantity), 2) : 0,
+                    'minimum_unit_cost' => round($minimum_price, 2),
+                    'maximum_unit_cost' => round($maximum_price, 2),
+                    'price_spread_percentage' => $minimum_price > 0
+                        ? round((($maximum_price - $minimum_price) / $minimum_price) * 100, 2)
+                        : null,
+                    'abc' => round((float) $abc, 2),
+                ];
+            })
+            ->all();
+
+        return [
+            'schema_version' => 1,
+            'captured_at' => now()->toISOString(),
+            'captured_by_id' => Auth::id(),
+            'year' => $year,
+            'app_id' => $app_id,
+            'app_code' => $procurement->procurement_app?->code,
+            'consolidated_plan_id' => $procurement->id,
+            'consolidated_plan_code' => $procurement->code,
+            'source_plan_count' => $plans->count(),
+            'source_item_count' => $source_items->count(),
+            'consolidated_item_count' => count($consolidated_items),
+            'total_abc' => round((float) $source_items->sum('abc'), 2),
+            'source_items' => $source_items->all(),
+            'consolidated_items' => $consolidated_items,
+        ];
+    }
+
+    protected function consolidationSnapshotGroupKey(array $item): string
+    {
+        return implode('|', [
+            $item['item_category_id'] ?? '',
+            $item['item_unit_type_id'] ?? '',
+            $this->normalizeConsolidationSnapshotText($item['project_type'] ?? ''),
+            $this->normalizeConsolidationSnapshotText($item['item_name'] ?? ''),
+            $this->normalizeConsolidationSnapshotText($item['item_description'] ?? ''),
+        ]);
+    }
+
+    protected function normalizeConsolidationSnapshotText($value): string
+    {
+        $text = html_entity_decode(strip_tags(strtolower((string) $value)));
+        $text = preg_replace('/[^a-z0-9.\s-]+/', ' ', $text);
+        $text = preg_replace('/\s+/', ' ', (string) $text);
+
+        return trim((string) $text);
     }
 
     protected function logPpmpActivity(ProcurementPpmp $procurement, string $description, array $properties = []): void
@@ -2423,6 +4006,10 @@ class ProcurementPPMPClass
 
     protected function isSppProcurement(ProcurementPpmp $procurement): bool
     {
+        if (Schema::hasColumn('procurement_ppmps', 'is_supplemental')) {
+            return (bool) $procurement->is_supplemental;
+        }
+
         return $procurement->title === self::PLAN_NAME_SPP
             || str_starts_with((string) $procurement->code, 'SPP-')
             || $procurement->reference_app?->name === self::PLAN_NAME_SPP;

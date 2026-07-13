@@ -1,35 +1,125 @@
 <template>
   <div class="card-body ppmp-view-body">
+    <div class="plan-detail-banner mb-3 plan-detail-banner--annual">
+      <div>
+        <div class="plan-detail-banner__eyebrow d-flex align-items-center gap-2">
+          <span>Agency consolidated plan</span>
+          <span
+            v-if="ppmp.plan_phase && planKind !== 'SPP'"
+            class="badge"
+            :style="ppmp.plan_phase === 'final'
+              ? 'background:rgba(10,179,156,0.15);color:#0a6640;font-size:10px;font-weight:700'
+              : 'background:rgba(255,193,7,0.15);color:#856404;font-size:10px;font-weight:700'"
+          >
+            <i :class="ppmp.plan_phase === 'final' ? 'ri-flag-2-line' : 'ri-draft-line'" class="me-1"></i>
+            {{ ppmp.plan_phase === 'final' ? 'Post-GAA' : 'Pre-Budget' }}
+          </span>
+        </div>
+        <div class="plan-detail-banner__title">{{ planLongName }}</div>
+        <div class="plan-detail-banner__copy">{{ planDescription }}</div>
+      </div>
+      <div class="plan-detail-banner__meta">
+        <div>
+          <span>{{ formatCurrency(ppmp.estimated_budget || totalBudget) }}</span>
+          <small>Total Budget</small>
+        </div>
+        <div>
+          <span>{{ consolidatedItems.length }}</span>
+          <small>Items</small>
+        </div>
+        <div>
+          <span>{{ visibleSourcePpmps.length }}</span>
+          <small>Sources</small>
+        </div>
+      </div>
+    </div>
+
     <div class="app-view-toolbar mb-3">
       <div class="app-view-tabs">
+        <!-- Source PPMPs/SPPs — individual unit plans that fed into this APP -->
         <button
           type="button"
           class="app-view-tab"
-          :class="{ active: activeTab === 'document' }"
-          @click="activeTab = 'document'"
+          :class="{ active: activeTab === 'sources' }"
+          @click="activeTab = 'sources'"
         >
-          {{ planShortName }} Format
+          <i class="ri-folders-line app-view-tab__icon"></i>
+          <span>Source PPMPs/SPPs</span>
+          <span class="app-view-tab__badge">{{ visibleSourcePpmps.length }}</span>
         </button>
+
+        <!-- Visual flow indicator showing consolidation direction -->
+        <div class="app-view-tabs__flow-arrow" aria-hidden="true">
+          <i class="ri-arrow-right-s-line"></i>
+          <span>consolidated into</span>
+        </div>
+
+        <!-- Consolidated APP — the merged agency-wide document -->
         <button
           type="button"
-          class="app-view-tab"
-          :class="{ active: activeTab === 'ppmps' }"
-          @click="activeTab = 'ppmps'"
+          class="app-view-tab app-view-tab--primary"
+          :class="{ active: activeTab === 'consolidated' }"
+          @click="activeTab = 'consolidated'"
         >
-          PPMPs/SPPs
+          <i class="ri-file-chart-2-line app-view-tab__icon"></i>
+          <span>Consolidated APP</span>
+          <span class="app-view-tab__badge app-view-tab__badge--accent">
+            {{ consolidatedItems.length }}
+          </span>
         </button>
+
+        <div class="app-view-tabs__sep" aria-hidden="true"></div>
+
+        <!-- Purchase Requests -->
         <button
           type="button"
           class="app-view-tab"
           :class="{ active: activeTab === 'prs' }"
           @click="activeTab = 'prs'"
         >
-          Purchase Requests
+          <i class="ri-receipt-line app-view-tab__icon"></i>
+          <span>Purchase Requests</span>
+          <span v-if="purchaseRequests.length" class="app-view-tab__badge">
+            {{ purchaseRequests.length }}
+          </span>
         </button>
       </div>
+      <b-button variant="soft-secondary" size="sm" @click="showTimelineModal = true">
+        <i class="ri-git-branch-line align-bottom me-1"></i>
+        Status Timeline
+        <b-badge :variant="sourceStatusVariant(ppmp)" class="ms-1">
+          {{ ppmp.ppmp_status || ppmp.approval_status || "Pending" }}
+        </b-badge>
+      </b-button>
     </div>
 
-    <div v-if="activeTab === 'document'" class="ppmp-print-area app-document-view">
+    <b-modal
+      v-model="showTimelineModal"
+      size="lg"
+      centered
+      hide-footer
+      header-class="border-bottom pb-2"
+    >
+      <template #header>
+        <div class="d-flex align-items-center gap-2 w-100">
+          <span class="avatar-title bg-warning-subtle rounded p-2" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="ri-git-branch-line text-warning"></i>
+          </span>
+          <div class="flex-grow-1">
+            <div class="fw-bold fs-14">APP Status Timeline</div>
+            <div class="text-muted fs-12">
+              {{ ppmp.code || ppmp.ppmp_no || 'Annual Procurement Plan' }}
+              &nbsp;·&nbsp;
+              {{ ppmp.ppmp_status || ppmp.approval_status || 'Pending' }}
+            </div>
+          </div>
+          <button type="button" class="btn-close" @click="showTimelineModal = false"></button>
+        </div>
+      </template>
+      <PlanStatusTimeline :plan="ppmp" :plan-type="planShortName" />
+    </b-modal>
+
+      <div v-if="activeTab === 'consolidated'" class="ppmp-print-area app-document-view">
       <div class="ppmp-title-block">
         <div class="fw-bold fs-22">
           {{ planLongName.toUpperCase() }}
@@ -130,6 +220,56 @@
                 <div class="text-muted small mt-1 item-description">
                   {{ plainText(item.description) }}
                 </div>
+
+                <!-- Per-unit quantity breakdown (shows when item came from multiple acquiring units) -->
+                <div v-if="unitBreakdownFor(item).length" class="unit-qty-breakdown mt-2">
+                  <div class="unit-qty-breakdown__label">
+                    <i class="ri-building-2-line"></i> By acquiring unit
+                  </div>
+                  <div
+                    v-for="(row, bi) in unitBreakdownFor(item)"
+                    :key="bi"
+                    class="unit-qty-breakdown__row"
+                  >
+                    <span class="unit-qty-breakdown__unit">{{ row.unit_name }}</span>
+                    <span class="unit-qty-breakdown__qty">{{ formatQuantity(row.quantity) }} {{ row.unit_type }}</span>
+                  </div>
+                </div>
+
+                <!-- Pricing method badge (only for non-default methods) -->
+                <div
+                  v-if="item.pricing_method && item.pricing_method !== 'weighted'"
+                  class="item-pricing-badge mt-1"
+                >
+                  <i :class="item.pricing_method === 'manual' ? 'ri-pencil-line' : 'ri-scales-line'"></i>
+                  {{ item.pricing_method === 'manual' ? 'Manual price' : 'Averaged price' }}
+                </div>
+
+                <!-- Price variance indicator (spread > 5% among source items) -->
+                <div v-if="item.has_price_variance" class="item-price-variance mt-1">
+                  <i class="ri-alert-fill"></i>
+                  <span>Price spread {{ item.price_spread_rate }}%</span>
+                  <span class="item-price-range">
+                    ({{ formatCurrency(item.min_unit_price) }} – {{ formatCurrency(item.max_unit_price) }})
+                  </span>
+                </div>
+
+                <!-- PR price mismatch: source-PPMP PRs were issued at a different unit price -->
+                <div v-if="prMismatchFor(item).length" class="item-pr-mismatch mt-1">
+                  <i class="ri-file-warning-line"></i>
+                  <span class="item-pr-mismatch__label">PR price mismatch</span>
+                  <span
+                    v-for="(m, mi) in prMismatchFor(item)"
+                    :key="mi"
+                    class="item-pr-mismatch__entry"
+                  >
+                    {{ m.pr_no }}:
+                    <span class="item-pr-mismatch__old">{{ formatCurrency(m.original_price) }}</span>
+                    <i class="ri-arrow-right-s-line"></i>
+                    <span class="item-pr-mismatch__new">{{ formatCurrency(m.consolidated_price) }}</span>
+                  </span>
+                </div>
+
                 <small v-if="item.consolidated_count > 1" class="text-muted d-block mt-1">
                   {{ item.consolidated_count }} matching items
                 </small>
@@ -155,12 +295,12 @@
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(ppmp.start_of_procurement_activity || ppmp.date) }}
+                {{ formatMonthYear(ppmp.start_of_procurement_activity || ppmp.date) }}
               </td>
 
               <td class="text-center">
                 {{
-                  formatPrintDate(
+                  formatMonthYear(
                     item.end_of_procurement_activity || ppmp.end_of_procurement_activity
                   )
                 }}
@@ -168,7 +308,7 @@
 
               <td class="text-center">
                 {{
-                  formatPrintDate(
+                  formatMonthYear(
                     item.expected_delivery_date ||
                       ppmp.expected_delivery_implementation_period
                   )
@@ -221,83 +361,35 @@
       </div>
     </div>
 
-    <div v-else-if="activeTab === 'ppmps'" class="app-ppmp-list-view">
-      <div class="section-heading">
-        <h6 class="mb-0 fs-14"></h6>
-        <span class="text-muted fs-12">
-          {{ visibleSourcePpmps.length }} PPMP{{
-            visibleSourcePpmps.length === 1 ? "" : "s"
-          }}
-        </span>
+    <!-- Source PPMPs/SPPs — individual unit plans before consolidation -->
+    <div v-if="activeTab === 'sources'" class="app-sources-view">
+      <div class="sources-intro-card mb-3">
+        <div class="sources-intro-card__icon">
+          <i class="ri-git-merge-line"></i>
+        </div>
+        <div class="sources-intro-card__body">
+          <div class="sources-intro-card__title">Source PPMPs &amp; SPPs</div>
+          <div class="sources-intro-card__copy">
+            These are the individual procurement plans submitted by each unit before being consolidated into this {{ planShortName }}.
+            Click <strong>View</strong> to open a source plan, or <strong>Print</strong> to export it.
+          </div>
+        </div>
+        <div v-if="visibleSourcePpmps.length" class="sources-intro-card__stat">
+          <span class="sources-intro-card__num">{{ visibleSourcePpmps.length }}</span>
+          <span class="sources-intro-card__label">source plan{{ visibleSourcePpmps.length === 1 ? '' : 's' }}</span>
+        </div>
       </div>
-      <div class="table-responsive ppmp-table-wrap">
-        <table class="table align-middle table-hover mb-0">
-          <thead class="table-light">
-            <tr class="fs-12">
-              <th style="width: 4%" class="text-center">#</th>
-              <th style="width: 18%">PPMP/SPP No.</th>
-              <th>Unit</th>
-              <th style="width: 12%" class="text-end">Items</th>
-              <th style="width: 14%" class="text-end">Total ABC</th>
-              <th style="width: 18%" class="text-center">Status</th>
-              <th style="width: 90px" class="text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(source, index) in visibleSourcePpmps"
-              :key="source.id || source.ppmp_no || index"
-            >
-              <td class="text-center fw-semibold">{{ index + 1 }}</td>
-              <td>
-                <div class="d-flex flex-wrap align-items-center gap-2">
-                  <span class="fw-semibold text-primary">{{
-                    source.ppmp_no || "-"
-                  }}</span>
-                  <b-badge :variant="sourcePlanTypeVariant(source)">
-                    {{ sourcePlanTypeLabel(source) }}
-                  </b-badge>
-                </div>
-              </td>
-              <td>
-                <div class="fw-medium">{{ sourceLabel(source.unit) || "-" }}</div>
-                <small class="text-muted">{{
-                  sourceLabel(source.division) || "End-user unit"
-                }}</small>
-              </td>
-
-              <td class="text-end">
-                {{ Number(source.items_count || 0).toLocaleString() }}
-              </td>
-              <td class="text-end fw-semibold">
-                {{ formatCurrency(source.total_amount) }}
-              </td>
-              <td class="text-center">
-                <b-badge :variant="sourceStatusVariant(source)">
-                  {{ source.approval_status || "Consolidated/Added to APP" }}
-                </b-badge>
-              </td>
-              <td class="text-center">
-                <b-button
-                  variant="soft-primary"
-                  size="sm"
-                  :disabled="!source.id"
-                  title="View PPMP"
-                  @click="viewSourcePpmp(source)"
-                >
-                  <i class="ri-eye-line align-bottom"></i>
-                </b-button>
-              </td>
-            </tr>
-            <tr v-if="!visibleSourcePpmps.length">
-              <td colspan="8" class="text-center text-muted py-4">No PPMPs found.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <PlanSourceAccordion
+        :plans="visibleSourcePpmps"
+        title="Included PPMPs &amp; SPPs"
+        count-label="plan"
+        empty-text="No PPMPs or SPPs have been consolidated into this plan yet."
+        @view="viewSourcePpmp"
+        @print="printSourcePpmp"
+      />
     </div>
 
-    <div v-else class="app-pr-list-view">
+    <div v-if="activeTab === 'prs'" class="app-pr-list-view">
       <div class="section-heading">
         <h6 class="mb-0 fs-14"></h6>
         <span class="text-muted fs-12">
@@ -427,8 +519,14 @@
 
 <script>
 import { router } from "@inertiajs/vue3";
+import PlanSourceAccordion from "./PlanSourceAccordion.vue";
+import PlanStatusTimeline from "./PlanStatusTimeline.vue";
 
 export default {
+  components: {
+    PlanSourceAccordion,
+    PlanStatusTimeline,
+  },
   props: {
     ppmp: { type: Object, required: true },
     dropdowns: { type: Object, default: () => ({}) },
@@ -436,7 +534,8 @@ export default {
   },
   data() {
     return {
-      activeTab: "document",
+      activeTab: "consolidated",
+      showTimelineModal: false,
       selectedRequest: null,
       showPrItemsModal: false,
     };
@@ -582,14 +681,22 @@ export default {
       return this.planKind === "SPP" ? "SPP" : "APP";
     },
     planLongName() {
-      return this.planKind === "SPP"
-        ? "Supplemental Procurement Plan"
-        : "Annual Procurement Plan";
+      if (this.planKind === "SPP") return "Supplemental Procurement Plan";
+      if (this.ppmp.plan_phase === "final") return "Final Annual Procurement Plan";
+      if (this.ppmp.plan_phase === "indicative") return "Indicative Annual Procurement Plan";
+      return this.ppmp.plan_phase_label || "Annual Procurement Plan";
     },
     planDescription() {
-      return this.planKind === "SPP"
-        ? `Supplemental procurement plan for ${this.implementingUnitLabel}`
-        : "Agency-wide consolidated annual procurement plan";
+      if (this.planKind === "SPP") {
+        return `Supplemental procurement plan for ${this.implementingUnitLabel}`;
+      }
+      if (this.ppmp.plan_phase === "final") {
+        return "Post-GAA controlling document — mandatory PhilGEPS posting within 30 days of budget approval (RA 9184, Sec. 7)";
+      }
+      if (this.ppmp.plan_phase === "indicative") {
+        return "Pre-budget transparency document — based on proposed appropriations, superseded by the Final APP after GAA enactment";
+      }
+      return "Agency-wide consolidated annual procurement plan";
     },
     implementingUnitLabel() {
       return this.ppmp.unit?.name || (this.planKind === "SPP" ? "Unit" : "Agency-wide");
@@ -603,6 +710,94 @@ export default {
 
       return new Date(value).getFullYear();
     },
+    totalBudget() {
+      return this.consolidatedItems.reduce(
+        (total, item) => total + Number(item.abc || 0),
+        0
+      );
+    },
+    ppmpUnitLookup() {
+      const lookup = new Map();
+      (this.ppmp.source_ppmps || []).forEach((plan) => {
+        const key = String(plan.ppmp_no || plan.code || "").trim();
+        if (!key) return;
+        const unitName =
+          (plan.unit &&
+            typeof plan.unit === "object" &&
+            (plan.unit.name || plan.unit.label || plan.unit.short)) ||
+          (typeof plan.unit === "string" ? plan.unit : "") ||
+          plan.title ||
+          plan.code ||
+          key;
+        lookup.set(key, unitName);
+      });
+      return lookup;
+    },
+    prMismatchMap() {
+      // For each consolidated item with a price variance, find raw source items that had a PR
+      // at a different price — those PRs are now misaligned with the consolidated unit price.
+      const consolidatedByName = new Map();
+      this.consolidatedItems.forEach((item) => {
+        const name = String(item.name || '').toLowerCase().trim();
+        if (name && item.has_price_variance) {
+          consolidatedByName.set(name, Number(item.unit_price || 0));
+        }
+      });
+
+      const result = new Map();
+      (this.ppmp.raw_item_details || []).forEach((rawItem) => {
+        const name = String(rawItem.name || '').toLowerCase().trim();
+        if (!name) return;
+
+        const consolidatedPrice = consolidatedByName.get(name);
+        if (consolidatedPrice === undefined) return;
+
+        const rawPrice = Number(rawItem.unit_price || 0);
+        const prNo = String(rawItem.pr_no || '').trim();
+        if (!prNo) return;
+
+        if (!result.has(name)) result.set(name, []);
+        const list = result.get(name);
+
+        prNo.split(',').map((p) => p.trim()).filter(Boolean).forEach((pr) => {
+          if (!list.some((e) => e.pr_no === pr && e.original_price === rawPrice)) {
+            list.push({ pr_no: pr, original_price: rawPrice, consolidated_price: consolidatedPrice });
+          }
+        });
+      });
+
+      return result;
+    },
+    unitBreakdownMap() {
+      const raw = this.ppmp.raw_item_details || [];
+      const result = new Map();
+
+      raw.forEach((rawItem) => {
+        const name = String(rawItem.name || "").toLowerCase().trim();
+        if (!name) return;
+
+        const ppmpNo = String(rawItem.ppmp_no || "").trim();
+        const unitName =
+          (ppmpNo && this.ppmpUnitLookup.get(ppmpNo)) || ppmpNo || "Unknown Unit";
+        const qty = Number(rawItem.quantity || 0);
+        const unitType = rawItem.unit || "";
+
+        if (!result.has(name)) {
+          result.set(name, new Map());
+        }
+
+        const unitMap = result.get(name);
+        const existing = unitMap.get(unitName);
+
+        if (existing) {
+          existing.quantity += qty;
+        } else {
+          unitMap.set(unitName, { unit_name: unitName, quantity: qty, unit_type: unitType });
+        }
+      });
+
+      return result;
+    },
   },
   methods: {
     viewSourcePpmp(source) {
@@ -612,8 +807,21 @@ export default {
 
       router.get(`/faims/procurement-ppmp/${source.id}`, {
         option: "view",
-        plan_type: "PPMP",
+        plan_type: this.sourcePlanTypeLabel(source),
       });
+    },
+    printSourcePpmp(source) {
+      if (!source?.id) {
+        return;
+      }
+
+      const params = new URLSearchParams({
+        option: "print",
+        type: "ppmp",
+        plan_type: this.sourcePlanTypeLabel(source),
+      });
+
+      window.open(`/faims/procurement-ppmp/${source.id}?${params.toString()}`, "_blank");
     },
     openPrItems(request) {
       this.selectedRequest = request;
@@ -637,14 +845,11 @@ export default {
       });
     },
     formatMonthYear(value) {
-      if (!value) {
-        return "-";
-      }
-
-      return new Date(value).toLocaleDateString("en-US", {
-        month: "2-digit",
-        year: "numeric",
-      });
+      if (!value) return "-";
+      const match = String(value).match(/^(\d{4})-(\d{2})/);
+      if (!match) return "-";
+      const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return `${months[parseInt(match[2], 10) - 1] ?? match[2]} ${match[1]}`;
     },
     formatPrintDate(value) {
       if (!value) {
@@ -759,6 +964,21 @@ export default {
 
       return [];
     },
+    unitBreakdownFor(item) {
+      const name = String(item.name || "").toLowerCase().trim();
+      if (!name) return [];
+
+      const unitMap = this.unitBreakdownMap.get(name);
+      if (!unitMap || unitMap.size < 2) return [];
+
+      return Array.from(unitMap.values()).sort((a, b) => b.quantity - a.quantity);
+    },
+    prMismatchFor(item) {
+      const name = String(item.name || "").toLowerCase().trim();
+      if (!name) return [];
+
+      return this.prMismatchMap.get(name) || [];
+    },
     itemPurchaseRequests(item) {
       if (Array.isArray(item.purchase_requests) && item.purchase_requests.length) {
         return item.purchase_requests
@@ -784,29 +1004,107 @@ export default {
 
 <style scoped>
 .app-view-tabs {
-  display: inline-flex;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
   padding: 4px;
   border: 1px solid var(--ppmp-border, #e9ebec);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--ppmp-surface-soft, #f8fafc);
 }
 
 .app-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   min-height: 34px;
-  padding: 6px 12px;
+  padding: 5px 11px;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: var(--ppmp-muted, #6c757d);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.app-view-tab__icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.app-view-tab__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--ppmp-muted, #6c757d);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.app-view-tab__badge--accent {
+  background: rgba(64, 81, 137, 0.1);
+  color: #405189;
 }
 
 .app-view-tab.active {
   background: var(--ppmp-surface, #ffffff);
   color: var(--ppmp-text, #212529);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.app-view-tab--primary.active {
+  background: #405189;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(64, 81, 137, 0.28);
+}
+
+.app-view-tab--primary.active .app-view-tab__badge--accent {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+/* Flow arrow between Source → Consolidated */
+.app-view-tabs__flow-arrow {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0 4px;
+  color: var(--ppmp-muted, #94a3b8);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.app-view-tabs__flow-arrow i {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.app-view-tabs__flow-arrow span {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* Vertical separator */
+.app-view-tabs__sep {
+  width: 1px;
+  height: 22px;
+  background: var(--ppmp-border, #d1d5db);
+  margin: 0 3px;
+  flex-shrink: 0;
 }
 
 .app-view-toolbar {
@@ -822,6 +1120,101 @@ export default {
   border-radius: 8px;
   padding: 16px;
   background: var(--ppmp-surface, #ffffff);
+}
+
+/* ── Sources tab ── */
+.app-sources-view {
+  padding: 2px 0;
+}
+
+.sources-intro-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--ppmp-border, #e9ebec);
+  border-left: 3px solid #405189;
+  border-radius: 10px;
+  background: var(--ppmp-surface-soft, #f8fafc);
+}
+
+.sources-intro-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(64, 81, 137, 0.1);
+  color: #405189;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.sources-intro-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sources-intro-card__title {
+  color: var(--ppmp-text, #212529);
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.sources-intro-card__copy {
+  color: var(--ppmp-muted, #6c757d);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sources-intro-card__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding-left: 16px;
+  border-left: 1px solid var(--ppmp-border, #e9ebec);
+  flex-shrink: 0;
+}
+
+.sources-intro-card__num {
+  color: #405189;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.sources-intro-card__label {
+  color: var(--ppmp-muted, #94a3b8);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+[data-bs-theme="dark"] .sources-intro-card {
+  background: rgba(35, 44, 58, 0.7);
+}
+
+[data-bs-theme="dark"] .sources-intro-card__icon {
+  background: rgba(64, 81, 137, 0.2);
+}
+
+[data-bs-theme="dark"] .sources-intro-card__stat {
+  border-left-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-bs-theme="dark"] .app-view-tab--primary.active {
+  background: #4b5c96;
+}
+
+[data-bs-theme="dark"] .app-view-tab__badge--accent {
+  background: rgba(64, 81, 137, 0.25);
+  color: #93c5fd;
 }
 
 .app-document-view {
@@ -952,5 +1345,157 @@ export default {
 .ppmp-entry-cell {
   background: #f8fafc !important;
   color: #000000 !important;
+}
+
+/* ── Unit quantity breakdown in Column 3 ── */
+.unit-qty-breakdown {
+  border: 1px solid rgba(64, 81, 137, 0.18);
+  border-left: 3px solid rgba(64, 81, 137, 0.55);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: rgba(64, 81, 137, 0.04);
+}
+
+.unit-qty-breakdown__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 5px;
+  color: #405189;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.unit-qty-breakdown__label i {
+  font-size: 11px;
+}
+
+.unit-qty-breakdown__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  border-top: 1px solid rgba(64, 81, 137, 0.08);
+}
+
+.unit-qty-breakdown__row:first-of-type {
+  border-top: none;
+}
+
+.unit-qty-breakdown__unit {
+  color: #374151;
+  font-size: 10px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 62%;
+  flex-shrink: 1;
+}
+
+.unit-qty-breakdown__qty {
+  color: #405189;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Pricing method badge ── */
+.item-pricing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.08);
+  color: #64748b;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.item-pricing-badge i {
+  font-size: 10px;
+}
+
+/* ── Price variance indicator ── */
+.item-price-variance {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 237, 213, 0.7);
+  color: #c2410c;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.item-price-variance i {
+  font-size: 10px;
+  color: #ea580c;
+  flex-shrink: 0;
+}
+
+.item-price-range {
+  color: #9a3412;
+  font-weight: 600;
+}
+
+/* ── PR price mismatch indicator ── */
+.item-pr-mismatch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgba(185, 28, 28, 0.3);
+  border-left: 3px solid #dc2626;
+  border-radius: 5px;
+  background: rgba(254, 226, 226, 0.6);
+  color: #991b1b;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.item-pr-mismatch i {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.item-pr-mismatch__label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+}
+
+.item-pr-mismatch__entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  border: 1px solid rgba(185, 28, 28, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+}
+
+.item-pr-mismatch__old {
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
+.item-pr-mismatch__new {
+  color: #b91c1c;
+  font-weight: 800;
 }
 </style>

@@ -217,6 +217,8 @@ class PrintClass
                 'source_ppmps.created_by.org_chart.designation',
                 'source_ppmps.created_by.organization.position',
                 'source_ppmps.requested_by.profile',
+                'source_ppmps.requested_by.org_chart.designation',
+                'source_ppmps.requested_by.organization.position',
                 'source_ppmps.reviewed_by.profile',
                 'source_ppmps.approved_by.profile',
             ])->findOrFail($id);
@@ -237,6 +239,8 @@ class PrintClass
                 'created_by.org_chart.designation',
                 'created_by.organization.position',
                 'requested_by.profile',
+                'requested_by.org_chart.designation',
+                'requested_by.organization.position',
                 'reviewed_by.profile',
                 'approved_by.profile'
             )->findOrFail($id);
@@ -305,6 +309,7 @@ class PrintClass
                 });
             })
             ->values();
+        $items = $this->consolidateAppPrintItems($items, $app->pricing_overrides ?? []);
 
         $codes = $procurements
             ->flatMap(fn ($item) => $item->codes ?? collect())
@@ -325,6 +330,11 @@ class PrintClass
             ->filter()
             ->unique()
             ->values();
+        $unitNames = $procurements
+            ->pluck('unit.name')
+            ->filter()
+            ->unique()
+            ->values();
 
         $representative->setRelation('items', $items);
         $representative->setRelation('codes', $codes);
@@ -336,7 +346,8 @@ class PrintClass
         $representative->setAttribute('app_version_override', (int) ($app->version ?? 1));
         $representative->setAttribute('pr_no_override', $prNos->implode(', '));
         $representative->setAttribute('plan_name_override', 'Annual Procurement Plan');
-        $representative->setAttribute('unit_name_override', 'Agency-wide');
+        $representative->setAttribute('unit_name_override', $unitNames->isNotEmpty() ? $unitNames->implode(', ') : 'Agency-wide');
+        $representative->setAttribute('unit_label_override', $unitNames->count() > 1 ? 'Units' : 'Unit');
         $representative->setAttribute('aggregated_ppmp_count', $procurements->count());
         $representative->setAttribute('classification_override', $classificationNames->implode(', '));
         $representative->setAttribute('source_of_funds_override', $fundSources->implode(', '));
@@ -346,6 +357,83 @@ class PrintClass
         $representative->date = $app->year . '-01-01';
 
         return $representative;
+    }
+
+    protected function consolidateAppPrintItems($items, array $pricingOverrides)
+    {
+        return $items
+            ->groupBy(fn ($item) => $this->appPrintConsolidationKey($item))
+            ->values()
+            ->map(function ($group) use ($pricingOverrides) {
+                $representative = clone $group->first();
+                $quantity = (float) $group->sum(fn ($item) => (float) ($item->item_quantity ?? 0));
+                $originalAbc = (float) $group->sum(fn ($item) => (float) (
+                    $item->total_cost ?? ((float) $item->item_quantity * (float) $item->item_unit_cost)
+                ));
+                $unitCosts = $group->map(fn ($item) => (float) ($item->item_unit_cost ?? 0));
+                $weightedUnitCost = $quantity > 0 ? $originalAbc / $quantity : (float) $unitCosts->avg();
+                $pricing = $pricingOverrides[$this->appPrintConsolidationKey($representative)] ?? [];
+                $method = $pricing['method'] ?? 'weighted';
+                $unitCost = match ($method) {
+                    'average' => (float) $unitCosts->avg(),
+                    'manual' => (float) ($pricing['manual_unit_cost'] ?? $weightedUnitCost),
+                    default => $weightedUnitCost,
+                };
+
+                $representative->setAttribute('item_quantity', round($quantity, 2));
+                $representative->setAttribute('item_unit_cost', round($unitCost, 2));
+                $representative->setAttribute('total_cost', round($quantity * $unitCost, 2));
+                $representative->setAttribute('print_pricing_method', $method);
+                $representative->setAttribute('print_source_procurement_id', $group
+                    ->pluck('print_source_procurement_id')
+                    ->filter()
+                    ->unique()
+                    ->implode(','));
+                $representative->setAttribute('print_general_description', $this->joinPrintValues($group, 'print_general_description'));
+                $representative->setAttribute('print_classification_name', $this->joinPrintValues($group, 'print_classification_name'));
+                $representative->setAttribute('print_mode_of_procurement', $this->joinPrintValues($group, 'print_mode_of_procurement'));
+                $representative->setAttribute('print_source_of_funds', $this->joinPrintValues($group, 'print_source_of_funds'));
+                $representative->setAttribute('attached_supporting_documents', $this->joinPrintValues($group, 'attached_supporting_documents'));
+                $representative->setAttribute('remarks', $this->joinPrintValues($group, 'remarks'));
+                $representative->setAttribute('print_start_date', $group->pluck('print_start_date')->filter()->sort()->first());
+                $representative->setAttribute('end_of_procurement_activity', $group->pluck('end_of_procurement_activity')->filter()->sort()->last());
+                $representative->setAttribute('expected_delivery_date', $group->pluck('expected_delivery_date')->filter()->sort()->last());
+
+                return $representative;
+            })
+            ->values();
+    }
+
+    protected function appPrintConsolidationKey($item): string
+    {
+        return implode('|', [
+            $item->item_category_id ?? '',
+            $item->item_unit_type_id ?? '',
+            $this->normalizeAppPrintText($item->project_type ?? ''),
+            $this->normalizeAppPrintText($item->item_name ?? ''),
+            $this->normalizeAppPrintText($item->item_description ?? ''),
+        ]);
+    }
+
+    protected function normalizeAppPrintText($value): string
+    {
+        $text = html_entity_decode(strip_tags(strtolower((string) $value)));
+        $text = preg_replace('/[^a-z0-9.\s-]+/', ' ', $text);
+        $text = preg_replace('/\s+/', ' ', (string) $text);
+
+        return trim((string) $text);
+    }
+
+    protected function joinPrintValues($items, string $attribute): ?string
+    {
+        $value = $items
+            ->pluck($attribute)
+            ->map(fn ($item) => trim((string) $item))
+            ->filter()
+            ->unique()
+            ->implode('; ');
+
+        return $value !== '' ? $value : null;
     }
 
     protected function aggregatePPMPForPrint(ProcurementPpmp $procurement, ?string $requestedPlanType = null): ProcurementPpmp
@@ -797,19 +885,14 @@ class PrintClass
 
     private function reportSignatories(): array
     {
-        $procurementStaff = User::with('profile')
-            ->whereHas('roles', function ($query) {
-                $query->where('list_roles.name', 'Procurement Staff');
-            })
-            ->get()
-            ->map(function ($user) {
-                return [
-                    'name' => strtoupper($user->profile?->full_name ?? ('USER #' . $user->id)),
-                    'role' => 'Procurement Staff',
-                ];
-            })
-            ->values()
-            ->all();
+        $currentUser = Auth::user()?->loadMissing('profile', 'org_chart.designation', 'organization.position', 'roles');
+        $preparedBy = $currentUser ? [[
+            'name' => strtoupper($currentUser->profile?->full_name ?? ('USER #' . $currentUser->id)),
+            'role' => $currentUser->org_chart?->designation?->name
+                ?? $currentUser->organization?->position?->name
+                ?? $currentUser->roles?->first()?->name
+                ?? 'Procurement Staff',
+        ]] : [];
 
         $supplyOfficer = User::with('profile')
             ->whereHas('roles', function ($query) {
@@ -832,7 +915,7 @@ class PrintClass
         $notedByDesignation = $assistantRegionalDirector?->is_oic ? 'OIC ARD-FASS' : 'ARD-FASS';
 
         return [
-            'prepared_by' => array_slice($procurementStaff, 0, 2),
+            'prepared_by' => $preparedBy,
             'supply_officer' => $supplyOfficer ? [
                 'name' => strtoupper($supplyOfficer->profile?->full_name ?? ('USER #' . $supplyOfficer->id)),
                 'role' => 'Supply Officer',

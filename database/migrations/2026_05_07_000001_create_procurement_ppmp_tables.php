@@ -22,6 +22,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('fund_cluster_id')->nullable()->index();
             $table->unsignedTinyInteger('classification_id')->nullable()->index();
             $table->unsignedSmallInteger('reference_app_id')->nullable()->index();
+            $table->unsignedInteger('procurement_app_id')->nullable()->index();
             $table->unsignedInteger('created_by_id')->nullable()->index();
             $table->unsignedInteger('requested_by_id')->nullable()->index();
             $table->unsignedInteger('approved_by_id')->nullable()->index();
@@ -29,6 +30,11 @@ return new class extends Migration
             $table->unsignedTinyInteger('sub_status_id')->nullable()->index();
             $table->unsignedInteger('source_procurement_id')->nullable()->unique();
             $table->timestamps();
+
+            $table->foreign('procurement_app_id')
+                ->references('id')
+                ->on('procurement_apps')
+                ->nullOnDelete();
         });
 
         Schema::create('procurement_ppmp_items', function (Blueprint $table) {
@@ -120,6 +126,7 @@ return new class extends Migration
                 'fund_cluster_id' => $source->fund_cluster_id,
                 'classification_id' => $source->classification_id ?? null,
                 'reference_app_id' => $source->reference_app_id ?? null,
+                'procurement_app_id' => $source->procurement_app_id ?? null,
                 'created_by_id' => $source->created_by_id,
                 'requested_by_id' => $source->requested_by_id,
                 'approved_by_id' => $source->approved_by_id,

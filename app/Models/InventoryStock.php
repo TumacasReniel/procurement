@@ -5,45 +5,45 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class InventoryStock extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['item_id', 'quantity', 'unit_id', 'unit_cost', 'description'])
+            ->setDescriptionForEvent(fn(string $e) => "{$e} inventory stock")
+            ->useLogName('Inventory')
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     protected $fillable = [
-        'code',
-        'name',
-        'entry_date',
+        'item_id',
+        'quantity',
+        'unit_id',
+        'unit_cost',
+        'description',
+        'expiration_date',
     ];
 
     protected $casts = [
-        'entry_date' => 'datetime',
+        'quantity'        => 'decimal:2',
+        'unit_cost'       => 'decimal:2',
+        'expiration_date' => 'date',
     ];
 
-    public static function generateCode(): string
+    public function item()
     {
-        return DB::transaction(function () {
-            $prefix = 'STK-' . now()->format('mY') . '-';
-            $latest = self::lockForUpdate()
-                ->where('code', 'like', $prefix . '%')
-                ->orderByDesc('id')
-                ->first();
-
-            $count = $latest
-                ? (int) substr((string) $latest->code, -4) + 1
-                : 1;
-
-            return $prefix . str_pad($count, 4, '0', STR_PAD_LEFT);
-        });
+        return $this->belongsTo(InventoryItem::class, 'item_id');
     }
 
-    public function inventory()
+    public function unit()
     {
-        return $this->belongsTo(Inventory::class);
-    }
-
-    public function items()
-    {
-        return $this->hasMany(InventoryItem::class, 'stock_id');
+        return $this->belongsTo(UnitType::class, 'unit_id');
     }
 }

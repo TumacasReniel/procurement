@@ -14,14 +14,21 @@ class ProcurementApp extends Model
         'code',
         'year',
         'version',
+        'plan_phase',
+        'pricing_overrides',
         'title',
         'app_type_id',
         'created_by_id',
         'requested_by_id',
+        'submitted_by_id',
         'reviewed_by_id',
         'approved_by_id',
         'status_id',
         'sub_status_id',
+    ];
+
+    protected $casts = [
+        'pricing_overrides' => 'array',
     ];
 
     public function app_type()
@@ -47,6 +54,11 @@ class ProcurementApp extends Model
     public function reviewed_by()
     {
         return $this->belongsTo(User::class, 'reviewed_by_id')->with('profile');
+    }
+
+    public function submitted_by()
+    {
+        return $this->belongsTo(User::class, 'submitted_by_id')->with('profile');
     }
 
     public function status()

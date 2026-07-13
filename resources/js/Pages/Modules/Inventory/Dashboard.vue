@@ -3,72 +3,67 @@
     <Head title="Inventory Dashboard" />
     <PageHeader title="Inventory Dashboard" pageTitle="Overview" />
 
-    <section class="card border-0 inventory-dashboard-hero mb-4">
-      <div class="card-body p-4 p-xl-5">
-        <div class="hero-grid">
-          <div>
-            <p class="hero-copy mb-3">
-              Review the current range, track category volume, and catch low-stock signals before they turn into delays.
-            </p>
-            <div class="hero-chip-row">
-              <span class="hero-chip">Range: {{ formattedRange }}</span>
-              <span class="hero-chip">Tracked items: {{ formatNumber(totalItems) }}</span>
-              <span class="hero-chip">Low stock: {{ formatNumber(lowStockItems) }}</span>
-            </div>
+    <!-- Enhanced Hero -->
+    <section class="idash-hero mb-4">
+      <!-- Decorative background -->
+      <div class="idash-deco" aria-hidden="true">
+        <div class="idash-deco-ring idash-deco-ring--1"></div>
+        <div class="idash-deco-ring idash-deco-ring--2"></div>
+        <div class="idash-deco-ring idash-deco-ring--3"></div>
+        <div class="idash-deco-grid"></div>
+      </div>
+
+      <div class="idash-hero-body">
+        <!-- Left: identity + health -->
+        <div class="idash-hero-left">
+          <div class="idash-kicker">
+            <i class="ri-bar-chart-box-line"></i>
+            <span>Inventory Analytics</span>
+          </div>
+          <h1 class="idash-title">
+            Real-time<br /><em>Stock Intelligence.</em>
+          </h1>
+          <p class="idash-desc">
+            Track category volumes, catch low-stock signals, and monitor movement — all in one dashboard.
+          </p>
+
+          <!-- Period selector inline -->
+          <div class="idash-period-bar">
+            <span class="idash-period-label"><i class="ri-calendar-2-line me-1"></i>Viewing</span>
+            <select class="idash-period-select" :value="selectedPeriod" @change="changePeriod($event.target.value)">
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <span class="idash-period-range">{{ formattedRange }}</span>
           </div>
 
-          <div class="hero-controls">
-            <div class="period-switch" role="group" aria-label="Select reporting period">
-              <button
-                class="period-btn"
-                :class="{ active: selectedPeriod === 'monthly' }"
-                @click="changePeriod('monthly')"
-              >
-                Monthly
-              </button>
-              <button
-                class="period-btn"
-                :class="{ active: selectedPeriod === 'quarterly' }"
-                @click="changePeriod('quarterly')"
-              >
-                Quarterly
-              </button>
-              <button
-                class="period-btn"
-                :class="{ active: selectedPeriod === 'yearly' }"
-                @click="changePeriod('yearly')"
-              >
-                Yearly
-              </button>
+          <!-- Health indicator -->
+          <div class="idash-health" :class="healthTone">
+            <div class="idash-health-dot"></div>
+            <div>
+              <strong class="idash-health-label">{{ stockHealthLabel }}</strong>
+              <span class="idash-health-copy">{{ stockHealthCopy }}</span>
             </div>
+          </div>
+        </div>
 
-            <div class="hero-health-card">
-              <span class="hero-health-label">Stock health</span>
-              <strong>{{ stockHealthLabel }}</strong>
-              <p class="mb-0">{{ stockHealthCopy }}</p>
-            </div>
+        <!-- Right: stat cards 2×3 -->
+        <div class="idash-stat-grid">
+          <div
+            v-for="card in summaryCards"
+            :key="card.label"
+            class="idash-stat"
+            :style="{ '--sa': card.accent }"
+          >
+            <div class="idash-stat-icon"><i :class="card.icon"></i></div>
+            <strong class="idash-stat-val">{{ card.value }}</strong>
+            <span class="idash-stat-lbl">{{ card.label }}</span>
+            <p class="idash-stat-note">{{ card.note }}</p>
           </div>
         </div>
       </div>
     </section>
-
-    <div class="metric-grid mb-4">
-      <article
-        v-for="card in summaryCards"
-        :key="card.label"
-        class="metric-card"
-        :class="card.tone"
-      >
-        <div class="metric-icon">
-          <i :class="card.icon"></i>
-        </div>
-        <div>
-          <span class="metric-label">{{ card.label }}</span>
-          <strong class="metric-value">{{ card.value }}</strong>
-          <p class="metric-note mb-0">{{ card.note }}</p>
-        </div>
-      </article>
-    </div>
 
     <div class="row g-4 mb-4">
       <div class="col-xl-8">
@@ -119,26 +114,24 @@
                 <thead>
                   <tr>
                     <th>Code</th>
-                    <th>Stock</th>
-                    <th>Category</th>
                     <th>Item Name</th>
-                    <th class="text-end">Quantity</th>
+                    <th>Category</th>
+                    <th class="text-center">Stock Entries</th>
+                    <th class="text-end">Total Qty</th>
                     <th class="text-end">Unit Cost</th>
-                    <th>Expiration</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="recent.length === 0">
-                    <td colspan="7" class="text-center text-muted py-5">No inventory items found for this range.</td>
+                    <td colspan="6" class="text-center text-muted py-5">No inventory items found for this range.</td>
                   </tr>
                   <tr v-else v-for="row in recent" :key="row.id">
-                    <td class="fw-semibold">{{ row.code }}</td>
-                    <td>{{ row.stock_name }}</td>
-                    <td>{{ row.stock_category }}</td>
+                    <td class="fw-semibold font-monospace">{{ row.code }}</td>
                     <td>{{ row.item_name }}</td>
-                    <td class="text-end">{{ formatNumber(row.quantity) }}</td>
-                    <td class="text-end">{{ formatCurrency(row.unit_cost) }}</td>
-                    <td>{{ row.expiration }}</td>
+                    <td><span class="badge bg-primary-subtle text-primary">{{ row.category }}</span></td>
+                    <td class="text-center">{{ row.stock_count }}</td>
+                    <td class="text-end fw-bold">{{ formatNumber(row.total_quantity) }}</td>
+                    <td class="text-end text-muted">{{ formatCurrency(row.unit_cost) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -223,6 +216,7 @@ export default {
   data() {
     return {
       selectedPeriod: this.filters?.period || 'monthly',
+      validPeriods: ['weekly', 'monthly', 'quarterly', 'annually'],
     };
   },
   computed: {
@@ -255,35 +249,54 @@ export default {
 
       return 'No immediate stock pressure is visible in this range.';
     },
+    healthTone() {
+      if (this.outOfStock > 0) return 'danger';
+      if (this.lowStockItems > 0) return 'warning';
+      return 'good';
+    },
     summaryCards() {
       return [
         {
           label: 'Total Stocks',
           value: this.formatNumber(this.totalStocks),
-          note: 'Stock groups currently tracked',
+          note: 'Stock entries tracked',
           icon: 'ri-archive-stack-line',
-          tone: 'brand',
+          accent: '#60a5fa',
         },
         {
           label: 'Tracked Items',
           value: this.formatNumber(this.totalItems),
-          note: 'Active inventory item records',
+          note: 'Active item records',
           icon: 'ri-cube-line',
-          tone: 'success',
+          accent: '#34d399',
         },
         {
           label: 'Units On Hand',
           value: this.formatNumber(this.totalQuantity),
-          note: 'Combined quantity in the range',
+          note: 'Combined qty in period',
           icon: 'ri-database-2-line',
-          tone: 'info',
+          accent: '#38bdf8',
         },
         {
-          label: 'Low Stock Alerts',
+          label: 'Low Stock',
           value: this.formatNumber(this.lowStockItems),
-          note: 'Items already near depletion',
+          note: 'Items near depletion',
           icon: 'ri-alarm-warning-line',
-          tone: 'warning',
+          accent: '#fb923c',
+        },
+        {
+          label: 'Receivings',
+          value: this.formatNumber(this.receivingsCount),
+          note: 'Logged in this period',
+          icon: 'ri-inbox-archive-line',
+          accent: '#a78bfa',
+        },
+        {
+          label: 'Withdrawals',
+          value: this.formatNumber(this.withdrawalsCount),
+          note: 'Released in this period',
+          icon: 'ri-shopping-cart-line',
+          accent: '#f472b6',
         },
       ];
     },
@@ -367,199 +380,229 @@ export default {
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════
+   INVENTORY DASHBOARD — DESIGN SYSTEM
+   ═══════════════════════════════════════════ */
 .inventory-dashboard-page {
   --inventory-brand: #4b5b93;
   --inventory-brand-deep: #38467a;
 }
 
-.inventory-dashboard-hero {
+/* ── Hero ───────────────────────────────────────── */
+.idash-hero {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
   background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%),
-    linear-gradient(135deg, var(--inventory-brand) 0%, var(--inventory-brand-deep) 100%);
+    radial-gradient(ellipse at 85% -15%, rgba(96,165,250,.35) 0%, transparent 45%),
+    radial-gradient(ellipse at -5% 95%, rgba(167,139,250,.2) 0%, transparent 42%),
+    linear-gradient(135deg, #1a2a68 0%, #2a3d8c 38%, #38467a 68%, #4b5b93 100%);
+  box-shadow: 0 28px 64px rgba(26,42,104,.35);
   color: #fff;
-  box-shadow: 0 26px 48px rgba(56, 70, 122, 0.2);
+  margin-bottom: 0;
 }
 
-.hero-grid {
+/* Decorative rings + grid */
+.idash-deco { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.idash-deco-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.idash-deco-ring--1 { width: 500px; height: 500px; top: -180px; right: -80px; }
+.idash-deco-ring--2 { width: 320px; height: 320px; top: -80px; right: 80px; }
+.idash-deco-ring--3 { width: 180px; height: 180px; bottom: -40px; left: 10%; }
+.idash-deco-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+/* Hero layout */
+.idash-hero-body {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-  gap: 24px;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 1.5fr);
+  gap: 2rem;
   align-items: center;
+  padding: 1.85rem 2rem;
 }
 
-.hero-kicker,
-.panel-kicker {
+/* Left column */
+.idash-kicker {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
+  gap: 0.4rem;
+  padding: 0.28rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.18);
+  font-size: 0.67rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: .12em;
   text-transform: uppercase;
+  margin-bottom: 0.85rem;
+  color: rgba(255,255,255,.8);
 }
 
-.hero-kicker {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  margin-bottom: 16px;
+.idash-title {
+  font-size: clamp(1.8rem, 2.5vw, 2.6rem);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  margin: 0 0 0.6rem;
+  color: #fff;
+}
+.idash-title em {
+  font-style: normal;
+  background: linear-gradient(90deg, #93c5fd, #c4b5fd);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.hero-title {
-  font-size: clamp(1.9rem, 2.5vw, 2.8rem);
-  line-height: 1.08;
-  font-weight: 800;
-  margin-bottom: 12px;
+.idash-desc {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: rgba(255,255,255,.62);
+  margin: 0 0 1.25rem;
+  max-width: 400px;
 }
 
-.hero-copy {
-  max-width: 640px;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 15px;
-}
-
-.hero-chip-row {
+/* Period bar */
+.idash-period-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.hero-chip {
-  display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  font-size: 12px;
+  gap: 0.55rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  margin-bottom: 0.85rem;
+  width: fit-content;
+}
+.idash-period-label {
+  font-size: 0.72rem;
   font-weight: 700;
+  color: rgba(255,255,255,.65);
+  white-space: nowrap;
+}
+.idash-period-select {
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 9px;
+  background: rgba(255,255,255,.14);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.25rem 1.8rem 0.25rem 0.6rem;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right .5rem center;
+}
+.idash-period-select option { background: #2a3d8c; color: #fff; }
+.idash-period-range {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,.55);
+  white-space: nowrap;
 }
 
-.hero-controls {
-  display: grid;
-  gap: 16px;
+/* Health indicator */
+.idash-health {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.1);
+  width: fit-content;
+}
+.idash-health-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.idash-health.good  .idash-health-dot { background: #34d399; box-shadow: 0 0 8px #34d39966; }
+.idash-health.warning .idash-health-dot { background: #fb923c; box-shadow: 0 0 8px #fb923c66; }
+.idash-health.danger  .idash-health-dot { background: #f87171; box-shadow: 0 0 8px #f8717166; }
+.idash-health-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+.idash-health-copy {
+  display: block;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,.58);
+  line-height: 1.3;
 }
 
-.period-switch {
+/* Stat cards grid 2×3 */
+.idash-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 8px;
+  gap: 0.65rem;
+}
+
+.idash-stat {
+  --sa: #60a5fa;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem 0.8rem;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.1);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: background .2s;
+}
+.idash-stat:hover { background: rgba(255,255,255,.11); }
+.idash-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--sa);
+  border-radius: 18px 18px 0 0;
 }
 
-.period-btn {
-  border: 0;
-  border-radius: 12px;
-  min-height: 44px;
-  color: rgba(255, 255, 255, 0.82);
-  background: transparent;
-  font-weight: 700;
+.idash-stat-icon {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sa) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sa) 25%, transparent);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.95rem;
+  color: var(--sa);
+  margin-bottom: 0.2rem;
 }
-
-.period-btn.active {
-  background: #fff;
-  color: var(--inventory-brand-deep);
+.idash-stat-val {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -.03em;
 }
-
-.hero-health-card {
-  padding: 18px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.hero-health-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.72);
-  margin-bottom: 8px;
-}
-
-.hero-health-card strong {
-  display: block;
-  font-size: 1.35rem;
+.idash-stat-lbl {
+  font-size: 0.66rem;
   font-weight: 800;
-  margin-bottom: 6px;
-}
-
-.hero-health-card p {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 13px;
-}
-
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.metric-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid #e6ebf4;
-  background: #fff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
-}
-
-.metric-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
-
-.metric-card.brand .metric-icon {
-  background: rgba(75, 91, 147, 0.12);
-  color: var(--inventory-brand);
-}
-
-.metric-card.success .metric-icon {
-  background: rgba(15, 118, 110, 0.12);
-  color: #0f766e;
-}
-
-.metric-card.info .metric-icon {
-  background: rgba(8, 145, 178, 0.12);
-  color: #0891b2;
-}
-
-.metric-card.warning .metric-icon {
-  background: rgba(245, 158, 11, 0.14);
-  color: #b45309;
-}
-
-.metric-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  color: #64748b;
-  margin-bottom: 6px;
+  color: rgba(255,255,255,.55);
 }
-
-.metric-value {
-  display: block;
-  color: #182032;
-  font-size: 1.2rem;
-  font-weight: 800;
-  margin-bottom: 4px;
-}
-
-.metric-note {
-  color: #64748b;
-  font-size: 13px;
+.idash-stat-note {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,.38);
+  margin: 0;
 }
 
 .panel-card {
@@ -666,25 +709,16 @@ export default {
 }
 
 @media (max-width: 1199.98px) {
-  .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .idash-stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
 @media (max-width: 991.98px) {
-  .hero-grid,
-  .metric-grid {
-    grid-template-columns: 1fr;
-  }
+  .idash-hero-body { grid-template-columns: 1fr; }
+  .idash-stat-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
 }
 
 @media (max-width: 575.98px) {
-  .period-switch {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-title {
-    font-size: 1.75rem;
-  }
+  .idash-stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .idash-title { font-size: 1.7rem; }
 }
 </style>

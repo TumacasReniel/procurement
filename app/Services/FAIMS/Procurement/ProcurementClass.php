@@ -12,6 +12,7 @@ use App\Models\ProcurementCode;
 use App\Models\ProcurementCodeGroup;
 use App\Models\ProcurementCodeBudgetLog;
 use App\Models\ProcurementItem;
+use App\Models\ProcurementPpmp;
 use App\Models\ProcurementPpmpItem;
 use App\Models\InventoryItem;
 use App\Http\Resources\FAIMS\Procurement\ProcurementResource;
@@ -72,6 +73,7 @@ class ProcurementClass
                 'app_types' => $this->dropdown->dropdowns('APP Type'),
                 'procurement_codes' => $this->dropdown->procurement_codes(),
                 'unit_types' => $this->dropdown->unit_types(),
+                'item_categories' => $this->dropdown->dropdowns('Item Category'),
                 'requesters' => $this->dropdown->requesters(),
                 'approvers' => $this->dropdown->approvers(),
                 'regional_director' => $this->dropdown->regional_director(),
@@ -95,10 +97,14 @@ class ProcurementClass
     protected function currentAppDropdowns(): array
     {
         $appTypeId = ListDropdown::getID(self::PLAN_NAME_APP, 'APP Type');
+        $approvedStatusId = ListStatus::getID('Approved', 'Procurement');
 
+        // Only expose Approved APPs — PRs cannot be created against a pending or under-review APP.
+        // Ordered by year desc then version desc so the latest approved version per year is first.
         return ProcurementApp::query()
             ->with('status')
             ->when($appTypeId, fn ($query) => $query->where('app_type_id', $appTypeId))
+            ->when($approvedStatusId, fn ($query) => $query->where('status_id', $approvedStatusId))
             ->orderByDesc('year')
             ->orderByDesc('version')
             ->orderByDesc('id')
@@ -154,10 +160,26 @@ class ProcurementClass
             return [];
         }
 
+        $approvedAppStatusId = ListStatus::getID('Approved', 'Procurement');
+
         return ProcurementPpmpItem::query()
             ->with('item_category')
             ->whereNotNull('item_category_id')
-            ->whereHas('ppmp', fn ($query) => $query->whereIn('status_id', $approvedStatusIds))
+            ->whereHas('ppmp', function ($query) use ($approvedStatusIds, $approvedAppStatusId) {
+                $query
+                    ->whereIn('status_id', $approvedStatusIds)
+                    ->whereHas('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_APP));
+
+                if (Schema::hasColumn('procurement_ppmps', 'procurement_app_id')) {
+                    $query->whereNotNull('procurement_app_id')
+                        ->when($approvedAppStatusId, fn ($q) => $q->whereHas('procurement_app', function ($a) use ($approvedAppStatusId) {
+                            $a->where('status_id', $approvedAppStatusId);
+                            if (Schema::hasColumn('procurement_apps', 'plan_phase')) {
+                                $a->where('plan_phase', 'final');
+                            }
+                        }));
+                }
+            })
             ->get()
             ->map(fn ($item) => [
                 'value' => $item->item_category_id,
@@ -177,7 +199,9 @@ class ProcurementClass
             'unit_type' => $this->dropdown->unit_type($request->code),
             'title' => $this->procurement_title($request->id),
             'item_names' => $this->item_names($request->keyword),
+            'item_descriptions' => $this->item_descriptions($request->keyword),
             'ppmp_items' => $this->ppmp_items($request),
+            'ppmp_projects' => $this->ppmp_projects($request),
             'ppmp_category_items' => $this->ppmp_category_items($request),
             default => null,
         };
@@ -649,6 +673,16 @@ class ProcurementClass
             ->get()
             ->keyBy('id');
 
+        $totalAvailableCents = $this->amountToCents($budgetCodes->sum('remaining_budget'));
+
+        if ($remainingDeductionCents > $totalAvailableCents) {
+            $required = number_format($this->centsToAmount($remainingDeductionCents), 2);
+            $available = number_format($this->centsToAmount($totalAvailableCents), 2);
+            throw ValidationException::withMessages([
+                'budget' => "Insufficient budget for approval. Required: ₱{$required}, Available: ₱{$available}.",
+            ]);
+        }
+
         $lastIndex = count($procurementCodeIds) - 1;
 
         foreach ($procurementCodeIds as $index => $procurementCodeId) {
@@ -764,6 +798,29 @@ class ProcurementClass
             ->all();
     }
 
+    public function item_descriptions($item_name = null): array
+    {
+        $item_name = trim((string) $item_name);
+
+        if ($item_name === '' || ! Schema::hasTable('procurement_items')) {
+            return [];
+        }
+
+        return ProcurementItem::query()
+            ->select('item_description')
+            ->whereNotNull('item_description')
+            ->where('item_description', '!=', '')
+            ->whereRaw('LOWER(item_name) = LOWER(?)', [$item_name])
+            ->distinct()
+            ->limit(10)
+            ->pluck('item_description')
+            ->map(fn ($desc) => trim((string) $desc))
+            ->filter()
+            ->unique(fn ($desc) => mb_strtolower(strip_tags($desc)))
+            ->values()
+            ->all();
+    }
+
     public function ppmp_items($request): array
     {
         $unitId = (int) $request->input('unit_id');
@@ -807,6 +864,9 @@ class ProcurementClass
             ->unique()
             ->values();
 
+        $consolidatedPpmpStatusIds = $this->finalPpmpStatusIds();
+        $approvedAppStatusId = ListStatus::getID('Approved', 'Procurement');
+
         return ProcurementPpmpItem::query()
             ->with([
                 'item_unit_type',
@@ -816,15 +876,24 @@ class ProcurementClass
             ->when($usedPpmpItemIds->isNotEmpty(), function ($query) use ($usedPpmpItemIds) {
                 $query->whereNotIn('id', $usedPpmpItemIds);
             })
-            ->whereHas('ppmp', function ($query) use ($ppmpUnitIds) {
+            ->whereHas('ppmp', function ($query) use ($ppmpUnitIds, $consolidatedPpmpStatusIds, $approvedAppStatusId) {
                 $query
                     ->whereIn('unit_id', $ppmpUnitIds)
+                    // PPMP must be consolidated (status = Approved/Reviewed in Procurement classification)
+                    ->when(!empty($consolidatedPpmpStatusIds), fn ($q) => $q->whereIn('status_id', $consolidatedPpmpStatusIds))
                     ->whereHas('reference_app', function ($referenceQuery) {
                         $referenceQuery->where('name', self::PLAN_NAME_APP);
                     });
 
                 if (Schema::hasColumn('procurement_ppmps', 'procurement_app_id')) {
-                    $query->whereNotNull('procurement_app_id');
+                    // PPMP must be linked to an approved Final APP (RA 9184: PRs source from Final APP only)
+                    $query->whereNotNull('procurement_app_id')
+                        ->when($approvedAppStatusId, fn ($q) => $q->whereHas('procurement_app', function ($appQuery) use ($approvedAppStatusId) {
+                            $appQuery->where('status_id', $approvedAppStatusId);
+                            if (Schema::hasColumn('procurement_apps', 'plan_phase')) {
+                                $appQuery->where('plan_phase', 'final');
+                            }
+                        }));
                 }
             })
             ->latest('id')
@@ -866,11 +935,75 @@ class ProcurementClass
             ->all();
     }
 
+    public function ppmp_projects($request): array
+    {
+        $unitId = (int) $request->input('unit_id');
+
+        if (!$unitId) {
+            return [];
+        }
+
+        $consolidatedStatusIds = $this->finalPpmpStatusIds();
+        $approvedAppStatusId = ListStatus::getID('Approved', 'Procurement');
+
+        return ProcurementPpmp::query()
+            ->where('unit_id', $unitId)
+            ->when(!empty($consolidatedStatusIds), fn ($q) => $q->whereIn('status_id', $consolidatedStatusIds))
+            ->whereHas('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_APP))
+            ->when(
+                Schema::hasColumn('procurement_ppmps', 'procurement_app_id'),
+                fn ($q) => $q
+                    ->whereNotNull('procurement_app_id')
+                    ->when($approvedAppStatusId, fn ($q2) => $q2->whereHas('procurement_app', function ($a) use ($approvedAppStatusId) {
+                        $a->where('status_id', $approvedAppStatusId);
+                        if (Schema::hasColumn('procurement_apps', 'plan_phase')) {
+                            $a->where('plan_phase', 'final');
+                        }
+                    }))
+            )
+            ->latest('id')
+            ->limit(100)
+            ->get()
+            ->map(function ($ppmp) use ($unitId) {
+                $year = $ppmp->date ? date('Y', strtotime($ppmp->date)) : date('Y');
+                $ppmpNo = 'PPMP-' . $year . '-' . str_pad((string) $ppmp->id, 4, '0', STR_PAD_LEFT);
+                $label = $ppmpNo . ($ppmp->title ? ' — ' . $ppmp->title : '');
+
+                $totalBudget = (float) $ppmp->items()->sum('total_cost');
+
+                $ppmpItemIds = $ppmp->items()->pluck('id');
+                $usedBudget = $ppmpItemIds->isNotEmpty()
+                    ? (float) ProcurementItem::query()
+                        ->whereNotNull('ppmp_item_id')
+                        ->whereIn('ppmp_item_id', $ppmpItemIds)
+                        ->whereHas('procurement', fn ($q) => $q
+                            ->where('unit_id', $unitId)
+                            ->where('code', 'not like', 'PPMP-%')
+                            ->whereDoesntHave('status', fn ($s) => $s->where('name', 'Cancelled'))
+                        )
+                        ->sum('total_cost')
+                    : 0.0;
+
+                return [
+                    'value'            => $ppmp->id,
+                    'name'             => $label,
+                    'ppmp_no'          => $ppmpNo,
+                    'title'            => $ppmp->title,
+                    'total_budget'     => $totalBudget,
+                    'used_budget'      => $usedBudget,
+                    'remaining_budget' => max(0.0, $totalBudget - $usedBudget),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     public function ppmp_category_items($request): array
     {
         $categoryId = (int) $request->input('item_category_id');
         $fundClusterId = (int) $request->input('fund_cluster_id');
         $approvedStatusIds = $this->finalPpmpStatusIds();
+        $approvedAppStatusId = ListStatus::getID('Approved', 'Procurement');
         if (!$categoryId || !$fundClusterId || empty($approvedStatusIds)) {
             return [];
         }
@@ -904,10 +1037,21 @@ class ProcurementClass
             ->when($usedPpmpItemIds->isNotEmpty(), function ($query) use ($usedPpmpItemIds) {
                 $query->whereNotIn('id', $usedPpmpItemIds);
             })
-            ->whereHas('ppmp', function ($query) use ($approvedStatusIds, $fundClusterId) {
+            ->whereHas('ppmp', function ($query) use ($approvedStatusIds, $fundClusterId, $approvedAppStatusId) {
                 $query
                     ->whereIn('status_id', $approvedStatusIds)
-                    ->where('fund_cluster_id', $fundClusterId);
+                    ->where('fund_cluster_id', $fundClusterId)
+                    ->whereHas('reference_app', fn ($q) => $q->where('name', self::PLAN_NAME_APP));
+
+                if (Schema::hasColumn('procurement_ppmps', 'procurement_app_id')) {
+                    $query->whereNotNull('procurement_app_id')
+                        ->when($approvedAppStatusId, fn ($q) => $q->whereHas('procurement_app', function ($a) use ($approvedAppStatusId) {
+                            $a->where('status_id', $approvedAppStatusId);
+                            if (Schema::hasColumn('procurement_apps', 'plan_phase')) {
+                                $a->where('plan_phase', 'final');
+                            }
+                        }));
+                }
             })
             ->latest('id')
             ->get()

@@ -43,8 +43,6 @@ class ProcurementCodeController extends Controller
             break;
 
             case 'budget_requests':
-                $this->ensureCanReviewBudgetIncrease();
-
                 return inertia('Modules/FAIMS/Procurement/Code/BudgetRequests');
             break;
 

@@ -24,10 +24,30 @@
           <small>Fund Source</small>
         </div>
       </div>
+      <div v-if="hasQuarterlyData" class="plan-detail-banner__quarterly mt-2">
+        <div class="quarterly-label">Quarterly Indicative Budget</div>
+        <div class="quarterly-chips">
+          <span class="quarterly-chip">
+            <em>Q1</em> {{ formatCurrency(quarterlyTotals.q1) }}
+          </span>
+          <span class="quarterly-chip">
+            <em>Q2</em> {{ formatCurrency(quarterlyTotals.q2) }}
+          </span>
+          <span class="quarterly-chip">
+            <em>Q3</em> {{ formatCurrency(quarterlyTotals.q3) }}
+          </span>
+          <span class="quarterly-chip">
+            <em>Q4</em> {{ formatCurrency(quarterlyTotals.q4) }}
+          </span>
+        </div>
+        <div v-if="hasProjectRowsOnly" class="quarterly-note">
+          Line-item quarterly figures only — project-based budget not broken down by quarter.
+        </div>
+      </div>
     </div>
 
     <div class="row g-3">
-      <div class="col-lg-8">
+      <div class="col-12">
         <div class="section-panel">
           <div class="section-heading compact">
             <h6 class="mb-0 fs-14">Plan Information</h6>
@@ -45,40 +65,50 @@
                 <strong>{{ ppmp.division?.name || "-" }}</strong>
               </div>
             </div>
-          
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-4">
-        <div class="section-panel h-100">
-          <div class="section-heading compact">
-            <h6 class="mb-0 fs-14">Review and Approval</h6>
-          </div>
-          <div class="signatory-list">
-            <div v-if="showReviewAction">
-              <span>{{ reviewActionLabel }}</span>
-              <strong>{{ reviewActionUser }}</strong>
-              <small v-if="reviewActionDate" class="text-muted">
-                {{ formatDate(reviewActionDate) }}
-              </small>
-            </div>
-            <div v-if="showFinalAction">
-              <span>{{ finalActionLabel }}</span>
-              <strong>{{ finalActionUser }}</strong>
-              <small v-if="finalActionDate" class="text-muted">
-                {{ formatDate(finalActionDate) }}
-              </small>
-            </div>
-            <div v-if="!showReviewAction && !showFinalAction">
-              <span>Status</span>
-              <strong>{{ ppmp.ppmp_status || "Pending" }}</strong>
+            <div v-if="ppmp.attachment_url" class="col-12">
+              <div class="info-row">
+                <span>Line-Item Budget</span>
+                <a
+                  :href="ppmp.attachment_url"
+                  target="_blank"
+                  rel="noopener"
+                  class="detail-attachment"
+                >
+                  <i class="ri-attachment-2 align-bottom me-1"></i>
+                  {{ ppmp.attachment_original_name || "View attachment" }}
+                </a>
+              </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
+
+    <b-modal
+      v-model="showTimelineModal"
+      size="xl"
+      centered
+      hide-footer
+      header-class="border-bottom pb-2"
+    >
+      <template #header>
+        <div class="d-flex align-items-center gap-2 w-100">
+          <span class="avatar-title bg-primary-subtle rounded p-2" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="ri-git-branch-line text-primary"></i>
+          </span>
+          <div class="flex-grow-1">
+            <div class="fw-bold fs-14">PPMP Status Timeline</div>
+            <div class="text-muted fs-12">
+              {{ ppmp.code || ppmp.ppmp_no || 'Procurement Plan' }}
+              &nbsp;·&nbsp;
+              {{ ppmp.ppmp_status || ppmp.approval_status || 'Pending' }}
+            </div>
+          </div>
+          <button type="button" class="btn-close" @click="showTimelineModal = false"></button>
+        </div>
+      </template>
+      <PlanStatusTimeline :plan="ppmp" plan-type="PPMP" />
+    </b-modal>
 
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
       <div class="ppmp-view-tabs">
@@ -102,13 +132,24 @@
 
       <div class="d-flex flex-wrap align-items-center gap-2">
         <b-button
+          variant="soft-secondary"
+          size="sm"
+          @click="showTimelineModal = true"
+        >
+          <i class="ri-git-branch-line align-bottom me-1"></i>
+          Status Timeline
+          <b-badge :variant="planStatusVariant" class="ms-1">
+            {{ ppmp.ppmp_status || "Pending" }}
+          </b-badge>
+        </b-button>
+        <b-button
           v-if="canAddDraftItem"
           variant="success"
           size="sm"
           @click="$emit('add-item')"
         >
           <i class="ri-add-line align-bottom me-1"></i>
-          Add Item
+          Add Procurement Project
         </b-button>
       </div>
     </div>
@@ -160,7 +201,7 @@
               <th>End of Procurement Activity</th>
               <th>Expected Delivery/Implementation Period</th>
               <th>Source of Funds</th>
-              <th>Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
+              <th>Estimated Budget / ABC (PHP)</th>
             </tr>
             <tr class="fs-12 text-center ppmp-column-number-row">
               <th>Column 1</th>
@@ -208,23 +249,23 @@
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(item.start_of_procurement_activity || ppmp.start_of_procurement_activity || ppmp.date) }}
+                {{ formatMonthYear(item.start_of_procurement_activity || ppmp.start_of_procurement_activity || ppmp.date) }}
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(item.end_of_procurement_activity) }}
+                {{ formatMonthYear(item.end_of_procurement_activity) }}
               </td>
 
               <td class="text-center">
-                {{ formatPrintDate(item.expected_delivery_date) }}
+                {{ formatMonthYear(item.expected_delivery_date) }}
               </td>
 
               <td class="text-center">
                 {{ ppmp.source_of_funds || ppmp.fund_cluster?.name || "-" }}
               </td>
 
-              <td class="text-end fw-semibold">
-                {{ formatCurrency(item.abc) }}
+              <td v-if="item.entryRowspan" :rowspan="item.entryRowspan" class="text-end fw-semibold">
+                {{ formatCurrency(item.entryTotalAbc) }}
               </td>
 
               <td v-if="item.supportRowspan" :rowspan="item.supportRowspan" class="text-center ppmp-entry-cell">
@@ -276,7 +317,66 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!ppmp.item_details?.length">
+            <tr v-for="(projectRow, idx) in (ppmp.project_rows || [])" :key="'proj-' + idx">
+              <td class="ppmp-entry-cell">
+                {{ projectRow.general_description_objective || "-" }}
+              </td>
+              <td class="text-center ppmp-entry-cell">
+                {{ projectRow.project_type || "-" }}
+              </td>
+              <td>—</td>
+              <td>
+                {{ projectRow.recommended_mode_of_procurement || "-" }}
+              </td>
+              <td class="text-center">
+                {{ projectRow.pre_procurement_conference || "No" }}
+              </td>
+              <td class="text-center">
+                {{ formatMonthYear(projectRow.start_of_procurement_activity) }}
+              </td>
+              <td class="text-center">
+                {{ formatMonthYear(projectRow.end_of_procurement_activity) }}
+              </td>
+              <td class="text-center">
+                {{ formatMonthYear(projectRow.expected_delivery_date) }}
+              </td>
+              <td class="text-center">{{ projectRow.source_of_funds || "-" }}</td>
+              <td class="text-end fw-semibold">
+                {{ projectRow.project_total_budget ? formatCurrency(projectRow.project_total_budget) : "—" }}
+              </td>
+              <td class="text-center ppmp-entry-cell">
+                <div>{{ projectRow.attached_supporting_documents || "-" }}</div>
+              </td>
+              <td class="text-center ppmp-entry-cell">
+                {{ projectRow.remarks || "-" }}
+              </td>
+              <td class="text-center text-muted">—</td>
+              <td v-if="canEditIndicativeItems" class="text-center">
+                <div class="d-flex justify-content-center gap-1">
+                  <b-button
+                    type="button"
+                    variant="success"
+                    size="sm"
+                    class="btn-icon"
+                    style="border-radius: 8px;"
+                    @click="$emit('edit-item', { _isPpmpProject: true, ppmp_id: projectRow.ppmp_id, ...projectRow })"
+                  >
+                    <i class="ri-edit-2-line"></i>
+                  </b-button>
+                  <b-button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    class="btn-icon"
+                    style="border-radius: 8px;"
+                    @click="$emit('delete-item', { _isPpmpProject: true, ppmp_id: projectRow.ppmp_id, name: projectRow.general_description_objective })"
+                  >
+                    <i class="ri-delete-bin-line"></i>
+                  </b-button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!ppmp.item_details?.length && !(ppmp.project_rows?.length)">
               <td :colspan="canEditIndicativeItems ? 14 : 13" class="text-center text-muted py-4">No items found.</td>
             </tr>
           </tbody>
@@ -401,7 +501,12 @@
 </template>
 
 <script>
+import PlanStatusTimeline from "./PlanStatusTimeline.vue";
+
 export default {
+  components: {
+    PlanStatusTimeline,
+  },
   props: {
     ppmp: { type: Object, required: true },
     canAddDraftItem: { type: Boolean, default: false },
@@ -413,6 +518,7 @@ export default {
       activeTab: "document",
       selectedRequest: null,
       showPrItemsModal: false,
+      showTimelineModal: false,
     };
   },
   computed: {
@@ -493,7 +599,8 @@ export default {
       return this.ppmp.ppmp_status === "Reviewed/For Submission";
     },
     hasPpmpItems() {
-      return Number(this.ppmp?.items_count || 0) > 0;
+      return Number(this.ppmp?.items_count || 0) > 0
+        || (this.ppmp?.project_rows?.length || 0) > 0;
     },
     canShowAdvanceAction() {
       if (!this.ppmp.can_submit_final) {
@@ -593,6 +700,37 @@ export default {
     showFinalAction() {
       return ["Submitted/For Consolidation", "Submitted/For Implementation", "Consolidated/Added to APP", "Consolidated/Added to SPP", "Consolidated/Added to PPMP"].includes(this.ppmp.ppmp_status);
     },
+    planStatusVariant() {
+      const status = String(this.ppmp.ppmp_status || "").toLowerCase();
+
+      if (status.includes("consolidated") || status.includes("approved")) {
+        return "success";
+      }
+
+      if (status.includes("submitted") || status.includes("reviewed") || status.includes("for")) {
+        return "warning";
+      }
+
+      return "secondary";
+    },
+    quarterlyTotals() {
+      const items = this.ppmp.item_details || [];
+      return {
+        q1: items.reduce((s, i) => s + (Number(i.q1_indicative_amount) || 0), 0),
+        q2: items.reduce((s, i) => s + (Number(i.q2_indicative_amount) || 0), 0),
+        q3: items.reduce((s, i) => s + (Number(i.q3_indicative_amount) || 0), 0),
+        q4: items.reduce((s, i) => s + (Number(i.q4_indicative_amount) || 0), 0),
+      };
+    },
+    hasQuarterlyData() {
+      const t = this.quarterlyTotals;
+      return t.q1 > 0 || t.q2 > 0 || t.q3 > 0 || t.q4 > 0;
+    },
+    hasProjectRowsOnly() {
+      const hasItems = (this.ppmp.item_details || []).length > 0;
+      const hasProjectRows = (this.ppmp.project_rows || []).length > 0;
+      return !hasItems && hasProjectRows;
+    },
     groupedItemRows() {
       const rows = this.ppmp.item_details || [];
       const entryGroups = new Map();
@@ -635,12 +773,14 @@ export default {
 
       return Array.from(entryGroups.values()).flatMap((supportGroups) => {
         const entryItems = Array.from(supportGroups.values()).flat();
+        const entryTotalAbc = entryItems.reduce((sum, i) => sum + Number(i.abc || 0), 0);
         let isFirstEntryRow = true;
 
         return Array.from(supportGroups.values()).flatMap((supportItems) => supportItems.map((item, index) => {
           const row = {
             ...item,
             entryRowspan: isFirstEntryRow ? entryItems.length : 0,
+            entryTotalAbc: isFirstEntryRow ? entryTotalAbc : 0,
             supportRowspan: index === 0 ? supportItems.length : 0,
             __entry_items: entryItems,
           };
@@ -693,6 +833,13 @@ export default {
         month: "short",
         day: "2-digit",
       });
+    },
+    formatMonthYear(value) {
+      if (!value) return "-";
+      const match = String(value).match(/^(\d{4})-(\d{2})/);
+      if (!match) return "-";
+      const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return `${months[parseInt(match[2], 10) - 1] ?? match[2]} ${match[1]}`;
     },
     cleanValue(value) {
       return this.plainText(value).replace(/\s+/g, " ").trim();
@@ -808,8 +955,10 @@ export default {
 .ppmp-col-mode { width: 250px; }
 .ppmp-col-conference { width: 190px; }
 .ppmp-col-date { width: 165px; }
-.ppmp-col-funds { width: 210px; }
-.ppmp-col-budget { width: 230px; }
+.ppmp-col-funds { width: 180px; }
+.ppmp-col-quarter { width: 130px; }
+.ppmp-col-budget { width: 200px; }
+.quarter-cell { font-size: 12px; }
 .ppmp-col-docs { width: 260px; }
 .ppmp-col-remarks { width: 240px; }
 .ppmp-col-status { width: 150px; }
@@ -855,5 +1004,48 @@ export default {
 .ppmp-entry-cell {
   background: var(--ppmp-surface-soft, var(--bs-tertiary-bg, #f8fafc));
   color: var(--ppmp-text, var(--bs-body-color, #212529));
+}
+
+.plan-detail-banner__quarterly {
+  width: 100%;
+}
+.quarterly-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ppmp-muted, #6c757d);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 6px;
+}
+.quarterly-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.quarterly-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--bs-primary-bg-subtle, #cfe2ff);
+  border: 1px solid var(--bs-primary-border-subtle, #9ec5fe);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bs-primary-text-emphasis, #084298);
+}
+.quarterly-chip em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--bs-primary, #405189);
+  opacity: .75;
+}
+.quarterly-note {
+  font-size: 11px;
+  color: var(--ppmp-muted, #6c757d);
+  margin-top: 6px;
+  font-style: italic;
 }
 </style>

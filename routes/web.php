@@ -39,8 +39,43 @@ Route::middleware(['auth','verified'])->group(function () {
     Route::get('/inventory-dashboard', [App\Http\Controllers\Inventory\DashboardController::class, 'index'])->name('inventory.dashboard');
     Route::resource('/inventory-stocks', App\Http\Controllers\Inventory\InventoryStockController::class)->only(['index','store','update','destroy']);
     Route::resource('/inventory-items', App\Http\Controllers\Inventory\InventoryItemController::class)->only(['index','store','update','destroy']);
+    Route::resource('/inventory-categories', App\Http\Controllers\Inventory\InventoryCategoryController::class)->only(['index','store','update','destroy']);
     Route::resource('/inventory-receivings', App\Http\Controllers\Inventory\InventoryReceivingController::class)->only(['index','store','update','destroy']);
+    Route::get('/inventory-procurement-receivings', [App\Http\Controllers\Inventory\InventoryReceivingController::class, 'procurementReceivings'])->name('inventory.procurement-receivings');
     Route::resource('/inventory-withdrawals', App\Http\Controllers\Inventory\InventoryWithdrawalController::class)->only(['index','store','update','destroy']);
+    Route::post('/inventory-withdrawals/{inventory_withdrawal}/void', [App\Http\Controllers\Inventory\InventoryWithdrawalController::class, 'void'])->name('inventory-withdrawals.void');
+    Route::post('/inventory-withdrawals/{inventory_withdrawal}/partial-issue', [App\Http\Controllers\Inventory\InventoryWithdrawalController::class, 'partialIssue'])->name('inventory-withdrawals.partial-issue');
+
+    Route::resource('/inventory-ris', App\Http\Controllers\Inventory\InventoryRisController::class)->only(['index','show','store','update','destroy']);
+    Route::post('/inventory-ris/{inventory_ri}/void', [App\Http\Controllers\Inventory\InventoryRisController::class, 'void'])->name('inventory-ris.void');
+
+    // Stock Adjustments
+    Route::resource('/inventory-adjustments', App\Http\Controllers\Inventory\InventoryStockAdjustmentController::class)->only(['index','store','update','destroy']);
+
+    // Physical Inventory / Cycle Count
+    Route::resource('/inventory-physical-counts', App\Http\Controllers\Inventory\InventoryPhysicalCountController::class)->only(['index','show','store','update','destroy']);
+
+    // ICS & PAR
+    Route::resource('/inventory-ics', App\Http\Controllers\Inventory\InventoryIcsController::class)->only(['index','show','store','update','destroy']);
+    Route::resource('/inventory-par', App\Http\Controllers\Inventory\InventoryParController::class)->only(['index','show','store','update','destroy']);
+
+    // Print routes
+    Route::get('/procurement/user-manual/print', fn() => view('FAIMS.Procurement.prints.user-manual'))->name('procurement.user-manual.print');
+    Route::get('/inventory-print/stock-card/{item}', [App\Http\Controllers\Inventory\InventoryPrintController::class, 'stockCard'])->name('inventory.print.stock-card');
+    Route::get('/inventory-print/ris/{inventory_ri}', [App\Http\Controllers\Inventory\InventoryPrintController::class, 'ris'])->name('inventory.print.ris');
+    Route::get('/inventory-print/ics/{inventory_ic}', [App\Http\Controllers\Inventory\InventoryPrintController::class, 'ics'])->name('inventory.print.ics');
+    Route::get('/inventory-print/par/{inventory_par}', [App\Http\Controllers\Inventory\InventoryPrintController::class, 'par'])->name('inventory.print.par');
+    Route::get('/inventory-print/waste-material', [App\Http\Controllers\Inventory\InventoryPrintController::class, 'wasteMaterial'])->name('inventory.print.waste-material');
+
+    // OneApp Chatbot
+    Route::post('/ai-chat', App\Http\Controllers\AI\AiChatController::class);
+    Route::get('/ai-settings', [App\Http\Controllers\AI\ChatbotSettingController::class, 'show']);
+    Route::post('/ai-settings', [App\Http\Controllers\AI\ChatbotSettingController::class, 'save']);
+    Route::post('/ai-settings/test', [App\Http\Controllers\AI\ChatbotSettingController::class, 'test']);
+    Route::delete('/ai-settings/key', [App\Http\Controllers\AI\ChatbotSettingController::class, 'clearKey']);
+    Route::get('/ai-modules', [App\Http\Controllers\AI\ChatbotSettingController::class, 'modules']);
+    Route::patch('/ai-modules/{key}', [App\Http\Controllers\AI\ChatbotSettingController::class, 'toggleModule'])
+        ->where('key', '[a-z0-9_]+');
 });
 
 Route::middleware(['role:Asset Management Officer'])->group(function () {
@@ -120,6 +155,7 @@ Route::prefix('faims')->group(function () {
     Route::post('/procurement-ppmp/{id}/comments', [App\Http\Controllers\FAIMS\Procurement\ProcurementPPMPController::class, 'storeComment']);
     Route::resource('/procurement-codes', App\Http\Controllers\FAIMS\Procurement\ProcurementCodeController::class);
     Route::get('/procurement-dashboard', [App\Http\Controllers\FAIMS\Procurement\ProcurementDashboardController::class, 'index'])->name('procurement.dashboard');
+
     Route::get('/procurements/create', [App\Http\Controllers\FAIMS\Procurement\ProcurementController::class, 'create']);
     Route::post('/procurements/{id}/comments', [App\Http\Controllers\FAIMS\Procurement\ProcurementCommentController::class, 'store']);
     Route::resource('/quotations', App\Http\Controllers\FAIMS\Procurement\QuotationController::class);

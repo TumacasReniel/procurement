@@ -1,5 +1,5 @@
 <template>
-  <div class="position-fixed bottom-0 end-0 px-3 px-md-4 pt-3 pt-md-4 pb-0" style="z-index: 1050;">
+  <div class="position-fixed bottom-0 end-0 px-3 px-md-4 pt-3 pt-md-4 pb-3 pb-md-4" style="z-index: 1050;">
     <BCard
       v-if="open"
       no-body
@@ -649,16 +649,16 @@ export default {
     },
     panelStyle() {
       return {
-        width: "clamp(420px, 58vw, 860px)",
+        width: "clamp(400px, 52vw, 820px)",
         maxWidth: "calc(100vw - 48px)",
-        maxHeight: "calc(100dvh - 48px)",
+        maxHeight: "calc(100dvh - 80px)",
       };
     },
     bodyStyle() {
       return {
-        height: "calc(100dvh - 126px)",
-        minHeight: "min(420px, calc(100dvh - 126px))",
-        maxHeight: "calc(100dvh - 126px)",
+        height: "calc(100dvh - 158px)",
+        minHeight: "min(380px, calc(100dvh - 158px))",
+        maxHeight: "calc(100dvh - 158px)",
       };
     },
     requestListStyle() {
@@ -670,8 +670,8 @@ export default {
     },
     triggerStyle() {
       return {
-        width: "64px",
-        height: "64px",
+        width: "52px",
+        height: "52px",
       };
     },
     avatarStyle() {

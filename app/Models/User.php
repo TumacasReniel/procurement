@@ -128,7 +128,7 @@ class User extends Authenticatable  implements MustVerifyEmail
         return $this->roles()->where('name', $roleName)->exists();
     }
 
-    public function hasActiveRole($roleNames): bool
+    public function hasAnyRole($roleNames): bool
     {
         $roleNames = is_array($roleNames) ? $roleNames : [$roleNames];
 
@@ -136,6 +136,11 @@ class User extends Authenticatable  implements MustVerifyEmail
             ->whereIn('name', $roleNames)
             ->where('user_roles.is_active', 1)
             ->exists();
+    }
+
+    public function hasActiveRole($roleNames): bool
+    {
+        return $this->hasAnyRole($roleNames);
     }
 
     public function scopeWhereHasActiveRole($query, $roleNames)

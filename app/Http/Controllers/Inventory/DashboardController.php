@@ -32,13 +32,13 @@ class DashboardController extends Controller
             'dropdowns' => [
                 'roles' => \Auth::user()->roles,
                 'designation' => \Auth::user()->org_chart?->designation,
-                'categories' => $this->dropdown->dropdowns('Inventory Category'),
+                'categories' => $this->dropdown->dropdowns('Item Category'),
                 'units' => $this->dropdown->dropdowns('Unit'),
                 'locations' => $this->dropdown->dropdowns('Location'),
                 'periods' => [
-                    ['value' => 'monthly', 'name' => 'Monthly'],
+                    ['value' => 'monthly',   'name' => 'Monthly'],
                     ['value' => 'quarterly', 'name' => 'Quarterly'],
-                    ['value' => 'yearly', 'name' => 'Yearly'],
+                    ['value' => 'yearly',    'name' => 'Yearly'],
                 ],
             ],
             'totalItems' => $dashboard['totalItems'],
@@ -51,6 +51,8 @@ class DashboardController extends Controller
             'byCategory' => $dashboard['byCategory'],
             'recent' => $dashboard['recent'],
             'byStatus' => $dashboard['byStatus'],
+            'reorderAlerts' => $dashboard['reorderAlerts'],
+            'expiryAlerts' => $dashboard['expiryAlerts'],
             'filters' => $dashboard['filters'],
         ]);
     }

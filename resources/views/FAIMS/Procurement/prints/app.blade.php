@@ -72,6 +72,7 @@
     $isUpdatedApp = $planShortName === 'APP' && $appVersion > 1;
     $prNo = $procurement->pr_no_override ?: ($procurement->code ?: '');
     $unitName = $procurement->unit_name_override ?: ($procurement->unit?->name ?? '-');
+    $unitLabel = $procurement->unit_label_override ?: 'Unit';
     $classificationName = $procurement->classification_override ?: ($procurement->classification?->name ?? '-');
     $sourceOfFunds = $procurement->source_of_funds_override ?: ($procurement->fund_cluster?->name ?? '-');
     $startDate = $procurement->start_date_override ?: $procurement->date;
@@ -117,9 +118,10 @@
 
         return $rowspans;
     };
-    $generalDescriptionRowspans = $rowspansFor(fn ($item) => $item->print_general_description ?: ($procurement->title ?: $procurement->purpose), true, true);
-    $projectTypeRowspans = $rowspansFor(fn ($item) => $item->project_type ?: ($item->print_classification_name ?: $classificationName), true, true);
+    $generalDescriptionRowspans = $rowspansFor(fn ($item) => $item->print_general_description ?: ($procurement->title ?: $procurement->purpose));
+    $projectTypeRowspans = $rowspansFor(fn ($item) => $item->project_type ?: ($item->print_classification_name ?: $classificationName));
     $supportingDocumentsRowspans = $rowspansFor(fn ($item) => $item->attached_supporting_documents, false);
+    $remarksRowspans = $rowspansFor(fn ($item) => $item->remarks, false);
     $estimatedRowsPerPrintPage = 9;
     $mergeCellClass = function ($rowspans, $index, $showValue = false) use ($estimatedRowsPerPrintPage) {
         $span = $rowspans[$index] ?? 1;
@@ -570,7 +572,7 @@
 
     <div class="table-header-info">
         <div>Fiscal Year : {{ $ppmpYear }}</div>
-        <div>End-User or Implementing Unit: {{ $unitName }}</div>
+        <div>End-User or Implementing {{ $unitLabel }}: {{ $unitName }}</div>
     </div>
 
     <table class="ppmp-table">
@@ -658,6 +660,7 @@
                         $showGeneralDescription = $showMergeCellValue($generalDescriptionRowspans, $itemIndex);
                         $showProjectType = $showMergeCellValue($projectTypeRowspans, $itemIndex);
                         $showSupportingDocuments = $showMergeCellValue($supportingDocumentsRowspans, $itemIndex);
+                        $showRemarks = $showMergeCellValue($remarksRowspans, $itemIndex);
                     @endphp
                     <tr>
                         <td class="compact-cell {{ $mergeCellClass($generalDescriptionRowspans, $itemIndex, $showGeneralDescription) }}">
@@ -697,7 +700,13 @@
                                 &nbsp;
                             @endif
                         </td>
-                        <td class="text-center compact-cell">{{ $cleanText($item->remarks) }}</td>
+                        <td class="text-center compact-cell {{ $mergeCellClass($remarksRowspans, $itemIndex, $showRemarks) }}">
+                            @if ($showRemarks)
+                                {{ $cleanText($item->remarks) }}
+                            @else
+                                &nbsp;
+                            @endif
+                        </td>
                     </tr>
                 @endforeach
             @else
@@ -748,12 +757,8 @@
             $height = $pdf->get_height();
             $y_axis = $height - 22;
 
-            $text_code = "";
-            $pdf->page_text(28, $y_axis, $text_code, $font, $size, array(0,0,0));
-
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-            $pdf->page_text($width - $text_width - 28, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $pdf->page_text($width - 110, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

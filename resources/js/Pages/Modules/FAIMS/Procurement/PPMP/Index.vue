@@ -6,7 +6,7 @@
     <div class="col-md-12">
       <div class="card bg-light-subtle ppmp-shell shadow-none border">
         <div class="card-header bg-light-subtle ppmp-shell__header">
-          <div class="d-flex mb-n3">
+          <div class="d-flex mb-n3 align-items-start">
             <div class="flex-shrink-0 me-3">
               <div style="height: 2.5rem; width: 2.5rem">
                 <span class="avatar-title bg-primary-subtle rounded p-2 mt-n1">
@@ -22,6 +22,26 @@
                 {{ activePlanDescription }}
               </p>
             </div>
+            <div class="d-flex gap-2 ms-2 flex-shrink-0">
+              <b-button
+                variant="light"
+                size="sm"
+                v-b-tooltip.hover="{ title: 'Open the Procurement User Manual' }"
+                @click="userManualModal.show = true"
+              >
+                <i class="ri-book-open-fill text-primary me-1"></i>
+                User Manual
+              </b-button>
+              <b-button
+                variant="light"
+                size="sm"
+                v-b-tooltip.hover="{ title: 'Procurement Process Guide (PPMP → APP → SPP → RFQ → PO)' }"
+                @click="processInfoModal.show = true"
+              >
+                <i class="ri-question-line text-primary me-1"></i>
+                Process Guide
+              </b-button>
+            </div>
           </div>
         </div>
 
@@ -32,11 +52,11 @@
                 <button
                   type="button"
                   class="nav-link"
-                  :class="{ active: filter.plan_type === 'PPMP' }"
-                  @click="setPlanTab('PPMP')"
+                  :class="{ active: ['PPMP', 'SPP', 'ALL'].includes(filter.plan_type) }"
+                  @click="setPlanTab('ALL')"
                 >
                   <i class="ri-table-line align-bottom me-1"></i>
-                  PPMP
+                  PPMP / SPP
                 </button>
               </li>
               <li
@@ -58,17 +78,6 @@
                   APP
                 </button>
               </li>
-              <li class="nav-item" role="presentation">
-                <button
-                  type="button"
-                  class="nav-link"
-                  :class="{ active: filter.plan_type === 'SPP' }"
-                  @click="setPlanTab('SPP')"
-                >
-                  <i class="ri-add-circle-line align-bottom me-1"></i>
-                  SPP
-                </button>
-              </li>
             </ul>
           </div>
           <b-row class="mb-2 ms-1 me-1" style="margin-top: 12px">
@@ -83,16 +92,25 @@
                   :placeholder="`Search ${activePlanLabel}`"
                   class="form-control"
                   :style="{
-                    width:
-                      filter.plan_type === 'APP'
-                        ? '52%'
-                        : filter.plan_type === 'SPP'
-                        ? '40%'
-                        : '37%',
+                    width: filter.plan_type === 'APP' ? '52%' : '37%',
                   }"
                 />
                 <Multiselect
-                  v-if="['PPMP', 'SPP'].includes(filter.plan_type) && canManagePPMP"
+                  v-if="['PPMP', 'SPP', 'ALL'].includes(filter.plan_type)"
+                  class="white"
+                  style="width: 10%"
+                  :options="[{ value: 'ALL', name: 'All' }, { value: 'PPMP', name: 'PPMP' }, { value: 'SPP', name: 'SPP' }]"
+                  :value="filter.plan_type"
+                  label="name"
+                  value-prop="value"
+                  :searchable="false"
+                  :append-to-body="true"
+                  :can-clear="false"
+                  :can-deselect="false"
+                  @change="setPlanTab"
+                />
+                <Multiselect
+                  v-if="['PPMP', 'SPP', 'ALL'].includes(filter.plan_type) && canManagePPMP"
                   class="white"
                   style="width: 15%"
                   :options="unitOptions"
@@ -134,18 +152,19 @@
                 >
                   <i class="bx bx-refresh search-icon"></i>
                 </span>
+
                 <b-button
-                  v-if="canShowCreatePpmpButton"
-                  variant="primary"
+                  v-if="canShowCreatePlanButton"
+                  :variant="appIsApprovedThisYear ? 'warning' : 'primary'"
                   class="text-white"
                   style="color: #fff !important"
-                  @click="openCreatePpmpModal"
+                  @click="openCreatePlanModal"
                 >
                   <i
                     class="ri-add-circle-line align-bottom me-1 text-white"
                     style="color: #fff !important"
                   ></i>
-                  Create PPMP
+                  {{ appIsApprovedThisYear ? 'Create SPP' : 'Create PPMP' }}
                 </b-button>
                 <b-button
                   v-if="filter.plan_type === 'APP' && canCreateAppPlans"
@@ -159,19 +178,6 @@
                     style="color: #fff !important"
                   ></i>
                   Create APP
-                </b-button>
-                <b-button
-                  v-if="canShowCreateSppButton"
-                  variant="warning"
-                  class="text-white"
-                  style="color: #fff !important"
-                  @click="openCreateSppModal"
-                >
-                  <i
-                    class="ri-add-circle-line align-bottom me-1 text-white"
-                    style="color: #fff !important"
-                  ></i>
-                  Create SPP
                 </b-button>
               </div>
             </b-col>
@@ -214,13 +220,17 @@
                     <td>
                       <div class="fw-semibold text-primary">
                         {{ list.ppmp_no || "-" }}
-
-                        <span> Version No. </span>
-                        {{ list.version }}
                       </div>
-                      <small class="text-muted">{{
-                        list.plan_name || "Annual Procurement Plan"
-                      }}</small>
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        <b-badge
+                          :variant="list.plan_phase === 'final' ? 'success' : 'warning'"
+                          style="font-size: 10px"
+                        >
+                          <i :class="list.plan_phase === 'final' ? 'ri-flag-2-line' : 'ri-draft-line'" class="me-1"></i>
+                          {{ list.plan_phase_label || list.plan_name || "Annual Procurement Plan" }}
+                        </b-badge>
+                        <span v-if="list.version" class="version-badge">Version {{ list.version }}</span>
+                      </div>
                     </td>
                     <td>
                       <div class="fw-medium">{{ fiscalYear(list) }}</div>
@@ -265,16 +275,26 @@
                         </b-button>
                         <b-button
                           v-if="canApprovePPMP(list)"
-                          @click.stop="openApproveFinalModal(list)"
+                          @click.stop="goViewPage(list, filter.plan_type)"
                           size="sm"
                           variant="success"
                           class="btn-icon"
                           v-b-tooltip.hover
                           :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
-                          :disabled="form.processing"
                         >
                           <i class="ri-check-double-line"></i>
+                        </b-button>
+                        <b-button
+                          @click.stop="openTimelineModal(list)"
+                          size="sm"
+                          variant="light"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Status Timeline"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-git-branch-line"></i>
                         </b-button>
                         <b-button
                           @click.stop="printPPMP(list)"
@@ -344,6 +364,31 @@
                       <div class="fw-semibold text-primary">
                         {{ list.ppmp_no || "-" }}
                       </div>
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        <b-badge
+                          v-if="list.ppmp_type_label"
+                          :variant="list.ppmp_type === 'final' ? 'success' : 'info'"
+                          style="font-size: 10px"
+                        >
+                          {{ list.ppmp_type_label }}
+                        </b-badge>
+                        <span class="version-badge">Version {{ list.ppmp_type_version || 1 }}</span>
+                        <b-badge
+                          :variant="isSppRow(list) ? 'warning' : 'primary'"
+                          style="font-size: 10px"
+                        >
+                          {{ isSppRow(list) ? 'SPP' : 'PPMP' }}
+                        </b-badge>
+                        <b-badge
+                          v-if="ppmpQuarter(list)"
+                          :variant="ppmpQuarterVariant(list)"
+                          style="font-size: 10px"
+                          v-b-tooltip.hover
+                          :title="`Created: ${formatDate(list.created_at)}`"
+                        >
+                          {{ ppmpQuarter(list) }}
+                        </b-badge>
+                      </div>
                     </td>
                     <td>
                       <div class="fw-medium">{{ list.unit?.name || "-" }}</div>
@@ -379,7 +424,7 @@
                     <td class="text-center">
                       <div class="ppmp-action-group">
                         <b-button
-                          @click.stop="goViewPage(list, filter.plan_type)"
+                          @click.stop="goViewPage(list, filter.plan_type === 'APP' ? 'APP' : (normalizedPlanType(list.plan_type) === 'SPP' ? 'SPP' : 'PPMP'))"
                           size="sm"
                           variant="info"
                           class="btn-icon"
@@ -391,14 +436,13 @@
                         </b-button>
                         <b-button
                           v-if="canApprovePPMP(list)"
-                          @click.stop="openApproveFinalModal(list)"
+                          @click.stop="goViewPage(list, filter.plan_type === 'APP' ? 'APP' : (normalizedPlanType(list.plan_type) === 'SPP' ? 'SPP' : 'PPMP'))"
                           size="sm"
                           variant="success"
                           class="btn-icon"
                           v-b-tooltip.hover
                           :title="advanceActionTitle(list)"
                           style="border-radius: 8px"
-                          :disabled="form.processing"
                         >
                           <i class="ri-check-double-line"></i>
                         </b-button>
@@ -414,6 +458,19 @@
                           :disabled="approveAppForm.processing"
                         >
                           <i class="ri-checkbox-circle-line"></i>
+                        </b-button>
+                        <b-button
+                          v-if="list.can_revert_status"
+                          @click.stop="openRevertStatusModal(list)"
+                          size="sm"
+                          variant="warning"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Revert to previous status"
+                          style="border-radius: 8px"
+                          :disabled="revertStatusForm.processing"
+                        >
+                          <i class="ri-arrow-go-back-line"></i>
                         </b-button>
                         <b-button
                           @click.stop="openPlanChat(list)"
@@ -449,6 +506,17 @@
                           style="border-radius: 8px"
                         >
                           <i class="ri-add-circle-line"></i>
+                        </b-button>
+                        <b-button
+                          @click.stop="openTimelineModal(list)"
+                          size="sm"
+                          variant="light"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Status Timeline"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-git-branch-line"></i>
                         </b-button>
                         <b-button
                           @click.stop="printPPMP(list)"
@@ -488,16 +556,6 @@
     </div>
   </BRow>
 
-  <SubmitForApprovalModal
-    v-model:show="approveFinalModal.show"
-    :ppmp="approveFinalModal.data"
-    :plan-type="filter.plan_type"
-    :processing="form.processing"
-    :error="approveFinalModal.error"
-    @cancel="closeApproveFinalModal"
-    @confirm="updateStatus"
-  />
-
   <ApproveToAppModal
     v-model:show="approveAppModal.show"
     :ppmp="approveAppModal.data"
@@ -505,6 +563,16 @@
     :error="approveAppModal.error"
     @cancel="closeApproveToAppModal"
     @confirm="approveToApp"
+  />
+
+  <RevertStatusModal
+    v-model:show="revertStatusModal.show"
+    :plan="revertStatusModal.data"
+    :plan-type="filter.plan_type"
+    :processing="revertStatusForm.processing"
+    :error="revertStatusModal.error"
+    @cancel="closeRevertStatusModal"
+    @confirm="revertStatus"
   />
 
   <CreateUnitPpmpModal
@@ -520,8 +588,9 @@
   <CreateAppModal
     v-model:show="createAppModal.show"
     :form="createAppForm"
-    :year-options="availableAppYearOptions"
-    :year-has-existing="appYearHasExisting"
+    :year-options="yearOptions"
+    :indicative-app-years="indicativeAppYears"
+    :final-app-years="finalAppYears"
     @close="closeCreateAppModal"
     @submit="submitCreateApp"
   />
@@ -541,12 +610,68 @@
     :dropdowns="dropdowns"
   />
 
+  <b-modal
+    v-model="timelineModal.show"
+    size="xl"
+    centered
+    hide-footer
+    header-class="border-bottom pb-2"
+  >
+    <template #header>
+      <div class="d-flex align-items-center gap-2 w-100">
+        <span
+          class="avatar-title rounded p-2"
+          :class="{
+            'bg-warning-subtle': timelineModal.planType === 'APP',
+            'bg-primary-subtle': timelineModal.planType === 'PPMP',
+            'bg-success-subtle': timelineModal.planType === 'SPP',
+          }"
+          style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"
+        >
+          <i
+            class="ri-git-branch-line"
+            :class="{
+              'text-warning': timelineModal.planType === 'APP',
+              'text-primary': timelineModal.planType === 'PPMP',
+              'text-success': timelineModal.planType === 'SPP',
+            }"
+          ></i>
+        </span>
+        <div class="flex-grow-1">
+          <div class="fw-bold fs-14">{{ timelineModal.planType }} Status Timeline</div>
+          <div class="text-muted fs-12">
+            {{ timelineModal.plan?.code || timelineModal.plan?.ppmp_no || '—' }}
+            &nbsp;·&nbsp;
+            {{ timelineModal.plan?.ppmp_status || timelineModal.plan?.approval_status || 'Pending' }}
+          </div>
+        </div>
+        <button type="button" class="btn-close" @click="timelineModal.show = false"></button>
+      </div>
+    </template>
+    <PlanStatusTimeline
+      v-if="timelineModal.plan"
+      :plan="timelineModal.plan"
+      :plan-type="timelineModal.planType"
+    />
+  </b-modal>
+
   <FloatingPlanChat
     ref="planChat"
     :plan="selectedChatPlan"
     :plans="lists"
     :show-trigger="true"
     @comment-added="syncPlanCommentCount"
+  />
+
+  <ProcurementProcessInfoModal
+    v-model:show="processInfoModal.show"
+    @close="processInfoModal.show = false"
+  />
+
+  <ProcurementUserManualModal
+    :show="userManualModal.show"
+    @update:show="userManualModal.show = $event"
+    @close="userManualModal.show = false"
   />
 </template>
 
@@ -560,9 +685,12 @@ import CreateUnitPpmpModal from "./Modals/CreateUnitPpmp.vue";
 import CreateAppModal from "./Modals/CreateApp.vue";
 import CreateSppModal from "./Modals/CreateSpp.vue";
 import AddItemModal from "./Modals/AddItem.vue";
-import SubmitForApprovalModal from "./Modals/SubmitForApproval.vue";
 import ApproveToAppModal from "./Modals/ApproveToApp.vue";
+import RevertStatusModal from "./Modals/RevertStatus.vue";
 import FloatingPlanChat from "./Components/FloatingPlanChat.vue";
+import PlanStatusTimeline from "./Components/PlanStatusTimeline.vue";
+import ProcurementProcessInfoModal from "./Modals/ProcurementProcessInfoModal.vue";
+import ProcurementUserManualModal from "./Modals/ProcurementUserManualModal.vue";
 
 export default {
   props: ["dropdowns"],
@@ -574,9 +702,12 @@ export default {
     CreateAppModal,
     CreateSppModal,
     AddItemModal,
-    SubmitForApprovalModal,
     ApproveToAppModal,
+    RevertStatusModal,
     FloatingPlanChat,
+    PlanStatusTimeline,
+    ProcurementProcessInfoModal,
+    ProcurementUserManualModal,
   },
   data() {
     return {
@@ -588,9 +719,11 @@ export default {
         keyword: null,
         status: null,
         unit: null,
-        plan_type: "PPMP",
+        plan_type: "ALL",
         sort: "latest",
       },
+      processInfoModal: { show: false },
+      userManualModal: { show: false },
       createPpmpModal: {
         show: false,
         loading: false,
@@ -605,17 +738,33 @@ export default {
         option: "create_ppmp",
         unit_id: null,
         year: new Date().getFullYear(),
+        quarter: Math.ceil((new Date().getMonth() + 1) / 3),
         plan_type: "PPMP",
+        attachment_file: null,
+        requested_by_id: null,
       }),
       createAppForm: useForm({
         year: new Date().getFullYear(),
         plan_type: "APP",
+        plan_phase: "indicative",
       }),
       approveAppForm: useForm({
         option: "approve_to_app",
         plan_type: "PPMP",
+        consolidation_review_acknowledged: false,
+        consolidation_pricing: [],
       }),
       approveAppModal: {
+        show: false,
+        data: null,
+        error: "",
+      },
+      revertStatusForm: useForm({
+        option: "revert_status",
+        plan_type: "PPMP",
+        revert_reason: "",
+      }),
+      revertStatusModal: {
         show: false,
         data: null,
         error: "",
@@ -624,25 +773,23 @@ export default {
         year: new Date().getFullYear(),
         plan_type: "SPP",
         unit_id: null,
+        attachment_file: null,
+        requested_by_id: null,
       }),
       availablePpmpUnits: [],
       availableSppUnits: [],
       addSppItemModal: {
         ppmp: null,
       },
-      form: useForm({
-        option: "update_status",
-        plan_type: "PPMP",
-      }),
-      approveFinalModal: {
-        show: false,
-        data: null,
-        error: "",
-      },
       pendingNotificationPlanId: null,
       pendingNotificationCommentId: null,
       pendingNotificationChatOpened: false,
       annualAppYearCache: null,
+      timelineModal: {
+        show: false,
+        plan: null,
+        planType: "PPMP",
+      },
     };
   },
   computed: {
@@ -661,7 +808,7 @@ export default {
       return this.hasRole("Procurement Staff") || this.hasRole("Procurement Officer");
     },
     canShowCreatePpmpButton() {
-      if (this.filter.plan_type !== "PPMP") {
+      if (!["PPMP", "ALL"].includes(this.filter.plan_type)) {
         return false;
       }
 
@@ -677,7 +824,17 @@ export default {
       );
     },
     canShowCreateSppButton() {
-      return this.filter.plan_type === "SPP" && this.availableSppUnits.length > 0;
+      return ["SPP", "ALL"].includes(this.filter.plan_type) && this.availableSppUnits.length > 0;
+    },
+    appIsApprovedThisYear() {
+      if (this.defaultUserUnitId) {
+        return this.availableSppUnits.some((u) => Number(u.value) === this.defaultUserUnitId);
+      }
+      return this.availableSppUnits.length > 0;
+    },
+    canShowCreatePlanButton() {
+      if (!["PPMP", "SPP", "ALL"].includes(this.filter.plan_type)) return false;
+      return this.canShowCreatePpmpButton || this.canShowCreateSppButton;
     },
     canApprovePPMPPlans() {
       const bacDesignations = ["BAC Chairperson", "BAC Vice Chairperson", "BAC Member"];
@@ -745,11 +902,20 @@ export default {
       const years = this.dropdowns?.annual_app_years || [];
       return Array.isArray(years) ? years.map((year) => Number(year)) : [];
     },
+    indicativeAppYears() {
+      const years = this.dropdowns?.indicative_app_years || [];
+      return Array.isArray(years) ? years.map(Number) : [];
+    },
+    finalAppYears() {
+      const years = this.dropdowns?.final_app_years || [];
+      return Array.isArray(years) ? years.map(Number) : [];
+    },
     availableAppYearOptions() {
-      const usedYears = new Set(this.annualAppYears);
-      return this.yearOptions.filter((year) => !usedYears.has(Number(year.value)));
+      // Show all years — per-phase duplicate check is done in the modal and server-side
+      return this.yearOptions;
     },
     appYearHasExisting() {
+      // Kept for any legacy use; per-phase check is now in CreateAppModal
       return this.annualAppYears.includes(Number(this.createAppForm.year));
     },
     activePlanTitle() {
@@ -835,10 +1001,25 @@ export default {
         this.fetchAvailablePpmpUnits();
       }
     },
+    "createPpmpForm.quarter"(quarter) {
+      if (!this.createPpmpForm.unit_id) return;
+      const unit = this.availablePpmpUnits.find((u) => Number(u.value) === Number(this.createPpmpForm.unit_id));
+      if (unit && (unit.taken_quarters ?? []).includes(quarter)) {
+        this.createPpmpForm.unit_id = null;
+        this.createPpmpForm.requested_by_id = null;
+      }
+    },
+    "createPpmpForm.unit_id"(unitId) {
+      this.autoSetRequestedBy(this.createPpmpForm, this.availablePpmpUnits, unitId);
+      this.autoSetFirstAvailableQuarter(unitId);
+    },
     "createSppForm.year"() {
       if (this.createSppModal.show) {
         this.fetchAvailableSppUnits();
       }
+    },
+    "createSppForm.unit_id"(unitId) {
+      this.autoSetRequestedBy(this.createSppForm, this.availableSppUnits, unitId);
     },
     "$page.url"() {
       this.hydrateNotificationChatParams(true);
@@ -854,9 +1035,11 @@ export default {
   },
   mounted() {
     this.subscribeToPlanStatusUpdates();
+    document.addEventListener("visibilitychange", this._onVisibilityChange);
   },
   beforeUnmount() {
     this.unsubscribeFromPlanStatusUpdates();
+    document.removeEventListener("visibilitychange", this._onVisibilityChange);
   },
   methods: {
     hasRole(roleName) {
@@ -864,6 +1047,11 @@ export default {
         Array.isArray(this.$page?.props?.roles) &&
         this.$page.props.roles.includes(roleName)
       );
+    },
+    _onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        this.fetch();
+      }
     },
     subscribeToPlanStatusUpdates() {
       if (!window.Echo) {
@@ -963,7 +1151,8 @@ export default {
       );
     },
     hasPpmpItems(item) {
-      return Number(item?.items_count || 0) > 0;
+      return Number(item?.items_count || 0) > 0
+        || (item?.project_rows?.length || 0) > 0;
     },
     requiresItemsBeforeAdvance(item) {
       return ["PPMP", "SPP"].includes(this.normalizedPlanType(item?.plan_type));
@@ -1037,7 +1226,7 @@ export default {
             keyword: this.filter.keyword,
             status: this.filter.status,
             unit: this.filter.unit,
-            plan_type: this.filter.plan_type,
+            plan_type: this.filter.plan_type === "ALL" ? null : this.filter.plan_type,
             sort: this.filter.sort,
             count: 10,
             option: "lists",
@@ -1048,6 +1237,8 @@ export default {
           this.lists =
             this.filter.plan_type === "SPP"
               ? lists.filter((item) => this.normalizedPlanType(item?.plan_type) === "SPP")
+              : this.filter.plan_type === "PPMP"
+              ? lists.filter((item) => this.normalizedPlanType(item?.plan_type) !== "SPP")
               : lists;
           if (this.filter.plan_type === "APP") {
             this.refreshAnnualAppYearCache(this.lists);
@@ -1091,6 +1282,25 @@ export default {
       const year = new Date(sourceDate).getFullYear();
 
       return Number.isNaN(year) ? "-" : year;
+    },
+    isSppRow(item) {
+      const name = String(item?.plan_name || "").toLowerCase();
+      const code = String(item?.ppmp_no || item?.code || "");
+
+      return this.normalizedPlanType(item?.plan_type) === "SPP"
+        || name === "spp"
+        || name.includes("supplemental")
+        || code.startsWith("SPP-");
+    },
+    ppmpQuarter(item) {
+      if (item?.quarter) return 'Q' + item.quarter;
+      const d = item?.created_at || item?.date;
+      if (!d) return null;
+      return 'Q' + Math.ceil((new Date(d).getMonth() + 1) / 3);
+    },
+    ppmpQuarterVariant(item) {
+      const variants = { Q1: 'info', Q2: 'success', Q3: 'warning', Q4: 'danger' };
+      return variants[this.ppmpQuarter(item)] || 'secondary';
     },
     sourcePpmpCount(item) {
       if (Array.isArray(item?.source_ppmps)) {
@@ -1240,54 +1450,6 @@ export default {
         plan_type: plan_type,
       });
     },
-    openApproveFinalModal(data) {
-      if (!data?.id || this.form.processing) {
-        return;
-      }
-
-      this.form.clearErrors();
-      this.approveFinalModal.error = "";
-      this.form.option = "update_status";
-      this.form.plan_type = this.filter.plan_type;
-      this.approveFinalModal.data = data;
-      this.approveFinalModal.show = true;
-    },
-    closeApproveFinalModal() {
-      if (this.form.processing) {
-        return;
-      }
-
-      this.approveFinalModal.show = false;
-      this.approveFinalModal.data = null;
-      this.approveFinalModal.error = "";
-      this.form.clearErrors();
-    },
-    updateStatus() {
-      const data = this.approveFinalModal.data;
-      if (!data?.id || this.form.processing) {
-        return;
-      }
-
-      if (this.requiresItemsBeforeAdvance(data) && !this.hasPpmpItems(data)) {
-        this.approveFinalModal.error =
-          "Please add at least one item before updating or submitting this PPMP for review.";
-        return;
-      }
-
-      this.approveFinalModal.error = "";
-      this.form.patch(`/faims/procurement-ppmp/${data.id}`, {
-        preserveScroll: true,
-        onSuccess: () => {
-          this.approveFinalModal.show = false;
-          this.approveFinalModal.data = null;
-          this.approveFinalModal.error = "";
-          this.fetch();
-        },
-        onError: (errors) => {
-          this.approveFinalModal.error = this.firstFormError(errors);
-        },
-      });
-    },
     printPPMP(data) {
       if (!data?.id) {
         return;
@@ -1313,6 +1475,18 @@ export default {
       this.filter.unit = null;
       this.filter.sort = "latest";
       this.fetch();
+    },
+    openTimelineModal(plan) {
+      const activePlanType = this.normalizedPlanType(this.filter.plan_type);
+
+      this.timelineModal.planType = ["PPMP", "APP", "SPP"].includes(activePlanType)
+        ? activePlanType
+        : this.normalizedPlanType(plan?.plan_type);
+      this.timelineModal.plan = {
+        ...plan,
+        plan_type: this.timelineModal.planType,
+      };
+      this.timelineModal.show = true;
     },
     openPlanChat(item) {
       if (item?.id) {
@@ -1423,7 +1597,9 @@ export default {
         localStorage.getItem("procurement_ppmp_plan_type")
       );
 
-      return ["PPMP", "APP", "SPP"].includes(storedPlanType) ? storedPlanType : "PPMP";
+      if (storedPlanType === "APP") return "APP";
+      if (storedPlanType === "ALL") return "ALL";
+      return "ALL";
     },
     persistPlanTab(planType) {
       localStorage.setItem("procurement_ppmp_plan_type", planType);
@@ -1432,29 +1608,57 @@ export default {
       url.searchParams.set("plan_type", planType);
       window.history.replaceState({}, "", url.toString());
     },
+    openCreatePlanModal() {
+      if (this.appIsApprovedThisYear) {
+        this.openCreateSppModal();
+      } else {
+        this.openCreatePpmpModal();
+      }
+    },
     openCreatePpmpModal() {
-      const currentYear = new Date().getFullYear();
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
 
       this.createPpmpForm.clearErrors();
       this.createPpmpForm.unit_id = this.defaultUserUnitId;
       this.createPpmpForm.year = currentYear;
+      this.createPpmpForm.quarter = currentQuarter;
       this.createPpmpModal.show = true;
       this.fetchAvailablePpmpUnits();
     },
     closeCreatePpmpModal() {
       this.createPpmpModal.show = false;
       this.createPpmpForm.clearErrors();
+      this.createPpmpForm.attachment_file = null;
+    },
+    autoSetRequestedBy(form, unitOptions, unitId) {
+      const unit = unitOptions.find((u) => Number(u.value) === Number(unitId));
+      if (!unit?.users?.length) {
+        form.requested_by_id = null;
+        return;
+      }
+      const head = unit.users.find((u) => u.is_head) ?? unit.users[0];
+      form.requested_by_id = head?.value ?? null;
+    },
+    autoSetFirstAvailableQuarter(unitId) {
+      const unit = this.availablePpmpUnits.find((u) => Number(u.value) === Number(unitId));
+      const taken = unit?.taken_quarters ?? [];
+      const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+      const all = [1, 2, 3, 4];
+      // Keep current selection if still available, otherwise pick first free quarter
+      if (!taken.includes(this.createPpmpForm.quarter)) return;
+      const firstFree = all.find((q) => !taken.includes(q)) ?? currentQuarter;
+      this.createPpmpForm.quarter = firstFree;
     },
     openCreateAppModal() {
       this.createAppForm.clearErrors();
       const currentYear = new Date().getFullYear();
-      const currentYearAvailable = this.availableAppYearOptions.some(
-        (year) => Number(year.value) === currentYear
-      );
-      this.createAppForm.year = currentYearAvailable
-        ? currentYear
-        : this.availableAppYearOptions[0]?.value || null;
+      this.createAppForm.year = currentYear;
       this.createAppForm.plan_type = "APP";
+      // Default to Indicative if no Indicative APP yet, otherwise Final
+      const hasIndicativeThisYear = this.indicativeAppYears.includes(currentYear);
+      this.createAppForm.plan_phase = hasIndicativeThisYear ? "final" : "indicative";
       this.createAppModal.show = true;
     },
     openApproveToAppModal(data) {
@@ -1477,7 +1681,7 @@ export default {
       this.approveAppModal.error = "";
       this.approveAppForm.clearErrors();
     },
-    approveToApp() {
+    approveToApp(review = {}) {
       const data = this.approveAppModal.data;
       if (!data?.id || this.approveAppForm.processing) {
         return;
@@ -1485,6 +1689,8 @@ export default {
 
       this.approveAppForm.option = "approve_to_app";
       this.approveAppForm.plan_type = data?.plan_type || "PPMP";
+      this.approveAppForm.consolidation_review_acknowledged = Boolean(review.consolidation_review_acknowledged);
+      this.approveAppForm.consolidation_pricing = review.consolidation_pricing || [];
       this.approveAppForm.patch(`/faims/procurement-ppmp/${data.id}`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -1495,6 +1701,46 @@ export default {
         },
         onError: (errors) => {
           this.approveAppModal.error = this.firstFormError(errors);
+        },
+      });
+    },
+    openRevertStatusModal(data) {
+      if (!data?.id || this.revertStatusForm.processing) {
+        return;
+      }
+      this.revertStatusForm.clearErrors();
+      this.revertStatusModal.data = data;
+      this.revertStatusModal.error = "";
+      this.revertStatusModal.show = true;
+    },
+    closeRevertStatusModal() {
+      if (this.revertStatusForm.processing) {
+        return;
+      }
+      this.revertStatusModal.show = false;
+      this.revertStatusModal.data = null;
+      this.revertStatusModal.error = "";
+      this.revertStatusForm.clearErrors();
+    },
+    revertStatus(reason) {
+      const data = this.revertStatusModal.data;
+      if (!data?.id || this.revertStatusForm.processing) {
+        return;
+      }
+      this.revertStatusForm.option = "revert_status";
+      this.revertStatusForm.plan_type = data.plan_type ||
+        (this.filter.plan_type === "ALL" ? "PPMP" : this.filter.plan_type);
+      this.revertStatusForm.revert_reason = reason;
+      this.revertStatusForm.patch(`/faims/procurement-ppmp/${data.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+          this.revertStatusModal.show = false;
+          this.revertStatusModal.data = null;
+          this.revertStatusModal.error = "";
+          this.fetch();
+        },
+        onError: (errors) => {
+          this.revertStatusModal.error = this.firstFormError(errors);
         },
       });
     },
@@ -1521,6 +1767,7 @@ export default {
     closeCreateSppModal() {
       this.createSppModal.show = false;
       this.createSppForm.clearErrors();
+      this.createSppForm.attachment_file = null;
     },
     openAddSppItemModal(item) {
       this.addSppItemModal.ppmp = item;
@@ -1610,11 +1857,8 @@ export default {
         return;
       }
 
-      if (this.appYearHasExisting) {
-        this.createAppForm.setError(
-          "year",
-          "An APP already exists for the selected year."
-        );
+      if (!this.createAppForm.plan_phase) {
+        this.createAppForm.setError("plan_phase", "Please select the APP phase.");
         return;
       }
 
@@ -1655,6 +1899,7 @@ export default {
 </script>
 
 <style scoped>
+
 .ppmp-index-page {
   --ppmp-bg: #f3f6ff;
   --ppmp-card: #ffffff;
@@ -2503,4 +2748,5 @@ html[data-bs-theme="dark"] .ppmp-index-page .btn-primary * {
 .ppmp-index-page .btn-warning * {
   color: #ffffff !important;
 }
+
 </style>

@@ -47,8 +47,7 @@ class ViewClass
 
         $procurementApprovalUserIds = $this->procurementApprovalUserIds();
 
-        $data = ProcurementResource::collection(
-            Procurement::with(
+        $query = Procurement::with(
                 'status',
                 'sub_status',
                 'division',
@@ -86,8 +85,25 @@ class ViewClass
                         $codeQuery->where('mode_of_procurement_id', $mode);
                     });
                 })
-                ->when($request->status, function ($query, $status) {
+                ->when($request->status || $request->status_id, function ($query) use ($request) {
+                    $status = $request->status ?: $request->status_id;
                     $query->where('status_id', $status);
+                })
+                ->when($request->user_id, function ($query, $user_id) {
+                    $query->where(function ($userQuery) use ($user_id) {
+                        $userQuery->where('created_by_id', $user_id)
+                            ->orWhere('requested_by_id', $user_id)
+                            ->orWhere('approved_by_id', $user_id);
+                    });
+                })
+                ->when($request->date_from || $request->date_to, function ($query) use ($request) {
+                    $dateFrom = $request->date_from ?: '1900-01-01';
+                    $dateTo = $request->date_to ?: '2999-12-31';
+
+                    $query->where(function ($dateQuery) use ($dateFrom, $dateTo) {
+                        $dateQuery->whereBetween('created_at', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59'])
+                            ->orWhereBetween('date', [$dateFrom, $dateTo]);
+                    });
                 })
                 // Employees only see their own PRs, while assigned signatories can also see PRs routed to them.
                 ->when(!$canSeeAllProcurements, function ($query) use ($procurementApprovalUserIds) {
@@ -110,9 +126,13 @@ class ViewClass
                 })
                 ->when(!in_array($request->sort, ['oldest', 'pr_asc', 'pr_desc'], true), function ($query) {
                     $query->orderBy('date', 'DESC')->orderBy('created_at', 'DESC');
-                })
-                ->paginate($request->count)
-        );
+                });
+
+        if ($request->boolean('calendar')) {
+            return ProcurementResource::collection($query->get());
+        }
+
+        $data = ProcurementResource::collection($query->paginate($request->count));
         return $data;
     }
 
@@ -441,6 +461,20 @@ class ViewClass
                 ];
             });
 
+        // Status distribution — count per status name within the filtered period
+        $status_distribution = (clone $query)
+            ->join('list_statuses', 'procurements.status_id', '=', 'list_statuses.id')
+            ->selectRaw('list_statuses.name as status_name, COUNT(procurements.id) as count')
+            ->groupBy('list_statuses.id', 'list_statuses.name')
+            ->orderByDesc('count')
+            ->get()
+            ->filter(fn ($item) => (int) $item->count > 0)
+            ->map(fn ($item) => [
+                'status' => $item->status_name,
+                'count'  => (int) $item->count,
+            ])
+            ->values();
+
         // Recent procurements (always show latest 5, not filtered)
         $recent_procurements = Procurement::with('status', 'division')
             ->orderBy('created_at', 'DESC')
@@ -495,6 +529,7 @@ class ViewClass
             ->count();
 
         return response()->json([
+            'status_distribution' => $status_distribution,
             'total_procurements' => $total_procurements,
             'total_approved_budget_amount' => $total_approved_budget_amount,
             'total_completed_awarded_amount' => $total_completed_awarded_amount,

@@ -23,6 +23,18 @@
         ?? $procurement->created_by?->designation
         ?? ($planShortName === 'SPP' ? 'Agency' : 'End-User / Requesting Office');
 
+    $requestedByUser = $procurement->requested_by ?? null;
+    $requestedByName = strtoupper(
+        $requestedByUser?->profile?->fullname
+            ?? $requestedByUser?->profile?->full_name
+            ?? $requestedByUser?->name
+            ?? ''
+    );
+    $requestedByDesignation = $requestedByUser?->org_chart?->designation?->name
+        ?? $requestedByUser?->organization?->position?->name
+        ?? $requestedByUser?->designation
+        ?? 'Unit Head';
+
     $modeOfProcurement = $procurement->codes
         ?->pluck('procurement_code.mode_of_procurement.name')
         ->filter()
@@ -62,7 +74,7 @@
         : '';
     $showReviewedSignature = trim($reviewedName) !== '';
     $showSubmittedSignature = trim($submittedName) !== '';
-    $signatureColumnWidth = 100 / (1 + ($showReviewedSignature ? 1 : 0) + ($showSubmittedSignature ? 1 : 0));
+    $signatureColumnWidth = 100 / (2 + ($showReviewedSignature ? 1 : 0) + ($showSubmittedSignature ? 1 : 0));
     $ppmpYear = $procurement->date ? date('Y', strtotime($procurement->date)) : date('Y', strtotime((string) $procurement->created_at));
     $ppmpNo = $procurement->ppmp_no_override ?: 'PPMP-' . $ppmpYear . '-' . str_pad((string) $procurement->id, 4, '0', STR_PAD_LEFT);
     $displayPpmpNo = preg_match('/-(\d{2})$/', (string) $ppmpNo, $numberMatch)
@@ -571,31 +583,31 @@
         <colgroup>
             <col style="width: 6%;">
             <col style="width: 6%;">
-            <col style="width: 33%;">
+            <col style="width: 25%;">
             <col style="width: 5%;">
             <col style="width: 5%;">
             <col style="width: 5%;">
             <col style="width: 5%;">
             <col style="width: 5%;">
             <col style="width: 5%;">
-            <col style="width: 5%;">
-            <col style="width: 10%;">
-            <col style="width: 10%;">
+            <col style="width: 7%;">
+            <col style="width: 7%;">
+            <col style="width: 7%;">
         </colgroup>
         <thead>
             <tr class="width-guide">
                 <th style="width: 6%;"></th>
                 <th style="width: 6%;"></th>
-                <th style="width: 33%;"></th>
+                <th style="width: 25%;"></th>
                 <th style="width: 5%;"></th>
                 <th style="width: 5%;"></th>
                 <th style="width: 5%;"></th>
                 <th style="width: 5%;"></th>
                 <th style="width: 5%;"></th>
                 <th style="width: 5%;"></th>
-                <th style="width: 5%;"></th>
-                <th style="width: 10%;"></th>
-                <th style="width: 10%;"></th>
+                <th style="width: 7%;"></th>
+                <th style="width: 7%;"></th>
+                <th style="width: 7%;"></th>
             </tr>
             <tr class="group-header">
                 <th colspan="5">PROCUREMENT PROJECT DETAILS</th>
@@ -607,14 +619,14 @@
             <tr class="main-header">
                 <th style="width: 6%;">General Description and Objective of the Project to be Procured</th>
                 <th style="width: 6%;">Type of the Project to be Procured (whether Goods, Infrastructure and Consulting Services)</th>
-                <th class="ppmp-col-3" style="width: 33%;">Quantity and Size of the Project to be Procured</th>
+                <th class="ppmp-col-3" style="width: 25%;">Quantity and Size of the Project to be Procured</th>
                 <th class="ppmp-wrap-cell ppmp-col-4" style="width: 5%;">Recommended Mode of Procurement</th>
                 <th class="ppmp-wrap-cell ppmp-col-5" style="width: 5%;">Pre-Procurement Conference, if applicable</th>
                 <th class="ppmp-wrap-cell ppmp-col-6" style="width: 5%;">Start of Procurement Activity</th>
                 <th class="ppmp-wrap-cell ppmp-col-7" style="width: 5%;">End of Procurement Activity</th>
                 <th class="ppmp-wrap-cell ppmp-col-8" style="width: 5%;">Expected Delivery/Implementation Period</th>
                 <th class="ppmp-wrap-cell ppmp-col-9" style="width: 5%;">Source of Funds</th>
-                <th class="ppmp-wrap-cell ppmp-col-10" style="width: 5%;">Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
+                <th class="ppmp-wrap-cell ppmp-col-10" style="width: 8%;">Estimated Budget / Authorized Budgetary Allocation (PHP)</th>
             </tr>
             <tr class="column-label">
                 @for ($column = 1; $column <= 12; $column++)
@@ -685,7 +697,7 @@
                         <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-7" style="width: 5%;">{{ $formatPrintDate($itemEndDate) }}</td>
                         <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-8" style="width: 5%;">{{ $formatPrintDate($itemExpectedDeliveryDate) }}</td>
                         <td class="text-center compact-cell ppmp-wrap-cell ppmp-col-9" style="width: 5%;">{{ $cleanText($itemSourceOfFunds) }}</td>
-                        <td class="text-right amount-cell ppmp-wrap-cell ppmp-col-10" style="width: 5%;">{{ number_format($lineTotal, 2) }}</td>
+                        <td class="text-right amount-cell ppmp-wrap-cell ppmp-col-10" style="width: 8%;">{{ number_format($lineTotal, 2) }}</td>
                         <td class="text-center compact-cell {{ $mergeCellClass($supportingDocumentsRowspans, $itemIndex, $showSupportingDocuments) }}">
                             @if ($showSupportingDocuments)
                                 {{ $cleanText($item->attached_supporting_documents) }}
@@ -723,6 +735,16 @@
                 <div class="signature-role">{{ $preparedDesignation }}</div>
                  <div style="margin-top:20px">Date: {{ $preparedDate }}</div>
             </td>
+            <td width="{{ $signatureColumnWidth }}%">
+                <div class="signature-label" style="margin-left:-120px;margin-bottom:20px">Requested By</div>
+                @if ($requestedByName)
+                    <span class="signature-line"><u>{{ $requestedByName }}</u></span>
+                @else
+                    <span class="signature-line" style="border-bottom:1px solid #000;display:block;">&nbsp;</span>
+                @endif
+                <div class="signature-role">{{ $requestedByDesignation }}</div>
+                <div style="margin-top:20px">Date: ______________</div>
+            </td>
             @if ($showReviewedSignature)
                 <td width="{{ $signatureColumnWidth }}%">
                     <div class="signature-label" style="margin-left:-120px;margin-bottom:20px">Reviewed By</div>
@@ -750,12 +772,8 @@
             $height = $pdf->get_height();
             $y_axis = $height - 22;
 
-            $text_code = "";
-            $pdf->page_text(28, $y_axis, $text_code, $font, $size, array(0,0,0));
-
             $text_page = "Page {PAGE_NUM} of {PAGE_COUNT}";
-            $text_width = $fontMetrics->get_text_width($text_page, $font, $size);
-            $pdf->page_text($width - $text_width - 28, $y_axis, $text_page, $font, $size, array(0,0,0));
+            $pdf->page_text($width - 110, $y_axis, $text_page, $font, $size, array(0,0,0));
         }
     </script>
 </body>

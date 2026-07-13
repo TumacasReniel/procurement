@@ -24,45 +24,58 @@ return new class extends Migration
                 $table->unsignedTinyInteger('status_id')->nullable();
                 $table->unsignedTinyInteger('sub_status_id')->nullable();
                 $table->unsignedInteger('submitted_by_id')->nullable();
+                $table->timestamp('submitted_at')->nullable();
+                $table->timestamp('reviewed_at')->nullable();
+                $table->timestamp('approved_at')->nullable();
                 $table->timestamps();
             });
         }
 
-        Schema::table('procurement_ppmps', function (Blueprint $table) {
-            if (!Schema::hasColumn('procurement_ppmps', 'procurement_app_id')) {
-                $table->unsignedInteger('procurement_app_id')->nullable()->after('reference_app_id')->index();
-                $table->foreign('procurement_app_id')
-                    ->references('id')
-                    ->on('procurement_apps')
-                    ->nullOnDelete();
-            }
-        });
+        if (Schema::hasTable('procurement_ppmps')) {
+            Schema::table('procurement_ppmps', function (Blueprint $table) {
+                if (!Schema::hasColumn('procurement_ppmps', 'procurement_app_id')) {
+                    $table->unsignedInteger('procurement_app_id')->nullable()->after('reference_app_id')->index();
+                    $table->foreign('procurement_app_id')
+                        ->references('id')
+                        ->on('procurement_apps')
+                        ->nullOnDelete();
+                }
+            });
+        }
 
-        Schema::table('procurements', function (Blueprint $table) {
-            if (!Schema::hasColumn('procurements', 'procurement_app_id')) {
-                $table->unsignedInteger('procurement_app_id')->nullable()->after('reference_app_id')->index();
-                $table->foreign('procurement_app_id')
-                    ->references('id')
-                    ->on('procurement_apps')
-                    ->nullOnDelete();
-            }
-        });
+        if (Schema::hasTable('procurements')) {
+            Schema::table('procurements', function (Blueprint $table) {
+                if (!Schema::hasColumn('procurements', 'procurement_app_id')) {
+                    $table->unsignedInteger('procurement_app_id')->nullable()->after('reference_app_id')->index();
+                    $table->foreign('procurement_app_id')
+                        ->references('id')
+                        ->on('procurement_apps')
+                        ->nullOnDelete();
+                }
+            });
+        }
 
     }
 
     public function down(): void
     {
-        Schema::table('procurements', function (Blueprint $table) {
-            if (Schema::hasColumn('procurements', 'procurement_app_id')) {
-                $table->dropForeign(['procurement_app_id']);
-                $table->dropColumn('procurement_app_id');
-            }
-        });
+        if (Schema::hasTable('procurements')) {
+            Schema::table('procurements', function (Blueprint $table) {
+                if (Schema::hasColumn('procurements', 'procurement_app_id')) {
+                    $table->dropForeign(['procurement_app_id']);
+                    $table->dropColumn('procurement_app_id');
+                }
+            });
+        }
 
-        Schema::table('procurement_ppmps', function (Blueprint $table) {
-            $table->dropForeign(['procurement_app_id']);
-            $table->dropColumn('procurement_app_id');
-        });
+        if (Schema::hasTable('procurement_ppmps')) {
+            Schema::table('procurement_ppmps', function (Blueprint $table) {
+                if (Schema::hasColumn('procurement_ppmps', 'procurement_app_id')) {
+                    $table->dropForeign(['procurement_app_id']);
+                    $table->dropColumn('procurement_app_id');
+                }
+            });
+        }
 
         Schema::dropIfExists('procurement_apps');
     }

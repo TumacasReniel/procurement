@@ -1,359 +1,499 @@
 <template>
-  <div class="card bg-light-subtle shadow-none border ledger-card">
-    <div class="card-header bg-light-subtle">
-      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-        <div class="d-flex">
-          <div class="flex-shrink-0 me-3">
-            <div style="height: 2.5rem; width: 2.5rem">
-              <span class="avatar-title bg-primary-subtle rounded p-2 mt-n1">
-                <i class="ri-shopping-bag-3-line text-primary fs-24"></i>
-              </span>
-            </div>
+  <div class="inv-module-card">
+    <!-- Header -->
+    <div class="inv-module-header">
+      <div class="inv-module-header-left">
+        <div class="inv-module-header-icon">
+          <i class="ri-stack-line"></i>
+        </div>
+        <div>
+          <h5 class="inv-module-title">Stock Records</h5>
+          <p class="inv-module-subtitle">
+            {{ meta?.total ?? normalizedRows.length }} records · item quantities and unit
+            costs
+          </p>
+        </div>
+      </div>
+
+      <div class="inv-module-header-actions">
+        <div class="inv-toolbar">
+          <div class="inv-search-wrap">
+            <i class="ri-search-line inv-search-icon"></i>
+            <input
+              :value="keyword"
+              type="text"
+              placeholder="Search stocks…"
+              class="inv-search-input"
+              @input="$emit('update:keyword', $event.target.value)"
+            />
+            <button
+              class="inv-search-clear"
+              v-if="keyword"
+              @click="$emit('update:keyword', '')"
+            >
+              <i class="ri-close-line"></i>
+            </button>
           </div>
-          <div class="flex-grow-1">
-            <h5 class="mb-0 fs-14">
-              <span class="text-body">Inventory Stocks</span>
-            </h5>
-            <p class="text-muted text-truncate-two-lines fs-12 mb-0">
-              Manage stock headers and keep item counts aligned with the latest inventory records.
-            </p>
-          </div>
+
+          <select v-model="sort" class="inv-select">
+            <option value="latest">Latest</option>
+            <option value="oldest">Oldest</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="quantity_desc">Qty ↓</option>
+            <option value="cost_desc">Cost ↓</option>
+          </select>
+
+          <button
+            class="inv-icon-btn"
+            title="Refresh"
+            v-b-tooltip.hover
+            @click="$emit('refresh')"
+          >
+            <i class="ri-refresh-line"></i>
+          </button>
+
+          <button class="inv-create-btn" @click="$emit('create')">
+            <i class="ri-add-line"></i>
+            Add Stock
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="card-body bg-white rounded-bottom stock-card-body">
-      <div class="stock-toolbar-row">
-        <div class="input-group stock-toolbar-group">
-          <span class="input-group-text">
-            <i class="ri-search-line search-icon"></i>
-          </span>
-          <input
-            :value="keyword"
-            type="text"
-            placeholder="Search Inventory Stocks"
-            class="form-control stock-search-input"
-            @input="$emit('update:keyword', $event.target.value)"
-          />
-          <span
-            class="input-group-text stock-refresh-trigger"
-            title="Refresh"
-            v-b-tooltip.hover
-            @click="handleRefresh"
+    <!-- Table -->
+    <div class="inv-table-shell">
+      <table class="inv-table">
+        <thead>
+          <tr>
+            <th style="width: 48px" class="text-center">#</th>
+            <th style="width: 130px">Item Code</th>
+            <th>Item Name</th>
+            <th style="width: 120px" class="text-center">Qty/Unit</th>
+            <th style="width: 120px" class="text-center">Unit Cost</th>
+            <th style="width: 150px">Date Added</th>
+            <th style="width: 110px" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="loading" class="inv-table-empty">
+            <td colspan="8">
+              <div class="inv-loading-state">
+                <div class="inv-spinner"></div>
+                <span>Loading stock records…</span>
+              </div>
+            </td>
+          </tr>
+          <tr v-else-if="sortedRows.length === 0" class="inv-table-empty">
+            <td colspan="8">
+              <div class="inv-empty-state">
+                <i class="ri-inbox-line"></i>
+                <p>
+                  {{
+                    keyword ? "No stocks matched your search." : "No stock records yet."
+                  }}
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr
+            v-else
+            v-for="(stock, index) in sortedRows"
+            :key="stock.id"
+            class="inv-table-row"
           >
-            <i class="bx bx-refresh search-icon"></i>
-          </span>
-          <select v-model="sort" class="form-select stock-sort-select" aria-label="Sort inventory stocks">
-            <option value="latest">Latest Entry</option>
-            <option value="oldest">Oldest Entry</option>
-            <option value="name_asc">Name A-Z</option>
-            <option value="code_asc">Code A-Z</option>
-            <option value="quantity_desc">Quantity High-Low</option>
-          </select>
-          <button
-            type="button"
-            class="btn btn-primary stock-create-btn"
-            @click="$emit('create')"
-          >
-            <i class="ri-add-circle-fill align-bottom me-1"></i>
-            Create
-          </button>
-        </div>
-      </div>
+            <td class="text-center inv-row-num">{{ displayRowNumber(index) }}</td>
+            <td>
+              <span class="inv-code-chip">{{
+                stock.code || stock.item_code || "—"
+              }}</span>
+            </td>
+            <td class="fw-semibold">{{ stock.name || stock.item_name || "—" }}</td>
+            <td class="text-center">
+              {{ formatNumber(stock.quantity) }}
+              <span class="inv-unit-badge" :title="stock.unit_long"
+                >{{ stock.unit || "—" }}
+              </span>
+            </td>
+            <td class="text-center inv-date-cell">
+              ₱{{ formatNumber(stock.unit_cost) }}
+            </td>
+            <td class="inv-date-cell">
+              {{ formatDate(stock.entry_date || stock.created_at) }}
+            </td>
+            <td class="text-center">
+              <div class="inv-row-actions">
+                <button
+                  class="inv-action-btn edit"
+                  title="Edit"
+                  v-b-tooltip.hover
+                  @click="$emit('edit', stock)"
+                >
+                  <i class="ri-pencil-line"></i>
+                </button>
+                <button
+                  class="inv-action-btn del"
+                  title="Delete"
+                  v-b-tooltip.hover
+                  @click="$emit('delete', stock)"
+                >
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-      <div class="table-responsive table-card ledger-table-wrap">
-        <table class="table align-middle table-hover mb-0">
-          <thead class="table-light thead-fixed">
-            <tr class="fs-12 fw-semibold">
-              <th style="width: 4%" class="text-center">#</th>
-              <th style="width: 14%">Code</th>
-              <th style="width: 26%">Stock Name</th>
-              <th style="width: 14%" class="text-end">Items</th>
-              <th style="width: 16%" class="text-end">Total Quantity</th>
-              <th style="width: 16%">Entry Date</th>
-              <th style="width: 10%" class="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="table-group-divider">
-            <tr v-if="loading">
-              <td colspan="7" class="text-center text-muted py-5">Loading stock records...</td>
-            </tr>
-            <tr v-else-if="sortedRows.length === 0">
-              <td colspan="7" class="text-center text-muted py-5">
-                {{ keyword ? 'No stocks matched your search.' : 'No stock records found.' }}
-              </td>
-            </tr>
-            <tr v-else v-for="(stock, index) in sortedRows" :key="stock.id">
-              <td class="text-center fw-semibold">{{ displayRowNumber(index) }}</td>
-              <td>
-                <div class="d-flex align-items-center">
-                  <div>
-                    <h6 class="mb-0 fs-14 fw-semibold text-primary">
-                      {{ stock.code || '-' }}
-                    </h6>
-                  </div>
-                </div>
-              </td>
-              <td>{{ stock.name || '-' }}</td>
-              <td class="text-end">{{ formatNumber(stock.item_count) }}</td>
-              <td class="text-end">{{ formatNumber(stock.total_quantity) }}</td>
-              <td>{{ formatEntryDate(stock.entry_date) }}</td>
-              <td class="text-center">
-                <div class="d-flex justify-content-center gap-1">
-                  <button
-                    class="btn btn-sm btn-info btn-icon"
-                    type="button"
-                    title="View"
-                    style="border-radius: 8px"
-                    v-b-tooltip.hover
-                    @click="$emit('view', stock)"
-                  >
-                    <i class="ri-eye-line"></i>
-                  </button>
-                  <button
-                    class="btn btn-sm btn-primary btn-icon"
-                    type="button"
-                    title="Edit"
-                    style="border-radius: 8px"
-                    v-b-tooltip.hover
-                    @click="$emit('edit', stock)"
-                  >
-                    <i class="ri-pencil-line"></i>
-                  </button>
-                  <button
-                    class="btn btn-sm btn-danger btn-icon"
-                    type="button"
-                    title="Delete"
-                    style="border-radius: 8px"
-                    v-b-tooltip.hover
-                    @click="$emit('delete', stock)"
-                  >
-                    <i class="ri-delete-bin-line"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="card-footer">
-          <Pagination
-            class="ms-2 me-2 mt-n1"
-            v-if="meta && meta.total"
-            :links="links"
-            :pagination="meta"
-            :lists="sortedRows.length"
-            @fetch="(pageUrl) => $emit('fetch', pageUrl)"
-          />
-        </div>
+      <div v-if="meta && meta.total" class="inv-pagination-bar">
+        <Pagination
+          :links="links"
+          :pagination="meta"
+          :lists="sortedRows.length"
+          @fetch="(url) => $emit('fetch', url)"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import Pagination from '@/Shared/Components/Pagination.vue';
+import Pagination from "@/Shared/Components/Pagination.vue";
 
 export default {
-  name: 'StocksLedger',
+  name: "StocksLedger",
   components: { Pagination },
   props: {
     rows: { type: [Array, Object], default: () => [] },
     loading: { type: Boolean, default: false },
     meta: { type: Object, default: null },
     links: { type: Array, default: null },
-    keyword: { type: String, default: '' },
+    keyword: { type: String, default: "" },
   },
-  emits: ['create', 'fetch', 'refresh', 'update:keyword', 'view', 'edit', 'delete'],
+  emits: ["create", "fetch", "refresh", "update:keyword", "edit", "delete"],
   data() {
-    return {
-      sort: 'latest',
-    };
+    return { sort: "latest" };
   },
   computed: {
+    normalizedRows() {
+      if (Array.isArray(this.rows)) return this.rows;
+      if (Array.isArray(this.rows?.data)) return this.rows.data;
+      return [];
+    },
     sortedRows() {
       const rows = [...this.normalizedRows];
-      const normalizeText = (value) => String(value || '').toLowerCase();
-      const normalizeNumber = (value) => Number(value || 0);
-      const normalizeDate = (value) => {
-        if (!value) return 0;
-
-        const timestamp = new Date(String(value).replace(' ', 'T')).getTime();
-        return Number.isNaN(timestamp) ? 0 : timestamp;
+      const txt = (v) => String(v || "").toLowerCase();
+      const num = (v) => Number(v || 0);
+      const dt = (v) => (v ? new Date(String(v).replace(" ", "T")).getTime() : 0);
+      const map = {
+        oldest: (a, b) => dt(a.created_at) - dt(b.created_at),
+        name_asc: (a, b) =>
+          txt(a.name || a.item_name).localeCompare(txt(b.name || b.item_name)),
+        quantity_desc: (a, b) => num(b.quantity) - num(a.quantity),
+        cost_desc: (a, b) => num(b.unit_cost) - num(a.unit_cost),
       };
-
-      const sorters = {
-        oldest: (left, right) => normalizeDate(left.entry_date) - normalizeDate(right.entry_date),
-        name_asc: (left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name)),
-        code_asc: (left, right) => normalizeText(left.code).localeCompare(normalizeText(right.code)),
-        quantity_desc: (left, right) => normalizeNumber(right.total_quantity) - normalizeNumber(left.total_quantity),
-      };
-
-      return rows.sort(sorters[this.sort] || ((left, right) => normalizeDate(right.entry_date) - normalizeDate(left.entry_date)));
-    },
-    normalizedRows() {
-      if (Array.isArray(this.rows)) {
-        return this.rows;
-      }
-
-      if (Array.isArray(this.rows?.data)) {
-        return this.rows.data;
-      }
-
-      return [];
+      return rows.sort(map[this.sort] || ((a, b) => dt(b.created_at) - dt(a.created_at)));
     },
   },
   methods: {
-    handleRefresh() {
-      this.$emit('refresh');
+    displayRowNumber(idx) {
+      return Number(this.meta?.from || 1) + idx;
     },
-    displayRowNumber(index) {
-      return Number(this.meta?.from || 1) + index;
+    formatNumber(v) {
+      return new Intl.NumberFormat().format(Number(v || 0));
     },
-    formatNumber(value) {
-      return new Intl.NumberFormat().format(Number(value || 0));
-    },
-    formatEntryDate(value) {
-      if (!value) return '-';
-
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      }).format(new Date(String(value).replace(' ', 'T')));
+    formatDate(v) {
+      if (!v) return "—";
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(new Date(String(v).replace(" ", "T")));
     },
   },
 };
 </script>
 
 <style scoped>
-.stock-card-body {
-  padding: 0.65rem 0.65rem 0;
+.inv-module-card {
+  --inv-brand: #4b5b93;
+  --inv-brand-soft: #edf1fb;
+  --inv-border: #dce4f2;
+  --inv-surface: #ffffff;
+  --inv-bg: #f5f8ff;
+  --inv-muted: #64748b;
+  --inv-ink: #0f172a;
+  border: 1px solid var(--inv-border);
+  border-radius: 20px;
+  background: var(--inv-surface);
+  overflow: hidden;
 }
 
-.stock-toolbar-row {
-  margin-bottom: 0.55rem;
+.inv-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(180deg, #f8fbff, #f0f5ff);
+  border-bottom: 1px solid var(--inv-border);
+  flex-wrap: wrap;
+}
+.inv-module-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.inv-module-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #4b5b93, #38467a);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.inv-module-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--inv-ink);
+}
+.inv-module-subtitle {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--inv-muted);
+  font-weight: 500;
 }
 
-.stock-toolbar-group {
-  width: 100%;
-  flex-wrap: nowrap;
-  align-items: stretch;
+.inv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
-
-.stock-toolbar-group .input-group-text,
-.stock-toolbar-group .form-control,
-.stock-toolbar-group .btn {
-  min-height: 44px;
+.inv-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
-
-.stock-search-input {
-  min-width: 0;
+.inv-search-icon {
+  position: absolute;
+  left: 0.65rem;
+  color: var(--inv-muted);
+  font-size: 0.95rem;
+  pointer-events: none;
 }
-
-.stock-refresh-trigger {
+.inv-search-input {
+  height: 38px;
+  padding: 0 2rem 0 2.1rem;
+  border: 1px solid var(--inv-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--inv-ink);
+  font-size: 0.84rem;
+  width: 220px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.inv-search-input:focus {
+  border-color: var(--inv-brand);
+  box-shadow: 0 0 0 3px rgba(75, 91, 147, 0.1);
+}
+.inv-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+}
+.inv-select {
+  height: 38px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--inv-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--inv-ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+  outline: none;
   cursor: pointer;
 }
-
-.stock-sort-select {
-  flex: 0 0 190px;
-  min-width: 190px;
-  border-left: 0;
-  border-radius: 0;
-}
-
-.stock-create-btn {
-  min-width: 120px;
-}
-
-.ledger-table-wrap {
-  margin-top: 0;
-  max-height: calc(100vh - 268px);
-  overflow: auto;
-}
-
-.ledger-card .card-header {
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  padding: 0.8rem 0.85rem 0.65rem;
-}
-
-.ledger-table-wrap :deep(.card-footer) {
-  padding: 0.65rem 0.75rem;
+.inv-icon-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--inv-border);
+  border-radius: 10px;
   background: #fff;
+  color: var(--inv-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.inv-icon-btn:hover {
+  background: var(--inv-brand-soft);
+  color: var(--inv-brand);
+}
+.inv-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 38px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #4b5b93, #38467a);
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.inv-create-btn:hover {
+  opacity: 0.9;
 }
 
-.ledger-table-wrap td,
-.ledger-table-wrap th {
+.inv-table-shell {
+  overflow: auto;
+  max-height: calc(100vh - 310px);
+  min-height: 200px;
+}
+.inv-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.inv-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, #f3f7ff, #eaf0fd);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--inv-muted);
+  border-bottom: 1px solid var(--inv-border);
+  white-space: nowrap;
+}
+.inv-table-row td {
+  padding: 0.72rem 0.85rem;
+  border-bottom: 1px solid #f1f5ff;
+  font-size: 0.85rem;
+  color: var(--inv-ink);
   vertical-align: middle;
+  background: var(--inv-surface);
+  transition: background 0.12s;
+}
+.inv-table-row:hover td {
+  background: #f8fbff;
+}
+.inv-table-empty td {
+  padding: 0;
+  border: 0;
+}
+.inv-row-num {
+  color: var(--inv-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.inv-code-chip {
+  display: inline-block;
+  padding: 0.22rem 0.6rem;
+  border-radius: 7px;
+  background: rgba(75, 91, 147, 0.08);
+  color: var(--inv-brand);
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-family: ui-monospace, monospace;
+  border: 1px solid rgba(75, 91, 147, 0.15);
+}
+.inv-unit-badge {
+  display: inline-block;
+  padding: 0.18rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: default;
+}
+.inv-date-cell {
+  color: var(--inv-muted);
+  font-size: 0.8rem;
+}
+.inv-row-actions {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+.inv-action-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--inv-border);
+  border-radius: 8px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.inv-action-btn.edit:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #d97706;
+}
+.inv-action-btn.del:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
 }
 
-:global([data-bs-theme="dark"]) .ledger-card,
-:global([data-bs-theme="dark"]) .ledger-card .card-header,
-:global([data-bs-theme="dark"]) .stock-card-body,
-:global([data-bs-theme="dark"]) .ledger-table-wrap,
-:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.card-footer) {
-  border-color: #2e3a59 !important;
-  background-color: #111827 !important;
-  color: #e5e7eb !important;
+.inv-loading-state,
+.inv-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3.5rem 1rem;
+  color: var(--inv-muted);
 }
-
-:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.table) {
-  --vz-table-bg: #111827;
-  --vz-table-color: #e5e7eb;
-  --vz-table-hover-bg: #182035;
-  --vz-table-border-color: #2e3a59;
-  background-color: #111827 !important;
-  color: #e5e7eb !important;
+.inv-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--inv-brand);
+  border-radius: 50%;
+  animation: inv-spin 0.7s linear infinite;
 }
-
-:global([data-bs-theme="dark"]) .ledger-table-wrap :deep(.table-light th) {
-  background-color: #182035 !important;
-  color: #dbeafe !important;
+@keyframes inv-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
-
-:global([data-bs-theme="dark"]) .stock-toolbar-group :deep(.input-group-text),
-:global([data-bs-theme="dark"]) .stock-toolbar-group :deep(.form-control),
-:global([data-bs-theme="dark"]) .stock-sort-select,
-:global([data-bs-theme="dark"]) .stock-refresh-trigger {
-  border-color: #2e3a59 !important;
-  background-color: #182035 !important;
-  color: #e5e7eb !important;
+.inv-empty-state i {
+  font-size: 2.5rem;
+  opacity: 0.35;
 }
-
-:global([data-bs-theme="dark"]) .stock-toolbar-group :deep(.form-control::placeholder) {
-  color: #8ea0b8 !important;
+.inv-empty-state p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
-
-@media (max-width: 767.98px) {
-  .stock-toolbar-group {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .stock-toolbar-group .input-group-text {
-    border-radius: var(--vz-border-radius);
-    border-right: 1px solid var(--vz-border-color);
-  }
-
-  .stock-toolbar-group .form-control {
-    flex: 1 1 100%;
-    border-radius: var(--vz-border-radius);
-  }
-
-  .stock-refresh-trigger,
-  .stock-sort-select,
-  .stock-create-btn {
-    border-radius: var(--vz-border-radius);
-  }
-
-  .stock-sort-select {
-    flex: 1 1 100%;
-  }
-
-  .stock-create-btn {
-    width: 100%;
-  }
+.inv-pagination-bar {
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--inv-border);
+  background: #fafbff;
 }
 </style>

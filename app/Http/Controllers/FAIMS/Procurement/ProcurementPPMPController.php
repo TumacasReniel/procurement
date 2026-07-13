@@ -86,10 +86,13 @@ class ProcurementPPMPController extends Controller
 
         switch ($request->option) {
             case 'update_status':
+            case 'revert_status':
             case 'approve_to_app':
             case 'add_item':
             case 'update_item':
             case 'delete_item':
+            case 'clear_project':
+            case 'update_project':
                 broadcast(new ProcurementPlanStatusUpdated([
                     'id' => (int) $id,
                     'plan_type' => $request->input('plan_type', 'PPMP'),
@@ -98,6 +101,14 @@ class ProcurementPPMPController extends Controller
                     'updated_at' => now()->toDateTimeString(),
                 ]))->toOthers();
 
+                break;
+
+            case 'mark_as_final':
+            case 'create_revision':
+                $new_ppmp_id = $result['data']['new_ppmp_id'] ?? null;
+                if (! empty($new_ppmp_id)) {
+                    return redirect("/faims/procurement-ppmp/{$new_ppmp_id}")->with($result);
+                }
                 break;
         }
 

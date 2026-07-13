@@ -1,270 +1,643 @@
-<template>
+﻿<template>
   <div class="inventory-page">
     <Head title="Inventory Management" />
     <PageHeader title="Inventory Management" pageTitle="Inventory" />
 
-    <section class="inventory-hero card border-0 mb-4">
-      <div class="card-body p-4 p-xl-5">
-        <div class="inventory-hero-grid">
-          <div class="inventory-hero-copy">
-            <p class="inventory-hero-text">
-              Manage stock groups, catalog inventory items, log receivings, and
-              monitor withdrawals from one clean workspace.
-            </p>
+    <!-- Enhanced Hero -->
+    <section class="inv-hero mb-3">
+      <!-- Decorative background elements -->
+      <div class="inv-hero-deco" aria-hidden="true">
+        <div class="inv-hero-deco-ring inv-hero-deco-ring--1"></div>
+        <div class="inv-hero-deco-ring inv-hero-deco-ring--2"></div>
+        <div class="inv-hero-deco-grid"></div>
+      </div>
 
-            <div class="inventory-hero-actions">
-              <button type="button" class="btn inventory-primary-btn" @click="openActiveCreate">
-                <i class="ri-add-circle-fill me-2"></i>{{ currentCreateLabel }}
-              </button>
-              <Link href="/inventory-dashboard" class="btn inventory-secondary-btn">
-                <i class="ri-bar-chart-box-line me-2"></i>View Dashboard
-              </Link>
-            </div>
+      <div class="inv-hero-body">
+        <!-- Left: identity + actions -->
+        <div class="inv-hero-left">
+          <div class="inv-hero-kicker">
+            <i class="ri-store-3-line"></i>
+            <span>Inventory Management</span>
+          </div>
+          <h2 class="inv-hero-title">Inventory<br /></h2>
+          <p class="inv-hero-desc">
+            Catalog items, manage stocks, track receivings, withdrawals and issue slips —
+            all from one workspace.
+          </p>
+
+          <div class="inv-hero-actions">
+
+            <Link href="/inventory-dashboard" class="inv-hero-btn-primary">
+              <i class="ri-bar-chart-box-line"></i>
+              <span>Dashboard</span>
+            </Link>
           </div>
 
-          <div class="inventory-hero-stats">
-            <article
-              v-for="card in inventoryHeroCards"
-              :key="card.label"
-              class="inventory-stat-card"
+          <!-- Quick-links strip -->
+          <div class="inv-hero-quicklinks">
+            <button
+              v-for="mod in modules"
+              :key="mod.key"
+              class="inv-hero-ql"
+              :class="{ active: activeModule === mod.key }"
+              @click="activeModule = mod.key"
             >
-              <div class="inventory-stat-icon">
+              <i :class="mod.icon"></i>
+              <span>{{ mod.label }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: stat cards 2×2 -->
+        <div class="inv-hero-stats">
+          <div
+            v-for="card in inventoryHeroCards"
+            :key="card.label"
+            class="inv-hero-stat"
+            :style="{ '--stat-accent': card.accent }"
+          >
+            <div class="inv-hero-stat-top">
+              <div class="inv-hero-stat-icon">
                 <i :class="card.icon"></i>
               </div>
-              <div>
-                <span class="inventory-stat-label">{{ card.label }}</span>
-                <strong class="inventory-stat-value">{{ card.value }}</strong>
-              </div>
-            </article>
+              <strong class="inv-hero-stat-val">{{ card.value }}</strong>
+            </div>
+            <span class="inv-hero-stat-lbl">{{ card.label }}</span>
+            <div class="inv-hero-stat-bar"></div>
           </div>
         </div>
       </div>
     </section>
 
-    <BRow>
-      <BCol lg="12">
-        <BCard no-body class="inv-shell">
-          <BCardBody class="p-0">
-            <div class="inventory-module-shell">
-              <div class="module-layout">
-                <aside class="module-sidebar">
-                  <div class="module-sidebar-title">Inventory Modules</div>
-                  <div class="module-grid">
+    <!-- Module Shell -->
+    <div class="inv-shell">
+      <!-- Tab Navigation -->
+      <nav class="inv-tab-nav">
+        <button
+          v-for="mod in modules"
+          :key="mod.key"
+          type="button"
+          class="inv-tab"
+          :class="{ active: activeModule === mod.key }"
+          @click="activeModule = mod.key"
+        >
+          <i :class="mod.icon"></i>
+          <span>{{ mod.label }}</span>
+          <em class="inv-tab-count">{{ moduleMeta(mod.key) }}</em>
+        </button>
+      </nav>
+
+      <!-- Content Area -->
+      <div class="inv-tab-content">
+        <div class="module-content">
+          <div v-if="activeModule === 'items'" class="inv-module-card">
+            <!-- Unified Header -->
+            <div class="inv-module-header">
+              <div class="inv-module-header-left">
+                <div class="inv-module-header-icon">
+                  <i class="ri-store-3-line"></i>
+                </div>
+                <div>
+                  <h5 class="inv-module-title">Inventory Items</h5>
+                  <p class="inv-module-subtitle">
+                    {{ itemMeta?.total ?? itemRows.length }} items · catalog with stock
+                    quantities
+                  </p>
+                </div>
+              </div>
+              <div class="inv-module-header-actions">
+                <div class="inv-toolbar">
+                  <div class="inv-search-wrap">
+                    <i class="ri-search-line inv-search-icon"></i>
+                    <input
+                      v-model="itemKeyword"
+                      type="text"
+                      placeholder="Search items…"
+                      class="inv-search-input"
+                    />
                     <button
-                      v-for="module in modules"
-                      :key="module.key"
-                      type="button"
-                      class="module-tile"
-                      :class="{ active: activeModule === module.key }"
-                      @click="activeModule = module.key"
+                      v-if="itemKeyword"
+                      class="inv-search-clear"
+                      @click="itemKeyword = ''"
                     >
-                      <i :class="module.icon"></i>
-                      <span class="module-tile-copy">
-                        <span>{{ module.label }}</span>
-                        <small>{{ moduleMeta(module.key) }}</small>
-                      </span>
+                      <i class="ri-close-line"></i>
                     </button>
                   </div>
-                </aside>
-
-                <section class="module-content">
-                  <div v-if="activeModule === 'items'" class="card bg-light-subtle shadow-none border ledger-card">
-                    <div class="card-header bg-light-subtle">
-                      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-                        <div class="d-flex">
-                          <div class="flex-shrink-0 me-3">
-                            <div style="height: 2.5rem; width: 2.5rem">
-                              <span class="avatar-title bg-success-subtle rounded p-2 mt-n1">
-                                <i class="ri-barcode-box-line text-success fs-24"></i>
-                              </span>
-                            </div>
-                          </div>
-                          <div class="flex-grow-1">
-                            <h5 class="mb-0 fs-14"><span class="text-body">Inventory Items</span></h5>
-                            <p class="text-muted fs-12 mb-0">Manage item quantities, categories, unit cost, and expiry details.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="card-body bg-white rounded-bottom inventory-items-body">
-                      <b-row class="mb-3">
-                        <b-col lg>
-                          <div class="ledger-toolbar-wrap inventory-items-toolbar">
-                            <div class="ledger-toolbar">
-                              <div class="input-group ledger-search-group">
-                                <span class="input-group-text">
-                                  <i class="ri-search-line search-icon"></i>
-                                </span>
-                                <input
-                                  v-model="itemKeyword"
-                                  type="text"
-                                  placeholder="Search Items"
-                                  class="form-control"
-                                />
-                              </div>
-                            </div>
-
-                            <select
-                              v-model="itemSort"
-                              class="form-select inventory-sort-select"
-                              aria-label="Sort inventory items"
-                            >
-                              <option value="latest">Latest Added</option>
-                              <option value="oldest">Oldest Added</option>
-                              <option value="name_asc">Name A-Z</option>
-                              <option value="name_desc">Name Z-A</option>
-                              <option value="quantity_desc">Quantity High-Low</option>
-                              <option value="quantity_asc">Quantity Low-High</option>
-                              <option value="expiration_asc">Expiration Soonest</option>
-                              <option value="expiration_desc">Expiration Latest</option>
-                              <option value="custom">Custom Order</option>
-                            </select>
-
-                            <button
-                              type="button"
-                              class="btn ledger-refresh-btn"
-                              title="Refresh"
-                              v-b-tooltip.hover
-                              @click="handleItemRefresh"
-                            >
-                              <i class="bx bx-refresh search-icon"></i>
-                            </button>
-                            <button type="button" class="btn withdrawal-create-btn" @click="openItemCreate">
-                              <i class="ri-add-circle-fill me-2"></i>Create
-                            </button>
-                          </div>
-                          <div class="inventory-toolbar-note">
-                            <i class="ri-drag-move-2-line me-1"></i>
-                            Use the arrows in Custom Order to rearrange the currently loaded items.
-                          </div>
-                        </b-col>
-                      </b-row>
-
-                      <div class="table-responsive inv-table-wrap">
-                        <table class="table table-hover align-middle mb-0 inv-table">
-                          <thead>
-                            <tr>
-                              <th class="text-center" style="width: 96px">Order</th>
-                              <th>Code</th>
-                              <th>Name</th>
-                              <th>Stock</th>
-                              <th>Category</th>
-                              <th class="text-end">Quantity</th>
-                              <th class="text-end">Unit Cost</th>
-                              <th>Expiration</th>
-                              <th class="text-center" style="width: 170px">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr v-if="loading">
-                              <td colspan="9" class="text-center text-muted py-4">Loading items...</td>
-                            </tr>
-                            <tr v-else-if="sortedItemRows.length === 0">
-                              <td colspan="9" class="text-center text-muted py-4">No inventory items found.</td>
-                            </tr>
-                            <tr v-else v-for="(item, index) in sortedItemRows" :key="item.id">
-                              <td class="text-center">
-                                <div class="inventory-order-controls">
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-light inventory-order-btn"
-                                    :disabled="index === 0"
-                                    title="Move up"
-                                    v-b-tooltip.hover
-                                    @click="moveItemRow(item, -1)"
-                                  >
-                                    <i class="ri-arrow-up-s-line"></i>
-                                  </button>
-                                  <span class="inventory-order-number">{{ displayItemNumber(index) }}</span>
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-light inventory-order-btn"
-                                    :disabled="index === sortedItemRows.length - 1"
-                                    title="Move down"
-                                    v-b-tooltip.hover
-                                    @click="moveItemRow(item, 1)"
-                                  >
-                                    <i class="ri-arrow-down-s-line"></i>
-                                  </button>
-                                </div>
-                              </td>
-                              <td class="fw-semibold">{{ item.code }}</td>
-                              <td>{{ item.name }}</td>
-                              <td>{{ item.stock_name }}</td>
-                              <td>{{ item.category }}</td>
-                              <td class="text-end">{{ formatNumber(item.quantity) }}</td>
-                              <td class="text-end">{{ formatNumber(item.unit_cost) }}</td>
-                              <td>{{ item.expiration }}</td>
-                              <td class="text-center">
-                                <div class="d-inline-flex gap-1">
-                                  <button class="btn btn-sm btn-outline-primary" @click="openViewModal('item', item)"><i class="ri-eye-line"></i></button>
-                                  <button class="btn btn-sm btn-outline-warning" @click="openItemEdit(item)"><i class="ri-pencil-line"></i></button>
-                                  <button class="btn btn-sm btn-outline-danger" @click="removeItem(item)"><i class="ri-delete-bin-line"></i></button>
-                                </div>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <Pagination v-if="itemMeta && itemMeta.total" :links="itemLinks" :pagination="itemMeta" :lists="sortedItemRows.length" @fetch="fetchItems" />
-                    </div>
+                  <select
+                    v-model="itemCategoryFilter"
+                    class="inv-select"
+                    style="min-width: 148px"
+                  >
+                    <option value="">All Categories</option>
+                    <option
+                      v-for="cat in categoryRows"
+                      :key="cat.id"
+                      :value="String(cat.id)"
+                    >
+                      {{ cat.name }}
+                    </option>
+                  </select>
+                  <select v-model="itemSort" class="inv-select">
+                    <option value="latest">Latest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="name_asc">Name A–Z</option>
+                    <option value="name_desc">Name Z–A</option>
+                  </select>
+                  <button
+                    class="inv-icon-btn"
+                    title="Refresh"
+                    v-b-tooltip.hover
+                    @click="handleItemRefresh"
+                  >
+                    <i class="ri-refresh-line"></i>
+                  </button>
+                  <div class="inv-view-toggle">
+                    <button
+                      :class="{ active: itemViewMode === 'list' }"
+                      @click="itemViewMode = 'list'"
+                      title="List"
+                    >
+                      <i class="ri-list-check-2"></i>
+                    </button>
+                    <button
+                      :class="{ active: itemViewMode === 'grid' }"
+                      @click="itemViewMode = 'grid'"
+                      title="Grid"
+                    >
+                      <i class="ri-layout-grid-line"></i>
+                    </button>
                   </div>
-
-                  <Stocks
-                    v-else-if="activeModule === 'stocks'"
-                    :rows="stockRows"
-                    :loading="loading"
-                    :meta="stockMeta"
-                    :links="stockLinks"
-                    :keyword="stockKeyword"
-                    @create="openStockCreate"
-                    @fetch="fetchStocks"
-                    @refresh="refreshStocks"
-                    @update:keyword="handleStockKeywordChange"
-                    @view="(row) => openViewModal('stock', row)"
-                    @edit="openStockEdit"
-                    @delete="removeStock"
-                  />
-
-                  <ReceivingLedger
-                    v-else-if="activeModule === 'receivings'"
-                    :rows="receivingRows"
-                    :loading="loading"
-                    :meta="receivingMeta"
-                    :links="receivingLinks"
-                    @fetch="fetchReceivings"
-                    @refresh="() => fetchReceivings()"
-                    @view="openReceivingPoItems"
-                  />
-
-                  <WithdrawalLedger
-                    v-else-if="activeModule === 'withdrawals'"
-                    :rows="withdrawalRows"
-                    :loading="loading"
-                    :meta="withdrawalMeta"
-                    :links="withdrawalLinks"
-                    @create="openWithdrawalCreate"
-                    @fetch="fetchWithdrawals"
-                    @refresh="() => fetchWithdrawals()"
-                    @view="(row) => openViewModal('withdrawal', row)"
-                    @edit="openWithdrawalEdit"
-                    @delete="removeWithdrawal"
-                  />
-                </section>
+                  <button class="inv-create-btn" @click="openItemCreate">
+                    <i class="ri-add-line"></i> Add Item
+                  </button>
+                </div>
+                <div v-if="itemSort === 'custom'" class="inv-custom-order-note">
+                  <i class="ri-drag-move-2-line me-1"></i>Use arrows to reorder
+                </div>
               </div>
             </div>
-          </BCardBody>
-        </BCard>
-      </BCol>
-    </BRow>
+
+            <!-- List -->
+            <div v-if="itemViewMode === 'list'">
+              <div class="inv-table-shell">
+                <table class="inv-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 80px" class="text-center">Order</th>
+                      <th style="width: 130px">Code</th>
+                      <th>Name</th>
+                      <th style="width: 150px">Category</th>
+                      <th style="width: 110px" class="text-center">Stock Qty</th>
+                      <th style="width: 160px" class="text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="loading" class="inv-table-empty">
+                      <td colspan="6">
+                        <div class="inv-loading-state">
+                          <div class="inv-spinner"></div>
+                          <span>Loading...</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr v-else-if="sortedItemRows.length === 0" class="inv-table-empty">
+                      <td colspan="6">
+                        <div class="inv-empty-state">
+                          <i class="ri-inbox-line"></i>
+                          <p>No items yet.</p>
+                        </div>
+                      </td>
+                    </tr>
+                    <template
+                      v-else
+                      v-for="(item, index) in sortedItemRows"
+                      :key="item.id"
+                    >
+                      <tr class="inv-table-row">
+                        <!-- Order controls -->
+                        <td class="text-center">
+                          <div class="inventory-order-controls">
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-light inventory-order-btn"
+                              :disabled="index === 0"
+                              @click="moveItemRow(item, -1)"
+                            >
+                              <i class="ri-arrow-up-s-line"></i>
+                            </button>
+                            <span class="inventory-order-number">{{
+                              displayItemNumber(index)
+                            }}</span>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-light inventory-order-btn"
+                              :disabled="index === sortedItemRows.length - 1"
+                              @click="moveItemRow(item, 1)"
+                            >
+                              <i class="ri-arrow-down-s-line"></i>
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <span class="inv-code-chip">{{ item.code || "&#8212;" }}</span>
+                        </td>
+                        <td class="fw-semibold">{{ item.name }}</td>
+                        <td>
+                          <span v-if="item.category" class="inv-count-badge">{{
+                            item.category
+                          }}</span
+                          ><span v-else class="inv-muted-val">&#8212;</span>
+                        </td>
+                        <td class="text-center fw-bold">
+                          {{
+                            item.total_quantity != null
+                              ? formatNumber(item.total_quantity)
+                              : "&#8212;"
+                          }}
+                          <span
+                            v-if="item.stock_count > 0"
+                            class="inv-stock-badge ms-1"
+                            :title="`${item.stock_count} stock entr${
+                              item.stock_count === 1 ? 'y' : 'ies'
+                            }`"
+                            >{{ item.stock_count }}</span
+                          >
+                        </td>
+                        <td class="text-center">
+                          <div class="inv-row-actions">
+                            <button
+                              class="inv-action-btn view"
+                              title="View"
+                              v-b-tooltip.hover
+                              @click="openViewModal('item', item)"
+                            >
+                              <i class="ri-eye-line"></i>
+                            </button>
+                            <button
+                              class="inv-action-btn edit"
+                              title="Edit"
+                              v-b-tooltip.hover
+                              @click="openItemEdit(item)"
+                            >
+                              <i class="ri-pencil-line"></i>
+                            </button>
+                            <button
+                              class="inv-action-btn stock"
+                              title="Add Stock"
+                              v-b-tooltip.hover
+                              @click="openStockCreate(item)"
+                            >
+                              <i class="ri-add-box-line"></i>
+                            </button>
+                            <button
+                              v-if="!item.stock_count"
+                              class="inv-action-btn del"
+                              title="Delete"
+                              v-b-tooltip.hover
+                              @click.stop="confirmDeleteItem(item)"
+                            >
+                              <i class="ri-delete-bin-line"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <!-- /inv-table-shell -->
+              <div v-if="itemMeta && itemMeta.total" class="inv-pagination-bar">
+                <Pagination
+                  :links="itemLinks"
+                  :pagination="itemMeta"
+                  :lists="sortedItemRows.length"
+                  @fetch="fetchItems"
+                />
+              </div>
+            </div>
+            <!-- Grid -->
+            <div v-else class="inv-grid-shell">
+              <div v-if="loading" class="inv-loading-state">
+                <div class="inv-spinner"></div>
+                <span>Loading...</span>
+              </div>
+              <div v-else-if="sortedItemRows.length === 0" class="inv-empty-state">
+                <i class="ri-inbox-line"></i>
+                <p>No items yet.</p>
+              </div>
+              <div v-else class="inv-grid">
+                <div
+                  v-for="(item, idx) in sortedItemRows"
+                  :key="item.id"
+                  class="inv-stock-card"
+                >
+                  <div
+                    class="inv-stock-card-top"
+                    :style="{ '--card-hue': [220, 262, 168, 32, 340, 195][idx % 6] }"
+                  >
+                    <div class="inv-stock-card-icon">
+                      <i class="ri-barcode-box-line"></i>
+                    </div>
+                    <div class="inv-stock-card-actions">
+                      <button
+                        title="View"
+                        v-b-tooltip.hover
+                        @click="openViewModal('item', item)"
+                      >
+                        <i class="ri-eye-line"></i>
+                      </button>
+                      <button title="Edit" v-b-tooltip.hover @click="openItemEdit(item)">
+                        <i class="ri-pencil-line"></i>
+                      </button>
+                      <button
+                        title="Add Stock"
+                        v-b-tooltip.hover
+                        @click="openStockCreate(item)"
+                      >
+                        <i class="ri-add-box-line"></i>
+                      </button>
+                      <button
+                        v-if="!item.stock_count"
+                        class="del"
+                        title="Delete"
+                        v-b-tooltip.hover
+                        @click="confirmDeleteItem(item)"
+                      >
+                        <i class="ri-delete-bin-line"></i>
+                      </button>
+                    </div>
+                    <span class="inv-stock-card-code">{{ item.code || "&#8212;" }}</span>
+                  </div>
+                  <div class="inv-stock-card-body">
+                    <h6 class="inv-stock-card-name">{{ item.name }}</h6>
+                    <div class="mb-2">
+                      <span class="inv-count-badge"
+                        ><i class="ri-price-tag-3-line me-1"></i
+                        >{{ item.category || "Uncategorized" }}</span
+                      >
+                    </div>
+                    <div class="inv-stock-card-stats">
+                      <div class="inv-stock-stat">
+                        <span class="inv-stock-stat-val">{{
+                          item.total_quantity != null
+                            ? formatNumber(item.total_quantity)
+                            : item.quantity != null
+                            ? formatNumber(item.quantity)
+                            : "&#8212;"
+                        }}</span
+                        ><span class="inv-stock-stat-lbl">Qty</span>
+                      </div>
+                      <div class="inv-stock-stat-sep"></div>
+                      <div class="inv-stock-stat">
+                        <span class="inv-stock-stat-val" style="font-size:0.95rem">
+                          ₱{{ formatNumber(item.total_value ?? 0) }}
+                        </span
+                        ><span class="inv-stock-stat-lbl">Total Cost</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stocks Module -->
+          <Stocks
+            v-else-if="activeModule === 'stocks'"
+            :rows="stockRows"
+            :loading="loading"
+            :meta="stockMeta"
+            :links="stockLinks"
+            :keyword="stockKeyword"
+            @create="openStockCreate()"
+            @edit="openStockEdit"
+            @delete="removeStock"
+            @fetch="fetchStocks"
+            @refresh="refreshStocks"
+            @update:keyword="handleStockKeywordChange"
+          />
+
+          <!-- Categories Module -->
+          <div
+            v-else-if="activeModule === 'categories'"
+            class="inv-module-card"
+          >
+            <!-- Header -->
+            <div class="inv-module-header">
+              <div class="inv-module-header-left">
+                <div class="inv-module-header-icon">
+                  <i class="ri-price-tag-3-line"></i>
+                </div>
+                <div>
+                  <h5 class="inv-module-title">Inventory Categories</h5>
+                  <p class="inv-module-subtitle">
+                    {{ filteredCategoryRows.length }} of {{ categoryRows.length }} categories
+                  </p>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="inv-search-wrap">
+                  <i class="ri-search-line inv-search-icon"></i>
+                  <input
+                    v-model="categorySearch"
+                    type="search"
+                    class="inv-search-input"
+                    placeholder="Search categories…"
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="inv-create-btn"
+                  @click="openCategoryCreate"
+                >
+                  <i class="ri-add-line"></i> Add Category
+                </button>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="inv-table-shell">
+              <table class="inv-table">
+                <thead>
+                  <tr>
+                    <th style="width:50px" class="text-center">#</th>
+                    <th>Name</th>
+                    <th class="text-center" style="width:110px">Status</th>
+                    <th class="text-center" style="width:110px">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="categoriesLoading" class="inv-table-empty">
+                    <td colspan="4">
+                      <div class="inv-loading-state">
+                        <div class="inv-spinner"></div>
+                        <span>Loading categories…</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-else-if="pagedCategoryRows.length === 0" class="inv-table-empty">
+                    <td colspan="4">
+                      <div class="inv-empty-state">
+                        <i class="ri-inbox-line"></i>
+                        <p>
+                          {{ categorySearch ? 'No categories match your search.' : 'No categories yet. Click Add Category to create one.' }}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr
+                    v-else
+                    v-for="(cat, idx) in pagedCategoryRows"
+                    :key="cat.id"
+                    class="inv-table-row"
+                  >
+                    <td class="text-center text-muted small">
+                      {{ (categoryPage - 1) * categoryPerPage + idx + 1 }}
+                    </td>
+                    <td class="fw-semibold">{{ cat.name }}</td>
+                    <td class="text-center">
+                      <span
+                        class="badge rounded-pill fw-semibold"
+                        :class="
+                          cat.is_active
+                            ? 'bg-success-subtle text-success'
+                            : 'bg-secondary-subtle text-secondary'
+                        "
+                      >
+                        {{ cat.is_active ? "Active" : "Inactive" }}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <div class="inv-row-actions">
+                        <button
+                          class="inv-action-btn edit"
+                          @click="openCategoryEdit(cat)"
+                          title="Edit"
+                          v-b-tooltip.hover
+                        >
+                          <i class="ri-pencil-line"></i>
+                        </button>
+                        <button
+                          class="inv-action-btn del"
+                          @click="removeCategory(cat)"
+                          title="Delete"
+                          v-b-tooltip.hover
+                        >
+                          <i class="ri-delete-bin-line"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div v-if="categoryTotalPages > 1" class="inv-pagination-bar">
+              <span class="text-muted small">
+                Page {{ categoryPage }} of {{ categoryTotalPages }}
+                &nbsp;·&nbsp;
+                {{ filteredCategoryRows.length }} total
+              </span>
+              <nav>
+                <ul class="pagination pagination-sm mb-0">
+                  <li class="page-item" :class="{ disabled: categoryPage === 1 }">
+                    <button class="page-link" @click="categoryPage--">‹</button>
+                  </li>
+                  <template v-for="page in categoryVisiblePages" :key="page">
+                    <li v-if="page === '...'" class="page-item disabled">
+                      <span class="page-link">…</span>
+                    </li>
+                    <li
+                      v-else
+                      class="page-item"
+                      :class="{ active: categoryPage === page }"
+                    >
+                      <button class="page-link" @click="categoryPage = page">{{ page }}</button>
+                    </li>
+                  </template>
+                  <li class="page-item" :class="{ disabled: categoryPage === categoryTotalPages }">
+                    <button class="page-link" @click="categoryPage++">›</button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+
+          <ReceivingLedger
+            v-else-if="activeModule === 'receivings'"
+            :rows="receivingRows"
+            :loading="loading"
+            :meta="receivingMeta"
+            :links="receivingLinks"
+            @fetch="fetchReceivings"
+            @refresh="() => fetchReceivings()"
+            @view="openReceivingPoItems"
+          />
+
+          <WithdrawalLedger
+            v-else-if="activeModule === 'withdrawals'"
+            :rows="withdrawalRows"
+            :loading="loading"
+            :meta="withdrawalMeta"
+            :links="withdrawalLinks"
+            @create="openWithdrawalCreate"
+            @fetch="fetchWithdrawals"
+            @refresh="() => fetchWithdrawals()"
+            @view="(row) => openViewModal('withdrawal', row)"
+            @edit="openWithdrawalEdit"
+            @delete="removeWithdrawal"
+          />
+
+          <!-- RIS Module -->
+          <RisLedger
+            v-else-if="activeModule === 'ris'"
+            ref="risLedger"
+            :rows="risRows"
+            :loading="risLoading"
+            :meta="risMeta"
+            :ris-defaults="risDefaults"
+            :fund-clusters="fund_clusters"
+            :links="risLinks"
+            :items="itemOptionRows"
+            :users="userOptions"
+            :statuses="statusOptions"
+            :keyword="risKeyword"
+            @create="openRisCreate"
+            @fetch="fetchRis"
+            @refresh="() => { risKeyword = ''; fetchRis(); }"
+            @update:keyword="handleRisKeywordChange"
+          />
+
+          <!-- Report Module -->
+          <ReportPanel
+            v-else-if="activeModule === 'report'"
+            :item-rows="itemRows"
+            :item-meta="itemMeta"
+            :stock-rows="stockRows"
+            :stock-meta="stockMeta"
+            :receiving-rows="receivingRows"
+            :receiving-meta="receivingMeta"
+            :withdrawal-rows="withdrawalRows"
+            :withdrawal-meta="withdrawalMeta"
+            :category-rows="categoryRows"
+            :ris-rows="risRows"
+            :ris-meta="risMeta"
+          />
+        </div>
+      </div>
+    </div>
 
     <StockModal
       v-model="showStockModal"
       :form="stockForm"
       :errors="stockErrors"
       :saving="saving"
+      :items="itemOptionRows"
+      :units="dropdowns.unitTypes || []"
       @update:form="stockForm = $event"
+      @update:errors="stockErrors = $event"
       @submit="saveStock"
     />
 
@@ -273,9 +646,7 @@
       :form="itemForm"
       :errors="itemErrors"
       :saving="saving"
-      :stocks="stockOptionRows"
       :categories="categories"
-      :lock-stock="lockItemStock"
       @update:form="itemForm = $event"
       @submit="saveItem"
     />
@@ -321,28 +692,140 @@
       :can-edit="false"
       @update:modelValue="handleReceivingPoItemsVisibility"
     />
+
+    <!-- Delete Item Modal -->
+    <b-modal
+      v-model="showDeleteItemModal"
+      size="sm"
+      centered
+      no-close-on-backdrop
+      hide-header
+      footer-class="border-0 pt-0 pb-3 px-4 gap-2 justify-content-end"
+    >
+      <div class="text-center px-2 pt-4 pb-2">
+        <div class="del-modal-icon mb-3">
+          <i class="ri-delete-bin-2-line"></i>
+        </div>
+        <h5 class="fw-bold mb-1">Delete Item?</h5>
+        <p class="text-muted mb-0 small">
+          <strong class="text-dark">{{ deletingItem?.name }}</strong
+          ><br />
+          <span v-if="deletingItem?.code" class="font-monospace text-muted">{{
+            deletingItem.code
+          }}</span>
+        </p>
+        <p class="text-danger small mt-2 mb-0">This action cannot be undone.</p>
+      </div>
+      <template #footer>
+        <b-button variant="light" class="px-4" @click="showDeleteItemModal = false"
+          >Cancel</b-button
+        >
+        <b-button
+          variant="danger"
+          class="px-4"
+          :disabled="deletingItemLoading"
+          @click="executeDeleteItem"
+        >
+          <span v-if="deletingItemLoading"
+            ><span class="spinner-border spinner-border-sm me-1"></span>Deleting…</span
+          >
+          <span v-else>Delete</span>
+        </b-button>
+      </template>
+    </b-modal>
+
+    <!-- Category Modal -->
+    <b-modal
+      v-model="showCategoryModal"
+      :title="categoryForm.id ? 'Edit Category' : 'Add Category'"
+      size="md"
+      centered
+      no-close-on-backdrop
+      header-class="border-0 pb-0"
+      footer-class="border-top"
+    >
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label fw-semibold"
+            >Name <span class="text-danger">*</span></label
+          >
+          <input
+            v-model="categoryForm.name"
+            class="form-control"
+            :class="{ 'is-invalid': categoryErrors.name }"
+            placeholder="e.g. Office Supplies"
+            @keyup.enter="saveCategory"
+          />
+          <div v-if="categoryErrors.name" class="invalid-feedback">
+            {{
+              Array.isArray(categoryErrors.name)
+                ? categoryErrors.name[0]
+                : categoryErrors.name
+            }}
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="form-check form-switch">
+            <input
+              v-model="categoryForm.is_active"
+              class="form-check-input"
+              type="checkbox"
+              id="cat_is_active"
+            />
+            <label class="form-check-label fw-semibold" for="cat_is_active">Active</label>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <b-button variant="light" @click="showCategoryModal = false">Cancel</b-button>
+        <b-button variant="primary" :disabled="saving" @click="saveCategory">
+          <span v-if="saving"
+            ><span class="spinner-border spinner-border-sm me-1"></span>Saving...</span
+          >
+          <span v-else>{{ categoryForm.id ? "Update" : "Save" }}</span>
+        </b-button>
+      </template>
+    </b-modal>
   </div>
 </template>
 
 <script>
-import axios from 'axios';
-import { Head, Link } from '@inertiajs/vue3';
-import PageHeader from '@/Shared/Components/PageHeader.vue';
-import Pagination from '@/Shared/Components/Pagination.vue';
-import StockModal from '@/Pages/Modules/Inventory/Modals/Stock.vue';
-import ItemModal from '@/Pages/Modules/Inventory/Modals/Item.vue';
-import ReceivingModal from '@/Pages/Modules/Inventory/Modals/Receiving.vue';
-import WithdrawModal from '@/Pages/Modules/Inventory/Modals/Withdraw.vue';
-import RecordViewModal from '@/Pages/Modules/Inventory/Modals/RecordViewModal.vue';
-import Stocks from '@/Pages/Modules/Inventory/Tabs/Stocks.vue';
-import ReceivingLedger from '@/Pages/Modules/Inventory/Tabs/Receiving.vue';
-import WithdrawalLedger from '@/Pages/Modules/Inventory/Tabs/Withdrawal.vue';
-import ReceivedPOItems from '@/Pages/Modules/FAIMS/Procurement/Modals/ReceivedPOItems.vue';
+import axios from "axios";
+import { Head, Link } from "@inertiajs/vue3";
+import PageHeader from "@/Shared/Components/PageHeader.vue";
+import Pagination from "@/Shared/Components/Pagination.vue";
+import StockModal from "@/Pages/Modules/Inventory/Modals/Stock.vue";
+import ItemModal from "@/Pages/Modules/Inventory/Modals/Item.vue";
+import ReceivingModal from "@/Pages/Modules/Inventory/Modals/Receiving.vue";
+import WithdrawModal from "@/Pages/Modules/Inventory/Modals/Withdraw.vue";
+import RecordViewModal from "@/Pages/Modules/Inventory/Modals/RecordViewModal.vue";
+import Stocks from "@/Pages/Modules/Inventory/Tabs/Stocks.vue";
+import ReceivingLedger from "@/Pages/Modules/Inventory/Tabs/Receiving.vue";
+import WithdrawalLedger from "@/Pages/Modules/Inventory/Tabs/Withdrawal.vue";
+import ReceivedPOItems from "@/Pages/Modules/FAIMS/Procurement/Modals/ReceivedPOItems.vue";
+import RisLedger from "@/Pages/Modules/Inventory/Tabs/Ris.vue";
+import ReportPanel from "@/Pages/Modules/Inventory/Tabs/Report.vue";
 
 export default {
-  components: { Head, Link, PageHeader, Pagination, StockModal, ItemModal, ReceivingModal, WithdrawModal, RecordViewModal, Stocks, ReceivingLedger, WithdrawalLedger, ReceivedPOItems },
+  components: {
+    Head,
+    Link,
+    PageHeader,
+    Pagination,
+    StockModal,
+    ItemModal,
+    ReceivingModal,
+    WithdrawModal,
+    RecordViewModal,
+    Stocks,
+    ReceivingLedger,
+    WithdrawalLedger,
+    ReceivedPOItems,
+    RisLedger,
+    ReportPanel,
+  },
   props: {
-    initialTab: { type: String, default: 'stocks' },
+    initialTab: { type: String, default: "items" },
     dropdowns: { type: Object, default: () => ({}) },
     users: { type: Array, default: () => [] },
     stockOptions: { type: Array, default: () => [] },
@@ -351,17 +834,22 @@ export default {
     items: { type: [Array, Object], default: () => [] },
     receivings: { type: [Array, Object], default: () => [] },
     withdrawals: { type: [Array, Object], default: () => [] },
+    fund_clusters: { type: Array, default: () => [] },
+    risDefaults: { type: Object, default: () => ({}) },
   },
   data() {
     return {
       loading: false,
       saving: false,
-      activeModule: 'stocks',
+      activeModule: "items",
       modules: [
-        { key: 'stocks', label: 'Stocks', icon: 'ri-shopping-cart-2-line' },
-        { key: 'items', label: 'Items', icon: 'ri-barcode-box-line' },
-        { key: 'receivings', label: 'Receivings', icon: 'ri-inbox-archive-line' },
-        { key: 'withdrawals', label: 'Withdrawals', icon: 'ri-shopping-cart-line' },
+        { key: "items", label: "Inventory", icon: "ri-store-3-line" },
+        { key: "stocks", label: "Stocks", icon: "ri-stack-line" },
+        { key: "categories", label: "Categories", icon: "ri-price-tag-3-line" },
+        { key: "receivings", label: "Receivings", icon: "ri-inbox-archive-line" },
+        { key: "withdrawals", label: "Withdrawals", icon: "ri-shopping-cart-line" },
+        { key: "ris", label: "RIS", icon: "ri-file-list-3-line" },
+        { key: "report", label: "Report", icon: "ri-bar-chart-2-line" },
       ],
       stockRows: [],
       stockMeta: null,
@@ -369,17 +857,21 @@ export default {
       itemRows: [],
       itemMeta: null,
       itemLinks: null,
+      itemViewMode: "grid",
       receivingRows: [],
       receivingMeta: null,
       receivingLinks: null,
       withdrawalRows: [],
       withdrawalMeta: null,
       withdrawalLinks: null,
-      stockKeyword: '',
+      stockKeyword: "",
       stockSearchTimer: null,
+      risKeyword: "",
+      risSearchTimer: null,
       stockOptionRows: [],
       itemOptionRows: [],
-      itemSort: 'latest',
+      itemSort: "latest",
+      itemCategoryFilter: "",
       itemSearchTimer: null,
       manualItemOrder: [],
       lockItemStock: false,
@@ -389,16 +881,53 @@ export default {
       showReceivingPoItemsModal: false,
       showWithdrawalModal: false,
       showViewModal: false,
-      viewRecordType: '',
+      viewRecordType: "",
       viewRecord: null,
       selectedReceivingPo: null,
       viewStockItems: [],
       viewStockItemsLoading: false,
-      itemKeyword: '',
-      stockForm: { id: null, code: '', name: '', entry_date: '' },
-      itemForm: { id: null, code: '', name: '', stock_id: '', category_id: '', quantity: '', unit_cost: '', expiration: '' },
-      receivingForm: { id: null, item_id: '', approved_by_id: '', status_id: '', received_at: '', remarks: '' },
-      withdrawalForm: { id: null, inventory_id: '', requested_by_id: '', approved_by_id: '', status_id: '', released_at: '', remarks: '' },
+      itemKeyword: "",
+      stockForm: {
+        id: null,
+        item_id: "",
+        quantity: "",
+        unit_id: "",
+        unit_cost: "",
+        description: "",
+      },
+      itemForm: { id: null, code: "", name: "", category_id: "" },
+      receivingForm: {
+        id: null,
+        item_id: "",
+        approved_by_id: "",
+        status_id: "",
+        received_at: "",
+        remarks: "",
+      },
+      withdrawalForm: {
+        id: null,
+        inventory_id: "",
+        requested_by_id: "",
+        approved_by_id: "",
+        status_id: "",
+        released_at: "",
+        remarks: "",
+      },
+      categoryRows: [],
+      categorySearch: "",
+      categoryPage: 1,
+      categoryPerPage: 10,
+      categoryForm: { id: null, name: "", is_active: true },
+      categoryErrors: {},
+      showCategoryModal: false,
+      showDeleteItemModal: false,
+      deletingItem: null,
+      deletingItemLoading: false,
+      categoriesLoading: false,
+      risRows: [],
+      risMeta: null,
+      risLinks: null,
+      risLoading: false,
       stockErrors: {},
       itemErrors: {},
       receivingErrors: {},
@@ -407,7 +936,32 @@ export default {
   },
   computed: {
     categories() {
-      return this.dropdowns?.categories?.data || this.dropdowns?.categories || [];
+      return this.categoryRows;
+    },
+    filteredCategoryRows() {
+      const kw = (this.categorySearch || "").toLowerCase().trim();
+      if (!kw) return this.categoryRows;
+      return this.categoryRows.filter((c) =>
+        (c.name || "").toLowerCase().includes(kw)
+      );
+    },
+    categoryTotalPages() {
+      return Math.max(1, Math.ceil(this.filteredCategoryRows.length / this.categoryPerPage));
+    },
+    pagedCategoryRows() {
+      const start = (this.categoryPage - 1) * this.categoryPerPage;
+      return this.filteredCategoryRows.slice(start, start + this.categoryPerPage);
+    },
+    categoryVisiblePages() {
+      const current = this.categoryPage;
+      const last    = this.categoryTotalPages;
+      if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
+      const pages = [1];
+      if (current > 3) pages.push("...");
+      for (let p = Math.max(2, current - 1); p <= Math.min(last - 1, current + 1); p++) pages.push(p);
+      if (current < last - 2) pages.push("...");
+      pages.push(last);
+      return pages;
     },
     userOptions() {
       return this.users || [];
@@ -416,12 +970,15 @@ export default {
       return this.dropdowns?.statuses?.data || this.dropdowns?.statuses || [];
     },
     currentCreateLabel() {
-      return {
-        stocks: 'Add Stock',
-        items: 'Add Item',
-        receivings: 'Log Receiving',
-        withdrawals: 'Log Withdrawal',
-      }[this.activeModule] || 'Create';
+      return (
+        {
+          items: "Add Item",
+          stocks: "Add Stock",
+          receivings: "Log Receiving",
+          withdrawals: "Log Withdrawal",
+          ris: "Create RIS",
+        }[this.activeModule] || "Create"
+      );
     },
     totalTrackedQuantity() {
       return this.itemRows.reduce((total, item) => total + Number(item.quantity || 0), 0);
@@ -435,42 +992,42 @@ export default {
     inventoryHeroCards() {
       return [
         {
-          label: 'Stock Groups',
-          value: this.formatNumber(this.stockMeta?.total ?? this.stockRows.length),
-          icon: 'ri-stack-line',
-        },
-        {
-          label: 'Tracked Items',
+          label: "Total Items",
           value: this.formatNumber(this.itemMeta?.total ?? this.itemRows.length),
-          icon: 'ri-barcode-box-line',
+          icon: "ri-barcode-box-line",
+          accent: "#60a5fa",
         },
         {
-          label: 'Units On Hand',
-          value: this.formatNumber(this.totalTrackedQuantity),
-          icon: 'ri-database-2-line',
+          label: "Categories",
+          value: this.formatNumber(this.categoryRows.length),
+          icon: "ri-price-tag-3-line",
+          accent: "#a78bfa",
         },
         {
-          label: 'Low Balance',
-          value: this.formatNumber(this.lowBalanceItems),
-          icon: 'ri-alarm-warning-line',
+          label: "Receivings",
+          value: this.formatNumber(
+            this.receivingMeta?.total ?? this.receivingRows.length
+          ),
+          icon: "ri-inbox-archive-line",
+          accent: "#34d399",
+        },
+        {
+          label: "Withdrawals",
+          value: this.formatNumber(
+            this.withdrawalMeta?.total ?? this.withdrawalRows.length
+          ),
+          icon: "ri-shopping-cart-line",
+          accent: "#fb923c",
         },
       ];
     },
     filteredItemRows() {
-      const keyword = (this.itemKeyword || '').toLowerCase();
+      const keyword = (this.itemKeyword || "").toLowerCase();
 
       return this.itemRows.filter((item) => {
-        const searchable = [
-          item.code,
-          item.name,
-          item.stock_name,
-          item.category,
-          item.quantity,
-          item.unit_cost,
-          item.expiration,
-        ]
+        const searchable = [item.code, item.name, item.category]
           .filter(Boolean)
-          .join(' ')
+          .join(" ")
           .toLowerCase();
 
         return searchable.includes(keyword);
@@ -478,7 +1035,7 @@ export default {
     },
     sortedItemRows() {
       const rows = [...this.filteredItemRows];
-      const normalizeText = (value) => String(value || '').toLowerCase();
+      const normalizeText = (value) => String(value || "").toLowerCase();
       const normalizeNumber = (value) => Number(value || 0);
       const normalizeDate = (value) => {
         if (!value) return 0;
@@ -487,12 +1044,18 @@ export default {
         return Number.isNaN(timestamp) ? 0 : timestamp;
       };
 
-      if (this.itemSort === 'custom') {
-        const orderMap = new Map(this.manualItemOrder.map((id, index) => [Number(id), index]));
+      if (this.itemSort === "custom") {
+        const orderMap = new Map(
+          this.manualItemOrder.map((id, index) => [Number(id), index])
+        );
 
         return rows.sort((left, right) => {
-          const leftOrder = orderMap.has(Number(left.id)) ? orderMap.get(Number(left.id)) : Number.MAX_SAFE_INTEGER;
-          const rightOrder = orderMap.has(Number(right.id)) ? orderMap.get(Number(right.id)) : Number.MAX_SAFE_INTEGER;
+          const leftOrder = orderMap.has(Number(left.id))
+            ? orderMap.get(Number(left.id))
+            : Number.MAX_SAFE_INTEGER;
+          const rightOrder = orderMap.has(Number(right.id))
+            ? orderMap.get(Number(right.id))
+            : Number.MAX_SAFE_INTEGER;
 
           if (leftOrder !== rightOrder) {
             return leftOrder - rightOrder;
@@ -504,44 +1067,73 @@ export default {
 
       const sorters = {
         oldest: (left, right) => Number(left.id || 0) - Number(right.id || 0),
-        name_asc: (left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name)),
-        name_desc: (left, right) => normalizeText(right.name).localeCompare(normalizeText(left.name)),
-        quantity_desc: (left, right) => normalizeNumber(right.quantity) - normalizeNumber(left.quantity),
-        quantity_asc: (left, right) => normalizeNumber(left.quantity) - normalizeNumber(right.quantity),
-        expiration_asc: (left, right) => normalizeDate(left.expiration) - normalizeDate(right.expiration),
-        expiration_desc: (left, right) => normalizeDate(right.expiration) - normalizeDate(left.expiration),
+        name_asc: (left, right) =>
+          normalizeText(left.name).localeCompare(normalizeText(right.name)),
+        name_desc: (left, right) =>
+          normalizeText(right.name).localeCompare(normalizeText(left.name)),
+        quantity_desc: (left, right) =>
+          normalizeNumber(right.quantity) - normalizeNumber(left.quantity),
+        quantity_asc: (left, right) =>
+          normalizeNumber(left.quantity) - normalizeNumber(right.quantity),
+        expiration_asc: (left, right) =>
+          normalizeDate(left.expiration) - normalizeDate(right.expiration),
+        expiration_desc: (left, right) =>
+          normalizeDate(right.expiration) - normalizeDate(left.expiration),
       };
 
-      return rows.sort(sorters[this.itemSort] || ((left, right) => Number(right.id || 0) - Number(left.id || 0)));
+      return rows.sort(
+        sorters[this.itemSort] ||
+          ((left, right) => Number(right.id || 0) - Number(left.id || 0))
+      );
     },
     currentRoles() {
       return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
     },
     canManageStockItems() {
-      const allowedRoles = ['administrator', 'supply', 'supply officer', 'supply staff'];
-      return this.currentRoles.some((role) => allowedRoles.includes(String(role || '').toLowerCase()));
+      const allowedRoles = ["administrator", "supply", "supply officer", "supply staff"];
+      return this.currentRoles.some((role) =>
+        allowedRoles.includes(String(role || "").toLowerCase())
+      );
     },
     canAddStockItemToViewedStock() {
-      return this.viewRecordType === 'stock' && this.canManageStockItems;
+      return this.viewRecordType === "stock" && this.canManageStockItems;
     },
   },
   created() {
-    this.activeModule = ['stocks', 'items', 'receivings', 'withdrawals'].includes(this.initialTab)
-      ? this.initialTab
-      : 'stocks';
+    this.activeModule = [
+      "items",
+      "stocks",
+      "categories",
+      "receivings",
+      "withdrawals",
+      "ris",
+      "report",
+    ].includes(this.initialTab) ? this.initialTab : "items";
 
-    this.assignPaginated('stockRows', 'stockMeta', 'stockLinks', this.stocks);
-    this.assignPaginated('itemRows', 'itemMeta', 'itemLinks', this.items);
-    this.assignPaginated('receivingRows', 'receivingMeta', 'receivingLinks', this.receivings);
-    this.assignPaginated('withdrawalRows', 'withdrawalMeta', 'withdrawalLinks', this.withdrawals);
+    this.assignPaginated("itemRows", "itemMeta", "itemLinks", this.items);
+    this.assignPaginated(
+      "receivingRows",
+      "receivingMeta",
+      "receivingLinks",
+      this.receivings
+    );
+    this.assignPaginated(
+      "withdrawalRows",
+      "withdrawalMeta",
+      "withdrawalLinks",
+      this.withdrawals
+    );
     this.stockOptionRows = [...this.stockOptions];
     this.itemOptionRows = [...this.itemOptions];
     this.hydrateManualItemOrder();
+    // Seed categories from server-side Inertia prop (list_dropdowns with 'Item Category')
+    const serverCategories = this.dropdowns?.categories || [];
+    this.categoryRows = Array.isArray(serverCategories)
+      ? serverCategories
+      : serverCategories?.data || [];
   },
   mounted() {
-    if (this.activeModule === 'stocks' && this.stockRows.length === 0) {
-      this.fetchStocks();
-    }
+    if (this.itemRows.length === 0) this.fetchItems();
   },
   watch: {
     itemKeyword() {
@@ -554,17 +1146,31 @@ export default {
       }, 300);
     },
     itemSort(value) {
-      if (value === 'custom') {
+      if (value === "custom") {
         this.hydrateManualItemOrder();
         return;
       }
 
       this.fetchItems();
     },
+    itemCategoryFilter() {
+      this.fetchItems();
+    },
+    showStockModal(value) {
+      if (!value) this.stockErrors = {};
+    },
     showItemModal(value) {
       if (!value) {
         this.lockItemStock = false;
       }
+    },
+    activeModule(value) {
+      if (value === "ris" && this.risRows.length === 0) this.fetchRis();
+      if (value === "stocks" && this.stockRows.length === 0) this.fetchStocks();
+      if (value === "categories") this.fetchCategories();
+    },
+    categorySearch() {
+      this.categoryPage = 1;
     },
   },
   beforeUnmount() {
@@ -582,7 +1188,7 @@ export default {
       this[metaKey] = payload?.meta || payload?.data?.meta || null;
       this[linksKey] = payload?.links || payload?.data?.links || null;
 
-      if (rowsKey === 'itemRows') {
+      if (rowsKey === "itemRows") {
         this.hydrateManualItemOrder();
       }
     },
@@ -608,7 +1214,7 @@ export default {
         ...extra,
       };
     },
-    async fetchStocks(pageUrl = '/inventory-stocks') {
+    async fetchStocks(pageUrl = "/inventory-stocks") {
       this.loading = true;
       try {
         const response = await axios.get(pageUrl, {
@@ -616,67 +1222,101 @@ export default {
             keyword: this.stockKeyword || undefined,
           }),
         });
-        this.assignPaginated('stockRows', 'stockMeta', 'stockLinks', response.data);
+        this.assignPaginated("stockRows", "stockMeta", "stockLinks", response.data);
       } finally {
         this.loading = false;
       }
     },
-    async fetchItems(pageUrl = '/inventory-items') {
+    async fetchItems(pageUrl = "/inventory-items") {
       this.loading = true;
       try {
         const response = await axios.get(pageUrl, {
           params: this.collectionParams({
             keyword: this.itemKeyword || undefined,
-            sort: this.itemSort === 'custom' ? 'latest' : this.itemSort,
+            sort: this.itemSort === "custom" ? "latest" : this.itemSort,
+            category_id: this.itemCategoryFilter || undefined,
           }),
         });
-        this.assignPaginated('itemRows', 'itemMeta', 'itemLinks', response.data);
+        this.assignPaginated("itemRows", "itemMeta", "itemLinks", response.data);
       } finally {
         this.loading = false;
       }
     },
-    async fetchReceivings(pageUrl = '/inventory-receivings') {
+    async fetchReceivings(pageUrl = "/inventory-receivings") {
       this.loading = true;
       try {
-        const response = await axios.get(pageUrl === '/inventory-receivings' ? '/faims/receiving-deliveries' : pageUrl, {
-          params: this.collectionParams({
-            option: 'lists',
-          }),
-        });
-        this.assignPaginated('receivingRows', 'receivingMeta', 'receivingLinks', response.data);
+        const response = await axios.get(
+          pageUrl === "/inventory-receivings" ? "/faims/receiving-deliveries" : pageUrl,
+          {
+            params: this.collectionParams({
+              option: "lists",
+            }),
+          }
+        );
+        this.assignPaginated(
+          "receivingRows",
+          "receivingMeta",
+          "receivingLinks",
+          response.data
+        );
       } finally {
         this.loading = false;
       }
     },
-    async fetchWithdrawals(pageUrl = '/inventory-withdrawals') {
+    async fetchWithdrawals(pageUrl = "/inventory-withdrawals") {
       this.loading = true;
       try {
         const response = await axios.get(pageUrl, { params: this.collectionParams() });
-        this.assignPaginated('withdrawalRows', 'withdrawalMeta', 'withdrawalLinks', response.data);
+        this.assignPaginated(
+          "withdrawalRows",
+          "withdrawalMeta",
+          "withdrawalLinks",
+          response.data
+        );
       } finally {
         this.loading = false;
       }
     },
+    async fetchRis(pageUrl = "/inventory-ris") {
+      this.risLoading = true;
+      try {
+        const response = await axios.get(pageUrl, {
+          params: this.collectionParams({ keyword: this.risKeyword || undefined }),
+        });
+        this.assignPaginated("risRows", "risMeta", "risLinks", response.data);
+      } finally {
+        this.risLoading = false;
+      }
+    },
+    handleRisKeywordChange(value) {
+      this.risKeyword = value;
+      clearTimeout(this.risSearchTimer);
+      this.risSearchTimer = setTimeout(() => this.fetchRis(), 300);
+    },
+    openRisCreate() {
+      this.$refs.risLedger?.openCreate();
+    },
     openActiveCreate() {
-      if (this.activeModule === 'items') {
-        this.openItemCreate();
+      if (this.activeModule === "stocks") {
+        this.openStockCreate();
         return;
       }
-
-      if (this.activeModule === 'receivings') {
+      if (this.activeModule === "receivings") {
         this.openReceivingCreate();
         return;
       }
-
-      if (this.activeModule === 'withdrawals') {
+      if (this.activeModule === "withdrawals") {
         this.openWithdrawalCreate();
         return;
       }
-
-      this.openStockCreate();
+      if (this.activeModule === "ris") {
+        this.openRisCreate();
+        return;
+      }
+      this.openItemCreate();
     },
     refreshStocks() {
-      this.stockKeyword = '';
+      this.stockKeyword = "";
       this.fetchStocks();
     },
     handleStockKeywordChange(value) {
@@ -695,8 +1335,8 @@ export default {
         clearTimeout(this.itemSearchTimer);
       }
 
-      this.itemKeyword = '';
-      this.itemSort = 'latest';
+      this.itemKeyword = "";
+      this.itemSort = "latest";
       this.fetchItems();
     },
     openViewModal(type, row) {
@@ -705,15 +1345,17 @@ export default {
       this.viewStockItems = [];
       this.showViewModal = true;
 
-      if (type === 'stock') {
+      if (type === "stock") {
         this.fetchStockItems(row.id);
+      } else if (type === "item") {
+        this.fetchItemStocks(row.id);
       }
     },
     handleViewModalVisibility(value) {
       this.showViewModal = value;
 
       if (!value) {
-        this.viewRecordType = '';
+        this.viewRecordType = "";
         this.viewRecord = null;
         this.viewStockItems = [];
         this.viewStockItemsLoading = false;
@@ -735,111 +1377,218 @@ export default {
       this.viewStockItemsLoading = true;
 
       try {
-        const response = await axios.get('/inventory-items', {
+        const response = await axios.get("/inventory-items", {
           params: this.collectionParams({
             stock_id: currentStockId,
             count: 100,
-            sort: 'name_asc',
+            sort: "name_asc",
           }),
         });
 
-        if (this.viewRecordType === 'stock' && Number(this.viewRecord?.id) === currentStockId) {
+        if (
+          this.viewRecordType === "stock" &&
+          Number(this.viewRecord?.id) === currentStockId
+        ) {
           this.viewStockItems = response.data?.data || [];
         }
       } finally {
-        if (this.viewRecordType === 'stock' && Number(this.viewRecord?.id) === currentStockId) {
+        if (
+          this.viewRecordType === "stock" &&
+          Number(this.viewRecord?.id) === currentStockId
+        ) {
           this.viewStockItemsLoading = false;
         }
       }
     },
-    openStockCreate() {
-      this.stockForm = { id: null, name: '', entry_date: this.currentInputDateTime() };
+    async fetchItemStocks(itemId) {
+      const currentItemId = Number(itemId);
+      this.viewStockItemsLoading = true;
+      try {
+        const response = await axios.get("/inventory-stocks", {
+          params: { json: 1, item_id: currentItemId, count: 100 },
+        });
+        if (
+          this.viewRecordType === "item" &&
+          Number(this.viewRecord?.id) === currentItemId
+        ) {
+          this.viewStockItems = response.data?.data || [];
+        }
+      } finally {
+        if (
+          this.viewRecordType === "item" &&
+          Number(this.viewRecord?.id) === currentItemId
+        ) {
+          this.viewStockItemsLoading = false;
+        }
+      }
+    },
+    openStockCreate(item = null) {
+      this.stockForm = {
+        id: null,
+        item_id: item?.id ? String(item.id) : "",
+        _lock_item: !!item?.id,
+        quantity: "",
+        unit_id: "",
+        unit_cost: "",
+        description: "",
+      };
       this.stockErrors = {};
       this.showStockModal = true;
     },
     openStockEdit(row) {
-      this.stockForm = { id: row.id, code: row.code || '', name: row.name || '', entry_date: this.toInputDateTime(row.entry_date) };
+      this.stockForm = {
+        id: row.id,
+        item_id: String(row.item_id || ""),
+        _lock_item: true,
+        quantity: row.quantity || "",
+        unit_id: String(row.unit_id || ""),
+        unit_cost: row.unit_cost || "",
+        description: row.description || "",
+      };
       this.stockErrors = {};
       this.showStockModal = true;
     },
+    generateItemCode() {
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const rand = String(Math.floor(Math.random() * 900) + 100);
+      return `ITM-${yy}${mm}${dd}-${rand}`;
+    },
     openItemCreate() {
-      this.itemForm = { id: null, code: '', name: '', stock_id: '', category_id: '', quantity: '', unit_cost: '', expiration: '' };
-      this.lockItemStock = false;
+      this.itemForm = {
+        id: null,
+        code: this.generateItemCode(),
+        name: "",
+        category_id: "",
+      };
       this.itemErrors = {};
       this.showItemModal = true;
     },
-    openStockItemCreate(stock) {
+    openStockItemCreate() {
       this.handleViewModalVisibility(false);
-      this.itemForm = {
-        id: null,
-        code: '',
-        name: '',
-        stock_id: String(stock?.id || ''),
-        category_id: '',
-        quantity: '',
-        unit_cost: '',
-        expiration: '',
-      };
-      this.lockItemStock = true;
+      this.itemForm = { id: null, code: "", name: "", category_id: "" };
       this.itemErrors = {};
       this.showItemModal = true;
     },
     openItemEdit(row) {
-      this.itemForm = { id: row.id, code: row.code || '', name: row.name || '', stock_id: String(row.stock_id || ''), category_id: String(row.category_id || ''), quantity: row.quantity || '', unit_cost: row.unit_cost || '', expiration: row.expiration || '' };
-      this.lockItemStock = false;
+      this.itemForm = {
+        id: row.id,
+        code: row.code || "",
+        name: row.name || "",
+        category_id: String(row.category_id || ""),
+      };
       this.itemErrors = {};
       this.showItemModal = true;
     },
     openReceivingCreate() {
-      this.receivingForm = { id: null, item_id: '', approved_by_id: '', status_id: '', received_at: '', remarks: '' };
+      this.receivingForm = {
+        id: null,
+        item_id: "",
+        approved_by_id: "",
+        status_id: "",
+        received_at: "",
+        remarks: "",
+      };
       this.receivingErrors = {};
       this.showReceivingModal = true;
     },
     openReceivingEdit(row) {
-      this.receivingForm = { id: row.id, item_id: String(row.item_id || ''), approved_by_id: String(row.approved_by_id || ''), status_id: String(row.status_id || ''), received_at: this.toInputDateTime(row.received_at), remarks: row.remarks || '' };
+      this.receivingForm = {
+        id: row.id,
+        item_id: String(row.item_id || ""),
+        approved_by_id: String(row.approved_by_id || ""),
+        status_id: String(row.status_id || ""),
+        received_at: this.toInputDateTime(row.received_at),
+        remarks: row.remarks || "",
+      };
       this.receivingErrors = {};
       this.showReceivingModal = true;
     },
     openWithdrawalCreate() {
-      this.withdrawalForm = { id: null, inventory_id: '', requested_by_id: '', approved_by_id: '', status_id: '', released_at: '', remarks: '' };
+      this.withdrawalForm = {
+        id: null,
+        inventory_id: "",
+        requested_by_id: "",
+        approved_by_id: "",
+        status_id: "",
+        released_at: "",
+        remarks: "",
+      };
       this.withdrawalErrors = {};
       this.showWithdrawalModal = true;
     },
     openWithdrawalEdit(row) {
-      this.withdrawalForm = { id: row.id, inventory_id: String(row.inventory_id || row.item_id || ''), requested_by_id: String(row.requested_by_id || ''), approved_by_id: String(row.approved_by_id || ''), status_id: String(row.status_id || ''), released_at: this.toInputDateTime(row.released_at), remarks: row.remarks || '' };
+      this.withdrawalForm = {
+        id: row.id,
+        inventory_id: String(row.inventory_id || row.item_id || ""),
+        requested_by_id: String(row.requested_by_id || ""),
+        approved_by_id: String(row.approved_by_id || ""),
+        status_id: String(row.status_id || ""),
+        released_at: this.toInputDateTime(row.released_at),
+        remarks: row.remarks || "",
+      };
       this.withdrawalErrors = {};
       this.showWithdrawalModal = true;
     },
     async saveStock() {
-      const form = {
-        ...this.stockForm,
-        entry_date: this.stockForm.entry_date || this.currentInputDateTime(),
-      };
-      const response = await this.submitEntity('/inventory-stocks', form, 'showStockModal', 'stockErrors', this.fetchStocks);
-      this.syncOptionRow('stockOptionRows', response?.data?.data);
+      const { _lock_item, ...payload } = this.stockForm;
+      const response = await this.submitEntity(
+        "/inventory-stocks",
+        payload,
+        "showStockModal",
+        "stockErrors",
+        this.fetchStocks
+      );
+      if (response) {
+        this.syncOptionRow("stockOptionRows", response?.data?.data);
+        await this.fetchItems();
+      }
     },
     async saveItem() {
-      const response = await this.submitEntity('/inventory-items', this.itemForm, 'showItemModal', 'itemErrors', this.fetchItems);
+      const response = await this.submitEntity(
+        "/inventory-items",
+        this.itemForm,
+        "showItemModal",
+        "itemErrors",
+        this.fetchItems
+      );
       if (!response) return;
 
-      this.syncOptionRow('itemOptionRows', response?.data?.data);
+      this.syncOptionRow("itemOptionRows", response?.data?.data);
       this.lockItemStock = false;
       await this.fetchStocks();
     },
     async saveReceiving() {
-      await this.submitEntity('/inventory-receivings', this.receivingForm, 'showReceivingModal', 'receivingErrors', this.fetchReceivings);
+      await this.submitEntity(
+        "/inventory-receivings",
+        this.receivingForm,
+        "showReceivingModal",
+        "receivingErrors",
+        this.fetchReceivings
+      );
     },
     async saveWithdrawal() {
-      await this.submitEntity('/inventory-withdrawals', this.withdrawalForm, 'showWithdrawalModal', 'withdrawalErrors', this.fetchWithdrawals);
+      await this.submitEntity(
+        "/inventory-withdrawals",
+        this.withdrawalForm,
+        "showWithdrawalModal",
+        "withdrawalErrors",
+        this.fetchWithdrawals
+      );
     },
     async submitEntity(baseUrl, form, modalKey, errorKey, refreshFn) {
       this.saving = true;
       this[errorKey] = {};
       const payload = { ...form };
 
-      if (payload.entry_date) payload.entry_date = payload.entry_date.replace('T', ' ') + ':00';
-      if (payload.received_at) payload.received_at = payload.received_at.replace('T', ' ') + ':00';
-      if (payload.released_at) payload.released_at = payload.released_at.replace('T', ' ') + ':00';
+      if (payload.entry_date)
+        payload.entry_date = payload.entry_date.replace("T", " ") + ":00";
+      if (payload.received_at)
+        payload.received_at = payload.received_at.replace("T", " ") + ":00";
+      if (payload.released_at)
+        payload.released_at = payload.released_at.replace("T", " ") + ":00";
 
       try {
         let response;
@@ -857,6 +1606,13 @@ export default {
       } catch (error) {
         if (error?.response?.status === 422) {
           this[errorKey] = error.response.data.errors || {};
+        } else {
+          const msg =
+            error?.response?.data?.info ||
+            error?.response?.data?.message ||
+            error?.message ||
+            "An unexpected error occurred.";
+          alert("Error: " + msg);
         }
 
         return null;
@@ -871,10 +1627,10 @@ export default {
         ...this[listKey].filter((item) => Number(item.id) !== Number(record.id)),
         {
           id: record.id,
-          code: record.code || '',
-          name: record.name || record.item_name || '',
+          code: record.code || "",
+          name: record.name || record.item_name || "",
         },
-      ].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+      ].sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
       this[listKey] = next;
     },
@@ -887,12 +1643,14 @@ export default {
       this.persistManualItemOrder();
     },
     readStoredItemOrder() {
-      if (typeof window === 'undefined' || !window.localStorage) {
+      if (typeof window === "undefined" || !window.localStorage) {
         return [];
       }
 
       try {
-        const stored = JSON.parse(window.localStorage.getItem('inventory:item-order') || '[]');
+        const stored = JSON.parse(
+          window.localStorage.getItem("inventory:item-order") || "[]"
+        );
 
         return Array.isArray(stored)
           ? stored.map((id) => Number(id)).filter(Boolean)
@@ -902,15 +1660,20 @@ export default {
       }
     },
     persistManualItemOrder() {
-      if (typeof window === 'undefined' || !window.localStorage) {
+      if (typeof window === "undefined" || !window.localStorage) {
         return;
       }
 
-      window.localStorage.setItem('inventory:item-order', JSON.stringify(this.manualItemOrder));
+      window.localStorage.setItem(
+        "inventory:item-order",
+        JSON.stringify(this.manualItemOrder)
+      );
     },
     moveItemRow(item, direction) {
       const visibleRows = [...this.sortedItemRows];
-      const currentIndex = visibleRows.findIndex((row) => Number(row.id) === Number(item.id));
+      const currentIndex = visibleRows.findIndex(
+        (row) => Number(row.id) === Number(item.id)
+      );
       const targetIndex = currentIndex + direction;
 
       if (currentIndex < 0 || targetIndex < 0 || targetIndex >= visibleRows.length) {
@@ -922,11 +1685,15 @@ export default {
 
       const visibleIds = visibleRows.map((row) => Number(row.id));
       const currentIds = this.itemRows.map((row) => Number(row.id));
-      const remainingStoredIds = this.manualItemOrder.filter((id) => !visibleIds.includes(id));
-      const missingIds = currentIds.filter((id) => !visibleIds.includes(id) && !remainingStoredIds.includes(id));
+      const remainingStoredIds = this.manualItemOrder.filter(
+        (id) => !visibleIds.includes(id)
+      );
+      const missingIds = currentIds.filter(
+        (id) => !visibleIds.includes(id) && !remainingStoredIds.includes(id)
+      );
 
       this.manualItemOrder = [...visibleIds, ...remainingStoredIds, ...missingIds];
-      this.itemSort = 'custom';
+      this.itemSort = "custom";
       this.persistManualItemOrder();
     },
     displayItemNumber(index) {
@@ -938,14 +1705,25 @@ export default {
     async removeStock(row) {
       if (!confirm(`Delete stock "${row.name}"?`)) return;
       await axios.delete(`/inventory-stocks/${row.id}`);
-      this.removeOptionRow('stockOptionRows', row.id);
+      this.removeOptionRow("stockOptionRows", row.id);
       this.fetchStocks();
     },
-    async removeItem(row) {
-      if (!confirm(`Delete item "${row.name}"?`)) return;
-      await axios.delete(`/inventory-items/${row.id}`);
-      this.removeOptionRow('itemOptionRows', row.id);
-      this.fetchItems();
+    confirmDeleteItem(item) {
+      this.deletingItem = item;
+      this.showDeleteItemModal = true;
+    },
+    async executeDeleteItem() {
+      if (!this.deletingItem) return;
+      this.deletingItemLoading = true;
+      try {
+        await axios.delete(`/inventory-items/${this.deletingItem.id}`);
+        this.removeOptionRow("itemOptionRows", this.deletingItem.id);
+        this.showDeleteItemModal = false;
+        this.deletingItem = null;
+        this.fetchItems();
+      } finally {
+        this.deletingItemLoading = false;
+      }
     },
     async removeReceiving(row) {
       if (!confirm(`Delete receiving for "${row.item_name}"?`)) return;
@@ -957,12 +1735,78 @@ export default {
       await axios.delete(`/inventory-withdrawals/${row.id}`);
       this.fetchWithdrawals();
     },
+    async fetchCategories() {
+      this.categoriesLoading = true;
+      try {
+        const response = await axios.get("/inventory-categories", {
+          params: { json: 1, count: 200 },
+        });
+        this.categoryRows = Array.isArray(response.data?.data)
+          ? response.data.data
+          : Array.isArray(response.data)
+          ? response.data
+          : [];
+      } finally {
+        this.categoriesLoading = false;
+      }
+    },
+    openCategoryCreate() {
+      this.categoryForm = { id: null, name: "", is_active: true };
+      this.categoryErrors = {};
+      this.showCategoryModal = true;
+    },
+    openCategoryEdit(row) {
+      this.categoryForm = {
+        id: row.id,
+        name: row.name || "",
+        is_active: Boolean(row.is_active),
+      };
+      this.categoryErrors = {};
+      this.showCategoryModal = true;
+    },
+    async saveCategory() {
+      if (!this.categoryForm.name?.trim()) {
+        this.categoryErrors = { name: ["Name is required."] };
+        return;
+      }
+      this.saving = true;
+      this.categoryErrors = {};
+      try {
+        if (this.categoryForm.id) {
+          await axios.put(`/inventory-categories/${this.categoryForm.id}`, {
+            name: this.categoryForm.name,
+            is_active: this.categoryForm.is_active,
+          });
+        } else {
+          await axios.post("/inventory-categories", {
+            name: this.categoryForm.name,
+            is_active: this.categoryForm.is_active,
+          });
+        }
+        this.showCategoryModal = false;
+        await this.fetchCategories();
+      } catch (error) {
+        if (error?.response?.status === 422) {
+          this.categoryErrors = error.response.data.errors || {};
+        } else {
+          this.categoryErrors = { name: ["An error occurred. Please try again."] };
+          console.error("saveCategory error:", error?.response ?? error);
+        }
+      } finally {
+        this.saving = false;
+      }
+    },
+    async removeCategory(row) {
+      if (!confirm(`Delete category "${row.name}"?`)) return;
+      await axios.delete(`/inventory-categories/${row.id}`);
+      this.fetchCategories();
+    },
     formatNumber(value) {
       return new Intl.NumberFormat().format(Number(value || 0));
     },
     toInputDateTime(value) {
-      if (!value) return '';
-      return String(value).replace(' ', 'T').slice(0, 16);
+      if (!value) return "";
+      return String(value).replace(" ", "T").slice(0, 16);
     },
     currentInputDateTime() {
       const now = new Date();
@@ -972,274 +1816,412 @@ export default {
       return local.toISOString().slice(0, 16);
     },
     moduleMeta(moduleKey) {
-      if (moduleKey === 'stocks') {
-        return `${this.formatNumber(this.stockMeta?.total ?? this.stockRows.length)} records`;
-      }
-
-      if (moduleKey === 'items') {
+      if (moduleKey === "items")
         return `${this.formatNumber(this.itemMeta?.total ?? this.itemRows.length)} items`;
-      }
-
-      if (moduleKey === 'receivings') {
-        return `${this.formatNumber(this.receivingMeta?.total ?? this.receivingRows.length)} logs`;
-      }
-
-      return `${this.formatNumber(this.withdrawalMeta?.total ?? this.withdrawalRows.length)} logs`;
+      if (moduleKey === "stocks")
+        return `${this.formatNumber(
+          this.stockMeta?.total ?? this.stockRows.length
+        )} records`;
+      if (moduleKey === "categories")
+        return `${this.formatNumber(this.categoryRows.length)} categories`;
+      if (moduleKey === "receivings")
+        return `${this.formatNumber(
+          this.receivingMeta?.total ?? this.receivingRows.length
+        )} logs`;
+      if (moduleKey === "withdrawals")
+        return `${this.formatNumber(
+          this.withdrawalMeta?.total ?? this.withdrawalRows.length
+        )} logs`;
+      if (moduleKey === "ris")
+        return `${this.formatNumber(this.risMeta?.total ?? this.risRows.length)} slips`;
+      return "";
     },
   },
 };
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════════════
+   INVENTORY PAGE — DESIGN SYSTEM
+   ════════════════════════════════════════════════════ */
 .inventory-page {
-  --inventory-brand: #4b5b93;
-  --inventory-brand-deep: #38467a;
-  --inventory-brand-soft: #edf1fb;
+  --inv-brand: #4b5b93;
+  --inv-brand-deep: #38467a;
+  --inv-brand-soft: #edf1fb;
+  --inv-accent: #0ea5e9;
+  --inv-success: #10b981;
+  --inv-warning: #f59e0b;
+  --inv-surface: #ffffff;
+  --inv-bg: #f3f7ff;
+  --inv-border: #dce4f2;
+  --inv-muted: #64748b;
+  --inv-ink: #0f172a;
+  --inv-shadow: rgba(15, 23, 42, 0.07);
+  min-height: 100vh;
+  padding: 0.55rem 0.55rem 1.5rem;
+  background: var(--inv-bg);
 }
 
-.inventory-hero {
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%),
-    linear-gradient(135deg, var(--inventory-brand) 0%, var(--inventory-brand-deep) 100%);
-  color: #fff;
+/* ── Hero ──────────────────────────────────────────── */
+.inv-hero {
+  position: relative;
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 26px 48px rgba(56, 70, 122, 0.2);
-  margin-bottom: 1rem !important;
+  background: radial-gradient(
+      ellipse at 80% -10%,
+      rgba(96, 165, 250, 0.35) 0%,
+      transparent 45%
+    ),
+    radial-gradient(ellipse at -5% 90%, rgba(167, 139, 250, 0.2) 0%, transparent 40%),
+    linear-gradient(135deg, #1e2d6b 0%, #2d3f8a 40%, #38467a 70%, #4b5b93 100%);
+  box-shadow: 0 24px 60px rgba(30, 45, 107, 0.35);
+  color: #fff;
 }
 
-.inventory-hero > .card-body {
-  padding: 1.15rem 1.35rem !important;
+/* Decorative elements */
+.inv-hero-deco {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.inv-hero-deco-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.inv-hero-deco-ring--1 {
+  width: 420px;
+  height: 420px;
+  top: -140px;
+  right: -60px;
+}
+.inv-hero-deco-ring--2 {
+  width: 280px;
+  height: 280px;
+  top: -60px;
+  right: 80px;
+}
+.inv-hero-deco-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
-.inventory-hero-grid {
+.inv-hero-body {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.45fr);
-  gap: 18px;
+  grid-template-columns: minmax(300px, 1fr) minmax(0, 1.3fr);
+  gap: 2rem;
   align-items: center;
+  padding: 1.75rem 2rem;
 }
 
-.inventory-hero-copy {
-  min-width: 0;
-}
-
-.inventory-hero-kicker {
+/* ── Left: identity ─────────────────────────────────── */
+.inv-hero-kicker {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
+  gap: 0.4rem;
+  padding: 0.28rem 0.75rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 11px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 16px;
+  margin-bottom: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.inventory-hero-title {
-  font-size: clamp(1.9rem, 2.4vw, 2.7rem);
-  line-height: 1.08;
-  font-weight: 800;
-  margin-bottom: 12px;
+.inv-hero-title {
+  font-size: clamp(1.65rem, 2.4vw, 2.4rem);
+  font-weight: 900;
+  line-height: 1.12;
+  margin: 0 0 0.6rem;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.inv-hero-title em {
+  font-style: normal;
+  background: linear-gradient(90deg, #93c5fd, #c4b5fd);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.inventory-hero-text {
-  max-width: 620px;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 14px;
-  line-height: 1.45;
-  margin-bottom: 14px;
+.inv-hero-desc {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0 0 1.25rem;
+  max-width: 420px;
 }
 
-.inventory-hero-actions {
+.inv-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.55rem;
+  margin-bottom: 1.1rem;
 }
 
-.inventory-primary-btn,
-.inventory-secondary-btn {
-  min-width: 150px;
+.inv-hero-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.2rem;
   border-radius: 12px;
-  padding: 9px 15px;
-  font-weight: 700;
-}
-
-.inventory-primary-btn {
+  border: 0;
   background: #fff;
-  border: 1px solid #fff;
-  color: var(--inventory-brand-deep);
+  color: #1e2d6b;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.inv-hero-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+.inv-hero-btn-arrow {
+  font-size: 0.95rem;
+  transition: transform 0.15s;
+}
+.inv-hero-btn-primary:hover .inv-hero-btn-arrow {
+  transform: translateX(3px);
 }
 
-.inventory-primary-btn:hover,
-.inventory-primary-btn:focus {
-  color: var(--inventory-brand-deep);
-  background: #f8f9ff;
-  border-color: #f8f9ff;
-}
-
-.inventory-secondary-btn {
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  color: #fff;
+.inv-hero-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
 }
-
-.inventory-secondary-btn:hover,
-.inventory-secondary-btn:focus {
+.inv-hero-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
   color: #fff;
-  background: rgba(255, 255, 255, 0.14);
 }
 
-.inventory-hero-stats {
+/* ── Quick-links strip ───────────────────────────────── */
+.inv-hero-quicklinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.inv-hero-ql {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.inv-hero-ql:hover,
+.inv-hero-ql.active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+/* ── Stat cards 2×2 ─────────────────────────────────── */
+.inv-hero-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 0.75rem;
 }
 
-.inventory-stat-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 11px;
-  align-items: center;
-  padding: 13px 14px;
-  min-height: 92px;
-  border-radius: 16px;
+.inv-hero-stat {
+  --stat-accent: #60a5fa;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1rem 1.1rem 0.85rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: background 0.2s;
+}
+.inv-hero-stat:hover {
   background: rgba(255, 255, 255, 0.11);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
 }
 
-.inventory-stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.16);
+.inv-hero-stat::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--stat-accent);
+  border-radius: 18px 18px 0 0;
+}
+
+.inv-hero-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.inv-hero-stat-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--stat-accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stat-accent) 30%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 1.05rem;
+  color: var(--stat-accent);
+  flex-shrink: 0;
 }
 
-.inventory-stat-label {
-  display: block;
-  font-size: 11px;
+.inv-hero-stat-val {
+  font-size: 1.7rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.inv-hero-stat-lbl {
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.72);
-  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.55);
 }
 
-.inventory-stat-value {
-  display: block;
-  font-size: 1.1rem;
-  font-weight: 800;
-  margin-bottom: 2px;
-}
-
-.inventory-stat-note {
-  color: rgba(255, 255, 255, 0.74);
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.inv-shell {
-  border: 1px solid #dce4f2;
+.inv-hero-stat-bar {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  margin-top: 0.1rem;
+  position: relative;
   overflow: hidden;
-  border-radius: 28px;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.06);
+}
+.inv-hero-stat-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 60%;
+  background: var(--stat-accent);
+  border-radius: 999px;
+  opacity: 0.7;
 }
 
-.inventory-module-shell {
-  padding: 0.65rem;
+/* ── Shell + Tab Nav ────────────────────────────────── */
+.inv-shell {
+  border: 1px solid var(--inv-border);
+  border-radius: 22px;
+  background: var(--inv-surface);
+  overflow: hidden;
+  box-shadow: 0 8px 32px var(--inv-shadow);
 }
 
-.module-layout {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-}
-
-.module-sidebar {
-  border: 1px solid #dce4f2;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #f8fbff, #eef2fb);
-  padding: 12px;
-  position: sticky;
-  top: 10px;
-}
-
-.module-sidebar-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #64748b;
-  margin-bottom: 10px;
-}
-
-.module-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.module-content {
-  min-width: 0;
-}
-
-.module-tile {
-  border: 1px solid #d7dfef;
-  border-radius: 14px;
-  background: #fff;
-  color: #334155;
-  min-height: 52px;
+.inv-tab-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  font-size: 14px;
+  gap: 0.3rem;
+  padding: 0.65rem 0.85rem;
+  background: linear-gradient(180deg, #f8fbff, #f0f5ff);
+  border-bottom: 1px solid var(--inv-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.inv-tab-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.inv-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--inv-muted);
+  font-size: 0.82rem;
   font-weight: 700;
-  text-align: left;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.module-tile:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+.inv-tab:hover:not(.active) {
+  background: var(--inv-brand-soft);
+  color: var(--inv-brand);
 }
 
-.module-tile.active {
-  border-color: var(--inventory-brand);
-  background: linear-gradient(180deg, #edf1fb, #dfe7fb);
-  box-shadow: 0 16px 30px rgba(75, 91, 147, 0.14);
+.inv-tab.active {
+  background: linear-gradient(135deg, var(--inv-brand), var(--inv-brand-deep));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(75, 91, 147, 0.25);
 }
 
-.module-tile-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.module-tile-copy small {
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.inv-table-wrap {
-  max-height: calc(100vh - 278px);
-  overflow: auto;
-  border: 1px solid #dbe5f1;
-  border-radius: 16px;
-  background: #fff;
-}
-
-.inv-table thead th {
-  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
-  color: #24415f;
+.inv-tab em {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 0.35rem;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.08);
+  font-style: normal;
+  font-size: 0.68rem;
   font-weight: 800;
+}
+
+.inv-tab.active em {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.inv-tab-content {
+  padding: 0.85rem;
+}
+
+/* ── Items section (inline in Index) ───────────────── */
+.ledger-card {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ledger-card .card-header {
+  background: linear-gradient(180deg, #f8fbff, #f0f5ff);
+  border-bottom: 1px solid var(--inv-border);
+  padding: 0.8rem 1rem;
+}
+
+.inventory-items-body {
+  padding: 0.75rem;
 }
 
 .ledger-toolbar-wrap {
@@ -1254,64 +2236,213 @@ export default {
   flex: 1 1 auto;
   min-width: 0;
 }
-
 .ledger-search-group {
   height: 100%;
 }
 
 .ledger-refresh-btn {
-  flex: 0 0 52px;
-  min-width: 52px;
-  border: 1px solid #d7dfef;
+  flex: 0 0 44px;
+  min-width: 44px;
+  border: 1px solid var(--inv-border);
   border-left: 0;
   border-radius: 0;
   background: #f8fbff;
-  color: #334155;
+  color: var(--inv-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+}
+.ledger-refresh-btn:hover {
+  background: var(--inv-brand-soft);
+  color: var(--inv-brand);
 }
 
 .withdrawal-create-btn {
-  flex: 0 0 176px;
-  min-width: 176px;
-  border-radius: 0 4px 4px 0;
-  background: var(--inventory-brand-deep);
-  border: 1px solid var(--inventory-brand-deep);
+  flex: 0 0 160px;
+  min-width: 160px;
+  border-radius: 0 8px 8px 0;
+  background: var(--inv-brand-deep);
+  border: 1px solid var(--inv-brand-deep);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
-}
-
-.inventory-items-body {
-  padding: 0.85rem;
+  cursor: pointer;
 }
 
 .inventory-items-toolbar {
   align-items: stretch;
 }
-
 .inventory-sort-select {
-  flex: 0 0 220px;
-  min-width: 220px;
+  flex: 0 0 200px;
+  min-width: 200px;
   border-left: 0;
   border-radius: 0;
 }
 
 .inventory-toolbar-note {
-  color: #64748b;
-  font-size: 12px;
+  color: var(--inv-muted);
+  font-size: 0.75rem;
   font-weight: 600;
-  margin-top: 0.55rem;
+  margin-top: 0.45rem;
 }
 
+/* ── Items table ────────────────────────────────────── */
+.inv-table-wrap {
+  max-height: calc(100vh - 320px);
+  overflow: auto;
+  border: 1px solid var(--inv-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.inv-table thead th {
+  background: linear-gradient(180deg, #f8fbff, #eef4ff);
+  color: var(--inv-muted);
+  font-size: 0.71rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Items 3D grid ──────────────────────────────────── */
+.items-3d-grid-wrap {
+  max-height: calc(100vh - 310px);
+  overflow: auto;
+  margin-top: 0;
+}
+
+.items-3d-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.item-3d-card-wrapper {
+  perspective: 1000px;
+}
+
+.item-3d-card {
+  position: relative;
+  background: var(--inv-surface);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--inv-border);
+  box-shadow: 0 4px 16px var(--inv-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-3d-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+.item-card-icon-area {
+  position: relative;
+  height: 100px;
+  background: linear-gradient(135deg, #edf1fb, #dfe7fb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.item-card-icon {
+  font-size: 3rem;
+  color: rgba(75, 91, 147, 0.25);
+}
+
+.item-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(56, 70, 122, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.item-3d-card:hover .item-card-overlay {
+  opacity: 1;
+}
+
+.item-actions {
+  display: flex;
+  gap: 0.45rem;
+  transform: translateY(12px);
+  transition: transform 0.25s ease;
+}
+
+.item-3d-card:hover .item-actions {
+  transform: translateY(0);
+}
+
+.item-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--inv-ink);
+  padding: 0.18rem 0.5rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+}
+
+.item-card-content {
+  padding: 0.85rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: linear-gradient(180deg, #fff, #f8fafc);
+}
+
+.item-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--inv-ink);
+  margin: 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.item-footer {
+  margin-top: auto;
+  font-size: 0.75rem;
+  color: var(--inv-muted);
+  display: flex;
+  align-items: center;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--inv-border);
+}
+
+/* ── Order controls ─────────────────────────────────── */
 .inventory-order-controls {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  padding: 0.2rem;
-  border: 1px solid #dbe5f1;
+  gap: 0.2rem;
+  padding: 0.18rem;
+  border: 1px solid var(--inv-border);
   border-radius: 999px;
   background: #f8fbff;
 }
@@ -1322,363 +2453,714 @@ export default {
   padding: 0;
   border: 0;
   border-radius: 999px;
-  color: #334155;
+  color: var(--inv-ink);
   background: #fff;
 }
 
 .inventory-order-btn:not(:disabled):hover {
   color: #fff;
-  background: var(--inventory-brand-deep);
+  background: var(--inv-brand-deep);
 }
-
 .inventory-order-number {
   min-width: 26px;
-  color: #475569;
-  font-size: 12px;
+  color: var(--inv-muted);
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
-:global([data-bs-theme="dark"]) .inventory-page {
-  --inventory-brand: #6d7fc8;
-  --inventory-brand-deep: #8ea0f4;
-  --inventory-brand-soft: #1e2744;
-  background: #0f172a;
-  color: #e5e7eb;
+/* ── Inline inv-table classes (items tab uses Stocks.vue classes) */
+.inv-module-card {
+  border: 1px solid var(--inv-border);
+  border-radius: 20px;
+  background: var(--inv-surface);
+  overflow: hidden;
+}
+.inv-table-shell {
+  overflow: auto;
+  max-height: calc(100vh - 375px);
+  min-height: 200px;
+}
+.inv-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.inv-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, #f3f7ff, #eaf0fd);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--inv-muted);
+  border-bottom: 1px solid var(--inv-border);
+  white-space: nowrap;
+}
+.inv-table-row td {
+  padding: 0.72rem 0.85rem;
+  border-bottom: 1px solid #f1f5ff;
+  font-size: 0.85rem;
+  color: var(--inv-ink);
+  vertical-align: middle;
+  background: var(--inv-surface);
+  transition: background 0.12s;
+}
+.inv-table-row:hover td {
+  background: #f8fbff;
+}
+.inv-table-empty td {
+  padding: 0;
+  border: 0;
 }
 
-:global([data-bs-theme="dark"]) .inv-shell,
-:global([data-bs-theme="dark"]) .module-sidebar,
-:global([data-bs-theme="dark"]) .inv-table-wrap,
-:global([data-bs-theme="dark"]) .inventory-page :deep(.ledger-card),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.ledger-table-wrap) {
-  border-color: #2e3a59 !important;
-  background: #151c2f !important;
-  box-shadow: none;
-}
 
-:global([data-bs-theme="dark"]) .inventory-page :deep(.card),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.bg-white),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.bg-light-subtle),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.table-card),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.table-responsive) {
-  border-color: #2e3a59 !important;
-  background-color: #111827 !important;
-  color: #e5e7eb !important;
+/* ── Stock count badge (inline in qty cell) ─────────── */
+.inv-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(75, 91, 147, 0.15);
+  color: var(--inv-brand);
+  font-size: 0.65rem;
+  font-weight: 800;
+  vertical-align: middle;
 }
-
-:global([data-bs-theme="dark"]) .module-sidebar {
-  background: linear-gradient(180deg, #182035, #111827);
+.inv-code-chip {
+  display: inline-block;
+  padding: 0.22rem 0.6rem;
+  border-radius: 7px;
+  background: rgba(75, 91, 147, 0.08);
+  color: var(--inv-brand);
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-family: ui-monospace, monospace;
+  border: 1px solid rgba(75, 91, 147, 0.15);
 }
-
-:global([data-bs-theme="dark"]) .inventory-hero {
-  background:
-    radial-gradient(circle at top right, rgba(142, 160, 244, 0.2), transparent 34%),
-    linear-gradient(135deg, #17213a 0%, #0f172a 58%, #111827 100%);
-  box-shadow: none;
+.inv-count-badge {
+  display: inline-block;
+  min-width: 40px;
+  padding: 0.2rem 0.5rem;
+  border-radius: 20px;
+  background: rgba(75, 91, 147, 0.1);
+  color: var(--inv-brand);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
 }
-
-:global([data-bs-theme="dark"]) .inventory-stat-card {
-  border-color: rgba(142, 160, 244, 0.22);
-  background: rgba(17, 24, 39, 0.62);
+.inv-date-cell {
+  color: var(--inv-muted);
+  font-size: 0.8rem;
 }
-
-:global([data-bs-theme="dark"]) .inventory-stat-icon {
-  background: rgba(142, 160, 244, 0.16);
-  color: #dbeafe;
+.inv-row-actions {
+  display: inline-flex;
+  gap: 0.3rem;
 }
-
-:global([data-bs-theme="dark"]) .inventory-primary-btn {
-  border-color: #8ea0f4;
-  background: #8ea0f4;
+.inv-action-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--inv-border);
+  border-radius: 8px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.inv-action-btn.view:hover {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0284c7;
+}
+.inv-action-btn.edit:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #d97706;
+}
+.inv-action-btn.stock:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+  color: #16a34a;
+}
+.inv-action-btn.del:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
+}
+.inv-loading-state,
+.inv-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  color: var(--inv-muted);
+}
+.inv-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--inv-brand);
+  border-radius: 50%;
+  animation: inv-spin 0.7s linear infinite;
+}
+@keyframes inv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.inv-empty-state i {
+  font-size: 2.5rem;
+  opacity: 0.35;
+}
+.inv-empty-state p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.inv-pagination-bar {
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--inv-border);
+  background: #fafbff;
+}
+.del-modal-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.inv-grid-shell {
+  padding: 1rem;
+  max-height: calc(100vh - 300px);
+  overflow: auto;
+}
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.85rem;
+}
+.inv-stock-card {
+  border: 1px solid var(--inv-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--inv-surface);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+.inv-stock-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+}
+.inv-stock-card-top {
+  --card-hue: 220;
+  position: relative;
+  height: 110px;
+  background: radial-gradient(
+      circle at 70% 30%,
+      hsla(var(--card-hue), 70%, 75%, 0.3),
+      transparent 55%
+    ),
+    linear-gradient(
+      135deg,
+      hsl(var(--card-hue), 50%, 28%) 0%,
+      hsl(var(--card-hue), 60%, 20%) 100%
+    );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.inv-stock-card-icon {
+  font-size: 2.8rem;
+  color: rgba(255, 255, 255, 0.18);
+}
+.inv-stock-card-actions {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: flex;
+  gap: 0.3rem;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.inv-stock-card:hover .inv-stock-card-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+.inv-stock-card-actions button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
   color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s;
+}
+.inv-stock-card-actions button:hover {
+  background: #fff;
+}
+.inv-stock-card-actions button.del:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.inv-stock-card-code {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 0.65rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  padding: 0.18rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-family: ui-monospace, monospace;
+}
+.inv-stock-card-body {
+  padding: 0.85rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.inv-stock-card-name {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--inv-ink);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.inv-stock-card-stats {
+  display: flex;
+  align-items: center;
+  background: var(--inv-bg);
+  border: 1px solid var(--inv-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.inv-stock-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0.4rem;
+}
+.inv-stock-stat-sep {
+  width: 1px;
+  height: 32px;
+  background: var(--inv-border);
+  flex-shrink: 0;
+}
+.inv-stock-stat-val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--inv-ink);
+}
+.inv-stock-stat-lbl {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--inv-muted);
+  margin-top: 1px;
+}
+.inv-muted-val {
+  color: var(--inv-muted);
+  font-size: 0.8rem;
+}
+.inv-custom-order-note {
+  font-size: 0.72rem;
+  color: var(--inv-muted);
+  font-weight: 600;
+  padding-top: 0.3rem;
 }
 
-:global([data-bs-theme="dark"]) .inventory-secondary-btn {
-  border-color: rgba(142, 160, 244, 0.32);
-  background: rgba(17, 24, 39, 0.44);
-  color: #e5e7eb;
+/* toolbar classes needed by the inline items toolbar */
+.inv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.inv-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.inv-search-icon {
+  position: absolute;
+  left: 0.65rem;
+  color: var(--inv-muted);
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+.inv-search-input {
+  height: 38px;
+  padding: 0 2rem 0 2.1rem;
+  border: 1px solid var(--inv-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--inv-ink);
+  font-size: 0.84rem;
+  width: 220px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.inv-search-input:focus {
+  border-color: var(--inv-brand);
+  box-shadow: 0 0 0 3px rgba(75, 91, 147, 0.1);
+}
+.inv-search-input::placeholder {
+  color: #94a3b8;
+}
+.inv-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 1rem;
+}
+.inv-select {
+  height: 38px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--inv-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--inv-ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+.inv-icon-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--inv-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--inv-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.inv-icon-btn:hover {
+  background: var(--inv-brand-soft);
+  color: var(--inv-brand);
+}
+.inv-view-toggle {
+  display: flex;
+  border: 1px solid var(--inv-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.inv-view-toggle button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  background: #fff;
+  color: var(--inv-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.inv-view-toggle button.active {
+  background: var(--inv-brand);
+  color: #fff;
+}
+.inv-view-toggle button:not(.active):hover {
+  background: var(--inv-brand-soft);
+}
+.inv-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 38px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #4b5b93, #38467a);
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.inv-create-btn:hover {
+  opacity: 0.9;
+}
+.inv-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(180deg, #f8fbff, #f0f5ff);
+  border-bottom: 1px solid var(--inv-border);
+  flex-wrap: wrap;
+}
+.inv-module-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.inv-module-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #4b5b93, #38467a);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.inv-module-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--inv-ink);
+}
+.inv-module-subtitle {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--inv-muted);
+  font-weight: 500;
 }
 
-:global([data-bs-theme="dark"]) .module-sidebar-title,
-:global([data-bs-theme="dark"]) .module-tile-copy small,
-:global([data-bs-theme="dark"]) .inventory-toolbar-note,
-:global([data-bs-theme="dark"]) .inventory-page :deep(.text-muted) {
-  color: #9ca9c7;
+/* ── Utils ──────────────────────────────────────────── */
+.fs-12 {
+  font-size: 12px;
 }
 
-:global([data-bs-theme="dark"]) .module-tile {
-  border-color: #2e3a59;
-  background: #111827;
-  color: #e5e7eb;
-}
-
-:global([data-bs-theme="dark"]) .module-tile.active {
-  border-color: #8ea0f4;
-  background: linear-gradient(180deg, #202b49, #182035);
-  box-shadow: none;
-}
-
-:global([data-bs-theme="dark"]) .inventory-page :deep(.card-header),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.card-body.bg-white),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.stock-card-body),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.receiving-card-body),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.withdrawal-card-body),
-:global([data-bs-theme="dark"]) .inventory-items-body,
-:global([data-bs-theme="dark"]) .inventory-page :deep(.card-footer) {
-  background: #111827 !important;
-  color: #e5e7eb;
-}
-
-:global([data-bs-theme="dark"]) .inventory-page :deep(.table),
-:global([data-bs-theme="dark"]) .inv-table {
-  --vz-table-bg: #111827;
-  --vz-table-color: #e5e7eb;
-  --vz-table-hover-bg: #182035;
-  --vz-table-border-color: #2e3a59;
-  color: #e5e7eb !important;
-  background-color: #111827 !important;
-}
-
-:global([data-bs-theme="dark"]) .inv-table thead th,
-:global([data-bs-theme="dark"]) .inventory-page :deep(.table-light th) {
-  background: #182035 !important;
-  color: #dbeafe !important;
-}
-
-:global([data-bs-theme="dark"]) .ledger-refresh-btn,
-:global([data-bs-theme="dark"]) .inventory-page :deep(.stock-refresh-trigger),
-:global([data-bs-theme="dark"]) .inventory-order-controls {
-  border-color: #2e3a59;
-  background: #182035;
-  color: #dbeafe;
-}
-
-:global([data-bs-theme="dark"]) .inventory-page :deep(.input-group-text),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.form-control),
-:global([data-bs-theme="dark"]) .inventory-page :deep(.form-select) {
-  border-color: #2e3a59 !important;
-  background-color: #182035 !important;
-  color: #e5e7eb !important;
-}
-
-:global([data-bs-theme="dark"]) .inventory-page :deep(.form-control::placeholder) {
-  color: #8ea0b8 !important;
-}
-
-:global([data-bs-theme="dark"]) .inventory-page :deep(.btn-light) {
-  border-color: #2e3a59 !important;
-  background-color: #182035 !important;
-  color: #e5e7eb !important;
-}
-
-:global([data-bs-theme="dark"]) .inventory-page :deep(.table-group-divider) {
-  border-top-color: #2e3a59 !important;
-}
-
-:global([data-bs-theme="dark"]) .inventory-order-btn {
-  background: #111827;
-  color: #dbeafe;
-}
-
-:global([data-bs-theme="dark"]) .inventory-order-number {
-  color: #dbeafe;
-}
-
+/* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 991.98px) {
-  .inventory-hero-grid,
-  .inventory-hero-stats {
+  .inv-hero-body {
     grid-template-columns: 1fr;
   }
-
-  .module-layout {
-    grid-template-columns: 1fr;
+  .inv-hero-stats {
+    grid-template-columns: repeat(2, 1fr);
   }
+}
 
-  .module-sidebar {
-    position: static;
+@media (max-width: 767.98px) {
+  .inv-hero-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .inv-tab-nav {
+    padding: 0.5rem;
+  }
+  .ledger-toolbar-wrap {
+    overflow-x: auto;
+  }
+  .inventory-sort-select {
+    flex: 0 0 180px;
+    min-width: 180px;
+  }
+  .withdrawal-create-btn {
+    flex: 0 0 140px;
+    min-width: 140px;
   }
 }
 
 @media (min-width: 1200px) {
-  .inventory-hero-stats {
+  .inv-hero-stats {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-
-  .inventory-stat-card {
-    grid-template-columns: 40px minmax(0, 1fr);
-  }
 }
 
-@media (min-width: 768px) and (max-width: 1199.98px) {
-  .inventory-hero > .card-body {
-    padding: 1rem !important;
-  }
+/* ── Dark mode ──────────────────────────────────────── */
+:global([data-bs-theme="dark"]) .inventory-page,
+:global([data-layout-mode="dark"]) .inventory-page {
+  --inv-surface: #111827;
+  --inv-bg: #0b1220;
+  --inv-border: #2e3a59;
+  --inv-muted: #9ca9c7;
+  --inv-ink: #e5e7eb;
+  --inv-shadow: rgba(0, 0, 0, 0.25);
+  --inv-brand-soft: #1a2540;
+  background: radial-gradient(circle at 12% 0%, rgba(14, 165, 233, 0.07), transparent 28%),
+    radial-gradient(circle at 88% 8%, rgba(99, 102, 241, 0.06), transparent 28%), #0b1220;
 }
 
-@media (max-width: 768px) {
-  .inventory-hero > .card-body {
-    padding: 1rem !important;
-  }
-
-  .inventory-primary-btn,
-  .inventory-secondary-btn {
-    width: 100%;
-  }
-
-  .ledger-toolbar-wrap {
-    overflow-x: auto;
-  }
-
-  .inventory-sort-select {
-    flex: 0 0 200px;
-    min-width: 200px;
-  }
-}
-</style>
-
-<style>
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page {
-  --inventory-night-page: #0f172a;
-  --inventory-night-card: #111827;
-  --inventory-night-panel: #151c2f;
-  --inventory-night-control: #182035;
-  --inventory-night-border: #2e3a59;
-  --inventory-night-muted: #9ca9c7;
-  --inventory-night-text: #e5e7eb;
-  --inventory-night-heading: #f8fafc;
-  background: var(--inventory-night-page) !important;
-  color: var(--inventory-night-text) !important;
+:global([data-bs-theme="dark"]) .inv-hero,
+:global([data-layout-mode="dark"]) .inv-hero {
+  background: radial-gradient(
+      circle at 92% 12%,
+      rgba(14, 165, 233, 0.18),
+      transparent 30%
+    ),
+    linear-gradient(135deg, #1c2b52 0%, #14203d 50%, #0d1628 100%);
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.3);
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inv-shell,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-module-shell,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-sidebar,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-content,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .card,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .ledger-card,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .card-header,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .card-body,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .card-footer,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .bg-white,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .bg-light-subtle,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .stock-card-body,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-items-body,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .receiving-card-body,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .withdrawal-card-body {
-  border-color: var(--inventory-night-border) !important;
-  background-color: var(--inventory-night-card) !important;
-  color: var(--inventory-night-text) !important;
+:global([data-bs-theme="dark"]) .inv-shell,
+:global([data-layout-mode="dark"]) .inv-shell {
+  background: #111827;
+  border-color: #2e3a59;
+  box-shadow: none;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-sidebar {
-  background: linear-gradient(180deg, #182035, #111827) !important;
+:global([data-bs-theme="dark"]) .inv-tab-nav,
+:global([data-layout-mode="dark"]) .inv-tab-nav {
+  background: linear-gradient(180deg, #151e33, #111827);
+  border-bottom-color: #2e3a59;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-tile {
-  border-color: var(--inventory-night-border) !important;
-  background: var(--inventory-night-card) !important;
-  color: var(--inventory-night-text) !important;
+:global([data-bs-theme="dark"]) .inv-tab:not(.active),
+:global([data-layout-mode="dark"]) .inv-tab:not(.active) {
+  color: #9ca9c7;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-tile.active {
-  border-color: #8ea0f4 !important;
-  background: linear-gradient(180deg, #202b49, #182035) !important;
-  box-shadow: none !important;
+:global([data-bs-theme="dark"]) .inv-tab:hover:not(.active),
+:global([data-layout-mode="dark"]) .inv-tab:hover:not(.active) {
+  background: #1a2540;
+  color: #8ea0f4;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .text-body,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page h5,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page h6,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page td,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page th {
-  color: var(--inventory-night-heading) !important;
+:global([data-bs-theme="dark"]) .inv-tab-content > :deep(.card),
+:global([data-bs-theme="dark"]) .inv-tab-content > :deep(.ledger-card),
+:global([data-layout-mode="dark"]) .inv-tab-content > :deep(.card),
+:global([data-layout-mode="dark"]) .inv-tab-content > :deep(.ledger-card) {
+  background: #111827 !important;
+  border-color: #2e3a59 !important;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .text-muted,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-sidebar-title,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .module-tile-copy small,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-toolbar-note {
-  color: var(--inventory-night-muted) !important;
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.card-header),
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.card-body),
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.bg-white),
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.bg-light-subtle),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.card-header),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.card-body),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.bg-white),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.bg-light-subtle) {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+  border-color: #2e3a59 !important;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .input-group,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .input-group-text,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .form-control,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .form-select,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .ledger-refresh-btn,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .stock-refresh-trigger,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-order-controls,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inventory-order-btn {
-  border-color: var(--inventory-night-border) !important;
-  background-color: var(--inventory-night-control) !important;
-  color: var(--inventory-night-text) !important;
-}
-
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .form-control::placeholder {
-  color: #8ea0b8 !important;
-}
-
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-responsive,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-card,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .ledger-table-wrap,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .inv-table-wrap,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page table,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page thead,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page tbody,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page tfoot {
-  --bs-table-bg: var(--inventory-night-card);
-  --bs-table-color: var(--inventory-night-text);
-  --bs-table-hover-bg: var(--inventory-night-control);
-  --bs-table-hover-color: var(--inventory-night-heading);
-  --bs-table-border-color: var(--inventory-night-border);
-  --vz-table-bg: var(--inventory-night-card);
-  --vz-table-color: var(--inventory-night-text);
-  --vz-table-hover-bg: var(--inventory-night-control);
-  --vz-table-hover-color: var(--inventory-night-heading);
-  --vz-table-border-color: var(--inventory-night-border);
-  border-color: var(--inventory-night-border) !important;
-  background-color: var(--inventory-night-card) !important;
-  color: var(--inventory-night-text) !important;
-}
-
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table > :not(caption) > * > * {
-  border-color: var(--inventory-night-border) !important;
-  background-color: var(--inventory-night-card) !important;
-  color: var(--inventory-night-text) !important;
-  box-shadow: none !important;
-}
-
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-light,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-light > :not(caption) > * > *,
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page thead th {
-  --bs-table-bg: var(--inventory-night-control);
-  --bs-table-color: #dbeafe;
-  --vz-table-bg: var(--inventory-night-control);
-  --vz-table-color: #dbeafe;
-  background-color: var(--inventory-night-control) !important;
+:global([data-bs-theme="dark"]) .inv-table-wrap,
+:global([data-bs-theme="dark"]) .inv-table thead th,
+:global([data-layout-mode="dark"]) .inv-table-wrap,
+:global([data-layout-mode="dark"]) .inv-table thead th {
+  border-color: #2e3a59 !important;
+  background: #182035 !important;
   color: #dbeafe !important;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-hover > tbody > tr:hover > * {
-  background-color: #1d2840 !important;
-  color: var(--inventory-night-heading) !important;
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.table),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.table) {
+  --bs-table-bg: #111827;
+  --bs-table-color: #e5e7eb;
+  --bs-table-hover-bg: #182035;
+  --bs-table-border-color: #2e3a59;
+  color: #e5e7eb !important;
+  background-color: #111827 !important;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .table-group-divider {
-  border-top-color: var(--inventory-night-border) !important;
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.table-light th),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.table-light th) {
+  background: #182035 !important;
+  color: #dbeafe !important;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .page-link {
-  border-color: var(--inventory-night-border) !important;
-  background-color: var(--inventory-night-control) !important;
-  color: var(--inventory-night-text) !important;
+:global([data-bs-theme="dark"]) .item-3d-card,
+:global([data-layout-mode="dark"]) .item-3d-card {
+  background: #111827;
+  border-color: #2e3a59;
 }
 
-:is([data-bs-theme="dark"], [data-layout-mode="dark"], .dark-mode, .dark) .inventory-page .page-item.active .page-link {
+:global([data-bs-theme="dark"]) .item-card-icon-area,
+:global([data-layout-mode="dark"]) .item-card-icon-area {
+  background: linear-gradient(135deg, #182035, #1a2540);
+}
+
+:global([data-bs-theme="dark"]) .item-card-content,
+:global([data-layout-mode="dark"]) .item-card-content {
+  background: linear-gradient(180deg, #111827, #0f172a);
+}
+
+:global([data-bs-theme="dark"]) .item-title,
+:global([data-layout-mode="dark"]) .item-title {
+  color: #f8fafc;
+}
+
+:global([data-bs-theme="dark"]) .inventory-order-controls,
+:global([data-layout-mode="dark"]) .inventory-order-controls {
+  border-color: #2e3a59;
+  background: #182035;
+}
+
+:global([data-bs-theme="dark"]) .inventory-order-btn,
+:global([data-layout-mode="dark"]) .inventory-order-btn {
+  background: #111827;
+  color: #dbeafe;
+}
+
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.input-group-text),
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.form-control),
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.form-select),
+:global([data-bs-theme="dark"]) .ledger-refresh-btn,
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.input-group-text),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.form-control),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.form-select),
+:global([data-layout-mode="dark"]) .ledger-refresh-btn {
+  border-color: #2e3a59 !important;
+  background: #182035 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.page-link),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.page-link) {
+  border-color: #2e3a59 !important;
+  background: #182035 !important;
+  color: #e5e7eb !important;
+}
+
+:global([data-bs-theme="dark"]) .inv-tab-content :deep(.page-item.active .page-link),
+:global([data-layout-mode="dark"]) .inv-tab-content :deep(.page-item.active .page-link) {
   border-color: #8ea0f4 !important;
-  background-color: #8ea0f4 !important;
+  background: #8ea0f4 !important;
   color: #0f172a !important;
 }
-
 </style>

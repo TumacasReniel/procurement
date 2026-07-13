@@ -5,7 +5,7 @@
         <div class="col-md-12">
             <div class="card bg-light-subtle shadow-none border">
                 <div class="card-header bg-light-subtle">
-                    <div class="d-flex mb-n3">
+                    <div class="d-flex mb-n3 align-items-start">
                         <div class="flex-shrink-0 me-3">
                             <div style="height: 2.5rem; width: 2.5rem">
                                 <span
@@ -29,7 +29,17 @@
                                 fund source, and status.
                             </p>
                         </div>
-                        <div class="flex-shrink-0" style="width: 45%"></div>
+                        <b-button
+                            variant="light"
+                            size="sm"
+                            class="ms-2 flex-shrink-0"
+                            v-b-tooltip.hover
+                            title="How does the PR process work? (PR → Bidding → NOA → NTP → PO → IAR)"
+                            @click="prProcessInfoModal.show = true"
+                        >
+                            <i class="ri-question-line text-primary me-1"></i>
+                            Process Guide
+                        </b-button>
                     </div>
                 </div>
 
@@ -77,6 +87,7 @@
                                     <i class="bx bx-refresh search-icon"></i>
                                 </span>
 
+
                                 <b-button
                                     type="button"
                                     variant="primary"
@@ -97,6 +108,15 @@
                                         class="ri-list-check-2 align-bottom me-1"
                                     ></i>
                                     Create by Category
+                                </b-button>
+                                <b-button
+                                    type="button"
+                                    variant="outline-secondary"
+                                    title="Procurement Calendar"
+                                    v-b-tooltip.hover
+                                    @click="openCalendar"
+                                >
+                                    <i class="ri-calendar-event-line align-bottom"></i>
                                 </b-button>
                             </div>
                         </b-col>
@@ -372,6 +392,196 @@
         </div>
     </BRow>
     <Cancel @update="fetch()" ref="cancel" />
+
+    <PRProcessInfoModal
+        v-model:show="prProcessInfoModal.show"
+        @close="prProcessInfoModal.show = false"
+    />
+
+    <!-- ── Procurement Calendar Modal ─────────────────────── -->
+    <b-modal
+        v-model="showCalendarModal"
+        fullscreen
+        hide-footer
+        header-class="border-bottom pb-2"
+        body-class="p-0 d-flex flex-column h-100"
+        @shown="onCalendarModalShown"
+    >
+        <template #header>
+            <div class="d-flex align-items-center gap-2 w-100">
+                <span class="avatar-title bg-primary-subtle rounded p-2" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center">
+                    <i class="ri-calendar-event-line text-primary"></i>
+                </span>
+                <div>
+                    <div class="fw-bold fs-14">Procurement Calendar</div>
+                    <div class="text-muted fs-12">All purchase requests visualized by date</div>
+                </div>
+                <button type="button" class="btn-close ms-auto" @click="showCalendarModal = false"></button>
+            </div>
+        </template>
+
+        <!-- Toolbar Row 1: search + filters + view switcher -->
+        <div class="d-flex align-items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0 flex-wrap border-bottom">
+
+            <!-- Prev / Today / Next -->
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary btn-sm" title="Previous" v-b-tooltip.hover @click="calPrev">
+                    <i class="ri-arrow-left-s-line"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" @click="calToday">Today</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" title="Next" v-b-tooltip.hover @click="calNext">
+                    <i class="ri-arrow-right-s-line"></i>
+                </button>
+            </div>
+
+            <!-- Current period title -->
+            <span class="fw-semibold fs-14 text-body">{{ calTitle }}</span>
+
+            <div class="vr mx-1"></div>
+
+            <!-- Search -->
+            <div class="input-group" style="max-width:220px">
+                <span class="input-group-text"><i class="ri-search-line"></i></span>
+                <input
+                    v-model="calKeyword"
+                    type="text"
+                    class="form-control"
+                    placeholder="Filter events…"
+                    @input="onCalKeywordInput"
+                />
+                <button v-if="calKeyword" class="btn btn-outline-secondary" type="button" @click="calKeyword = ''; loadCalEvents()">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+
+            <select v-model="calStatus" class="form-select" style="max-width:150px" @change="loadCalEvents">
+                <option value="">All Statuses</option>
+                <option v-for="s in dropdowns.statuses" :key="s.id" :value="s.id">{{ s.name }}</option>
+            </select>
+
+            <button class="btn btn-outline-secondary btn-sm" type="button" :disabled="calLoading" title="Refresh" v-b-tooltip.hover @click="loadCalEvents">
+                <i class="bx bx-refresh" :class="{'cal-spin': calLoading}"></i>
+            </button>
+
+            <!-- View switcher -->
+            <div class="ms-auto d-flex gap-1">
+                <button v-for="v in calViews" :key="v.key" type="button"
+                    class="btn btn-sm"
+                    :class="calActiveView === v.key ? 'btn-primary' : 'btn-outline-secondary'"
+                    @click="switchCalView(v.key)"
+                >{{ v.label }}</button>
+            </div>
+        </div>
+
+        <!-- Toolbar Row 2: legend + event count -->
+        <div class="d-flex align-items-center gap-3 px-3 py-2 flex-shrink-0 flex-wrap bg-light-subtle border-bottom">
+            <span v-for="s in calLegend" :key="s.label" class="d-inline-flex align-items-center gap-1 small">
+                <span class="cal-legend-dot" :style="{background: s.color}"></span>
+                <span class="text-muted">{{ s.label }}</span>
+            </span>
+            <span v-if="calendarOptions.events.length" class="ms-auto small text-muted">
+                {{ calendarOptions.events.length }} PR{{ calendarOptions.events.length !== 1 ? 's' : '' }} this period
+            </span>
+        </div>
+
+        <!-- Calendar + side panel -->
+        <div class="d-flex flex-grow-1" style="min-height: 0; overflow: hidden">
+
+            <!-- Calendar area -->
+            <div class="flex-grow-1 position-relative p-3" style="min-width: 0; overflow: auto">
+                <div v-if="calLoading" class="cal-loading-overlay">
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                    <span class="small text-primary ms-2">Loading…</span>
+                </div>
+                <FullCalendar ref="calRef" :options="calendarOptions" class="proc-fc" />
+            </div>
+
+            <!-- Detail side panel -->
+            <transition name="cal-panel-slide">
+                <div v-if="calDetail || calDayEvents.length" class="cal-side-panel border-start bg-white">
+
+                    <!-- ── Day-list mode ── -->
+                    <template v-if="calDayEvents.length && !calDetail">
+                        <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                            <div>
+                                <div class="fw-bold fs-14">
+                                    <i class="ri-calendar-2-line me-1 text-primary"></i>
+                                    {{ calDayDate ? calDayDate.toLocaleDateString('en-PH', { weekday: 'short', month: 'long', day: 'numeric' }) : '' }}
+                                </div>
+                                <div class="small text-muted">{{ calDayEvents.length }} purchase request{{ calDayEvents.length !== 1 ? 's' : '' }}</div>
+                            </div>
+                            <button type="button" class="btn-close" @click="calDayEvents = []; calDayDate = null" title="Close" v-b-tooltip.hover></button>
+                        </div>
+                        <div class="overflow-auto flex-grow-1 p-2">
+                            <div
+                                v-for="pr in calDayEvents"
+                                :key="pr.id"
+                                class="cal-day-pr-item d-flex align-items-start gap-2 p-2 rounded mb-1"
+                                @click="calDayBack = { events: calDayEvents, date: calDayDate }; calDayEvents = []; calDetail = pr"
+                            >
+                                <span class="cal-legend-dot mt-1 flex-shrink-0" :style="{background: calStatusColor(pr.status?.name)}"></span>
+                                <div class="flex-grow-1" style="min-width:0">
+                                    <div class="fw-semibold text-primary fs-13">{{ pr.code }}</div>
+                                    <div class="text-truncate small text-muted">{{ pr.title || pr.purpose || '—' }}</div>
+                                    <span class="badge mt-1" :style="{background: calStatusColor(pr.status?.name) + '22', color: calStatusColor(pr.status?.name), border: '1px solid ' + calStatusColor(pr.status?.name) + '44'}">
+                                        {{ pr.status?.name }}
+                                    </span>
+                                </div>
+                                <i class="ri-arrow-right-s-line text-muted mt-1 flex-shrink-0"></i>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- ── Single PR detail mode ── -->
+                    <template v-else-if="calDetail">
+                        <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                            <div class="d-flex align-items-center gap-2">
+                                <button v-if="calDayBack" type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" @click="calDayEvents = calDayBack.events; calDayDate = calDayBack.date; calDayBack = null; calDetail = null" title="Back to day list" v-b-tooltip.hover>
+                                    <i class="ri-arrow-left-s-line"></i>
+                                </button>
+                                <div class="fw-bold text-primary fs-14">{{ calDetail.code }}</div>
+                            </div>
+                            <button type="button" class="btn-close" @click="calDetail = null; calDayBack = null" title="Close" v-b-tooltip.hover></button>
+                        </div>
+                        <div class="p-3 overflow-auto flex-grow-1">
+                            <div class="mb-3">
+                                <div class="small text-muted mb-1">PR Date</div>
+                                <div class="fw-semibold">{{ calDetail.date || '—' }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="small text-muted mb-1">Title / Purpose</div>
+                                <div class="fw-semibold">{{ calDetail.title || calDetail.purpose || '—' }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="small text-muted mb-1">Status</div>
+                                <span class="badge" :style="{background: calStatusColor(calDetail.status?.name), color:'#fff'}">
+                                    {{ calDetail.status?.name ?? '—' }}
+                                </span>
+                            </div>
+                            <div class="mb-3">
+                                <div class="small text-muted mb-1">Requested By</div>
+                                <div class="fw-semibold">{{ calDetail.requested_by || '—' }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="small text-muted mb-1">Total Amount</div>
+                                <div class="fw-semibold text-success fs-15">₱{{ formatCalNumber(calDetail.total_amount) }}</div>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <a v-if="canViewCalPr(calDetail)" :href="`/faims/procurements/${calDetail.id}?option=view`" class="btn btn-primary">
+                                    <i class="ri-eye-line me-1"></i>View Full PR
+                                </a>
+                                <button type="button" class="btn btn-outline-secondary" @click="calDetail = null; calDayBack = null">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                </div>
+            </transition>
+        </div>
+    </b-modal>
+
     <FloatingRequestChat
         :requests="chatRequests"
         :requests-loading="chatRequestsLoading"
@@ -393,8 +603,16 @@ import FloatingRequestChat from "./Pages/Components/FloatingRequestChat.vue";
 import { router } from "@inertiajs/vue3";
 import Multiselect from "@vueform/multiselect";
 import Cancel from "./Modals/Cancel.vue";
+import PRProcessInfoModal from "./Modals/PRProcessInfoModal.vue";
+import FullCalendar from "@fullcalendar/vue3";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import listPlugin from "@fullcalendar/list";
+import interactionPlugin from "@fullcalendar/interaction";
+import bootstrapPlugin from "@fullcalendar/bootstrap";
+import axios from "axios";
 export default {
-    components: { PageHeader, Pagination, Multiselect, Cancel, FloatingRequestChat },
+    components: { PageHeader, Pagination, Multiselect, Cancel, FloatingRequestChat, FullCalendar, PRProcessInfoModal },
     props: ["dropdowns", "roles", "comment_request_id"],
     data() {
         return {
@@ -429,6 +647,60 @@ export default {
             activeChatRequest: null,
             pendingChatRequestId: this.comment_request_id ? Number(this.comment_request_id) : null,
             procurementRequestChannel: null,
+            prProcessInfoModal: { show: false },
+            // Calendar
+            showCalendarModal: false,
+            calendarReady: false,
+            calLoading: false,
+            calKeyword: "",
+            calStatus: "",
+            calKeywordTimer: null,
+            calRefreshTimer: null,
+            calDetail: null,
+            calDayEvents: [],
+            calDayDate: null,
+            calDayBack: null,
+            calActiveView: "dayGridMonth",
+            calViews: [
+                { key: "dayGridMonth", label: "Month" },
+                { key: "timeGridWeek", label: "Week"  },
+                { key: "timeGridDay",  label: "Day"   },
+                { key: "listMonth",    label: "List"  },
+            ],
+            calLegend: [
+                { label: "Pending",   color: "#6c757d" },
+                { label: "Submitted", color: "#0d6efd" },
+                { label: "Approved",  color: "#198754" },
+                { label: "Ongoing",   color: "#fd7e14" },
+                { label: "Completed", color: "#0dcaf0" },
+                { label: "Rejected",  color: "#dc3545" },
+            ],
+            calTitle: "",
+            calendarOptions: {
+                timeZone: "Asia/Manila",
+                plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, bootstrapPlugin],
+                themeSystem: "bootstrap",
+                navLinks: true,
+                showNonCurrentDates: false,
+                fixedWeekCount: false,
+                initialView: "dayGridMonth",
+                headerToolbar: false,
+                height: "auto",
+                events: [],
+                dayMaxEvents: 3,
+                moreLinkClick: null,
+                eventClick: null,
+                datesSet: null,
+                noEventsContent: "No purchase requests found for this period.",
+                windowResize: () => {
+                    const view = this.getCalInitialView();
+                    this.$refs.calRef?.getApi()?.changeView(view);
+                    this.calActiveView = view;
+                },
+                eventDidMount(info) {
+                    info.el.setAttribute("title", info.event.extendedProps.tooltip ?? info.event.title);
+                },
+            },
         };
     },
     computed: {
@@ -459,6 +731,12 @@ export default {
         "filter.expense"(newVal) {
             this.fetch();
         },
+        showCalendarModal(isOpen) {
+            if (!isOpen) {
+                clearInterval(this.calRefreshTimer);
+                this.calRefreshTimer = null;
+            }
+        },
     },
     created() {
         this.fetch();
@@ -468,6 +746,8 @@ export default {
         this.subscribeToProcurementRequestChanges();
     },
     beforeUnmount() {
+        clearTimeout(this.calKeywordTimer);
+        clearInterval(this.calRefreshTimer);
         this.unsubscribeFromProcurementRequestChanges();
     },
     methods: {
@@ -964,6 +1244,148 @@ export default {
             this.filter.sort = "latest";
             this.fetch();
         },
+
+        // ── Calendar ──────────────────────────────────────
+        getCalInitialView() {
+            if (window.innerWidth >= 768 && window.innerWidth < 1200) {
+                return "timeGridWeek";
+            } else if (window.innerWidth <= 768) {
+                return "listMonth";
+            } else {
+                return "dayGridMonth";
+            }
+        },
+        openCalendar() {
+            this.calDetail = null;
+            this.calDayEvents = [];
+            this.calDayDate = null;
+            this.calDayBack = null;
+            this.calKeyword = "";
+            this.calStatus = "";
+            this.showCalendarModal = true;
+        },
+        onCalendarModalShown() {
+            this.calendarReady = true;
+            clearInterval(this.calRefreshTimer);
+            this.$nextTick(() => {
+                const api = this.$refs.calRef?.getApi();
+                if (api) {
+                    const view = this.getCalInitialView();
+                    api.changeView(view);
+                    this.calActiveView = view;
+                    api.on("datesSet", (info) => {
+                        this.calTitle = info.view.title;
+                        this.loadCalEvents();
+                    });
+                    api.setOption("eventClick", (info) => {
+                        this.calDayEvents = [];
+                        this.calDayBack = null;
+                        this.calDetail = info.event.extendedProps.pr;
+                    });
+                    api.setOption("moreLinkClick", (info) => {
+                        info.jsEvent?.preventDefault();
+                        this.calDetail = null;
+                        this.calDayBack = null;
+                        this.calDayDate = info.date;
+                        this.calDayEvents = (info.allSegs || [])
+                            .map(seg => seg.event.extendedProps?.pr)
+                            .filter(Boolean);
+                        return "stop";
+                    });
+                }
+                this.loadCalEvents();
+                this.calRefreshTimer = setInterval(() => this.loadCalEvents(), 30000);
+            });
+        },
+        onCalKeywordInput() {
+            clearTimeout(this.calKeywordTimer);
+            this.calKeywordTimer = setTimeout(() => this.loadCalEvents(), 350);
+        },
+        switchCalView(view) {
+            this.calActiveView = view;
+            this.$refs.calRef?.getApi()?.changeView(view);
+        },
+        calPrev()  { this.$refs.calRef?.getApi()?.prev(); },
+        calNext()  { this.$refs.calRef?.getApi()?.next(); },
+        calToday() { this.$refs.calRef?.getApi()?.today(); },
+        calStatusColor(name) {
+            const palette = {
+                pending: "#6c757d", draft: "#6c757d",
+                submitted: "#0d6efd", approved: "#198754",
+                rejected: "#dc3545", cancelled: "#dc3545",
+                completed: "#0dcaf0", ongoing: "#fd7e14",
+                reviewed: "#20c997", awarded: "#6f42c1",
+            };
+            const key = (name ?? "").toLowerCase().replace(/\s+/g, "");
+            for (const [k, v] of Object.entries(palette)) {
+                if (key.includes(k)) return v;
+            }
+            return "#4b5b93";
+        },
+        async loadCalEvents() {
+            this.calLoading = true;
+            this.calDayEvents = [];
+            this.calDayDate = null;
+            this.calDayBack = null;
+            try {
+                const api = this.$refs.calRef?.getApi();
+                const start = api?.view?.currentStart;
+                const end   = api?.view?.currentEnd;
+                const response = await axios.get("/faims/procurements", {
+                    params: {
+                        option:    "lists",
+                        calendar:   1,
+                        json:      1,
+                        keyword:   this.calKeyword   || undefined,
+                        status_id: this.calStatus    || undefined,
+                        date_from: start ? start.toISOString().slice(0, 10) : undefined,
+                        date_to:   end   ? end.toISOString().slice(0, 10)   : undefined,
+                    },
+                });
+                const rows = response.data?.data ?? response.data ?? [];
+                this.calendarOptions.events = rows.map(pr => ({
+                    id:    String(pr.id),
+                    title: this.calendarEventTitle(pr),
+                    start: (pr.created_at || pr.date_iso || "").slice(0, 10),
+                    allDay: true,
+                    color: this.calStatusColor(pr.status?.name),
+                    extendedProps: {
+                        pr,
+                        tooltip: [this.calendarEventTitle(pr), pr.title || pr.purpose, pr.status?.name]
+                            .filter(Boolean).join(" · "),
+                    },
+                }));
+            } catch (e) {
+                console.error("Calendar load failed:", e);
+            } finally {
+                this.calLoading = false;
+            }
+        },
+        formatCalDate(val) {
+            if (!val) return "—";
+            return new Date(String(val).replace(" ", "T"))
+                .toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
+        },
+        calendarEventTitle(pr) {
+            return pr?.pr_no || pr?.code || "PR";
+        },
+        formatCalNumber(val) {
+            const n = parseFloat(val ?? 0);
+            return isNaN(n) ? "0.00"
+                : new Intl.NumberFormat("en-PH", { minimumFractionDigits: 2 }).format(n);
+        },
+        canViewCalPr(pr) {
+            if (!pr) return false;
+            const roles = this.$page.props.roles || [];
+            const elevated = ["Administrator", "Procurement Officer", "Procurement Staff", "Procurement Encoder"];
+            if (elevated.some(r => roles.includes(r))) return true;
+            const uid = Number(this.$page.props.user?.data?.id || 0);
+            return (
+                Number(pr.created_by_id) === uid ||
+                Number(pr.requested_by_id) === uid ||
+                Number(pr.approved_by_id) === uid
+            );
+        },
     },
 };
 </script>
@@ -1017,5 +1439,96 @@ export default {
 
 :global([data-bs-theme="dark"]) .procurement-empty-state__title {
     color: #e5edf7;
+}
+
+/* ── Calendar modal ─────────────────────────────────── */
+@keyframes cal-spin { to { transform: rotate(360deg); } }
+.cal-spin { animation: cal-spin 0.75s linear infinite; display: inline-block; }
+
+.cal-legend-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.proc-fc :deep(.fc-toolbar-title) {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.proc-fc :deep(.fc-event) {
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border: none;
+    border-radius: 20px;
+    transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.proc-fc :deep(.fc-event:hover) {
+    opacity: 1 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.proc-fc :deep(.fc-daygrid-day-number) {
+    font-size: 0.8rem;
+}
+
+.proc-fc :deep(.fc-list-event:hover td) {
+    background: #f0f5ff;
+    cursor: pointer;
+}
+
+.cal-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    backdrop-filter: blur(1px);
+}
+
+.cal-side-panel {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cal-panel-slide-enter-active,
+.cal-panel-slide-leave-active {
+    transition: max-width 0.22s ease, opacity 0.18s ease;
+    overflow: hidden;
+}
+
+.cal-panel-slide-enter-from,
+.cal-panel-slide-leave-to {
+    max-width: 0;
+    opacity: 0;
+}
+
+.cal-panel-slide-enter-to,
+.cal-panel-slide-leave-from {
+    max-width: 280px;
+    opacity: 1;
+}
+
+.cal-day-pr-item {
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.cal-day-pr-item:hover {
+    background: #f0f5ff;
+    border-color: #dce4f2;
 }
 </style>

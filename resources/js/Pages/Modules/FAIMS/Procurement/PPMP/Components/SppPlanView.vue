@@ -1,5 +1,43 @@
 <template>
   <div class="card-body ppmp-view-body">
+    <div class="plan-detail-banner mb-3 plan-detail-banner--supplemental">
+      <div>
+        <div class="plan-detail-banner__eyebrow">Unit supplemental plan</div>
+        <div class="plan-detail-banner__title">Supplemental Procurement Plan</div>
+        <div class="plan-detail-banner__copy">
+          Supplemental procurement plan for {{ implementingUnitLabel }}
+        </div>
+        <a
+          v-if="ppmp.attachment_url"
+          :href="ppmp.attachment_url"
+          target="_blank"
+          rel="noopener"
+          class="detail-attachment mt-2"
+        >
+          <i class="ri-attachment-2 align-bottom me-1"></i>
+          {{ ppmp.attachment_original_name || "View Line-Item Budget" }}
+        </a>
+      </div>
+      <div class="plan-detail-banner__meta">
+        <div>
+          <span>{{ formatCurrency(ppmp.estimated_budget || totalBudget) }}</span>
+          <small>Total Budget</small>
+        </div>
+        <div>
+          <span>{{ ppmp.items_count || consolidatedItems.length }}</span>
+          <small>Items</small>
+        </div>
+        <div>
+          <span>{{ fiscalYear }}</span>
+          <small>Fiscal Year</small>
+        </div>
+        <div>
+          <span>{{ sourcePpmps.length }}</span>
+          <small>Sources</small>
+        </div>
+      </div>
+    </div>
+
     <div class="app-view-toolbar mb-3">
       <div class="app-view-tabs">
         <button
@@ -9,6 +47,20 @@
           @click="activeTab = 'document'"
         >
           SPP Format
+          <span v-if="consolidatedItems.length" class="app-view-tab__badge">
+            {{ consolidatedItems.length }}
+          </span>
+        </button>
+        <button
+          type="button"
+          class="app-view-tab"
+          :class="{ active: activeTab === 'ppmps' }"
+          @click="activeTab = 'ppmps'"
+        >
+          Source PPMPs
+          <span v-if="sourcePpmps.length" class="app-view-tab__badge app-view-tab__badge--accent">
+            {{ sourcePpmps.length }}
+          </span>
         </button>
         <button
           type="button"
@@ -17,10 +69,47 @@
           @click="activeTab = 'prs'"
         >
           Purchase Requests
+          <span v-if="purchaseRequests.length" class="app-view-tab__badge">
+            {{ purchaseRequests.length }}
+          </span>
         </button>
       </div>
+      <b-button variant="soft-secondary" size="sm" @click="showTimelineModal = true">
+        <i class="ri-git-branch-line align-bottom me-1"></i>
+        Status Timeline
+        <b-badge :variant="planStatusVariant" class="ms-1">
+          {{ ppmp.ppmp_status || ppmp.approval_status || "Pending" }}
+        </b-badge>
+      </b-button>
     </div>
 
+    <b-modal
+      v-model="showTimelineModal"
+      size="xl"
+      centered
+      hide-footer
+      header-class="border-bottom pb-2"
+    >
+      <template #header>
+        <div class="d-flex align-items-center gap-2 w-100">
+          <span class="avatar-title bg-success-subtle rounded p-2" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="ri-git-branch-line text-success"></i>
+          </span>
+          <div class="flex-grow-1">
+            <div class="fw-bold fs-14">SPP Status Timeline</div>
+            <div class="text-muted fs-12">
+              {{ ppmp.code || ppmp.ppmp_no || 'Supplemental Plan' }}
+              &nbsp;·&nbsp;
+              {{ ppmp.ppmp_status || ppmp.approval_status || 'Pending' }}
+            </div>
+          </div>
+          <button type="button" class="btn-close" @click="showTimelineModal = false"></button>
+        </div>
+      </template>
+      <PlanStatusTimeline :plan="ppmp" plan-type="SPP" />
+    </b-modal>
+
+    <!-- SPP Format tab -->
     <div v-if="activeTab === 'document'" class="ppmp-print-area app-document-view">
       <div class="ppmp-title-block">
         <div class="fw-bold fs-22">SUPPLEMENTAL PROCUREMENT PLAN</div>
@@ -112,9 +201,9 @@
               </td>
               <td>{{ item.recommended_mode_of_procurement || ppmp.recommended_mode_of_procurement || "-" }}</td>
               <td class="text-center">{{ item.pre_procurement_conference || ppmp.pre_procurement_conference || "No" }}</td>
-              <td class="text-center">{{ formatPrintDate(ppmp.start_of_procurement_activity || ppmp.date) }}</td>
-              <td class="text-center">{{ formatPrintDate(item.end_of_procurement_activity || ppmp.end_of_procurement_activity) }}</td>
-              <td class="text-center">{{ formatPrintDate(item.expected_delivery_date || ppmp.expected_delivery_implementation_period) }}</td>
+              <td class="text-center">{{ formatMonthYear(ppmp.start_of_procurement_activity || ppmp.date) }}</td>
+              <td class="text-center">{{ formatMonthYear(item.end_of_procurement_activity || ppmp.end_of_procurement_activity) }}</td>
+              <td class="text-center">{{ formatMonthYear(item.expected_delivery_date || ppmp.expected_delivery_implementation_period) }}</td>
               <td class="text-center">{{ ppmp.source_of_funds || ppmp.fund_cluster?.name || "-" }}</td>
               <td class="text-end fw-semibold">{{ formatCurrency(item.abc) }}</td>
               <td v-if="item.supportRowspan" :rowspan="item.supportRowspan" class="text-center ppmp-entry-cell">
@@ -130,13 +219,43 @@
               </td>
             </tr>
             <tr v-if="!groupedItemRows.length">
-              <td colspan="13" class="text-center text-muted">No SPP items found.</td>
+              <td colspan="13" class="p-0">
+                <div class="spp-empty-state">
+                  <div class="spp-empty-state__icon">
+                    <i class="ri-file-list-3-line"></i>
+                  </div>
+                  <div class="spp-empty-state__title">No SPP items yet</div>
+                  <div class="spp-empty-state__copy">
+                    Items will appear here once they are added to this Supplemental Procurement Plan.
+                  </div>
+                </div>
+              </td>
             </tr>
           </tbody>
+          <tfoot v-if="groupedItemRows.length">
+            <tr>
+              <th colspan="9" class="text-end">Total Budget</th>
+              <th class="text-end">{{ formatCurrency(ppmp.estimated_budget || totalBudget) }}</th>
+              <th colspan="3"></th>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
 
+    <!-- Source PPMPs tab -->
+    <div v-else-if="activeTab === 'ppmps'" class="app-ppmp-list-view">
+      <PlanSourceAccordion
+        :plans="sourcePpmps"
+        title="Included PPMPs/SPPs"
+        count-label="plan"
+        empty-text="No source PPMPs or SPPs have been consolidated into this SPP."
+        @view="viewSourcePpmp"
+        @print="printSourcePpmp"
+      />
+    </div>
+
+    <!-- Purchase Requests tab -->
     <div v-else class="app-pr-list-view">
       <div class="section-heading">
         <h6 class="mb-0 fs-14"></h6>
@@ -176,7 +295,17 @@
               </td>
             </tr>
             <tr v-if="!purchaseRequests.length">
-              <td colspan="6" class="text-center text-muted py-4">No purchase requests found.</td>
+              <td colspan="6" class="p-0">
+                <div class="spp-empty-state">
+                  <div class="spp-empty-state__icon">
+                    <i class="ri-receipt-line"></i>
+                  </div>
+                  <div class="spp-empty-state__title">No purchase requests</div>
+                  <div class="spp-empty-state__copy">
+                    Purchase requests linked to this SPP will appear here.
+                  </div>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -250,7 +379,15 @@
 </template>
 
 <script>
+import { router } from "@inertiajs/vue3";
+import PlanSourceAccordion from "./PlanSourceAccordion.vue";
+import PlanStatusTimeline from "./PlanStatusTimeline.vue";
+
 export default {
+  components: {
+    PlanSourceAccordion,
+    PlanStatusTimeline,
+  },
   props: {
     ppmp: { type: Object, required: true },
     dropdowns: { type: Object, default: () => ({}) },
@@ -260,11 +397,15 @@ export default {
       activeTab: "document",
       selectedRequest: null,
       showPrItemsModal: false,
+      showTimelineModal: false,
     };
   },
   computed: {
     consolidatedItems() {
       return this.ppmp.item_details || [];
+    },
+    sourcePpmps() {
+      return this.ppmp.source_ppmps || [];
     },
     implementingUnitLabel() {
       return this.ppmp.unit?.name || "Unit";
@@ -273,6 +414,25 @@ export default {
       const value = this.ppmp.start_of_procurement_activity || this.ppmp.date;
 
       return value ? new Date(value).getFullYear() : new Date().getFullYear();
+    },
+    totalBudget() {
+      return this.consolidatedItems.reduce(
+        (total, item) => total + Number(item.abc || 0),
+        0
+      );
+    },
+    planStatusVariant() {
+      const status = String(this.ppmp.ppmp_status || this.ppmp.approval_status || "").toLowerCase();
+
+      if (status.includes("consolidated") || status.includes("approved")) {
+        return "success";
+      }
+
+      if (status.includes("submitted") || status.includes("reviewed") || status.includes("for")) {
+        return "warning";
+      }
+
+      return "secondary";
     },
     groupedItemRows() {
       const rows = this.consolidatedItems;
@@ -380,6 +540,36 @@ export default {
     },
   },
   methods: {
+    viewSourcePpmp(source) {
+      if (!source?.id) {
+        return;
+      }
+
+      router.get(`/faims/procurement-ppmp/${source.id}`, {
+        option: "view",
+        plan_type: this.sourcePlanTypeLabel(source),
+      });
+    },
+    printSourcePpmp(source) {
+      if (!source?.id) {
+        return;
+      }
+
+      const params = new URLSearchParams({
+        option: "print",
+        type: "ppmp",
+        plan_type: this.sourcePlanTypeLabel(source),
+      });
+
+      window.open(`/faims/procurement-ppmp/${source.id}?${params.toString()}`, "_blank");
+    },
+    sourcePlanTypeLabel(source) {
+      const type = String(
+        source?.plan_type || source?.plan_name || source?.ppmp_no || ""
+      ).toLowerCase();
+
+      return type.includes("spp") || type.includes("supplemental") ? "SPP" : "PPMP";
+    },
     openPrItems(request) {
       this.selectedRequest = request;
       this.showPrItemsModal = true;
@@ -389,6 +579,13 @@ export default {
         style: "currency",
         currency: "PHP",
       }).format(Number(value || 0));
+    },
+    formatMonthYear(value) {
+      if (!value) return "-";
+      const match = String(value).match(/^(\d{4})-(\d{2})/);
+      if (!match) return "-";
+      const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return `${months[parseInt(match[2], 10) - 1] ?? match[2]} ${match[1]}`;
     },
     formatPrintDate(value) {
       if (!value) {
@@ -485,6 +682,9 @@ export default {
 }
 
 .app-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 34px;
   padding: 6px 12px;
   border: 0;
@@ -501,6 +701,36 @@ export default {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
+.app-view-tab__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--ppmp-muted, #64748b);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.app-view-tab.active .app-view-tab__badge {
+  background: rgba(64, 81, 137, 0.12);
+  color: var(--ppmp-primary, #405189);
+}
+
+.app-view-tab__badge--accent {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.app-view-tab.active .app-view-tab__badge--accent {
+  background: rgba(245, 158, 11, 0.18);
+  color: #92400e;
+}
+
 .app-view-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -514,6 +744,10 @@ export default {
   border-radius: 8px;
   padding: 16px;
   background: var(--ppmp-surface, #ffffff);
+}
+
+.app-ppmp-list-view {
+  border: 0;
 }
 
 .app-document-view {
@@ -644,5 +878,50 @@ export default {
 .ppmp-entry-cell {
   background: #f8fafc !important;
   color: #000000 !important;
+}
+
+.ppmp-document-items-table tfoot th {
+  border: 1px solid #000;
+  padding: 4px;
+  color: #000;
+  background: #f2f2f2;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* Empty state */
+.spp-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 16px;
+  color: var(--ppmp-muted, #64748b);
+  text-align: center;
+}
+
+.spp-empty-state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--ppmp-surface-soft, #f1f5f9);
+  color: #94a3b8;
+  font-size: 24px;
+}
+
+.spp-empty-state__title {
+  color: var(--ppmp-text, #374151);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.spp-empty-state__copy {
+  max-width: 340px;
+  color: var(--ppmp-muted, #6b7280);
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>

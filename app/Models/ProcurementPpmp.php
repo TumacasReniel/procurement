@@ -26,10 +26,42 @@ class ProcurementPpmp extends Model
         'procurement_app_id',
         'created_by_id',
         'requested_by_id',
+        'submitted_by_id',
+        'submitted_at',
         'reviewed_by_id',
+        'reviewed_at',
         'approved_by_id',
+        'approved_at',
+        'consolidated_by_id',
+        'consolidated_at',
         'status_id',
         'sub_status_id',
+        'ppmp_type',
+        'ppmp_type_version',
+        'source_ppmp_id',
+        'is_supplemental',
+        'attachment_path',
+        'attachment_original_name',
+        'project_type',
+        'recommended_mode_of_procurement',
+        'pre_procurement_conference',
+        'start_of_procurement_activity',
+        'end_of_procurement_activity',
+        'expected_delivery_date',
+        'attached_supporting_documents',
+        'remarks',
+        'project_total_budget',
+        'is_current',
+        'quarter',
+    ];
+
+    protected $casts = [
+        'is_supplemental' => 'boolean',
+        'is_current' => 'boolean',
+        'submitted_at' => 'datetime',
+        'reviewed_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'consolidated_at' => 'datetime',
     ];
 
     public function request()
@@ -90,6 +122,22 @@ class ProcurementPpmp extends Model
         )->with('profile');
     }
 
+    public function submitted_by(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            Schema::hasColumn($this->getTable(), 'submitted_by_id') ? 'submitted_by_id' : 'requested_by_id'
+        )->with('profile');
+    }
+
+    public function consolidated_by(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            Schema::hasColumn($this->getTable(), 'consolidated_by_id') ? 'consolidated_by_id' : 'approved_by_id'
+        )->with('profile');
+    }
+
     public function codes()
     {
         return $this->hasMany(ProcurementPpmpCodeGroup::class, 'procurement_ppmp_id')
@@ -99,6 +147,16 @@ class ProcurementPpmp extends Model
     public function items()
     {
         return $this->hasMany(ProcurementPpmpItem::class, 'procurement_ppmp_id');
+    }
+
+    public function sourcePpmp()
+    {
+        return $this->belongsTo(ProcurementPpmp::class, 'source_ppmp_id');
+    }
+
+    public function derivedVersions()
+    {
+        return $this->hasMany(ProcurementPpmp::class, 'source_ppmp_id');
     }
 
     public function status()

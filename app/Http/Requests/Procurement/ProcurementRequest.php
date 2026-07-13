@@ -3,9 +3,11 @@
 namespace App\Http\Requests\Procurement;
 
 use App\Models\Procurement;
+use App\Models\ProcurementApp;
 use App\Models\ProcurementCode;
 use App\Models\ProcurementItem;
 use App\Models\ProcurementPpmpItem;
+use App\Models\ListStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -50,6 +52,25 @@ class ProcurementRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
+            // Gate: PR creation requires an Approved APP.
+            // Only enforced on new PR submissions (POST) — updates/approvals are exempt.
+            if ($this->isMethod('post') && $this->filled('procurement_app_id')) {
+                $appId = (int) $this->input('procurement_app_id');
+                $approvedStatusId = ListStatus::getID('Approved', 'Procurement');
+
+                $isApproved = $approvedStatusId && ProcurementApp::query()
+                    ->where('id', $appId)
+                    ->where('status_id', $approvedStatusId)
+                    ->exists();
+
+                if (! $isApproved) {
+                    $validator->errors()->add(
+                        'procurement_app_id',
+                        'Purchase Requests can only be created against an Approved/For Implementation APP. Please wait for the APP to be approved before submitting a PR.'
+                    );
+                }
+            }
+
             $procurementCodeIds = collect($this->input('procurement_code_ids', []))
                 ->filter(fn ($id) => filled($id))
                 ->map(fn ($id) => (int) $id)
@@ -61,14 +82,6 @@ class ProcurementRequest extends FormRequest
             }
 
             $submittedItems = collect($this->input('items', []));
-            if ($this->isMethod('post') && $submittedItems->contains(fn ($item) => blank(data_get($item, 'ppmp_item_id')))) {
-                $validator->errors()->add(
-                    'items',
-                    'Select each PR item from the items assigned to the selected procurement code.'
-                );
-
-                return;
-            }
 
             $isCreateByCategory = $this->isCreateByCategoryRequest();
 

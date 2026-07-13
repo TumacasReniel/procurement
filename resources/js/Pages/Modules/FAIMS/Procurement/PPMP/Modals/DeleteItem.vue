@@ -3,7 +3,7 @@
     v-model="modal.show"
     style="--vz-modal-width: 520px"
     header-class="p-3 bg-light"
-    title="Delete PPMP Item"
+    :title="modal.item?._isPpmpProject ? 'Remove Procurement Project' : 'Delete PPMP Item'"
     class="v-modal-custom"
     modal-class="zoomIn"
     centered
@@ -13,22 +13,27 @@
       <div class="delete-ppmp-item-modal__icon">
         <i class="ri-delete-bin-line"></i>
       </div>
-      <h6 class="delete-ppmp-item-modal__title">Remove this item from the PPMP?</h6>
+      <h6 class="delete-ppmp-item-modal__title">
+        {{ modal.item._isPpmpProject ? 'Remove this procurement project?' : 'Remove this item from the PPMP?' }}
+      </h6>
       <p class="delete-ppmp-item-modal__copy">
-        This will delete
+        This will
+        {{ modal.item._isPpmpProject ? 'clear the project data for' : 'delete' }}
         <strong>{{ modal.item.name || "this item" }}</strong>
-        from {{ ppmp?.ppmp_no || "this PPMP" }}.
+        {{ modal.item._isPpmpProject ? 'in' : 'from' }} {{ ppmp?.ppmp_no || "this PPMP" }}.
       </p>
-      <div class="delete-ppmp-item-modal__details">
-        <div>
-          <span>Quantity</span>
-          <strong>{{ formatQuantity(modal.item.quantity) }} {{ modal.item.unit || "" }}</strong>
+      <template v-if="!modal.item._isPpmpProject">
+        <div class="delete-ppmp-item-modal__details">
+          <div>
+            <span>Quantity</span>
+            <strong>{{ formatQuantity(modal.item.quantity) }} {{ modal.item.unit || "" }}</strong>
+          </div>
+          <div>
+            <span>ABC</span>
+            <strong>{{ formatCurrency(modal.item.abc) }}</strong>
+          </div>
         </div>
-        <div>
-          <span>ABC</span>
-          <strong>{{ formatCurrency(modal.item.abc) }}</strong>
-        </div>
-      </div>
+      </template>
     </div>
 
     <template v-slot:footer>
@@ -37,7 +42,7 @@
       </b-button>
       <b-button @click="submit" variant="danger" :disabled="form.processing" block>
         <i class="ri-delete-bin-line align-bottom me-1"></i>
-        Delete Item
+        {{ modal.item?._isPpmpProject ? 'Remove Project' : 'Delete Item' }}
       </b-button>
     </template>
   </b-modal>
@@ -62,6 +67,7 @@ export default {
       form: useForm({
         option: "delete_item",
         item_id: null,
+        target_ppmp_id: null,
       }),
     };
   },
@@ -69,6 +75,7 @@ export default {
     show(item) {
       this.form.clearErrors();
       this.form.item_id = item?.id || null;
+      this.form.target_ppmp_id = item?.ppmp_id || null;
       this.modal.item = item || null;
       this.modal.show = true;
     },
@@ -80,14 +87,23 @@ export default {
       this.modal.show = false;
       this.modal.item = null;
       this.form.item_id = null;
+      this.form.target_ppmp_id = null;
     },
     submit() {
       if (!this.ppmp?.id || !this.modal.item) {
         return;
       }
 
-      this.form.option = "delete_item";
-      this.form.item_id = this.modal.item.id;
+      if (this.modal.item._isPpmpProject) {
+        this.form.option = "clear_project";
+        this.form.item_id = null;
+        this.form.target_ppmp_id = this.modal.item.ppmp_id;
+      } else {
+        this.form.option = "delete_item";
+        this.form.item_id = this.modal.item.id;
+        this.form.target_ppmp_id = null;
+      }
+
       this.form.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {
         preserveScroll: true,
         onSuccess: () => {

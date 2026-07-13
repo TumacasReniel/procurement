@@ -76,6 +76,11 @@ class ProcurementNoaPo extends Model
     }
 
 
+    public function inventoryTransfers()
+    {
+        return $this->hasMany(\App\Models\InventoryReceivingTransfer::class, 'po_id');
+    }
+
     public function comments()
     {
         return $this->morphMany('App\Models\RequestComment', 'commentable');

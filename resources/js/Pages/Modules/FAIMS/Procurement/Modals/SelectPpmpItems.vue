@@ -2,7 +2,7 @@
   <b-modal
     v-model="showModal"
     header-class="p-3 bg-light"
-    :title="isEditing ? 'Change Item' : 'Select Items'"
+    :title="isEditing ? 'Change Item' : 'Add Items'"
     size="xl"
     class="v-modal-custom"
     modal-class="zoomIn"
@@ -48,8 +48,7 @@
           <tr class="fs-11">
             <th style="width: 6%" class="text-center">Select</th>
             <th>Item</th>
-            <th style="width: 10%" class="text-center">Qty</th>
-            <th style="width: 10%" class="text-center">Unit</th>
+            <th style="width: 16%" class="text-center">Qty/Unit</th>
             <th style="width: 14%" class="text-end">Unit Cost</th>
             <th style="width: 14%" class="text-end">ABC</th>
           </tr>
@@ -73,11 +72,13 @@
                 v-html="item.item_description || '-'"
               />
             </td>
-            <td class="text-center">{{ formatQuantity(item.item_quantity) }}</td>
+            
+          
             <td class="text-center">
-              {{ item.unit_label || unitFromQuantityLabel(item) || "-" }}
+              {{ formatQuantity(item.item_quantity) }} {{ item.item_qunatity > 1 ? item.item_unit_type_short : item.item_unit_type.name_long }}
             </td>
             <td class="text-end">{{ formatCurrency(item.item_unit_cost) }}</td>
+
             <td class="text-end fw-semibold">{{ formatCurrency(item.total_cost) }}</td>
           </tr>
 
@@ -86,7 +87,7 @@
           </tr>
           <tr v-else-if="!filteredItems.length">
             <td colspan="7" class="text-center text-muted py-4">
-              {{ emptyMessage }}
+              <div>{{ emptyMessage }}</div>
             </td>
           </tr>
         </tbody>
@@ -132,6 +133,7 @@
 
     <template v-slot:footer>
       <b-button @click="hide" variant="light" block>Cancel</b-button>
+
       <b-button @click="saveSelection" variant="primary" :disabled="!selectedCount" block>
         {{ isEditing ? "Update Selected Item" : "Use Selected Items" }}
       </b-button>
@@ -154,12 +156,16 @@ export default {
       type: Array,
       default: () => [],
     },
+    selectedCodeIds: {
+      type: Array,
+      default: () => [],
+    },
     storageKey: {
       type: String,
       default: "itemsAdded",
     },
   },
-  emits: ["refresh"],
+  emits: ["refresh", "switch-to-manual"],
   data() {
     return {
       showModal: false,
@@ -169,6 +175,7 @@ export default {
       itemsPerPage: 10,
       isEditing: false,
       editIndex: null,
+      itemMode: "ppmp",
     };
   },
   watch: {
@@ -219,11 +226,22 @@ export default {
       );
     },
     availableItems() {
+      const activeCodes = new Set(
+        (this.selectedCodeIds || []).map((id) => Number(id)).filter(Boolean)
+      );
+
+      const codeFiltered =
+        activeCodes.size > 0
+          ? this.ppmpItems.filter((item) =>
+              (item.pap_code_ids || []).some((id) => activeCodes.has(Number(id)))
+            )
+          : this.ppmpItems;
+
       if (this.isEditing) {
-        return this.ppmpItems;
+        return codeFiltered;
       }
 
-      return this.ppmpItems.filter(
+      return codeFiltered.filter(
         (item) => !this.selectedExistingPpmpItemIds.has(Number(item.value))
       );
     },
@@ -302,6 +320,7 @@ export default {
       this.page = 1;
       this.isEditing = false;
       this.editIndex = null;
+      this.itemMode = "ppmp";
       this.showModal = true;
     },
     edit(item, index) {
@@ -310,6 +329,7 @@ export default {
       this.page = 1;
       this.isEditing = true;
       this.editIndex = index;
+      this.itemMode = "ppmp";
       this.showModal = true;
     },
     hide() {
@@ -319,6 +339,11 @@ export default {
       this.page = 1;
       this.isEditing = false;
       this.editIndex = null;
+      this.itemMode = "ppmp";
+    },
+    switchToManual() {
+      this.hide();
+      this.$emit("switch-to-manual");
     },
     isSelected(itemId) {
       return this.selectedIds.some((id) => Number(id) === Number(itemId));
@@ -469,6 +494,7 @@ export default {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .ppmp-page-size {

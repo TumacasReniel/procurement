@@ -50,6 +50,7 @@
           <tr class="fs-11">
             <th style="width: 6%" class="text-center">Select</th>
             <th>Item</th>
+            <th>Requesting Unit</th>
             <th style="width: 10%" class="text-center">Qty/Unit</th>
             <th style="width: 14%" class="text-end">Unit Cost</th>
             <th style="width: 14%" class="text-end">ABC</th>
@@ -70,12 +71,16 @@
                 @change="toggleItem(item)"
               />
             </td>
+            
             <td>
               <div class="fw-semibold">{{ item.item_name || "-" }}</div>
               <div
                 class="text-muted small ppmp-selection-description"
                 v-html="item.item_description || '-'"
               />
+            </td>
+            <td>
+            {{ item.unit_name }}
             </td>
             <td class="text-center">{{ item.quantity_label || item.item_quantity }}</td>
             <td class="text-end">{{ formatCurrency(item.item_unit_cost) }}</td>
@@ -123,12 +128,7 @@
 
     <template v-slot:footer>
       <b-button type="button" variant="light" block @click="close">Cancel</b-button>
-      <b-button
-        type="button"
-        variant="primary"
-        block
-        @click="loadSelected"
-      >
+      <b-button type="button" variant="primary" block @click="loadSelected">
         Load Selected Items
       </b-button>
     </template>

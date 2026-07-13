@@ -20,6 +20,8 @@ class InventoryDashboardResource extends JsonResource
             'byCategory' => collect(data_get($this->resource, 'byCategory', []))->values()->all(),
             'recent' => collect(data_get($this->resource, 'recent', []))->values()->all(),
             'byStatus' => collect(data_get($this->resource, 'byStatus', []))->all(),
+            'reorderAlerts' => collect(data_get($this->resource, 'reorderAlerts', []))->values()->all(),
+            'expiryAlerts' => collect(data_get($this->resource, 'expiryAlerts', []))->values()->all(),
             'filters' => [
                 'period' => data_get($this->resource, 'period', 'monthly'),
                 'start_date' => data_get($this->resource, 'start_date'),
