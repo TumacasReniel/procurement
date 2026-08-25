@@ -24,11 +24,16 @@ use App\Http\Resources\FAIMS\Procurement\ProcurementNoaPoResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\ListStatus;
 
 class ProcurementPOClass
 {
+    public function __construct(protected ProcurementGate $gate)
+    {
+    }
+
     public function lists($request)
     {
         $sort_direction = $request->sort === 'oldest' ? 'ASC' : 'DESC';
@@ -356,8 +361,9 @@ class ProcurementPOClass
        
        
     public function updateStatus($id, $request)
-    { 
- 
+    {
+        $this->gate->authorize(ProcurementGate::MANAGE_PO, 'status');
+
         $user = Auth::user();
         $po = ProcurementNoaPo::with(
             'status',
@@ -366,22 +372,44 @@ class ProcurementPOClass
             'noa.status',
             'noa.procurement_bac.procurement.items',
             'noa.items.item.item.item_unit_type'
-        )->findOrFail($id);
+        )->lockForUpdate()->findOrFail($id);
         $current_pr_status = $po->noa->procurement_bac->procurement->status_id;
         $procurement =  $po->noa->procurement_bac->procurement;
-        $statusPayload = $request->input('status');
-        $requestedStatusName = is_array($statusPayload)
-            ? ($statusPayload['name'] ?? null)
-            : (is_object($statusPayload) ? ($statusPayload->name ?? null) : null);
-        $currentStatusName = $this->normalizePurchaseOrderStatusName($requestedStatusName);
+
+        // The CURRENT status must be read from the database, never taken from the
+        // request. Previously the client told us which status it was transitioning
+        // FROM, so replaying "Items Delivered" ran the completion path twice and
+        // received the same goods into inventory twice.
+        $currentStatusName = $this->normalizePurchaseOrderStatusName($po->status?->name);
 
         if (!$currentStatusName) {
             return [
                 'data' => new ProcurementNoaPoResource($po),
-                'message' => 'Missing status payload.',
+                'message' => 'This Purchase Order has no status set.',
                 'info' => 'No status update was applied.',
                 'status' => 'warning',
             ];
+        }
+
+        // Guard against a stale page: if the client says it was acting on a different
+        // status than the one on record, reject instead of running the wrong step.
+        $statusPayload = $request->input('status');
+        $claimedStatusName = $this->normalizePurchaseOrderStatusName(
+            is_array($statusPayload)
+                ? ($statusPayload['name'] ?? null)
+                : (is_object($statusPayload) ? ($statusPayload->name ?? null) : null)
+        );
+
+        if ($claimedStatusName && $claimedStatusName !== $currentStatusName) {
+            throw ValidationException::withMessages([
+                'status' => "This Purchase Order is now '{$currentStatusName}', not '{$claimedStatusName}'. Refresh the page and try again.",
+            ]);
+        }
+
+        if (! in_array($currentStatusName, ['Created', 'Issued', 'Conformed', 'Items Delivered'], true)) {
+            throw ValidationException::withMessages([
+                'status' => "A Purchase Order with status '{$currentStatusName}' cannot be advanced any further.",
+            ]);
         }
 
         // Update PO/NOA status FIRST based on the requested status
@@ -1578,6 +1606,26 @@ class ProcurementPOClass
         }
 
         $completedStatusId = ListStatus::getID('Completed', 'Inventory');
+
+        // Idempotency guard: a transfer row already exists for any item that has been
+        // received from this PO before. Without this, re-running the completion path
+        // would add the same goods to stock a second time.
+        $alreadyTransferredIds = InventoryReceivingTransfer::where('po_id', $po->id)
+            ->whereIn('procurement_item_id', $itemIds)
+            ->pluck('procurement_item_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+
+        $itemIds = $itemIds->reject(fn ($id) => $alreadyTransferredIds->contains((int) $id))->values();
+
+        if ($itemIds->isEmpty()) {
+            Log::info('Inventory sync skipped: items already received from this PO.', [
+                'po_id' => $po->id,
+                'procurement_id' => $po->procurement_id ?? null,
+            ]);
+
+            return;
+        }
 
         $items = ProcurementItem::with('item_unit_type')
             ->whereIn('id', $itemIds)

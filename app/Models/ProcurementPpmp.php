@@ -5,12 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProcurementPpmp extends Model
 {
     use LogsActivity;
+    use SoftDeletes;
 
     protected $fillable = [
         'request_id',
@@ -147,6 +149,11 @@ class ProcurementPpmp extends Model
     public function items()
     {
         return $this->hasMany(ProcurementPpmpItem::class, 'procurement_ppmp_id');
+    }
+
+    public function projects()
+    {
+        return $this->hasMany(ProcurementPpmpProject::class, 'procurement_ppmp_id');
     }
 
     public function sourcePpmp()

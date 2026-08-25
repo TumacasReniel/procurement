@@ -374,7 +374,7 @@
                                 {{ $item->item->item_name }}
                             </span>
                             <span style="padding-top: -10px">
-                                {!! $item->item->item_description !!}
+                                @richtext($item->item->item_description)
                             </span>
                         </td>
                         <td style="padding-top:15px">{{ $item->item->item_quantity }} {{ $item->item->item_unit_type->name_long}}</td>

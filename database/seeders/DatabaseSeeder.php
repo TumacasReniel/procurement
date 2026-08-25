@@ -205,6 +205,9 @@ class DatabaseSeeder extends Seeder
 
         $this->call(OrgChartsTableSeeder::class);
         $this->call(OrgSignatoriesTableSeeder::class);
+        // Procurement/BAC/Supply roles and Inventory statuses — the generated
+        // List*TableSeeder files do not contain them, but both modules need them.
+        $this->call(ProcurementReferenceSeeder::class);
         // $this->call(UsersTableSeeder::class);
         // $this->call(UserFoldersTableSeeder::class);
         // $this->call(UserFolderFilesTableSeeder::class);

@@ -27,9 +27,28 @@
     </div>
     <div v-if="fileName" class="file-dropzone-file">
       <span>{{ fileName }}</span>
-      <button type="button" class="btn btn-sm btn-link text-danger p-0" @click="removeFile">
-        {{ removeLabel }}
-      </button>
+      <div class="d-flex align-items-center gap-2">
+        <a
+          v-if="viewHref"
+          :href="viewHref"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn btn-sm btn-icon btn-soft-info"
+          v-b-tooltip.hover
+          title="View file"
+        >
+          <i class="ri-eye-line"></i>
+        </a>
+        <button
+          type="button"
+          class="btn btn-sm btn-icon btn-soft-danger"
+          v-b-tooltip.hover
+          :title="removeLabel"
+          @click="removeFile"
+        >
+          <i class="ri-delete-bin-line"></i>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -42,6 +61,10 @@ export default {
       default: null,
     },
     existingFileName: {
+      type: String,
+      default: "",
+    },
+    existingFileUrl: {
       type: String,
       default: "",
     },
@@ -98,15 +121,34 @@ export default {
   data() {
     return {
       isDragging: false,
+      localPreviewUrl: "",
     };
   },
   computed: {
     fileName() {
       return this.file?.name || this.existingFileName || "";
     },
+    viewHref() {
+      return this.localPreviewUrl || this.existingFileUrl || "";
+    },
+  },
+  beforeUnmount() {
+    if (this.localPreviewUrl) {
+      URL.revokeObjectURL(this.localPreviewUrl);
+    }
   },
   watch: {
     file(value) {
+      if (this.localPreviewUrl) {
+        URL.revokeObjectURL(this.localPreviewUrl);
+        this.localPreviewUrl = "";
+      }
+
+      // Newly picked files aren't uploaded yet, so preview them from a local blob URL
+      if (value) {
+        this.localPreviewUrl = URL.createObjectURL(value);
+      }
+
       if (!value && this.$refs.fileInput) {
         this.$refs.fileInput.value = "";
       }

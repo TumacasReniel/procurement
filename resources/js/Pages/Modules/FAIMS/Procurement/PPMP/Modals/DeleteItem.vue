@@ -67,7 +67,7 @@ export default {
       form: useForm({
         option: "delete_item",
         item_id: null,
-        target_ppmp_id: null,
+        target_project_id: null,
       }),
     };
   },
@@ -75,7 +75,7 @@ export default {
     show(item) {
       this.form.clearErrors();
       this.form.item_id = item?.id || null;
-      this.form.target_ppmp_id = item?.ppmp_id || null;
+      this.form.target_project_id = item?.project_id || null;
       this.modal.item = item || null;
       this.modal.show = true;
     },
@@ -87,7 +87,7 @@ export default {
       this.modal.show = false;
       this.modal.item = null;
       this.form.item_id = null;
-      this.form.target_ppmp_id = null;
+      this.form.target_project_id = null;
     },
     submit() {
       if (!this.ppmp?.id || !this.modal.item) {
@@ -97,11 +97,11 @@ export default {
       if (this.modal.item._isPpmpProject) {
         this.form.option = "clear_project";
         this.form.item_id = null;
-        this.form.target_ppmp_id = this.modal.item.ppmp_id;
+        this.form.target_project_id = this.modal.item.project_id;
       } else {
         this.form.option = "delete_item";
         this.form.item_id = this.modal.item.id;
-        this.form.target_ppmp_id = null;
+        this.form.target_project_id = null;
       }
 
       this.form.patch(`/faims/procurement-ppmp/${this.ppmp.id}`, {

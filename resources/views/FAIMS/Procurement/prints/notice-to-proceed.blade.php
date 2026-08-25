@@ -85,7 +85,7 @@
         <!-- Body -->
         <div class="letter-body">
             @if(!empty($ntp->remarks))
-                {!! $ntp->remarks !!}
+                @richtext($ntp->remarks)
             @else
                 <p>
                     Please be informed that you are hereby given the Notice to Proceed for the implementation of the project
@@ -135,7 +135,7 @@
                         <tr>
                             <td style="border: 1px solid #000; padding: 3px; text-align: center; font-size: 9px;">{{ $item->item->item->item_no }}</td>
                             <td style="border: 1px solid #000; padding: 3px; text-align: center; font-size: 9px;">{{ $item->item->item->item_unit_type->name_short ?? '' }}</td>
-                            <td style="border: 1px solid #000; padding: 3px; text-align: justify; font-size: 9px;">{!! $item->item->item->item_description !!}</td>
+                            <td style="border: 1px solid #000; padding: 3px; text-align: justify; font-size: 9px;">@richtext($item->item->item->item_description)</td>
                             <td style="border: 1px solid #000; padding: 3px; text-align: center; font-size: 9px;">{{ $item->item->item->item_quantity }}</td>
                             <td style="border: 1px solid #000; padding: 3px; text-align: center; font-size: 9px;">{{ number_format($item->item->bid_price, 2) }}</td>
                             <td style="border: 1px solid #000; padding: 3px; text-align: center; font-size: 9px;">{{ number_format($item->item->bid_price * $item->item->item->item_quantity, 2) }}</td>

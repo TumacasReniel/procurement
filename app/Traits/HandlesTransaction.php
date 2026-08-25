@@ -11,14 +11,18 @@ trait HandlesTransaction
     public static function handleTransaction($callback){
         $data = '';
         $info = null;
+        $message = null;
         $status = false;
 
         try {
             $result = \DB::transaction($callback);
-            $data = $result['data'];
-            $info = $result['info'];
-            $message = $result['message'];
-            $status = isset($result['status']) ? $result['status'] : true;
+            // Keys are optional: a missing one must not raise an "Undefined array key"
+            // warning, which the error handler would turn into an exception and report
+            // as a failure even though the transaction already committed.
+            $data = data_get($result, 'data', '');
+            $info = data_get($result, 'info');
+            $message = data_get($result, 'message');
+            $status = data_get($result, 'status') ?? true;
         } catch (ValidationException $e) {
             // Re-throw so Inertia receives a proper 422 with form errors
             throw $e;

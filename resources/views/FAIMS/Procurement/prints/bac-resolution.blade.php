@@ -165,7 +165,7 @@
         </div>
 
         <div>
-            {!! $bacResolutionBody !!}
+            @richtext($bacResolutionBody)
         </div>
 
         <div class="signature-section">

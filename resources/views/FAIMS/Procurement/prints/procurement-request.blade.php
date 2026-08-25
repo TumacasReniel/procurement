@@ -363,7 +363,7 @@
                     <td>
                         <span class="item-name">{{ $item->item_name }}</span>
                         <span class="item-description">With the following specifications:</span>
-                        <div class="item-description">{!! $item->item_description !!}</div>
+                        <div class="item-description">@richtext($item->item_description)</div>
                     </td>
                     <td class="text-center nowrap">{{ $item->item_quantity }}</td>
                     <td class="text-right nowrap">{{ number_format((float) $item->item_unit_cost, 2) }}</td>

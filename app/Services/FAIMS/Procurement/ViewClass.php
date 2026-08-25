@@ -452,14 +452,29 @@ class ViewClass
             ->selectRaw('COUNT(*) as count')
             ->groupByRaw($trend_group)
             ->orderByRaw($trend_order)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'month' => $item->trend_label,
-                    'label' => $item->trend_label,
-                    'count' => (int) $item->count
-                ];
-            });
+            ->get();
+
+        // Completed count per bucket, keyed by the same trend_label so it can be
+        // merged into $monthly_trends below (qualify created_at to avoid ambiguity
+        // after the list_statuses join).
+        $completed_trend_select = str_replace('created_at', 'procurements.created_at', $trend_select);
+        $completed_trend_group = str_replace('created_at', 'procurements.created_at', $trend_group);
+        $monthly_trends_completed = (clone $query)
+            ->join('list_statuses', 'procurements.status_id', '=', 'list_statuses.id')
+            ->where('list_statuses.name', 'Completed')
+            ->selectRaw($completed_trend_select)
+            ->selectRaw('COUNT(*) as count')
+            ->groupByRaw($completed_trend_group)
+            ->pluck('count', 'trend_label');
+
+        $monthly_trends = $monthly_trends->map(function ($item) use ($monthly_trends_completed) {
+            return [
+                'month' => $item->trend_label,
+                'label' => $item->trend_label,
+                'count' => (int) $item->count,
+                'completed_count' => (int) ($monthly_trends_completed[$item->trend_label] ?? 0),
+            ];
+        });
 
         // Status distribution — count per status name within the filtered period
         $status_distribution = (clone $query)
@@ -481,18 +496,17 @@ class ViewClass
             ->limit(5)
             ->get();
 
-        // Key metrics
-        $for_reviews = (clone $query)->whereHas('status', function ($query) {
-            $query->where('name', 'Pending');
-        })->count();
+        // Key metrics — single grouped query instead of 3 separate whereHas counts
+        $status_counts = (clone $query)
+            ->join('list_statuses', 'procurements.status_id', '=', 'list_statuses.id')
+            ->whereIn('list_statuses.name', ['Pending', 'Reviewed', 'Completed'])
+            ->selectRaw('list_statuses.name as status_name, COUNT(*) as count')
+            ->groupBy('list_statuses.name')
+            ->pluck('count', 'status_name');
 
-        $for_approvals = (clone $query)->whereHas('status', function ($query) {
-            $query->where('name', 'Reviewed');
-        })->count();
-
-        $completed_procurements = (clone $query)->whereHas('status', function ($query) {
-            $query->where('name', 'Completed');
-        })->count();
+        $for_reviews = (int) ($status_counts['Pending'] ?? 0);
+        $for_approvals = (int) ($status_counts['Reviewed'] ?? 0);
+        $completed_procurements = (int) ($status_counts['Completed'] ?? 0);
 
         $procurement_ids = (clone $query)->pluck('id');
         $total_quotations = ProcurementQuotation::whereIn('procurement_id', $procurement_ids)->count();

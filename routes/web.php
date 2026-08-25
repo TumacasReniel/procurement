@@ -100,7 +100,8 @@ Route::middleware(['role:Human Resource Officer'])->group(function () {
 });
 
 Route::resource('/surveys', App\Http\Controllers\HumanResource\SurveyController::class);
-Route::resource('/approvals', App\Http\Controllers\Portal\ApprovalController::class);
+Route::resource('/approvals', App\Http\Controllers\Portal\ApprovalController::class)
+    ->middleware(['auth', 'verified']);
 
 Route::middleware(['role:Administrator'])->group(function () {
     Route::resource('/users', App\Http\Controllers\Executive\UserController::class);
@@ -117,7 +118,7 @@ Route::middleware(['role:Administrator'])->group(function () {
     Route::get('/rekognition/collection/{id}/face/{faceId}', [App\Http\Controllers\Executive\RekognitionController::class, 'deleteFace']);
 });
 
-Route::prefix('faims')->group(function () {
+Route::prefix('faims')->middleware(['auth', 'verified'])->group(function () {
 
     // Finance
     Route::get('/finance-dashboard', [App\Http\Controllers\FAIMS\Finance\FinanceController::class, 'dashboard'])->name('finance.dashboard');

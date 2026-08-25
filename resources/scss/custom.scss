@@ -1404,12 +1404,26 @@ File: Custom Css File
 }
 
 // Bootstrap-Vue3 tooltips are teleported outside the component DOM, so scoped
-// styles cannot reach them. This global rule ensures the text is always legible
-// regardless of how the --vz-body-bg variable resolves.
-.tooltip-inner {
-    color: #fff !important;
-    background-color: #212529;
+// styles cannot reach them. Two Bootstrap builds ship in this app (--bs-* and
+// --vz-* prefixed) and both derive tooltip colors from theme variables, which
+// can resolve text and background to the same tone. Pin explicit values for
+// both prefixes and both themes; the arrow rules read the same variables, so
+// every placement stays in sync.
+.tooltip {
+    --bs-tooltip-color: #fff;
+    --bs-tooltip-bg: #212529;
+    --vz-tooltip-color: #fff;
+    --vz-tooltip-bg: #212529;
 }
-.tooltip .tooltip-arrow::before {
-    border-top-color: #212529 !important;
+
+.tooltip-inner {
+    color: var(--bs-tooltip-color) !important;
+    background-color: var(--bs-tooltip-bg) !important;
+}
+
+[data-bs-theme="dark"] .tooltip {
+    --bs-tooltip-color: #212529;
+    --bs-tooltip-bg: #e9ecef;
+    --vz-tooltip-color: #212529;
+    --vz-tooltip-bg: #e9ecef;
 }

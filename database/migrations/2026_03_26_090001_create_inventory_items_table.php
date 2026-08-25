@@ -26,7 +26,9 @@ return new class extends Migration
                 $table->increments('id');
                 $table->unsignedInteger('item_id');
                 $table->decimal('quantity', 12, 2)->default(0);
-                $table->unsignedInteger('unit_id');
+                // unit_types.id is a tinyIncrements — the FK below only builds if the
+                // referencing column matches it exactly.
+                $table->unsignedTinyInteger('unit_id');
                 $table->decimal('unit_cost', 10, 2)->nullable();
                 $table->text('description')->nullable();
                 $table->date('expiration_date')->nullable();

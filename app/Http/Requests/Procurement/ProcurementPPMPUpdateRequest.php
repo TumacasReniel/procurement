@@ -14,7 +14,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'option' => ['required', 'in:update_status,revert_status,approve_to_app,add_item,update_item,delete_item,clear_project,update_project,mark_as_final,create_revision'],
+            'option' => ['required', 'in:update_status,revert_status,approve_to_app,add_item,update_item,delete_item,clear_project,update_project,mark_as_final,create_revision,edit_ppmp'],
             'plan_type' => ['nullable', 'in:PPMP,ppmp,APP,SPP,annual,supplemental'],
         ];
 
@@ -78,7 +78,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
         }
 
         if ($this->option === 'update_project') {
-            $rules['target_ppmp_id'] = ['required', 'integer', 'exists:procurement_ppmps,id'];
+            $rules['target_project_id'] = ['required', 'integer', 'exists:procurement_ppmp_projects,id'];
             $rules['general_description_objective'] = ['required', 'string'];
             $rules['project_type'] = ['required', 'string', 'max:255'];
             $rules['recommended_mode_of_procurement'] = ['required', 'string', 'max:255'];
@@ -93,7 +93,7 @@ class ProcurementPPMPUpdateRequest extends FormRequest
         }
 
         if ($this->option === 'clear_project') {
-            $rules['target_ppmp_id'] = ['nullable', 'integer', 'exists:procurement_ppmps,id'];
+            $rules['target_project_id'] = ['required', 'integer', 'exists:procurement_ppmp_projects,id'];
         }
 
         if ($this->option === 'approve_to_app') {
@@ -106,6 +106,11 @@ class ProcurementPPMPUpdateRequest extends FormRequest
 
         if ($this->option === 'revert_status') {
             $rules['revert_reason'] = ['required', 'string', 'min:5', 'max:1000'];
+        }
+
+        if ($this->option === 'edit_ppmp') {
+            $rules['requested_by_id'] = ['nullable', 'integer', 'exists:users,id'];
+            $rules['attachment_file'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
         }
 
         return $rules;

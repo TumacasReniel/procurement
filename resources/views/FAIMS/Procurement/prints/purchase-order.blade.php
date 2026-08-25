@@ -210,7 +210,7 @@
                   <td colspan="2" style="padding: 6px; text-align: justify;">
                     <span><b>{{ $item->item->item->item_name ?? '' }}</b></span>
                     <div style="margin-top:-5px; line-height: 1; word-wrap: break-word;">
-                        {!! $item->item->item->item_description !!}
+                        @richtext($item->item->item->item_description)
                     </div>
                 </td>
                 <td>{{ $item->item->item->item_quantity }}</td>

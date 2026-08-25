@@ -157,6 +157,7 @@
           <FileDropzone
             :file="form.supporting_document_file"
             :existing-file-name="editingItem?.supporting_document_original_name || ''"
+            :existing-file-url="editingItem?.supporting_document_url || ''"
             :invalid="hasFieldError('supporting_document_file')"
             accept="application/pdf,.pdf"
             :allowed-mime-types="supportingDocumentMimeTypes"
@@ -485,7 +486,7 @@ export default {
         item_unit_type_id: null,
         item_unit_cost: null,
         items: [],
-        target_ppmp_id: null,
+        target_project_id: null,
         project_total_budget: null,
         start_of_procurement_activity: null,
         end_of_procurement_activity: null,
@@ -736,7 +737,7 @@ export default {
         this.editingItem = editingItem;
         this.hasItems = false;
         this.form.option = "update_project";
-        this.form.target_ppmp_id = editingItem.ppmp_id;
+        this.form.target_project_id = editingItem.project_id;
         this.form.general_description_objective = editingItem.general_description_objective || "";
         this.form.project_type = editingItem.project_type || "";
         this.form.recommended_mode_of_procurement = editingItem.recommended_mode_of_procurement || "";
@@ -840,7 +841,7 @@ export default {
       this.hasItems = null;
       this.form.item_quantity = 1;
       this.form.item_unit_cost = 0.0;
-      this.form.target_ppmp_id = null;
+      this.form.target_project_id = null;
       this.form.project_total_budget = null;
       this.$refs.totalBudgetAmount?.empty();
       this.form.supporting_document_file = null;

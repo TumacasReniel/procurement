@@ -97,7 +97,9 @@ test('procurement officers can request additional pap budget and budget officers
     $requestResponse = $this
         ->from('/faims/procurement-codes')
         ->actingAs($procurementOfficer)
-        ->post("/faims/procurement-codes/{$papCode->id}/budget-increase-requests", [
+        ->put("/faims/procurement-codes/{$papCode->id}", [
+            'option' => 'request_budget_increase',
+            'request_type' => 'additional_budget',
             'amount' => 1500,
             'description' => 'Additional allocation needed after revised costing.',
             'attachment' => $attachment,
@@ -122,7 +124,10 @@ test('procurement officers can request additional pap budget and budget officers
     $approvalResponse = $this
         ->from('/faims/procurement-codes')
         ->actingAs($budgetOfficer)
-        ->patch("/faims/procurement-codes/{$papCode->id}/budget-increase-requests/" . data_get($requestPayload, 'logs.0.id') . '/approve');
+        ->put("/faims/procurement-codes/{$papCode->id}", [
+            'option' => 'approve_budget_increase',
+            'budget_log_id' => data_get($requestPayload, 'logs.0.id'),
+        ]);
 
     $approvalResponse
         ->assertRedirect('/faims/procurement-codes')
@@ -148,7 +153,7 @@ test('procurement officers can request additional pap budget and budget officers
     Storage::disk('public')->assertExists($budgetLog->attachment_path);
 });
 
-test('procurement staff can view pap codes and submit budget increase requests', function () {
+test('procurement staff can view pap codes but cannot submit budget increase requests', function () {
     Storage::fake('public');
 
     $procurementStaff = createProcurementBudgetTestUser('staff');
@@ -166,21 +171,19 @@ test('procurement staff can view pap codes and submit budget increase requests',
         ->assertOk()
         ->assertJsonPath('data.0.id', $papCode->id);
 
-    $requestResponse = $this
-        ->from('/faims/procurement-codes')
+    // Raising a PAP budget is reserved for the Procurement Officer — staff may only view.
+    $this->from('/faims/procurement-codes')
         ->actingAs($procurementStaff)
-        ->post("/faims/procurement-codes/{$papCode->id}/budget-increase-requests", [
+        ->put("/faims/procurement-codes/{$papCode->id}", [
+            'option' => 'request_budget_increase',
+            'request_type' => 'additional_budget',
             'amount' => 500,
             'description' => 'Additional funds requested by procurement staff.',
             'attachment' => $attachment,
-        ]);
+        ])
+        ->assertForbidden();
 
-    $requestResponse
-        ->assertRedirect('/faims/procurement-codes')
-        ->assertSessionHas('status', true)
-        ->assertSessionHas('data.logs.0.status', 'pending')
-        ->assertSessionHas('data.logs.0.requested_by.id', $procurementStaff->id)
-        ->assertSessionHas('data.logs.0.attachment_name', 'basis.jpg');
+    expect(ProcurementCodeBudgetLog::query()->where('procurement_code_id', $papCode->id)->count())->toBe(0);
 });
 
 test('budget increase requests require a supporting document', function () {
@@ -192,7 +195,9 @@ test('budget increase requests require a supporting document', function () {
     $response = $this
         ->from('/faims/procurement-codes')
         ->actingAs($procurementOfficer)
-        ->post("/faims/procurement-codes/{$papCode->id}/budget-increase-requests", [
+        ->put("/faims/procurement-codes/{$papCode->id}", [
+            'option' => 'request_budget_increase',
+            'request_type' => 'additional_budget',
             'amount' => 750,
             'description' => 'Supporting document will be added later.',
         ]);

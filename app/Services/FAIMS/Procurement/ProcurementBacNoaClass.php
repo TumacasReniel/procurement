@@ -9,6 +9,7 @@ use App\Models\ProcurementBacNoaItem;
 use App\Models\ProcurementQuotationItem;
 use App\Http\Resources\FAIMS\Procurement\ProcurementBacNoaResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\ListStatus;
 use Spatie\Activitylog\Models\Activity;
@@ -16,6 +17,10 @@ use Spatie\Activitylog\Models\Activity;
 
 class ProcurementBacNoaClass
 {
+    public function __construct(protected ProcurementGate $gate)
+    {
+    }
+
     public function lists($request){
         $this->backfillMissingNOAs($request->procurement_id);
 
@@ -149,24 +154,45 @@ class ProcurementBacNoaClass
        
     public function updateStatus($id, $request)
     {
-        $user = Auth::user();
-        $noa = ProcurementBacNoa::with('procurement_bac.procurement' , 'status')->findOrFail($id);
+        $this->gate->authorize(ProcurementGate::MANAGE_NOA, 'status');
 
-        // Get current status name
-        $statusPayload = $request->input('status');
-        $currentStatusName = is_array($statusPayload)
-            ? ($statusPayload['name'] ?? null)
-            : (is_object($statusPayload) ? ($statusPayload->name ?? null) : null);
+        $user = Auth::user();
+        $noa = ProcurementBacNoa::with('procurement_bac.procurement' , 'status')->lockForUpdate()->findOrFail($id);
+
+        // The CURRENT status must come from the database, never from the request.
+        // Trusting the client's claimed status let a caller skip straight to
+        // "Items Delivered" (or replay a transition) without the prior steps.
+        $currentStatusName = $noa->status?->name;
 
         if (!$currentStatusName) {
             return [
                 'data' => new ProcurementBacNoaResource($noa),
-                'message' => 'Missing status payload.',
+                'message' => 'This Notice of Award has no status set.',
                 'info' => 'No status update was applied.',
                 'status' => 'warning',
             ];
         }
-   
+
+        // If the client told us which status it believed it was acting on, it must
+        // agree with the database — otherwise the page is stale and we reject rather
+        // than silently advancing a different transition than the user saw.
+        $statusPayload = $request->input('status');
+        $claimedStatusName = is_array($statusPayload)
+            ? ($statusPayload['name'] ?? null)
+            : (is_object($statusPayload) ? ($statusPayload->name ?? null) : null);
+
+        if ($claimedStatusName && $claimedStatusName !== $currentStatusName) {
+            throw ValidationException::withMessages([
+                'status' => "This Notice of Award is now '{$currentStatusName}', not '{$claimedStatusName}'. Refresh the page and try again.",
+            ]);
+        }
+
+        if (! in_array($currentStatusName, ['Pending', 'Served to Supplier', 'Conformed'], true)) {
+            throw ValidationException::withMessages([
+                'status' => "A Notice of Award with status '{$currentStatusName}' cannot be advanced any further.",
+            ]);
+        }
+
         // Update NOA status FIRST
         if($currentStatusName == "Pending"){
             $noa->update([

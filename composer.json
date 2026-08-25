@@ -27,6 +27,7 @@
         "pragmarx/google2fa": "^9.0",
         "pragmarx/google2fa-laravel": "^2.3",
         "spatie/laravel-activitylog": "^4.10",
+        "symfony/html-sanitizer": "^8.1",
         "torann/geoip": "^3.0"
     },
     "require-dev": {

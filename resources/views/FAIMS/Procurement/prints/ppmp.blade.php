@@ -683,12 +683,18 @@
                             @endif
                         </td>
                         <td class="ppmp-col-3" style="width: 33%;">
-                            <div class="item-description">
-                                &bull; {{ rtrim(rtrim(number_format($quantity, 2), '0'), '.') }} {{ $unitName }}
-                                {{ $cleanText($item->item_name, 'Item ' . $loop->iteration) }}
-                            </div>
-                            @if ($itemDescription)
-                                <div class="item-description">{{ $itemDescription }}</div>
+                            @if ($item->print_is_project_row ?? false)
+                                <div class="item-description">
+                                    &bull; {{ $cleanText($item->item_name, 'Project ' . $loop->iteration) }}
+                                </div>
+                            @else
+                                <div class="item-description">
+                                    &bull; {{ rtrim(rtrim(number_format($quantity, 2), '0'), '.') }} {{ $unitName }}
+                                    {{ $cleanText($item->item_name, 'Item ' . $loop->iteration) }}
+                                </div>
+                                @if ($itemDescription)
+                                    <div class="item-description">{{ $itemDescription }}</div>
+                                @endif
                             @endif
                         </td>
                         <td class="compact-cell ppmp-wrap-cell ppmp-col-4" style="width: 5%;">{{ $cleanText($itemModeOfProcurement) }}</td>

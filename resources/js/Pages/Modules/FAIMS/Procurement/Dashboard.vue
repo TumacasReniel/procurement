@@ -143,7 +143,7 @@
                 :options="yearOptions"
                 :append-to-body="true"
                 placeholder="Select year"
-                @change="fetchDashboard"
+                @change="debouncedFetchDashboard"
               />
             </div>
 
@@ -154,7 +154,7 @@
                 :options="monthOptions"
                 :append-to-body="true"
                 placeholder="Select month"
-                @change="fetchDashboard"
+                @change="debouncedFetchDashboard"
               />
             </div>
 
@@ -165,7 +165,7 @@
                 :options="quarterOptions"
                 :append-to-body="true"
                 placeholder="Select quarter"
-                @change="fetchDashboard"
+                @change="debouncedFetchDashboard"
               />
             </div>
 
@@ -175,7 +175,7 @@
                 type="date"
                 class="form-control"
                 v-model="dashboardFilter.start_date"
-                @change="fetchDashboard"
+                @change="debouncedFetchDashboard"
               />
             </div>
 
@@ -185,19 +185,59 @@
                 type="date"
                 class="form-control"
                 v-model="dashboardFilter.end_date"
-                @change="fetchDashboard"
+                @change="debouncedFetchDashboard"
               />
+            </div>
+
+            <div class="filter-actions">
+              <BButton
+                variant="outline-primary"
+                class="filter-action-btn"
+                :disabled="loadingDashboard"
+                title="Refresh dashboard data"
+                aria-label="Refresh dashboard data"
+                @click="refreshDashboard"
+              >
+                <i class="ri-refresh-line" :class="{ 'icon-spin': loadingDashboard }"></i>
+              </BButton>
+
+              <BButton
+                v-if="dashboardFilter.period !== 'all'"
+                variant="outline-secondary"
+                class="filter-action-btn"
+                title="Reset filters to All Time"
+                aria-label="Reset filters"
+                @click="resetDashboardFilters"
+              >
+                <i class="ri-filter-off-line"></i>
+              </BButton>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="dashboard-tabs mb-3">
+    <!-- Fetch error -->
+    <section
+      v-if="dashboardError"
+      class="alert alert-danger d-flex align-items-center justify-content-between gap-2 mb-2 rounded-4"
+      role="alert"
+    >
+      <span class="mb-0">
+        <i class="ri-error-warning-line me-1"></i>{{ dashboardError }}
+      </span>
+      <BButton size="sm" variant="danger" @click="refreshDashboard">
+        <i class="ri-refresh-line me-1"></i>Retry
+      </BButton>
+    </section>
+
+    <section class="dashboard-tabs mb-3" role="tablist" aria-label="Dashboard views">
       <button
         type="button"
+        role="tab"
         class="dashboard-tab"
         :class="{ active: activeDashboardTab === 'overview' }"
+        :aria-selected="activeDashboardTab === 'overview'"
         @click="activeDashboardTab = 'overview'"
       >
         <i class="ri-dashboard-line"></i>
@@ -205,14 +245,29 @@
       </button>
       <button
         type="button"
+        role="tab"
         class="dashboard-tab"
         :class="{ active: activeDashboardTab === 'graphs' }"
+        :aria-selected="activeDashboardTab === 'graphs'"
         @click="activeDashboardTab = 'graphs'"
       >
         <i class="ri-line-chart-line"></i>
         Graphs
       </button>
+      <button
+        type="button"
+        role="tab"
+        class="dashboard-tab"
+        :class="{ active: activeDashboardTab === 'planning' }"
+        :aria-selected="activeDashboardTab === 'planning'"
+        @click="activeDashboardTab = 'planning'; loadPlanningData()"
+      >
+        <i class="ri-road-map-line"></i>
+        Planning
+      </button>
     </section>
+
+    <div :class="{ 'is-refreshing': loadingDashboard }">
 
     <!-- Metrics -->
     <section
@@ -233,6 +288,7 @@
         <BCol xl="3" md="6" v-for="(metric, i) in workflowMetrics" :key="`workflow-${i}`">
           <BCard
             class="metric-card h-100"
+            :class="{ 'is-loading': loadingDashboard }"
             :style="{ '--metric-accent': metric.accentColor || '#405189' }"
           >
             <BCardBody>
@@ -278,6 +334,7 @@
         >
           <BCard
             class="metric-card h-100"
+            :class="{ 'is-loading': loadingDashboard }"
             :style="{ '--metric-accent': metric.accentColor || '#405189' }"
           >
             <BCardBody>
@@ -395,23 +452,17 @@
       <div class="graphs-kpi-divider"></div>
       <div class="graphs-kpi-item">
         <span class="graphs-kpi-label">Completion</span>
-        <strong class="graphs-kpi-value" style="color: #10b981"
-          >{{ completionRate }}%</strong
-        >
+        <strong class="graphs-kpi-value">{{ completionRate }}%</strong>
       </div>
       <div class="graphs-kpi-divider"></div>
       <div class="graphs-kpi-item">
         <span class="graphs-kpi-label">Open</span>
-        <strong class="graphs-kpi-value" style="color: #f59e0b">{{
-          openRequests
-        }}</strong>
+        <strong class="graphs-kpi-value">{{ openRequests }}</strong>
       </div>
       <div class="graphs-kpi-divider"></div>
       <div class="graphs-kpi-item">
         <span class="graphs-kpi-label">For Review</span>
-        <strong class="graphs-kpi-value" style="color: #6366f1">{{
-          dashboard.for_reviews
-        }}</strong>
+        <strong class="graphs-kpi-value">{{ dashboard.for_reviews }}</strong>
       </div>
       <div class="graphs-kpi-divider"></div>
       <div class="graphs-kpi-item">
@@ -423,7 +474,7 @@
       <div class="graphs-kpi-divider"></div>
       <div class="graphs-kpi-item">
         <span class="graphs-kpi-label">ABC Amount</span>
-        <strong class="graphs-kpi-value" style="color: #6366f1">{{
+        <strong class="graphs-kpi-value">{{
           formatCompactCurrency(totalActualAwardedAmount)
         }}</strong>
       </div>
@@ -448,7 +499,7 @@
                 <span class="chart-legend-dot" style="--dot-color: #6366f1"
                   >Requests</span
                 >
-                <span class="chart-legend-dot" style="--dot-color: #10b981"
+                <span class="chart-legend-dot" style="--dot-color: #059669"
                   >Completed</span
                 >
               </div>
@@ -480,17 +531,42 @@
               :options="statusPieChartOptions"
               :series="statusPieChartSeries"
             />
+
+            <div v-if="otherOpenBreakdown.length" class="other-open-breakdown mt-2">
+              <div class="other-open-breakdown__header">
+                <span class="chart-legend-dot" style="--dot-color: #64748b"
+                  >Inside "Other Open"</span
+                >
+                <small>{{ otherOpenTotal }} requests</small>
+              </div>
+
+              <div class="other-open-breakdown__list">
+                <div
+                  v-for="item in otherOpenBreakdown"
+                  :key="item.status"
+                  class="other-open-row"
+                >
+                  <span class="other-open-row__label text-truncate" :title="item.status">
+                    {{ item.status }}
+                  </span>
+                  <div class="other-open-row__bar">
+                    <span :style="{ width: `${item.share}%` }"></span>
+                  </div>
+                  <strong>{{ item.count }}</strong>
+                </div>
+              </div>
+            </div>
           </BCardBody>
         </BCard>
       </BCol>
     </BRow>
 
     <BRow v-show="activeDashboardTab === 'graphs'" class="g-2 mb-2">
-      <BCol xl="12">
+      <BCol xl="7">
         <BCard class="panel-card h-100">
           <BCardHeader>
             <h5><i class="ri-bar-chart-2-line me-2"></i>Monthly Volume</h5>
-            <p>Request count per period — {{ filteredPeriodLabel }}</p>
+            <p>Completed vs still-open requests per period — {{ filteredPeriodLabel }}</p>
           </BCardHeader>
 
           <BCardBody class="chart-body">
@@ -500,6 +576,30 @@
               :options="monthlyChartOptions"
               :series="monthlyChartSeries"
             />
+          </BCardBody>
+        </BCard>
+      </BCol>
+
+      <BCol xl="5">
+        <BCard class="panel-card h-100">
+          <BCardHeader>
+            <h5><i class="ri-list-check-2 me-2"></i>Workflow Status Breakdown</h5>
+            <p>Requests per workflow status — {{ filteredPeriodLabel }}</p>
+          </BCardHeader>
+
+          <BCardBody class="chart-body">
+            <apexchart
+              v-if="statusDistributionChartSeries[0].data.length"
+              type="bar"
+              :height="statusDistributionChartHeight"
+              :options="statusDistributionChartOptions"
+              :series="statusDistributionChartSeries"
+            />
+
+            <div v-else class="empty-state py-4">
+              <i class="ri-inbox-line"></i>
+              <p>No status data for this period</p>
+            </div>
           </BCardBody>
         </BCard>
       </BCol>
@@ -588,9 +688,23 @@
               <p>Latest requests captured in the procurement workspace</p>
             </div>
 
-            <BButton size="sm" variant="outline-primary" @click="goViewAll">
-              View All
-            </BButton>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <div class="recent-search">
+                <i class="ri-search-line"></i>
+                <input
+                  v-model="filter.keyword"
+                  type="search"
+                  class="form-control form-control-sm"
+                  placeholder="Search code or purpose"
+                  aria-label="Search recent procurements"
+                  @input="debouncedFetch"
+                />
+              </div>
+
+              <BButton size="sm" variant="outline-primary" @click="goViewAll">
+                View All
+              </BButton>
+            </div>
           </BCardHeader>
 
           <BCardBody class="recent-table-body">
@@ -606,7 +720,7 @@
                   </tr>
                 </thead>
 
-                <tbody>
+                <tbody :class="{ 'is-refreshing': loadingLists }">
                   <tr
                     v-for="(list, index) in lists"
                     :key="index"
@@ -637,9 +751,21 @@
                     <td class="text-muted">{{ formatDate(list.date) }}</td>
                   </tr>
 
-                  <tr v-if="lists.length === 0">
+                  <tr v-if="!loadingLists && lists.length === 0">
                     <td colspan="5" class="text-center text-muted py-4">
-                      No recent procurements found.
+                      <i class="ri-inbox-line d-block fs-3 opacity-50"></i>
+                      {{
+                        filter.keyword
+                          ? `No procurements match "${filter.keyword}".`
+                          : "No recent procurements found."
+                      }}
+                    </td>
+                  </tr>
+
+                  <tr v-if="loadingLists && lists.length === 0">
+                    <td colspan="5" class="text-center text-muted py-4">
+                      <i class="ri-loader-4-line icon-spin d-block fs-3"></i>
+                      Loading procurements…
                     </td>
                   </tr>
                 </tbody>
@@ -723,6 +849,110 @@
         </BCard>
       </BCol>
     </BRow>
+
+    <!-- Planning: PPMP / SPP / APP pipeline -->
+    <section v-show="activeDashboardTab === 'planning'" class="dashboard-metric-section mt-2">
+      <div class="dashboard-metric-section__header">
+        <div>
+          <span class="section-kicker">Planning Pipeline</span>
+          <h5 class="mb-0">PPMP, SPP &amp; APP status</h5>
+        </div>
+        <BBadge class="bg-primary-subtle text-primary rounded-pill">{{
+          planningData.year || new Date().getFullYear()
+        }}</BBadge>
+      </div>
+
+      <div v-if="planningError" class="alert alert-danger d-flex align-items-center justify-content-between gap-2 mb-2 rounded-4">
+        <span class="mb-0"><i class="ri-error-warning-line me-1"></i>{{ planningError }}</span>
+        <BButton size="sm" variant="danger" @click="loadPlanningData(true)">
+          <i class="ri-refresh-line me-1"></i>Retry
+        </BButton>
+      </div>
+
+      <BRow :class="{ 'is-refreshing': planningLoading }" class="g-2 mb-2 dashboard-card-grid">
+        <BCol
+          xl="3"
+          md="6"
+          v-for="(metric, i) in planningMetrics"
+          :key="`planning-${i}`"
+        >
+          <BCard
+            class="metric-card h-100"
+            :class="{ 'is-loading': planningLoading }"
+            :style="{ '--metric-accent': metric.accentColor || '#405189' }"
+          >
+            <BCardBody>
+              <div class="d-flex align-items-center gap-2">
+                <div class="metric-icon" :class="[metric.bgClass, metric.textClass]">
+                  <i :class="metric.icon"></i>
+                </div>
+
+                <div class="min-w-0">
+                  <p class="text-uppercase text-muted fw-semibold fs-12 mb-1 text-truncate">
+                    {{ metric.label }}
+                  </p>
+                  <h4 class="fw-bold mb-1">{{ metric.value }}</h4>
+                  <p class="text-muted fs-12 mb-0">{{ metric.note }}</p>
+                </div>
+              </div>
+            </BCardBody>
+          </BCard>
+        </BCol>
+      </BRow>
+
+      <BRow class="g-2 mb-2">
+        <BCol xl="5">
+          <BCard class="panel-card h-100">
+            <BCardHeader>
+              <h5><i class="ri-pie-chart-2-line me-2"></i>PPMP Status</h5>
+              <p>Breakdown of indicative &amp; final PPMPs this year</p>
+            </BCardHeader>
+
+            <BCardBody class="chart-body">
+              <apexchart
+                type="donut"
+                height="300"
+                :options="planningStatusChartOptions"
+                :series="planningStatusChartSeries"
+              />
+            </BCardBody>
+          </BCard>
+        </BCol>
+
+        <BCol xl="7">
+          <BCard class="panel-card h-100">
+            <BCardHeader>
+              <h5><i class="ri-error-warning-line me-2"></i>Units Without an Approved Plan</h5>
+              <p>Active units with no PPMP consolidated into the approved APP this year</p>
+            </BCardHeader>
+
+            <BCardBody>
+              <div class="table-responsive">
+                <table class="table align-middle table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Unit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="unit in planningData.units_without_approved_plan || []" :key="unit.id">
+                      <td>{{ unit.name }}</td>
+                    </tr>
+                    <tr v-if="planningLoaded && !(planningData.units_without_approved_plan || []).length">
+                      <td class="text-center text-muted py-4">
+                        <i class="ri-checkbox-circle-line d-block fs-3 opacity-50"></i>
+                        All active units have an approved plan for this year.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </BCardBody>
+          </BCard>
+        </BCol>
+      </BRow>
+    </section>
+    </div>
   </div>
 </template>
 
@@ -783,6 +1013,13 @@ export default {
       meta: null,
       links: null,
       lastUpdated: null,
+      loadingDashboard: false,
+      loadingLists: false,
+      dashboardError: null,
+      planningLoaded: false,
+      planningLoading: false,
+      planningError: null,
+      planningData: {},
       filter: {
         keyword: null,
         status: null,
@@ -811,21 +1048,27 @@ export default {
         chart: {
           type: "bar",
           height: 350,
+          stacked: true,
           toolbar: { show: false },
           fontFamily: "inherit",
           foreColor: "var(--proc-chart-text)",
           animations: { enabled: true, easing: "easeinout", speed: 700 },
         },
+        noData: {
+          text: "No data for this period",
+          style: { color: "#94a3b8", fontSize: "13px" },
+        },
         plotOptions: {
           bar: {
             horizontal: false,
             columnWidth: "42%",
-            borderRadius: 8,
+            borderRadius: 4,
             borderRadiusApplication: "end",
+            borderRadiusWhenStacked: "last",
           },
         },
         dataLabels: { enabled: false },
-        stroke: { show: false },
+        stroke: { show: true, width: 2, colors: ["var(--proc-card)"] },
         xaxis: {
           categories: [],
           axisBorder: { show: false },
@@ -846,19 +1089,14 @@ export default {
             style: { colors: "var(--proc-chart-text)" },
           },
         },
-        fill: {
-          type: "gradient",
-          gradient: {
-            shade: "light",
-            type: "vertical",
-            shadeIntensity: 0.15,
-            gradientToColors: ["#818cf8"],
-            opacityFrom: 1,
-            opacityTo: 0.72,
-            stops: [0, 100],
-          },
+        fill: { opacity: 1 },
+        colors: ["#059669", "#64748b"],
+        legend: {
+          position: "top",
+          horizontalAlign: "right",
+          labels: { colors: "var(--proc-chart-text)" },
+          markers: { size: 8, shape: "circle" },
         },
-        colors: ["#6366f1"],
         grid: {
           borderColor: "var(--proc-chart-grid)",
           strokeDashArray: 4,
@@ -868,6 +1106,8 @@ export default {
         },
         tooltip: {
           theme: "light",
+          shared: true,
+          intersect: false,
           y: {
             formatter: function (val) {
               return `${Number(val || 0).toLocaleString()} procurements`;
@@ -876,10 +1116,8 @@ export default {
         },
       },
       monthlyChartSeries: [
-        {
-          name: "Procurements",
-          data: [],
-        },
+        { name: "Completed", data: [] },
+        { name: "Still Open", data: [] },
       ],
       lineTrendChartOptions: {
         chart: {
@@ -891,7 +1129,12 @@ export default {
           zoom: { enabled: false },
           animations: { enabled: true, easing: "easeinout", speed: 800 },
         },
-        colors: ["#6366f1", "#10b981"],
+        colors: ["#6366f1", "#059669"],
+        noData: {
+          text: "No data for this period",
+          style: { color: "#94a3b8", fontSize: "13px" },
+        },
+        annotations: { yaxis: [] },
         dataLabels: { enabled: false },
         stroke: {
           curve: "smooth",
@@ -974,7 +1217,11 @@ export default {
           foreColor: "var(--proc-chart-text)",
         },
         labels: ["Completed", "For Review", "For Approval", "Other Open"],
-        colors: ["#10b981", "#f59e0b", "#6366f1", "#94a3b8"],
+        colors: ["#059669", "#d97706", "#6366f1", "#64748b"],
+        noData: {
+          text: "No data for this period",
+          style: { color: "#94a3b8", fontSize: "13px" },
+        },
         stroke: {
           width: 3,
           colors: ["var(--proc-card)"],
@@ -1044,6 +1291,80 @@ export default {
         },
       },
       statusPieChartSeries: [0, 0, 0, 0],
+      planningStatusChartOptions: {
+        chart: {
+          type: "donut",
+          height: 300,
+          fontFamily: "inherit",
+          foreColor: "var(--proc-chart-text)",
+        },
+        labels: [],
+        colors: ["#405189", "#0ab39c", "#f7b84b", "#299cdb", "#64748b"],
+        noData: {
+          text: "No data for this year",
+          style: { color: "#94a3b8", fontSize: "13px" },
+        },
+        stroke: {
+          width: 3,
+          colors: ["var(--proc-card)"],
+        },
+        dataLabels: {
+          enabled: true,
+          formatter: function (value) {
+            return `${Math.round(value)}%`;
+          },
+          style: { fontSize: "11px", fontWeight: 700 },
+          dropShadow: { enabled: false },
+        },
+        legend: {
+          position: "bottom",
+          labels: { colors: "var(--proc-chart-text)" },
+          markers: { size: 8, shape: "circle" },
+          fontSize: "12px",
+          fontWeight: 600,
+        },
+        plotOptions: {
+          pie: {
+            donut: {
+              size: "72%",
+              labels: {
+                show: true,
+                name: { color: "var(--proc-muted)", fontSize: "12px", fontWeight: 700, offsetY: 6 },
+                value: {
+                  color: "var(--proc-ink)",
+                  fontSize: "22px",
+                  fontWeight: 800,
+                  offsetY: -8,
+                  formatter: function (value) {
+                    return Number(value || 0).toLocaleString();
+                  },
+                },
+                total: {
+                  show: true,
+                  label: "Total",
+                  color: "var(--proc-muted)",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  formatter: function (w) {
+                    return w.globals.seriesTotals
+                      .reduce((sum, value) => sum + value, 0)
+                      .toLocaleString();
+                  },
+                },
+              },
+            },
+          },
+        },
+        tooltip: {
+          theme: "light",
+          y: {
+            formatter: function (value) {
+              return `${Number(value || 0).toLocaleString()} PPMPs`;
+            },
+          },
+        },
+      },
+      planningStatusChartSeries: [],
       unitSummaryChartOptions: {
         chart: {
           type: "treemap",
@@ -1223,6 +1544,10 @@ export default {
             right: 18,
           },
         },
+        noData: {
+          text: "No data for this period",
+          style: { color: "#94a3b8", fontSize: "13px" },
+        },
         dataLabels: {
           enabled: true,
           textAnchor: "start",
@@ -1230,7 +1555,7 @@ export default {
           style: {
             fontSize: "12px",
             fontWeight: "700",
-            colors: ["#405189"],
+            colors: ["var(--proc-ink)"],
           },
           formatter: function (val) {
             return `${val}`;
@@ -1362,9 +1687,9 @@ export default {
         plotOptions: {
           bar: {
             horizontal: true,
-            borderRadius: 6,
+            borderRadius: 4,
             barHeight: "58%",
-            distributed: true,
+            distributed: false,
             dataLabels: { position: "top" },
           },
         },
@@ -1377,28 +1702,11 @@ export default {
             return val;
           },
         },
-        colors: [
-          "#6366f1",
-          "#10b981",
-          "#f59e0b",
-          "#ef4444",
-          "#8b5cf6",
-          "#3b82f6",
-          "#ec4899",
-          "#14b8a6",
-          "#f97316",
-          "#64748b",
-          "#a855f7",
-          "#06b6d4",
-          "#84cc16",
-          "#f43f5e",
-          "#0ea5e9",
-          "#d946ef",
-          "#22c55e",
-          "#eab308",
-          "#0891b2",
-          "#7c3aed",
-        ],
+        colors: ["#6366f1"],
+        noData: {
+          text: "No data for this period",
+          style: { color: "#94a3b8", fontSize: "13px" },
+        },
         xaxis: {
           categories: [],
           axisBorder: { show: false },
@@ -1483,7 +1791,7 @@ export default {
             shade: "dark",
             type: "horizontal",
             shadeIntensity: 0.2,
-            gradientToColors: ["#10b981"],
+            gradientToColors: ["#059669"],
             opacityFrom: 1,
             opacityTo: 1,
             stops: [0, 100],
@@ -1542,13 +1850,13 @@ export default {
             shade: "dark",
             type: "horizontal",
             shadeIntensity: 0.2,
-            gradientToColors: ["#f97316"],
+            gradientToColors: ["#f59e0b"],
             opacityFrom: 1,
             opacityTo: 1,
             stops: [0, 100],
           },
         },
-        colors: ["#f59e0b"],
+        colors: ["#d97706"],
         labels: ["Budget Used"],
         stroke: { lineCap: "round" },
       },
@@ -1575,6 +1883,11 @@ export default {
         { value: 4, label: "4th Quarter" },
       ],
     };
+  },
+
+  created() {
+    this.debouncedFetch = _.debounce(this.fetch, 400);
+    this.debouncedFetchDashboard = _.debounce(this.fetchDashboard, 400);
   },
 
   mounted() {
@@ -1708,6 +2021,63 @@ export default {
     },
     financialMetrics() {
       return this.metrics.slice(4);
+    },
+    planningMetrics() {
+      const data = this.planningData || {};
+      const metrics = [
+        {
+          label: "PPMPs Filed",
+          value: data.ppmp_total ?? 0,
+          note: `${(data.ppmp_by_type && data.ppmp_by_type.final) || 0} finalized`,
+          icon: "ri-file-list-3-line",
+          bgClass: "bg-primary-subtle",
+          textClass: "text-primary",
+          accentColor: "#405189",
+        },
+        {
+          label: "SPPs Filed",
+          value: data.spp_total ?? 0,
+          note: "Supplemental procurement plans this year",
+          icon: "ri-file-add-line",
+          bgClass: "bg-info-subtle",
+          textClass: "text-info",
+          accentColor: "#299cdb",
+        },
+        {
+          label: "Units Without Approved Plan",
+          value: data.units_without_approved_plan_count ?? 0,
+          note: "No PPMP consolidated into the approved APP yet",
+          icon: "ri-error-warning-line",
+          bgClass: "bg-warning-subtle",
+          textClass: "text-warning",
+          accentColor: "#f7b84b",
+        },
+        {
+          label: "Units With Open Quarters",
+          value: data.units_with_open_quarters_count ?? 0,
+          note: "Still eligible to file a PPMP this year",
+          icon: "ri-calendar-todo-line",
+          bgClass: "bg-success-subtle",
+          textClass: "text-success",
+          accentColor: "#0ab39c",
+        },
+      ];
+
+      if (data.has_app_register) {
+        metrics.splice(2, 0, {
+          label: "APPs Filed",
+          value: data.app_total ?? 0,
+          note: `Latest final version V${
+            (data.app_latest_versions && data.app_latest_versions.final) || 1
+          }`,
+          icon: "ri-shield-check-line",
+          bgClass: "bg-primary-subtle",
+          textClass: "text-primary",
+          accentColor: "#405189",
+        });
+      }
+
+      return metrics;
     },
     workspaceModules() {
       const modules = [
@@ -1887,6 +2257,34 @@ export default {
       return queue.filter((item) => this.hasAnyRole(item.roles));
     },
 
+    otherOpenBreakdown() {
+      // Statuses already shown as their own donut slice (For Review = Pending,
+      // For Approval = Reviewed) — everything else composes "Other Open"
+      const namedSlices = ["pending", "reviewed", "completed"];
+      const source = this.dashboard.status_distribution || [];
+
+      const items = source
+        .filter(
+          (item) => !namedSlices.includes(String(item.status || "").toLowerCase())
+        )
+        .map((item) => ({
+          status: item.status || "Unknown",
+          count: Number(item.count) || 0,
+        }))
+        .filter((item) => item.count > 0)
+        .sort((a, b) => b.count - a.count);
+
+      const total = items.reduce((sum, item) => sum + item.count, 0);
+
+      return items.map((item) => ({
+        ...item,
+        share: total ? Math.round((item.count / total) * 100) : 0,
+      }));
+    },
+    otherOpenTotal() {
+      return this.otherOpenBreakdown.reduce((sum, item) => sum + item.count, 0);
+    },
+
     completionRate() {
       if (!this.dashboard.total_procurements) {
         return 0;
@@ -2041,6 +2439,39 @@ export default {
     getProcurementAxisMax(maxProcurementCount, axisStep) {
       return Math.max(axisStep, Math.ceil(maxProcurementCount / axisStep) * axisStep);
     },
+    loadPlanningData(forceReload = false) {
+      if (this.planningLoading || (this.planningLoaded && !forceReload)) {
+        return;
+      }
+
+      this.planningLoading = true;
+      this.planningError = null;
+      axios
+        .get("/faims/procurement-ppmp?option=dashboard", {
+          params: { year: this.dashboardFilter.year || new Date().getFullYear() },
+        })
+        .then((response) => {
+          if (response.data) {
+            this.planningData = response.data;
+            this.planningLoaded = true;
+
+            const statusEntries = Object.entries(response.data.ppmp_by_status || {});
+            this.planningStatusChartOptions = {
+              ...this.planningStatusChartOptions,
+              labels: statusEntries.map(([status]) => status),
+            };
+            this.planningStatusChartSeries = statusEntries.map(([, count]) => Number(count) || 0);
+          }
+        })
+        .catch((err) => {
+          console.log(err);
+          this.planningError = "Unable to load planning data. Check your connection and try again.";
+        })
+        .finally(() => {
+          this.planningLoading = false;
+        });
+    },
+
     fetchDashboard() {
       const params = {
         period: this.dashboardFilter.period,
@@ -2061,6 +2492,8 @@ export default {
       if (this.dashboardFilter.period === "quarterly") {
         params.quarter = this.dashboardFilter.quarter;
       }
+      this.loadingDashboard = true;
+      this.dashboardError = null;
       axios
         .get("/faims/procurements?option=dashboard", { params })
         .then((response) => {
@@ -2070,7 +2503,14 @@ export default {
             this.updateCharts();
           }
         })
-        .catch((err) => console.log(err));
+        .catch((err) => {
+          console.log(err);
+          this.dashboardError =
+            "Unable to load dashboard data. Check your connection and try again.";
+        })
+        .finally(() => {
+          this.loadingDashboard = false;
+        });
     },
 
     updateCharts() {
@@ -2098,12 +2538,26 @@ export default {
             tickAmount: axisMax / axisStep,
           },
         };
+        const trendCounts = this.dashboard.monthly_trends.map(
+          (item) => Number(item.count) || 0
+        );
+        const trendCompleted = this.dashboard.monthly_trends.map(
+          (item) => Number(item.completed_count ?? item.completed ?? 0) || 0
+        );
+
         this.monthlyChartSeries = [
+          { name: "Completed", data: trendCompleted },
           {
-            ...this.monthlyChartSeries[0],
-            data: this.dashboard.monthly_trends.map((item) => Number(item.count) || 0),
+            name: "Still Open",
+            data: trendCounts.map((count, i) => Math.max(count - trendCompleted[i], 0)),
           },
         ];
+
+        const totalRequests = trendCounts.reduce((sum, count) => sum + count, 0);
+        const averageRequests = trendCounts.length
+          ? totalRequests / trendCounts.length
+          : 0;
+
         this.lineTrendChartOptions = {
           ...this.lineTrendChartOptions,
           xaxis: {
@@ -2117,6 +2571,30 @@ export default {
             max: axisMax,
             stepSize: axisStep,
             tickAmount: axisMax / axisStep,
+          },
+          annotations: {
+            yaxis:
+              trendCounts.length > 1 && totalRequests > 0
+                ? [
+                    {
+                      y: averageRequests,
+                      borderColor: "#94a3b8",
+                      strokeDashArray: 5,
+                      label: {
+                        text: `Avg ${averageRequests.toFixed(1)}/period`,
+                        position: "left",
+                        textAnchor: "start",
+                        borderColor: "transparent",
+                        style: {
+                          background: "transparent",
+                          color: "#94a3b8",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                        },
+                      },
+                    },
+                  ]
+                : [],
           },
         };
         this.lineTrendChartSeries = [
@@ -2138,7 +2616,42 @@ export default {
       const forApproval = Number(this.dashboard.for_approvals) || 0;
       const total = Number(this.dashboard.total_procurements) || 0;
       const otherOpen = Math.max(total - completed - forReview - forApproval, 0);
-      this.statusPieChartSeries = [completed, forReview, forApproval, otherOpen];
+      this.statusPieChartSeries =
+        total > 0 ? [completed, forReview, forApproval, otherOpen] : [];
+
+      // Rebuild the donut tooltip so the "Other Open" slice enumerates its statuses
+      const otherBreakdown = this.otherOpenBreakdown;
+      this.statusPieChartOptions = {
+        ...this.statusPieChartOptions,
+        tooltip: {
+          ...this.statusPieChartOptions.tooltip,
+          custom: function ({ series, seriesIndex, w }) {
+            const label = w.globals.labels[seriesIndex];
+            const value = Number(series[seriesIndex] || 0);
+            const isOtherOpen = label === "Other Open";
+
+            const breakdownRows =
+              isOtherOpen && otherBreakdown.length
+                ? otherBreakdown
+                    .map(
+                      (item) =>
+                        `<div style="display:flex;justify-content:space-between;gap:14px;font-size:11px;color:#334155;margin-top:2px;"><span>${item.status}</span><strong>${item.count}</strong></div>`
+                    )
+                    .join("")
+                : "";
+
+            return [
+              '<div style="padding:8px 10px;min-width:180px;">',
+              `<div style="font-size:12px;font-weight:700;color:#0f172a;">${label}</div>`,
+              `<div style="font-size:12px;color:#334155;margin-top:2px;">${value.toLocaleString()} requests</div>`,
+              breakdownRows
+                ? `<div style="margin-top:6px;border-top:1px solid #e2e8f0;padding-top:5px;">${breakdownRows}</div>`
+                : "",
+              "</div>",
+            ].join("");
+          },
+        },
+      };
       this.completionGaugeSeries = [this.completionRate];
       this.budgetGaugeSeries = [this.budgetUtilizationRate];
 
@@ -2238,6 +2751,7 @@ export default {
     },
 
     fetch() {
+      this.loadingLists = true;
       axios
         .get("/faims/procurements", {
           params: {
@@ -2256,7 +2770,15 @@ export default {
             this.links = response.data.links;
           }
         })
-        .catch((err) => console.log(err));
+        .catch((err) => console.log(err))
+        .finally(() => {
+          this.loadingLists = false;
+        });
+    },
+
+    refreshDashboard() {
+      this.fetchDashboard();
+      this.fetch();
     },
 
     formatDate(date) {
@@ -2277,7 +2799,20 @@ export default {
     },
 
     formatCompactCurrency(value) {
-      return this.formatCurrency(value);
+      const amount = Number(value) || 0;
+      const abs = Math.abs(amount);
+
+      if (abs >= 1_000_000_000) {
+        return `₱${(amount / 1_000_000_000).toFixed(2)}B`;
+      }
+      if (abs >= 1_000_000) {
+        return `₱${(amount / 1_000_000).toFixed(2)}M`;
+      }
+      if (abs >= 100_000) {
+        return `₱${(amount / 1_000).toFixed(0)}K`;
+      }
+
+      return this.formatCurrency(amount);
     },
 
     formatDateTime(date) {
@@ -2349,7 +2884,7 @@ export default {
       }
       // Auto-fetch when period changes (except for custom which waits for date selection)
       if (this.dashboardFilter.period !== "custom") {
-        this.fetchDashboard();
+        this.debouncedFetchDashboard();
       }
     },
 
@@ -3544,6 +4079,153 @@ export default {
 
 .min-w-0 {
   min-width: 0;
+}
+
+.is-refreshing {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.metric-card.is-loading {
+  pointer-events: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card.is-loading .metric-icon,
+.metric-card.is-loading h4,
+.metric-card.is-loading p {
+  color: transparent !important;
+  background-color: var(--proc-chart-grid, #e2e8f0);
+  border-radius: 6px;
+}
+
+.metric-card.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-pulse 1.2s infinite;
+}
+
+@keyframes skeleton-pulse {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.icon-spin {
+  display: inline-block;
+  animation: proc-spin 0.9s linear infinite;
+}
+
+@keyframes proc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-bottom: 0.15rem;
+}
+
+.filter-action-btn {
+  min-height: 42px;
+  min-width: 42px;
+  border-radius: 12px;
+}
+
+.recent-search {
+  position: relative;
+}
+
+.recent-search i {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--proc-muted);
+  pointer-events: none;
+}
+
+.recent-search input {
+  min-width: 200px;
+  padding-left: 1.9rem;
+  border-radius: 10px;
+  background: var(--proc-input);
+  color: var(--proc-ink);
+}
+
+.other-open-breakdown {
+  border-top: 1px dashed var(--proc-border);
+  padding-top: 0.6rem;
+}
+
+.other-open-breakdown__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.other-open-breakdown__header small {
+  color: var(--proc-muted);
+  font-weight: 700;
+}
+
+.other-open-breakdown__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.other-open-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px auto;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.other-open-row__label {
+  color: var(--proc-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.other-open-row__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--proc-card-soft);
+  overflow: hidden;
+}
+
+.other-open-row__bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #64748b;
+  transition: width 0.4s ease;
+}
+
+.other-open-row strong {
+  min-width: 26px;
+  color: var(--proc-ink);
+  font-size: 0.78rem;
+  text-align: right;
 }
 
 @media (max-width: 768px) {

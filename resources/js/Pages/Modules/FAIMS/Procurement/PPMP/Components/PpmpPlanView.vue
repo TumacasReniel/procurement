@@ -350,7 +350,11 @@
               <td class="text-center ppmp-entry-cell">
                 {{ projectRow.remarks || "-" }}
               </td>
-              <td class="text-center text-muted">—</td>
+              <td class="text-center">
+                <b-badge :variant="itemStatusVariant(ppmp)">
+                  {{ itemStatus(ppmp) }}
+                </b-badge>
+              </td>
               <td v-if="canEditIndicativeItems" class="text-center">
                 <div class="d-flex justify-content-center gap-1">
                   <b-button
@@ -359,7 +363,7 @@
                     size="sm"
                     class="btn-icon"
                     style="border-radius: 8px;"
-                    @click="$emit('edit-item', { _isPpmpProject: true, ppmp_id: projectRow.ppmp_id, ...projectRow })"
+                    @click="$emit('edit-item', { _isPpmpProject: true, project_id: projectRow.project_id, ...projectRow })"
                   >
                     <i class="ri-edit-2-line"></i>
                   </b-button>
@@ -369,7 +373,7 @@
                     size="sm"
                     class="btn-icon"
                     style="border-radius: 8px;"
-                    @click="$emit('delete-item', { _isPpmpProject: true, ppmp_id: projectRow.ppmp_id, name: projectRow.general_description_objective })"
+                    @click="$emit('delete-item', { _isPpmpProject: true, project_id: projectRow.project_id, name: projectRow.general_description_objective })"
                   >
                     <i class="ri-delete-bin-line"></i>
                   </b-button>

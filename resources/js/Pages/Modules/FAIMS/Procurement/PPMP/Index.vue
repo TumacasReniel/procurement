@@ -26,7 +26,6 @@
               <b-button
                 variant="light"
                 size="sm"
-                v-b-tooltip.hover="{ title: 'Open the Procurement User Manual' }"
                 @click="userManualModal.show = true"
               >
                 <i class="ri-book-open-fill text-primary me-1"></i>
@@ -35,7 +34,6 @@
               <b-button
                 variant="light"
                 size="sm"
-                v-b-tooltip.hover="{ title: 'Procurement Process Guide (PPMP → APP → SPP → RFQ → PO)' }"
                 @click="processInfoModal.show = true"
               >
                 <i class="ri-question-line text-primary me-1"></i>
@@ -460,6 +458,18 @@
                           <i class="ri-checkbox-circle-line"></i>
                         </b-button>
                         <b-button
+                          v-if="list.can_edit_ppmp"
+                          @click.stop="openEditPpmpModal(list)"
+                          size="sm"
+                          variant="warning"
+                          class="btn-icon"
+                          v-b-tooltip.hover
+                          title="Edit PPMP details / replace supporting document"
+                          style="border-radius: 8px"
+                        >
+                          <i class="ri-edit-line"></i>
+                        </b-button>
+                        <b-button
                           v-if="list.can_revert_status"
                           @click.stop="openRevertStatusModal(list)"
                           size="sm"
@@ -585,6 +595,15 @@
     @submit="submitCreatePpmp"
   />
 
+  <EditUnitPpmpModal
+    v-model:show="editPpmpModal.show"
+    :form="editPpmpForm"
+    :ppmp="editPpmpModal.ppmp"
+    :unit-users="editPpmpModal.unitUsers"
+    @close="closeEditPpmpModal"
+    @submit="submitEditPpmp"
+  />
+
   <CreateAppModal
     v-model:show="createAppModal.show"
     :form="createAppForm"
@@ -682,6 +701,7 @@ import Multiselect from "@vueform/multiselect";
 import PageHeader from "@/Shared/Components/PageHeader.vue";
 import Pagination from "@/Shared/Components/Pagination.vue";
 import CreateUnitPpmpModal from "./Modals/CreateUnitPpmp.vue";
+import EditUnitPpmpModal from "./Modals/EditUnitPpmp.vue";
 import CreateAppModal from "./Modals/CreateApp.vue";
 import CreateSppModal from "./Modals/CreateSpp.vue";
 import AddItemModal from "./Modals/AddItem.vue";
@@ -699,6 +719,7 @@ export default {
     PageHeader,
     Pagination,
     CreateUnitPpmpModal,
+    EditUnitPpmpModal,
     CreateAppModal,
     CreateSppModal,
     AddItemModal,
@@ -728,6 +749,12 @@ export default {
         show: false,
         loading: false,
       },
+      editPpmpModal: {
+        show: false,
+        loading: false,
+        ppmp: null,
+        unitUsers: [],
+      },
       createAppModal: {
         show: false,
       },
@@ -742,6 +769,12 @@ export default {
         plan_type: "PPMP",
         attachment_file: null,
         requested_by_id: null,
+      }),
+      editPpmpForm: useForm({
+        option: "edit_ppmp",
+        plan_type: "PPMP",
+        requested_by_id: null,
+        attachment_file: null,
       }),
       createAppForm: useForm({
         year: new Date().getFullYear(),
@@ -1632,6 +1665,59 @@ export default {
       this.createPpmpForm.clearErrors();
       this.createPpmpForm.attachment_file = null;
     },
+    openEditPpmpModal(list) {
+      this.editPpmpForm.clearErrors();
+      this.editPpmpForm.requested_by_id = list.requested_by_id ?? null;
+      this.editPpmpForm.attachment_file = null;
+      this.editPpmpModal.ppmp = list;
+      this.editPpmpModal.unitUsers = [];
+      this.editPpmpModal.show = true;
+
+      this.fetchUnitUsersForEdit(list.unit_id);
+    },
+    closeEditPpmpModal() {
+      this.editPpmpModal.show = false;
+      this.editPpmpForm.clearErrors();
+      this.editPpmpForm.attachment_file = null;
+    },
+    fetchUnitUsersForEdit(unitId) {
+      this.editPpmpModal.loading = true;
+
+      axios
+        .get("/faims/procurement-ppmp", {
+          params: { option: "unit_users", unit_id: unitId },
+        })
+        .then((response) => {
+          const users = Array.isArray(response.data) ? response.data : [];
+          this.editPpmpModal.unitUsers = users;
+
+          // Only default to the unit head when the current selection isn't a valid
+          // choice for this unit — never override an existing, still-valid selection.
+          const validIds = users.map((u) => Number(u.value));
+          if (!validIds.includes(Number(this.editPpmpForm.requested_by_id))) {
+            const head = users.find((u) => u.is_head);
+            this.editPpmpForm.requested_by_id = head?.value ?? null;
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+          this.editPpmpModal.unitUsers = [];
+        })
+        .finally(() => {
+          this.editPpmpModal.loading = false;
+        });
+    },
+    submitEditPpmp() {
+      this.editPpmpForm.option = "edit_ppmp";
+
+      this.editPpmpForm.patch(`/faims/procurement-ppmp/${this.editPpmpModal.ppmp.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+          this.closeEditPpmpModal();
+          this.fetch();
+        },
+      });
+    },
     autoSetRequestedBy(form, unitOptions, unitId) {
       const unit = unitOptions.find((u) => Number(u.value) === Number(unitId));
       if (!unit?.users?.length) {
@@ -1643,13 +1729,12 @@ export default {
     },
     autoSetFirstAvailableQuarter(unitId) {
       const unit = this.availablePpmpUnits.find((u) => Number(u.value) === Number(unitId));
-      const taken = unit?.taken_quarters ?? [];
-      const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+      if (!unit) return;
+      const taken = unit.taken_quarters ?? [];
       const all = [1, 2, 3, 4];
-      // Keep current selection if still available, otherwise pick first free quarter
-      if (!taken.includes(this.createPpmpForm.quarter)) return;
-      const firstFree = all.find((q) => !taken.includes(q)) ?? currentQuarter;
-      this.createPpmpForm.quarter = firstFree;
+      // Default to the next quarter after the unit's latest created one, not today's calendar quarter
+      const firstFree = all.find((q) => !taken.includes(q));
+      if (firstFree) this.createPpmpForm.quarter = firstFree;
     },
     openCreateAppModal() {
       this.createAppForm.clearErrors();
@@ -1800,6 +1885,7 @@ export default {
           ) {
             this.createPpmpForm.unit_id = null;
           }
+          this.autoSetFirstAvailableQuarter(this.createPpmpForm.unit_id);
         })
         .catch((error) => {
           console.log(error);

@@ -49,10 +49,10 @@ class ProcurementPPMPResource extends JsonResource
         $consolidated_item_details = $plan_type === 'ppmp'
             ? $item_details
             : $this->consolidated_item_details($item_details, $this->procurement_app?->pricing_overrides ?? []);
-        $no_item_budget = collect($this->no_item_ppmps ?? [])->sum(fn ($p) => (float) ($p->project_total_budget ?? 0));
-        $display_total_amount = $plan_type === 'ppmp'
-            ? $total_amount + $no_item_budget
-            : (float) $consolidated_item_details->sum('abc');
+        $no_item_budget = collect($this->projects ?? [])->sum(fn ($p) => (float) ($p->project_total_budget ?? 0));
+        $display_total_amount = ($plan_type === 'ppmp'
+            ? $total_amount
+            : (float) $consolidated_item_details->sum('abc')) + $no_item_budget;
 
         return [
             'id' => $this->id,
@@ -66,6 +66,7 @@ class ProcurementPPMPResource extends JsonResource
             'can_submit_final' => $this->can_mark_final_ppmp($plan_name, $plan_type),
             'can_mark_as_final' => $this->can_mark_as_final($plan_name, $plan_type),
             'can_create_revision' => $this->can_create_revision($plan_name, $plan_type),
+            'can_edit_ppmp' => $this->can_edit_ppmp($plan_type),
             'can_add_items' => $can_add_items,
             'can_approve_to_app' => $this->can_approve_to_app($approval_status),
             'can_revert_status' => $this->can_revert_status($is_consolidated),
@@ -144,16 +145,16 @@ class ProcurementPPMPResource extends JsonResource
             'attachment_path' => $this->attachment_path,
             'attachment_original_name' => $this->attachment_original_name,
             'attachment_url' => $this->attachment_path ? asset('storage/'.ltrim($this->attachment_path, '/')) : null,
-            'project_rows' => collect($this->no_item_ppmps ?? [])->map(fn ($p) => [
-                'ppmp_id' => $p->id,
-                'general_description_objective' => $p->title ?: $p->purpose,
+            'project_rows' => collect($this->projects ?? [])->map(fn ($p) => [
+                'project_id' => $p->id,
+                'general_description_objective' => $p->title ?: $this->purpose,
                 'project_type' => $p->project_type,
                 'recommended_mode_of_procurement' => $p->recommended_mode_of_procurement,
                 'pre_procurement_conference' => $p->pre_procurement_conference,
                 'start_of_procurement_activity' => $p->start_of_procurement_activity,
                 'end_of_procurement_activity' => $p->end_of_procurement_activity,
                 'expected_delivery_date' => $p->expected_delivery_date,
-                'source_of_funds' => $p->fund_cluster?->name,
+                'source_of_funds' => $this->fund_cluster?->name,
                 'project_total_budget' => (float) ($p->project_total_budget ?? 0),
                 'attached_supporting_documents' => $p->attached_supporting_documents,
                 'remarks' => $p->remarks,
@@ -765,6 +766,36 @@ class ProcurementPPMPResource extends JsonResource
             'final'     => 'Final',
             default     => 'Indicative',
         };
+    }
+
+    protected function can_edit_ppmp(string $plan_type): bool
+    {
+        if ($plan_type !== 'ppmp') {
+            return false;
+        }
+
+        if ($this->reference_app_id) {
+            return false;
+        }
+
+        // Archived finals (superseded by a revision) are read-only, mirroring isLockedForItemChanges()
+        if (($this->ppmp_type ?? 'indicative') === 'final' && ! (bool) ($this->is_current ?? true)) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        $user_unit_id = $user->organization?->unit_id;
+        $same_unit = $user_unit_id && $this->unit_id && (int) $user_unit_id === (int) $this->unit_id;
+
+        return (int) $this->created_by_id === (int) $user->id
+            || $same_unit
+            || $user->hasRole('Procurement Staff')
+            || $user->hasRole('Procurement Officer');
     }
 
     protected function can_mark_as_final(?string $plan_name, string $plan_type): bool

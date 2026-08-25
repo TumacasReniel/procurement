@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 
 class ProcurementBacNoa extends Model
 {
     use LogsActivity;
+    use SoftDeletes;
     protected $fillable = [
         'procurement_id',
         'procurement_bac_id',

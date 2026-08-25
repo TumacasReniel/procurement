@@ -46,6 +46,12 @@ class ProcurementPPMPController extends Controller
             case 'available_spp_units':
                 return $this->ppmp->availableSppUnits($request);
 
+            case 'unit_users':
+                return $this->ppmp->unitUsersForUnit($request);
+
+            case 'dashboard':
+                return $this->ppmp->dashboardSummary($request);
+
             default:
                 return inertia('Modules/FAIMS/Procurement/PPMP/Index', $this->ppmp->indexPageProps());
         }
@@ -93,6 +99,7 @@ class ProcurementPPMPController extends Controller
             case 'delete_item':
             case 'clear_project':
             case 'update_project':
+            case 'edit_ppmp':
                 broadcast(new ProcurementPlanStatusUpdated([
                     'id' => (int) $id,
                     'plan_type' => $request->input('plan_type', 'PPMP'),

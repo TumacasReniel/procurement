@@ -148,8 +148,17 @@ class ProcurementRequest extends FormRequest
                 }
             }
 
-            $requestedAmount = $submittedItems
-                ->sum(fn ($item) => (float) data_get($item, 'total_cost', 0));
+            // Budget is checked against quantity x unit cost, not the client's
+            // total_cost — a tampered total would otherwise pass this gate.
+            $requestedAmount = $submittedItems->sum(function ($item) {
+                $quantity = (float) data_get($item, 'item_quantity', 0);
+                $unitCost = (float) data_get($item, 'item_unit_cost', 0);
+                $computed = round($quantity * $unitCost, 2);
+
+                return $computed > 0
+                    ? $computed
+                    : (float) data_get($item, 'total_cost', 0);
+            });
 
             if ($requestedAmount <= 0) {
                 return;

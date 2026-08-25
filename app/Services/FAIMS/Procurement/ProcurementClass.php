@@ -31,8 +31,10 @@ class ProcurementClass
 {
     protected const PLAN_NAME_APP = 'Annual Procurement Plan';
 
-    public function __construct(protected DropdownClass $dropdown)
-    {
+    public function __construct(
+        protected DropdownClass $dropdown,
+        protected ProcurementGate $gate,
+    ) {
     }
 
     public function indexPageProps($request): array
@@ -320,7 +322,7 @@ class ProcurementClass
     
 
     protected function saveProcurementItems($request ,$procurement_id ){
-    
+
         foreach ($request->items as $index => $item) {
             if (!empty($item['ppmp_item_id'])) {
                 $ppmpItem = ProcurementPpmpItem::find($item['ppmp_item_id']);
@@ -344,11 +346,24 @@ class ProcurementClass
             $data->item_unit_cost = $item['item_unit_cost'];
             $data->item_quantity = $item['item_quantity'];
             $data->item_description = $item['item_description'];
-            $data->total_cost = $item['total_cost'];
+            // Never trust a client-supplied total: an understated total_cost would slip
+            // past the PAP budget check while the real qty x unit cost is higher.
+            $data->total_cost = $this->lineTotal($item);
             $data->status_id = ListStatus::getID('Pending','Procurement');
             $data->save();
         }
 
+    }
+
+    /**
+     * Authoritative line total: quantity x unit cost, computed server-side in cents.
+     */
+    protected function lineTotal(array $item): float
+    {
+        $quantity = (float) ($item['item_quantity'] ?? 0);
+        $unitCost = (float) ($item['item_unit_cost'] ?? 0);
+
+        return $this->centsToAmount((int) round($quantity * $unitCost * 100));
     }
 
     
@@ -373,6 +388,8 @@ class ProcurementClass
     
     public function update($id , $request)
     {
+        $this->ensureItemsAreStillEditable($id);
+
         // update Procurement
         $data = $this->updatePR($id , $request);
 
@@ -395,6 +412,9 @@ class ProcurementClass
    
     public function review($id, $request)
     {
+        $this->gate->authorize(ProcurementGate::REVIEW_PR, 'code');
+        $this->ensureItemsAreStillEditable($id);
+
         $user = Auth::user();
         Log::info('Procurement review started', [
             'procurement_id' => $id,
@@ -453,6 +473,10 @@ class ProcurementClass
 
     public function approve($id, $request)
     {
+        $this->gate->authorize(ProcurementGate::APPROVE_PR, 'code');
+        $this->ensureItemsAreStillEditable($id);
+        $this->ensureApproverIsNotRequester($id);
+
         // update Procurement
         $data = $this->updatePR($id , $request);
 
@@ -525,7 +549,27 @@ class ProcurementClass
 
     public function destroy($id): array
     {
-        $procurement = Procurement::findOrFail($id);
+        $this->gate->authorize(ProcurementGate::DELETE_PR, 'code');
+
+        $procurement = Procurement::with('status')->findOrFail($id);
+
+        // A PR that has entered procurement proper (bidding, award, PO) is part of the
+        // audit trail — it can be cancelled, never removed.
+        $deletableStatuses = ['Pending', 'Cancelled'];
+
+        if (! in_array($procurement->status?->name, $deletableStatuses, true)) {
+            throw ValidationException::withMessages([
+                'code' => 'Only pending or cancelled purchase requests can be deleted. Cancel the request instead.',
+            ]);
+        }
+
+        if ($procurement->quotations()->exists()) {
+            throw ValidationException::withMessages([
+                'code' => 'This purchase request already has Requests for Quotation and cannot be deleted.',
+            ]);
+        }
+
+        // Soft delete — the record stays recoverable for audit.
         $procurement->delete();
 
         return [
@@ -534,6 +578,37 @@ class ProcurementClass
             'info' => "You've successfully deleted the Procurement.",
             'status' => true,
         ];
+    }
+
+    /**
+     * PR items are deleted and recreated on every edit. Once RFQs exist, their
+     * quotation items point at the old procurement_item ids, so re-saving items
+     * orphans every bid. Freeze the item set at that point.
+     */
+    protected function ensureItemsAreStillEditable($procurementId): void
+    {
+        $procurement = Procurement::withCount('quotations')->findOrFail($procurementId);
+
+        if ($procurement->quotations_count > 0) {
+            throw ValidationException::withMessages([
+                'items' => 'This purchase request already has Requests for Quotation. Its items can no longer be changed.',
+            ]);
+        }
+    }
+
+    /**
+     * Separation of duties: the approver may not be the requester or the creator.
+     */
+    protected function ensureApproverIsNotRequester($procurementId): void
+    {
+        $procurement = Procurement::findOrFail($procurementId);
+        $userId = (int) Auth::id();
+
+        if ((int) $procurement->requested_by_id === $userId || (int) $procurement->created_by_id === $userId) {
+            throw ValidationException::withMessages([
+                'code' => 'You cannot approve a purchase request that you created or requested.',
+            ]);
+        }
     }
     
        

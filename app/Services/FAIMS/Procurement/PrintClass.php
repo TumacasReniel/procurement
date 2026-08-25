@@ -6,6 +6,7 @@ use App\Services\DropdownClass;
 use App\Models\Procurement;
 use App\Models\ProcurementApp;
 use App\Models\ProcurementPpmp;
+use App\Models\ProcurementPpmpItem;
 use App\Models\ProcurementQuotation;
 use App\Models\ProcurementBac;
 use App\Models\ProcurementBacNoa;
@@ -213,6 +214,7 @@ class PrintClass
                 'source_ppmps.items.item_unit_type',
                 'source_ppmps.items.item_category',
                 'source_ppmps.items.status',
+                'source_ppmps.projects',
                 'source_ppmps.created_by.profile',
                 'source_ppmps.created_by.org_chart.designation',
                 'source_ppmps.created_by.organization.position',
@@ -235,6 +237,7 @@ class PrintClass
                 'items.item_unit_type',
                 'items.item_category',
                 'items.status',
+                'projects',
                 'created_by.profile',
                 'created_by.org_chart.designation',
                 'created_by.organization.position',
@@ -310,6 +313,9 @@ class PrintClass
             })
             ->values();
         $items = $this->consolidateAppPrintItems($items, $app->pricing_overrides ?? []);
+        // Project rows have a lump budget, not quantity x unit cost — append them after
+        // consolidation so they aren't folded into that quantity-based averaging/merging.
+        $items = $items->concat($this->pseudoItemsFromProjects($procurements))->values();
 
         $codes = $procurements
             ->flatMap(fn ($item) => $item->codes ?? collect())
@@ -357,6 +363,43 @@ class PrintClass
         $representative->date = $app->year . '-01-01';
 
         return $representative;
+    }
+
+    /**
+     * Build unsaved ProcurementPpmpItem-shaped rows out of each procurement's project-only
+     * entries (no line items — see ProcurementPpmpProject) so they render in the same print
+     * table as real items, tagged with the same print_* attributes the item flatMaps set.
+     */
+    protected function pseudoItemsFromProjects($procurements)
+    {
+        return $procurements
+            ->flatMap(function ($sourceProcurement) {
+                $sourceMode = $sourceProcurement->codes
+                    ?->pluck('procurement_code.mode_of_procurement.name')
+                    ->filter()
+                    ->unique()
+                    ->implode(', ');
+
+                return ($sourceProcurement->projects ?? collect())->map(function ($project) use ($sourceProcurement, $sourceMode) {
+                    $item = new ProcurementPpmpItem($project->only([
+                        'project_type', 'recommended_mode_of_procurement', 'pre_procurement_conference',
+                        'start_of_procurement_activity', 'end_of_procurement_activity', 'expected_delivery_date',
+                        'attached_supporting_documents', 'remarks',
+                    ]));
+                    $item->item_name = $project->title;
+                    $item->total_cost = $project->project_total_budget;
+                    $item->setAttribute('print_is_project_row', true);
+                    $item->setAttribute('print_source_procurement_id', $sourceProcurement->id);
+                    $item->setAttribute('print_general_description', $project->title ?: ($sourceProcurement->title ?: $sourceProcurement->purpose));
+                    $item->setAttribute('print_classification_name', $sourceProcurement->classification?->name);
+                    $item->setAttribute('print_mode_of_procurement', $sourceMode);
+                    $item->setAttribute('print_source_of_funds', $sourceProcurement->fund_cluster?->name);
+                    $item->setAttribute('print_start_date', $project->start_of_procurement_activity ?: $sourceProcurement->date);
+
+                    return $item;
+                });
+            })
+            ->values();
     }
 
     protected function consolidateAppPrintItems($items, array $pricingOverrides)
@@ -452,6 +495,7 @@ class PrintClass
             'items.item_unit_type',
             'items.item_category',
             'items.status',
+            'projects',
             'created_by.profile',
             'created_by.org_chart.designation',
             'created_by.organization.position',
@@ -501,6 +545,7 @@ class PrintClass
                 });
             })
             ->values();
+        $items = $items->concat($this->pseudoItemsFromProjects($procurements))->values();
         $codes = $procurements
             ->flatMap(fn ($item) => $item->codes ?? collect())
             ->unique('procurement_code_id')

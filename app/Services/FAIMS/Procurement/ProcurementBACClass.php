@@ -9,11 +9,16 @@ use App\Models\ProcurementBacNoaItem;
 use App\Models\ProcurementQuotation;
 use App\Http\Resources\FAIMS\Procurement\ProcurementBacResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\ListStatus;
 
 class ProcurementBACClass
 {
+    public function __construct(protected ProcurementGate $gate)
+    {
+    }
+
     public function lists($request){
         $data = ProcurementBacResource::collection(
             ProcurementBac::query()
@@ -35,7 +40,9 @@ class ProcurementBACClass
     }
 
     public function save($request)
-    { 
+    {
+        $this->gate->authorize(ProcurementGate::CREATE_BAC_RESOLUTION, 'body');
+
         $procurement = Procurement::with('status', 'sub_status')->findOrFail($request->procurement_id);
 
         switch($request->type){
@@ -138,9 +145,26 @@ class ProcurementBACClass
 
        
     public function updateStatus($id, $request)
-    { 
+    {
+        $this->gate->authorize(ProcurementGate::APPROVE_BAC_RESOLUTION, 'status');
+
         $user = Auth::user();
-        $bac_resolution = ProcurementBac::with('procurement.status' )->findOrFail($id);
+        $bac_resolution = ProcurementBac::with('procurement.status', 'status')->lockForUpdate()->findOrFail($id);
+
+        // Idempotency: approving an already-approved resolution would re-run the
+        // NOA creation below and duplicate award records.
+        if ($bac_resolution->status?->name === 'Approved') {
+            throw ValidationException::withMessages([
+                'status' => 'This BAC resolution has already been approved.',
+            ]);
+        }
+
+        // The BAC member who drafted the resolution cannot also approve it.
+        if ((int) $bac_resolution->created_by_id === (int) $user->id) {
+            throw ValidationException::withMessages([
+                'status' => 'You cannot approve a BAC resolution that you created.',
+            ]);
+        }
 
         $bac_resolution->update([
             'approved_by_id' => $user->id,

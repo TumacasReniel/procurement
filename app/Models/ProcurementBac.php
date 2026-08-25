@@ -4,10 +4,13 @@ namespace App\Models;
 
 use App\Models\ListStatus;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 
 class ProcurementBac extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'procurement_id',
         'code',

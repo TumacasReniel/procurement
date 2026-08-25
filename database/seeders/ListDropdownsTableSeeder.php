@@ -519,7 +519,7 @@ class ListDropdownsTableSeeder extends Seeder
                 'others' => 'BAC-MEMBER',
                 'is_active' => 1,
             ),
-            50 => 
+            50 =>
             array (
                 'id' => 52,
                 'name' => 'IAR Chairperson',
@@ -529,7 +529,17 @@ class ListDropdownsTableSeeder extends Seeder
                 'others' => 'IAR-CHAIR',
                 'is_active' => 1,
             ),
-            52 => 
+            51 =>
+            array (
+                'id' => 53,
+                'name' => 'IAR Vice Chairperson',
+                'classification' => 'Designation',
+                'type' => 'n/a',
+                'color' => 'n/a',
+                'others' => 'IAR-VICE-CHAIR',
+                'is_active' => 1,
+            ),
+            52 =>
             array (
                 'id' => 54,
                 'name' => 'IAR Member',

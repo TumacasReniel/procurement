@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 
 class Procurement extends Model
 {
     use LogsActivity;
+    use SoftDeletes;
     protected $fillable = [
         'request_id',
         'code',
@@ -154,11 +156,21 @@ class Procurement extends Model
             $month = date("m", strtotime("now"));
         }
 
-        $count = self::whereYear('date', date("Y", strtotime($date ?? "now")))
-                     ->whereMonth('date', $month)
-                     ->count() + 1;
+        $prefix = 'PR-' . $year . '-' . $month . '-';
 
-        return 'PR-' . $year . '-' .  $month . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        // Trashed rows keep their code and the code column is unique, so the sequence
+        // has to advance past them. Counting rows would also reissue a number whenever
+        // any row in the month was removed — take the highest sequence instead.
+        $lastCode = self::withTrashed()
+                        ->whereYear('date', date("Y", strtotime($date ?? "now")))
+                        ->whereMonth('date', $month)
+                        ->where('code', 'like', $prefix . '%')
+                        ->orderByRaw('CAST(SUBSTRING_INDEX(code, "-", -1) AS UNSIGNED) DESC')
+                        ->value('code');
+
+        $count = $lastCode ? ((int) substr($lastCode, -4)) + 1 : 1;
+
+        return $prefix . str_pad($count, 4, '0', STR_PAD_LEFT);
     }
 
     public function getActivitylogOptions(): LogOptions {
