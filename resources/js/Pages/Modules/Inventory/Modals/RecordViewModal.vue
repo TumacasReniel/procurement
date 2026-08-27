@@ -130,6 +130,59 @@
           </table>
         </div>
       </div>
+
+      <!-- Property records -->
+      <div class="rvm-item-stocks pt-0">
+        <div class="rvm-item-stocks-header">
+          <div>
+            <h6 class="rvm-item-stocks-title">
+              <i class="ri-shield-star-line me-1 text-primary"></i>Property Records
+            </h6>
+            <p class="rvm-item-stocks-sub">Government property/PPE records linked to this item</p>
+          </div>
+        </div>
+
+        <div v-if="itemPropertiesLoading" class="rvm-table-state">
+          <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+          <span class="text-muted">Loading property records…</span>
+        </div>
+
+        <div v-else-if="!itemProperties.length" class="rvm-table-state">
+          <i class="ri-inbox-line rvm-empty-icon"></i>
+          <p class="text-muted mb-0">No property records for this item.</p>
+        </div>
+
+        <div v-else class="table-responsive">
+          <table class="table table-hover align-middle mb-0 rvm-stocks-table">
+            <thead>
+              <tr>
+                <th style="width:130px">Property Code</th>
+                <th>Model</th>
+                <th>Serial No.</th>
+                <th class="text-end" style="width:110px">Acquisition Cost</th>
+                <th class="text-end" style="width:100px">Book Value</th>
+                <th style="width:100px" class="text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="property in itemProperties" :key="property.id">
+                <td>
+                  <span class="rvm-unit-chip">{{ property.property_code || '—' }}</span>
+                </td>
+                <td class="text-body">{{ property.model || '—' }}</td>
+                <td class="text-muted small">{{ property.serial_no || '—' }}</td>
+                <td class="text-end text-muted small">₱{{ formatNumber(property.acquisition_cost) }}</td>
+                <td class="text-end fw-semibold">₱{{ formatNumber(property.book_value) }}</td>
+                <td class="text-center">
+                  <span class="badge" :class="propertyStatusBadge(property.status)">
+                    {{ property.status || '—' }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ── STOCK VIEW (unchanged) ─────────────────────────── -->
@@ -224,7 +277,7 @@
 <script>
 export default {
   name: 'RecordViewModal',
-  props: ['modelValue', 'type', 'record', 'stockItems', 'stockItemsLoading', 'canAddStockItem'],
+  props: ['modelValue', 'type', 'record', 'stockItems', 'stockItemsLoading', 'itemProperties', 'itemPropertiesLoading', 'canAddStockItem'],
   emits: ['update:modelValue', 'add-stock-item'],
   computed: {
     modalStyle() {
@@ -299,6 +352,12 @@ export default {
       if (n <= 0) return 'bg-danger-subtle text-danger';
       if (n < 5)  return 'bg-warning-subtle text-warning';
       return 'bg-success-subtle text-success';
+    },
+    propertyStatusBadge(status) {
+      const s = String(status || '').toLowerCase();
+      if (s === 'active') return 'bg-success-subtle text-success';
+      if (s === 'inactive') return 'bg-secondary-subtle text-secondary';
+      return 'bg-secondary-subtle text-secondary';
     },
   },
 };

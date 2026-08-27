@@ -31,7 +31,7 @@ class InventoryRisRequest extends FormRequest
             'items.*.item_id'           => ['required', 'exists:inventory_items,id'],
             'items.*.unit_of_issue'     => ['nullable', 'string', 'max:50'],
             'items.*.quantity_requested'=> ['required', 'numeric', 'min:0'],
-            'items.*.quantity_issued'   => ['nullable', 'numeric', 'min:0'],
+            'items.*.quantity_issued'   => ['nullable', 'numeric', 'min:0', 'lte:items.*.quantity_requested'],
             'items.*.remarks'           => ['nullable', 'string'],
         ];
     }
@@ -43,6 +43,7 @@ class InventoryRisRequest extends FormRequest
             'status_id.required'            => 'Please select a status.',
             'items.*.item_id.required'      => 'Each line must have an item.',
             'items.*.quantity_requested.required' => 'Each line must have a requested quantity.',
+            'items.*.quantity_issued.lte' => 'Issued quantity cannot exceed the requested quantity.',
         ];
     }
 }

@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class InventoryItem extends Model
 {
-    use HasFactory, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -50,6 +51,11 @@ class InventoryItem extends Model
     public function withdrawals()
     {
         return $this->hasMany(InventoryWithdrawal::class, 'inventory_id');
+    }
+
+    public function properties()
+    {
+        return $this->hasMany(InventoryItemProperty::class, 'inventory_item_id');
     }
 
     protected static function boot()

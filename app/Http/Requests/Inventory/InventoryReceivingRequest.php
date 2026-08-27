@@ -13,6 +13,7 @@ class InventoryReceivingRequest extends FormRequest
     {
         return [
             'item_id' => ['required', 'exists:inventory_items,id'],
+            'stock_id' => ['nullable', 'exists:inventory_stocks,id'],
             'quantity' => ['required', 'numeric', 'min:0.01'],
             'approved_by_id' => ['nullable', 'exists:users,id'],
             'status_id' => ['required', 'exists:list_statuses,id'],

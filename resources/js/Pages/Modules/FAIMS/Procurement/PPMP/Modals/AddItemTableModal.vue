@@ -179,30 +179,6 @@
             {{ fieldError("item_unit_cost") }}
           </div>
         </BCol>
-
-        <BCol lg="12" class="mt-3">
-          <div class="fw-semibold text-dark mb-2" style="font-size: 13px;">
-            Indicative Amount per Quarter
-            <span class="text-muted fw-normal ms-1" style="font-size: 11px;">(optional — must total to {{ formatCurrency(itemTotal) }})</span>
-          </div>
-          <div v-if="quarterlySum > 0 && Math.abs(quarterlySum - itemTotal) > 0.01" class="alert alert-warning py-2 px-3 mb-2" style="font-size: 12px;">
-            <i class="ri-error-warning-line me-1"></i>
-            Quarterly total {{ formatCurrency(quarterlySum) }} does not match item total {{ formatCurrency(itemTotal) }}.
-          </div>
-          <div class="row g-2">
-            <div v-for="q in [1,2,3,4]" :key="q" class="col-6 col-md-3">
-              <label class="form-label mb-1" style="font-size: 12px; font-weight: 600;">Q{{ q }}</label>
-              <input
-                v-model.number="form['q' + q + '_indicative_amount']"
-                type="number"
-                class="form-control form-control-sm"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-        </BCol>
       </BRow>
     </form>
 
@@ -402,12 +378,6 @@ export default {
     },
     currentItemTotal() {
       return Number(this.form.item_quantity || 0) * Number(this.form.item_unit_cost || 0);
-    },
-    itemTotal() {
-      return Number(this.form.item_quantity || 0) * Number(this.form.item_unit_cost || 0);
-    },
-    quarterlySum() {
-      return [1, 2, 3, 4].reduce((sum, q) => sum + (Number(this.form[`q${q}_indicative_amount`] || 0)), 0);
     },
   },
   beforeUnmount() {

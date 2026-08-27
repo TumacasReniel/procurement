@@ -63,11 +63,11 @@
                 <td class="text-center">{{ $row['date'] ? \Carbon\Carbon::parse($row['date'])->format('m/d/Y') : '—' }}</td>
                 <td>{{ $row['type'] }}{{ $row['ref'] ? ' #'.$row['ref'] : '' }}</td>
                 <td class="text-right">{{ $row['in'] > 0 ? number_format($row['in'], 2) : '' }}</td>
-                <td></td>
+                <td class="text-right">{{ $row['in'] > 0 && $row['unit_cost'] !== null ? number_format($row['unit_cost'], 2) : '' }}</td>
                 <td class="text-right">{{ $row['out'] > 0 ? number_format($row['out'], 2) : '' }}</td>
-                <td></td>
+                <td class="text-right">{{ $row['out'] > 0 && $row['unit_cost'] !== null ? number_format($row['unit_cost'], 2) : '' }}</td>
                 <td class="text-right">{{ number_format($row['balance'], 2) }}</td>
-                <td></td>
+                <td class="text-right">{{ number_format($row['balance_cost'], 2) }}</td>
                 <td>{{ $row['remarks'] }}</td>
             </tr>
             @empty

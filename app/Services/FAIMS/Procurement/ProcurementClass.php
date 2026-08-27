@@ -321,7 +321,16 @@ class ProcurementClass
     }
     
 
+    /**
+     * Create or update this PR's line items from the request, matching existing rows by
+     * their own 'id' when present. Rows not resubmitted are deleted. Matching by id (instead
+     * of always delete-then-recreate) keeps each item's primary key stable across edits, so a
+     * ProcurementQuotationItem created earlier against procurement_item_id doesn't silently
+     * dangle the next time the PR is reviewed/approved/edited.
+     */
     protected function saveProcurementItems($request ,$procurement_id ){
+
+        $keepIds = [];
 
         foreach ($request->items as $index => $item) {
             if (!empty($item['ppmp_item_id'])) {
@@ -337,7 +346,21 @@ class ProcurementClass
                 }
             }
 
-            $data = new ProcurementItem();
+            // A manually-entered item (no ppmp_item_id, or a stale/deleted one) must still
+            // carry its own unit type/cost/quantity — without this check a missing key here
+            // throws a raw "Undefined array key" fatal instead of a clean error.
+            if (!isset($item['item_unit_type_id'], $item['item_unit_cost'], $item['item_quantity'])) {
+                throw ValidationException::withMessages([
+                    "items.{$index}" => 'Each item must have a unit type, unit cost, and quantity.',
+                ]);
+            }
+
+            $existingId = !empty($item['id']) ? (int) $item['id'] : null;
+            $data = $existingId
+                ? ProcurementItem::where('procurement_id', $procurement_id)->find($existingId)
+                : null;
+            $data = $data ?: new ProcurementItem();
+
             $data->item_no = $index + 1;
             $data->procurement_id = $procurement_id;
             $data->ppmp_item_id = $item['ppmp_item_id'] ?? null;
@@ -345,14 +368,20 @@ class ProcurementClass
             $data->item_name = $item['item_name'] ?? null;
             $data->item_unit_cost = $item['item_unit_cost'];
             $data->item_quantity = $item['item_quantity'];
-            $data->item_description = $item['item_description'];
+            $data->item_description = $item['item_description'] ?? null;
             // Never trust a client-supplied total: an understated total_cost would slip
             // past the PAP budget check while the real qty x unit cost is higher.
             $data->total_cost = $this->lineTotal($item);
-            $data->status_id = ListStatus::getID('Pending','Procurement');
+            if (!$data->exists) {
+                $data->status_id = ListStatus::getID('Pending','Procurement');
+            }
             $data->save();
+            $keepIds[] = $data->id;
         }
 
+        ProcurementItem::where('procurement_id', $procurement_id)
+            ->whereNotIn('id', $keepIds)
+            ->delete();
     }
 
     /**
@@ -695,11 +724,8 @@ class ProcurementClass
     }
 
     protected function updatePRItems($procurement_id, $request ){
-
-        // Delete existing items for the procurement
-        ProcurementItem::where('procurement_id', $procurement_id)->delete();
-
-        // Re-save the updated items
+        // saveProcurementItems() upserts by id and removes anything not resubmitted,
+        // so no separate delete-all pass is needed here.
         $this->saveProcurementItems($request, $procurement_id);
     }
 

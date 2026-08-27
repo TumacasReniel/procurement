@@ -64,7 +64,7 @@ class ProcurementPPMPResource extends JsonResource
             'is_final' => $is_final,
             'is_pending_app_approval' => $approval_status === 'Submitted/For Consolidation',
             'can_submit_final' => $this->can_mark_final_ppmp($plan_name, $plan_type),
-            'can_mark_as_final' => $this->can_mark_as_final($plan_name, $plan_type),
+            'can_mark_as_final' => $this->can_mark_as_final($plan_name, $plan_type, $items),
             'can_create_revision' => $this->can_create_revision($plan_name, $plan_type),
             'can_edit_ppmp' => $this->can_edit_ppmp($plan_type),
             'can_add_items' => $can_add_items,
@@ -798,13 +798,19 @@ class ProcurementPPMPResource extends JsonResource
             || $user->hasRole('Procurement Officer');
     }
 
-    protected function can_mark_as_final(?string $plan_name, string $plan_type): bool
+    protected function can_mark_as_final(?string $plan_name, string $plan_type, Collection $items): bool
     {
         if (! in_array($plan_type, ['ppmp', 'supplemental'], true)) {
             return false;
         }
 
         if (($this->ppmp_type ?? 'indicative') !== 'indicative') {
+            return false;
+        }
+
+        $has_projects = collect($this->projects ?? [])->isNotEmpty();
+
+        if ($items->isEmpty() && ! $has_projects) {
             return false;
         }
 

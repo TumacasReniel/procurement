@@ -47,6 +47,8 @@
       :statuses="statuses"
       :ris-defaults="risDefaults"
       :fund-clusters="fundClusters"
+      :divisions="divisions"
+      :units="units"
       :current-user="currentUser"
       @update:form="form = $event"
       @update:errors="errors = $event"
@@ -178,6 +180,8 @@ export default {
     statuses:    { type: Array, default: () => [] },
     risDefaults: { type: Object, default: () => ({}) },
     fundClusters:{ type: Array, default: () => [] },
+    divisions:   { type: Array, default: () => [] },
+    units:       { type: Array, default: () => [] },
     keyword:     { type: String, default: '' },
   },
   emits: ['create', 'fetch', 'refresh', 'update:keyword'],
@@ -425,4 +429,59 @@ export default {
 .inv-empty-state p { margin: 0; font-size: .9rem; font-weight: 500; }
 .inv-pagination-bar { padding: .6rem 1rem; border-top: 1px solid var(--inv-border); background: #fafbff; }
 .fs-13 { font-size: 13px; }
+
+/* ── Dark mode ──────────────────────────────────────── */
+:global([data-bs-theme="dark"] .inv-module-card),
+:global([data-layout-mode="dark"] .inv-module-card){
+  --inv-brand-soft: #1a2540; --inv-border: #2e3a59; --inv-surface: #111827;
+  --inv-muted: #9ca9c7; --inv-ink: #e5e7eb;
+}
+:global([data-bs-theme="dark"] .inv-module-header),
+:global([data-layout-mode="dark"] .inv-module-header),
+:global([data-bs-theme="dark"] .inv-table thead th),
+:global([data-layout-mode="dark"] .inv-table thead th){
+  background: linear-gradient(180deg, #151e33, #111827);
+}
+:global([data-bs-theme="dark"] .inv-search-input),
+:global([data-layout-mode="dark"] .inv-search-input),
+:global([data-bs-theme="dark"] .inv-icon-btn),
+:global([data-layout-mode="dark"] .inv-icon-btn),
+:global([data-bs-theme="dark"] .inv-action-btn),
+:global([data-layout-mode="dark"] .inv-action-btn){
+  background: #151e33; border-color: var(--inv-border); color: var(--inv-ink);
+}
+:global([data-bs-theme="dark"] .inv-icon-btn:hover),
+:global([data-layout-mode="dark"] .inv-icon-btn:hover){
+  background: #1a2540; color: #8ea0f4;
+}
+:global([data-bs-theme="dark"] .inv-table-row td),
+:global([data-layout-mode="dark"] .inv-table-row td){
+  border-bottom-color: #1c2740;
+}
+:global([data-bs-theme="dark"] .inv-table-row:hover td),
+:global([data-layout-mode="dark"] .inv-table-row:hover td){
+  background: #151e33;
+}
+:global([data-bs-theme="dark"] .inv-code-chip),
+:global([data-layout-mode="dark"] .inv-code-chip),
+:global([data-bs-theme="dark"] .inv-count-badge),
+:global([data-layout-mode="dark"] .inv-count-badge){
+  background: rgba(142, 160, 244, 0.14); border-color: rgba(142, 160, 244, 0.28); color: #8ea0f4;
+}
+:global([data-bs-theme="dark"] .inv-pagination-bar),
+:global([data-layout-mode="dark"] .inv-pagination-bar){
+  background: #111827; border-top-color: var(--inv-border);
+}
+:global([data-bs-theme="dark"] .inv-action-btn.view:hover),
+:global([data-layout-mode="dark"] .inv-action-btn.view:hover){
+  background: rgba(56, 189, 248, 0.14); border-color: #38bdf8; color: #38bdf8;
+}
+:global([data-bs-theme="dark"] .inv-action-btn.edit:hover),
+:global([data-layout-mode="dark"] .inv-action-btn.edit:hover){
+  background: rgba(245, 158, 11, 0.14); border-color: #f59e0b; color: #fbbf24;
+}
+:global([data-bs-theme="dark"] .inv-action-btn.del:hover),
+:global([data-layout-mode="dark"] .inv-action-btn.del:hover){
+  background: rgba(248, 113, 113, 0.14); border-color: #f87171; color: #f87171;
+}
 </style>

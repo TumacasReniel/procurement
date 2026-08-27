@@ -183,10 +183,225 @@
         </div>
       </div>
     </div>
+
+    <!-- Saved Reports -->
+    <div class="rpt-section rpt-reports-section">
+      <div class="rpt-section-head rpt-reports-head">
+        <span><i class="ri-file-chart-2-line"></i> Saved Reports</span>
+        <div class="rpt-reports-actions">
+          <select class="rpt-period-select" v-model="reportCategoryFilter">
+            <option value="">All Categories</option>
+            <option v-for="cat in reportCategories" :key="cat.id" :value="String(cat.id)">
+              {{ cat.name }}
+            </option>
+          </select>
+          <select class="rpt-period-select" v-model="reportPeriodFilter">
+            <option value="">All Periods</option>
+            <option v-for="p in reportPeriodOptions" :key="p" :value="p">
+              {{ p }}
+            </option>
+          </select>
+          <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" @click="$emit('create-report')">
+            <i class="ri-add-line me-1"></i>Generate Report
+          </button>
+        </div>
+      </div>
+      <div class="rpt-section-body">
+        <div v-if="!filteredReportRows.length" class="rpt-empty">No reports yet.</div>
+        <div v-else class="rpt-report-list">
+          <div class="rpt-report-row" v-for="report in pagedReportRows" :key="report.id">
+            <div class="rpt-report-info">
+              <span class="rpt-report-code">{{ report.code }}</span>
+              <span class="rpt-report-title">{{ report.title }}</span>
+              <span class="rpt-cat-badge">{{ report.category || 'Uncategorized' }}</span>
+              <span v-if="report.period_label" class="rpt-period-badge">
+                <i class="ri-calendar-line me-1"></i>{{ report.period_label }}
+              </span>
+            </div>
+            <div class="rpt-report-actions">
+              <button type="button" class="btn btn-sm btn-outline-secondary px-1 py-0" title="View" @click="viewReport(report)">
+                <i class="ri-eye-line"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-primary px-1 py-0" title="Print" @click="printReport(report)">
+                <i class="ri-printer-line"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger px-1 py-0" title="Delete" @click="$emit('delete-report', report)">
+                <i class="ri-delete-bin-line"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="reportTotalPages > 1" class="rpt-pagination-bar">
+        <span class="text-muted small">
+          Page {{ reportPage }} of {{ reportTotalPages }}
+          &nbsp;·&nbsp;
+          {{ filteredReportRows.length }} total
+        </span>
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item" :class="{ disabled: reportPage === 1 }">
+              <button class="page-link" @click="reportPage--">‹</button>
+            </li>
+            <template v-for="page in reportVisiblePages" :key="page">
+              <li v-if="page === '...'" class="page-item disabled">
+                <span class="page-link">…</span>
+              </li>
+              <li
+                v-else
+                class="page-item"
+                :class="{ active: reportPage === page }"
+              >
+                <button class="page-link" @click="reportPage = page">{{ page }}</button>
+              </li>
+            </template>
+            <li class="page-item" :class="{ disabled: reportPage === reportTotalPages }">
+              <button class="page-link" @click="reportPage++">›</button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+
+    <!-- View Report modal -->
+    <b-modal
+      v-model="showViewModal"
+      title="Report Details"
+      size="lg"
+      centered
+      header-class="border-0 pb-0"
+      footer-class="border-top"
+    >
+      <div v-if="viewingReport" class="rpt-view-table">
+        <div class="rpt-view-row">
+          <span class="rpt-view-label">Report Code</span>
+          <span class="rpt-view-value">{{ viewingReport.code }}</span>
+        </div>
+        <div class="rpt-view-row">
+          <span class="rpt-view-label">Category</span>
+          <span class="rpt-view-value">{{ viewingReport.category || '—' }}</span>
+        </div>
+        <div class="rpt-view-row">
+          <span class="rpt-view-label">Title</span>
+          <span class="rpt-view-value">{{ viewingReport.title || '—' }}</span>
+        </div>
+        <div class="rpt-view-row">
+          <span class="rpt-view-label">Period Covered</span>
+          <span class="rpt-view-value">{{ viewingReport.period_label || '—' }}</span>
+        </div>
+        <div class="rpt-view-row">
+          <span class="rpt-view-label">Prepared By</span>
+          <span class="rpt-view-value">{{ viewingReport.created_by || '—' }}</span>
+        </div>
+        <div class="rpt-view-row">
+          <span class="rpt-view-label">Date Generated</span>
+          <span class="rpt-view-value">{{ formatDate(viewingReport.created_at) }}</span>
+        </div>
+      </div>
+
+      <div v-if="viewLoading" class="rpt-view-loading">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading records…
+      </div>
+      <div v-else-if="viewingKind === 'ris_issued'" class="rpt-view-detail">
+        <h6 class="rpt-view-detail-title">Issued RIS Items</h6>
+        <div v-if="!viewingGroups.length" class="rpt-empty">No issued RIS items found for this period.</div>
+        <template v-else>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>RIS No.</th>
+                  <th>Resp Center</th>
+                  <th>Item No.</th>
+                  <th>Item Name</th>
+                  <th>Unit</th>
+                  <th class="text-end">Quantity</th>
+                  <th class="text-end">Unit Cost</th>
+                  <th class="text-end">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-for="group in viewingGroups" :key="group.ris_no">
+                  <tr v-for="(item, idx) in group.items" :key="group.ris_no + '-' + idx">
+                    <td v-if="idx === 0" :rowspan="group.items.length">{{ group.ris_no }}</td>
+                    <td v-if="idx === 0" :rowspan="group.items.length">{{ group.responsibility_center || '—' }}</td>
+                    <td>{{ item.item_no }}</td>
+                    <td>{{ item.item_name }}</td>
+                    <td>{{ item.unit }}</td>
+                    <td class="text-end">{{ formatNum(item.quantity) }}</td>
+                    <td class="text-end">{{ formatNum(item.unit_cost) }}</td>
+                    <td class="text-end">{{ formatNum(item.amount) }}</td>
+                  </tr>
+                </template>
+                <tr class="fw-bold">
+                  <td colspan="7" class="text-end">TOTAL</td>
+                  <td class="text-end">{{ formatNum(viewingGrandTotal) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="Object.keys(viewingCategoryTotals).length" class="rpt-view-summary">
+            <div class="rpt-view-summary-title">Summary by Category</div>
+            <div class="rpt-view-row" v-for="(amount, cat) in viewingCategoryTotals" :key="cat">
+              <span class="rpt-view-label">{{ cat }}</span>
+              <span class="rpt-view-value">{{ formatNum(amount) }}</span>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div v-else-if="viewingKind !== 'none'" class="rpt-view-detail">
+        <h6 class="rpt-view-detail-title">
+          {{ viewingKind === 'received' ? 'Receiving Records' : 'Withdrawal Records' }}
+        </h6>
+        <div v-if="!viewingRows.length" class="rpt-empty">No {{ viewingKind }} records found for this period.</div>
+        <div v-else class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th v-for="col in viewingColumns" :key="col">{{ col }}</th>
+              </tr>
+            </thead>
+            <tbody v-if="viewingKind === 'received'">
+              <tr v-for="row in viewingRows" :key="row.id">
+                <td>{{ row.code }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.stock || '—' }}</td>
+                <td class="text-end">{{ formatNum(row.quantity) }}</td>
+                <td class="text-end">{{ formatNum(row.unit_cost) }}</td>
+                <td class="text-end">{{ formatNum(row.total_cost) }}</td>
+                <td>{{ row.date }}</td>
+                <td>{{ row.status }}</td>
+              </tr>
+            </tbody>
+            <tbody v-else>
+              <tr v-for="row in viewingRows" :key="row.id">
+                <td>{{ row.code }}</td>
+                <td>{{ row.name }}</td>
+                <td class="text-end">{{ formatNum(row.quantity) }}</td>
+                <td class="text-end">{{ formatNum(row.issued_quantity) }}</td>
+                <td class="text-end">{{ formatNum(row.unit_cost) }}</td>
+                <td class="text-end">{{ formatNum(row.total_cost) }}</td>
+                <td>{{ row.date }}</td>
+                <td>{{ row.status }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <template #footer>
+        <b-button variant="light" @click="showViewModal = false">Close</b-button>
+        <b-button variant="primary" @click="printReport(viewingReport)">
+          <i class="ri-printer-line me-1"></i>Print
+        </b-button>
+      </template>
+    </b-modal>
   </div>
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
   name: 'ReportPanel',
   props: {
@@ -201,7 +416,10 @@ export default {
     categoryRows:   { type: Array, default: () => [] },
     risRows:        { type: Array, default: () => [] },
     risMeta:        { type: Object, default: null },
+    reportRows:      { type: Array, default: () => [] },
+    reportCategories:{ type: Array, default: () => [] },
   },
+  emits: ['create-report', 'delete-report'],
   data() {
     const today = new Date();
     const year  = today.getFullYear();
@@ -214,7 +432,31 @@ export default {
       selectedQuarter: quarter,
       customStart: this.isoDate(new Date(year, month - 1, 1)),
       customEnd:   this.isoDate(today),
+      reportCategoryFilter: '',
+      reportPeriodFilter: '',
+      reportPage: 1,
+      reportPerPage: 10,
+      showViewModal: false,
+      viewingReport: null,
+      viewingKind: 'none',
+      viewingColumns: [],
+      viewingRows: [],
+      viewingGroups: [],
+      viewingGrandTotal: 0,
+      viewingCategoryTotals: {},
+      viewLoading: false,
     };
+  },
+  watch: {
+    reportCategoryFilter() {
+      this.reportPage = 1;
+    },
+    reportPeriodFilter() {
+      this.reportPage = 1;
+    },
+    'reportRows.length'() {
+      if (this.reportPage > this.reportTotalPages) this.reportPage = this.reportTotalPages;
+    },
   },
   computed: {
     yearOptions() {
@@ -277,6 +519,34 @@ export default {
     lowStockItems() {
       return this.itemRows.filter((i) => Number(i.total_quantity || 0) <= 5);
     },
+    filteredReportRows() {
+      return this.reportRows.filter((r) => {
+        const matchesCategory = !this.reportCategoryFilter || String(r.category_id) === this.reportCategoryFilter;
+        const matchesPeriod = !this.reportPeriodFilter || r.period_label === this.reportPeriodFilter;
+        return matchesCategory && matchesPeriod;
+      });
+    },
+    reportPeriodOptions() {
+      return [...new Set(this.reportRows.map((r) => r.period_label).filter(Boolean))].sort();
+    },
+    reportTotalPages() {
+      return Math.max(1, Math.ceil(this.filteredReportRows.length / this.reportPerPage));
+    },
+    pagedReportRows() {
+      const start = (this.reportPage - 1) * this.reportPerPage;
+      return this.filteredReportRows.slice(start, start + this.reportPerPage);
+    },
+    reportVisiblePages() {
+      const current = this.reportPage;
+      const last    = this.reportTotalPages;
+      if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
+      const pages = [1];
+      if (current > 3) pages.push("...");
+      for (let p = Math.max(2, current - 1); p <= Math.min(last - 1, current + 1); p++) pages.push(p);
+      if (current < last - 2) pages.push("...");
+      pages.push(last);
+      return pages;
+    },
     recentReceivings() { return this.filteredReceivingRows.slice(0, 8); },
     recentWithdrawals() { return this.filteredWithdrawalRows.slice(0, 8); },
     risSummary() {
@@ -336,6 +606,33 @@ export default {
     },
     itemCountByCategory(catName) {
       return this.itemRows.filter((i) => i.category === catName).length;
+    },
+    async viewReport(report) {
+      this.viewingReport = report;
+      this.viewingKind = 'none';
+      this.viewingColumns = [];
+      this.viewingRows = [];
+      this.viewingGroups = [];
+      this.viewingGrandTotal = 0;
+      this.viewingCategoryTotals = {};
+      this.showViewModal = true;
+      this.viewLoading = true;
+      try {
+        const response = await axios.get(`/inventory-reports/${report.id}`);
+        const detail = response.data?.rows || {};
+        this.viewingKind = detail.kind || 'none';
+        this.viewingColumns = detail.columns || [];
+        this.viewingRows = detail.rows || [];
+        this.viewingGroups = detail.groups || [];
+        this.viewingGrandTotal = detail.grand_total || 0;
+        this.viewingCategoryTotals = detail.category_totals || {};
+      } finally {
+        this.viewLoading = false;
+      }
+    },
+    printReport(report) {
+      if (!report) return;
+      window.open(`/inventory-print/report/${report.id}`, '_blank');
     },
     statusChip(status) {
       const map = {
@@ -477,6 +774,49 @@ export default {
 .rpt-qty-ok { color: #10b981; }
 .rpt-more-note { font-size: .75rem; color: #94a3b8; margin-top: .5rem; text-align: center; }
 
+/* ── Saved Reports ── */
+.rpt-reports-section { margin-bottom: 1.25rem; }
+.rpt-reports-head { justify-content: space-between; }
+.rpt-reports-actions { display: flex; align-items: center; gap: .5rem; }
+.rpt-report-list { display: flex; flex-direction: column; gap: .4rem; }
+.rpt-report-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .5rem .65rem; border-radius: 8px; background: #f8fbff;
+}
+.rpt-report-info { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+.rpt-report-actions { display: flex; align-items: center; gap: .35rem; flex-shrink: 0; }
+.rpt-view-table { display: flex; flex-direction: column; gap: .1rem; }
+.rpt-view-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .5rem 0; border-bottom: 1px solid #f1f5ff;
+}
+.rpt-view-row:last-child { border-bottom: none; }
+.rpt-view-label { font-size: .78rem; font-weight: 700; color: #64748b; }
+.rpt-view-value { font-size: .86rem; font-weight: 600; color: #0f172a; text-align: right; }
+.rpt-view-loading { display: flex; align-items: center; justify-content: center; padding: 1.5rem 0; color: #64748b; font-size: .85rem; }
+.rpt-view-detail { margin-top: 1rem; }
+.rpt-view-detail-title { font-size: .82rem; font-weight: 800; color: #4b5b93; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .5rem; }
+.rpt-view-summary { margin-top: .85rem; padding-top: .5rem; border-top: 1px dashed #dce4f2; }
+.rpt-view-summary-title { font-size: .76rem; font-weight: 700; color: #64748b; margin-bottom: .3rem; }
+.rpt-report-title { font-size: .84rem; font-weight: 600; color: #0f172a; }
+.rpt-report-code {
+  font-size: .7rem; font-weight: 700; font-family: ui-monospace, monospace;
+  color: #64748b; background: #eef2ff; padding: .1rem .4rem; border-radius: 6px;
+}
+.rpt-cat-badge {
+  display: inline-block; padding: .1rem .5rem; border-radius: 20px;
+  font-size: .68rem; font-weight: 700; background: rgba(75,91,147,.1); color: #4b5b93;
+}
+.rpt-period-badge {
+  display: inline-flex; align-items: center; padding: .1rem .5rem; border-radius: 20px;
+  font-size: .68rem; font-weight: 700; background: #f1f5f9; color: #475569;
+}
+.rpt-pagination-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .65rem; flex-wrap: wrap;
+  padding: .6rem .85rem; border-top: 1px solid #dce4f2;
+}
+
 /* ── Category list ── */
 .rpt-cat-list { display: flex; flex-direction: column; gap: .4rem; }
 .rpt-cat-row { display: flex; align-items: center; justify-content: space-between; padding: .4rem .5rem; border-radius: 8px; background: #f8fbff; }
@@ -513,4 +853,114 @@ export default {
 .rpt-alert-item { display: flex; align-items: center; justify-content: space-between; padding: .4rem .6rem; border-radius: 8px; background: #fff1f2; border: 1px solid #fecdd3; }
 .rpt-alert-name { font-size: .84rem; font-weight: 600; color: #0f172a; }
 .rpt-alert-qty { font-size: .78rem; font-weight: 800; color: #dc2626; }
+
+/* ── Dark mode ──────────────────────────────────────── */
+:global([data-bs-theme="dark"] .rpt-toolbar),
+:global([data-layout-mode="dark"] .rpt-toolbar) {
+  background: #111827;
+  border-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .rpt-period-select),
+:global([data-layout-mode="dark"] .rpt-period-select),
+:global([data-bs-theme="dark"] .rpt-date-input),
+:global([data-layout-mode="dark"] .rpt-date-input) {
+  background: #182035;
+  border-color: #2e3a59;
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"] .rpt-range-badge),
+:global([data-layout-mode="dark"] .rpt-range-badge),
+:global([data-bs-theme="dark"] .rpt-cat-badge),
+:global([data-layout-mode="dark"] .rpt-cat-badge) {
+  background: rgba(142, 160, 244, 0.14);
+  color: #8ea0f4;
+}
+
+:global([data-bs-theme="dark"] .rpt-period-badge),
+:global([data-layout-mode="dark"] .rpt-period-badge) {
+  background: #182035;
+  color: #9ca9c7;
+}
+
+:global([data-bs-theme="dark"] .rpt-card),
+:global([data-layout-mode="dark"] .rpt-card) {
+  background: #111827;
+  border-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .rpt-card-val),
+:global([data-layout-mode="dark"] .rpt-card-val) {
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"] .rpt-section),
+:global([data-layout-mode="dark"] .rpt-section) {
+  background: #111827;
+  border-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .rpt-section-head),
+:global([data-layout-mode="dark"] .rpt-section-head) {
+  background: linear-gradient(180deg, #151e33, #111827);
+  border-bottom-color: #2e3a59;
+  color: #8ea0f4;
+}
+
+:global([data-bs-theme="dark"] .rpt-item-name),
+:global([data-layout-mode="dark"] .rpt-item-name),
+:global([data-bs-theme="dark"] .rpt-cat-name),
+:global([data-layout-mode="dark"] .rpt-cat-name),
+:global([data-bs-theme="dark"] .rpt-report-title),
+:global([data-layout-mode="dark"] .rpt-report-title),
+:global([data-bs-theme="dark"] .rpt-alert-name),
+:global([data-layout-mode="dark"] .rpt-alert-name) {
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"] .rpt-bar-track),
+:global([data-layout-mode="dark"] .rpt-bar-track) {
+  background: #182035;
+}
+
+:global([data-bs-theme="dark"] .rpt-report-row),
+:global([data-layout-mode="dark"] .rpt-report-row),
+:global([data-bs-theme="dark"] .rpt-cat-row),
+:global([data-layout-mode="dark"] .rpt-cat-row) {
+  background: #182035;
+}
+
+:global([data-bs-theme="dark"] .rpt-report-code),
+:global([data-layout-mode="dark"] .rpt-report-code) {
+  background: #0b1220;
+  color: #9ca9c7;
+}
+
+:global([data-bs-theme="dark"] .rpt-pagination-bar),
+:global([data-layout-mode="dark"] .rpt-pagination-bar) {
+  border-top-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .rpt-stat-row),
+:global([data-layout-mode="dark"] .rpt-stat-row) {
+  border-bottom-color: #2e3a59;
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"] .rpt-alert-item),
+:global([data-layout-mode="dark"] .rpt-alert-item) {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+:global([data-bs-theme="dark"] .rpt-view-row),
+:global([data-layout-mode="dark"] .rpt-view-row) {
+  border-bottom-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .rpt-view-value),
+:global([data-layout-mode="dark"] .rpt-view-value) {
+  color: #e5e7eb;
+}
 </style>

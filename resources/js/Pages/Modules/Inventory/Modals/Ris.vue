@@ -90,21 +90,27 @@
         <!-- Division / Office -->
         <div class="col-sm-6">
           <label class="form-label fw-semibold">Division / Office</label>
-          <input type="text" :value="form.division" class="form-control"
+          <select class="form-select" :value="form.division"
             :class="{'is-invalid': errors.division}"
-            placeholder="e.g. Admin Division"
-            @input="updateField('division', $event.target.value)" />
-          <div v-if="errors.division" class="invalid-feedback">{{ errors.division[0] }}</div>
+            @change="onDivisionChange($event.target.value)">
+            <option value="">— Select —</option>
+            <option v-for="d in divisions" :key="d.id" :value="d.name">{{ d.name }}</option>
+          </select>
+          <div v-if="errors.division" class="invalid-feedback d-block">{{ errors.division[0] }}</div>
         </div>
 
         <!-- Responsibility Center -->
         <div class="col-sm-6">
           <label class="form-label fw-semibold">Responsibility Center</label>
-          <input type="text" :value="form.responsibility_center" class="form-control"
+          <select class="form-select" :value="form.responsibility_center"
             :class="{'is-invalid': errors.responsibility_center}"
-            placeholder="e.g. 01-001"
-            @input="updateField('responsibility_center', $event.target.value)" />
-          <div v-if="errors.responsibility_center" class="invalid-feedback">{{ errors.responsibility_center[0] }}</div>
+            @change="updateField('responsibility_center', $event.target.value)">
+            <option value="">— Select —</option>
+            <option v-for="u in availableResponsibilityCenters" :key="u.id" :value="u.responsibility_center_code">
+              {{ u.name }} ({{ u.responsibility_center_code }})
+            </option>
+          </select>
+          <div v-if="errors.responsibility_center" class="invalid-feedback d-block">{{ errors.responsibility_center[0] }}</div>
         </div>
       </div>
 
@@ -197,7 +203,7 @@
               <i class="ri-error-warning-line me-1"></i>{{ errors.items_empty[0] }}
             </div>
           </div>
-          <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" @click="addLine">
+          <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" @click="openAddItemModal">
             <i class="ri-add-line me-1"></i>Add Item
           </button>
         </div>
@@ -268,6 +274,49 @@
       </div>
     </template>
   </b-modal>
+
+  <!-- Add Item modal -->
+  <b-modal
+    v-model="showAddItemModal"
+    title="Add Item"
+    size="md"
+    centered
+    no-close-on-backdrop
+  >
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Item <span class="text-danger">*</span></label>
+      <Multiselect
+        v-model="newItemForm.item_id"
+        :options="itemOptions"
+        :searchable="true"
+        :class="{ 'is-invalid': addItemError }"
+        placeholder="Select item"
+      />
+      <div v-if="addItemError" class="invalid-feedback d-block">{{ addItemError }}</div>
+    </div>
+    <div class="row g-3">
+      <div class="col-sm-6">
+        <label class="form-label fw-semibold">Unit of Issue</label>
+        <input type="text" v-model="newItemForm.unit_of_issue" class="form-control" placeholder="pcs" />
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label fw-semibold">Qty Requested</label>
+        <input type="number" min="0" step="0.01" v-model="newItemForm.quantity_requested" class="form-control" />
+      </div>
+      <div class="col-sm-12">
+        <label class="form-label fw-semibold">Remarks</label>
+        <input type="text" v-model="newItemForm.remarks" class="form-control" />
+      </div>
+    </div>
+    <template #footer>
+      <div class="d-flex gap-2 justify-content-end w-100">
+        <b-button variant="light" class="px-4" @click="showAddItemModal = false">Cancel</b-button>
+        <b-button variant="primary" class="px-4" @click="confirmAddItem">
+          <i class="ri-add-line me-1"></i>Add Item
+        </b-button>
+      </div>
+    </template>
+  </b-modal>
 </template>
 
 <script>
@@ -286,9 +335,18 @@ export default {
     statuses:    { type: Array, default: () => [] },
     risDefaults: { type: Object, default: () => ({}) },
     fundClusters:{ type: Array, default: () => [] },
+    divisions:   { type: Array, default: () => [] },
+    units:       { type: Array, default: () => [] },
     currentUser: { type: Object, default: null },
   },
   emits: ['update:modelValue', 'update:form', 'submit', 'update:errors'],
+  data() {
+    return {
+      showAddItemModal: false,
+      newItemForm: { item_id: '', unit_of_issue: '', quantity_requested: 1, remarks: '' },
+      addItemError: '',
+    };
+  },
   computed: {
     itemOptions() {
       return this.items.map((item) => ({
@@ -299,8 +357,39 @@ export default {
     hasErrors() {
       return Object.keys(this.errors || {}).length > 0;
     },
+    selectedDivisionId() {
+      const division = this.divisions.find((d) => d.name === this.form.division);
+      return division ? Number(division.id) : null;
+    },
+    availableResponsibilityCenters() {
+      const divisionId = this.selectedDivisionId;
+      return this.units.filter((u) => (
+        u.responsibility_center_code
+        && (!divisionId || Number(u.division_id) === divisionId)
+      ));
+    },
   },
   methods: {
+    onDivisionChange(value) {
+      const divisionId = value
+        ? Number((this.divisions.find((d) => d.name === value) || {}).id)
+        : null;
+      const stillValid = this.units.some((u) => (
+        u.responsibility_center_code === this.form.responsibility_center
+        && (!divisionId || Number(u.division_id) === divisionId)
+      ));
+      const next = { ...this.form, division: value };
+      if (!stillValid) {
+        next.responsibility_center = '';
+      }
+      this.$emit('update:form', next);
+      if (this.errors?.division || (!stillValid && this.errors?.responsibility_center)) {
+        const nextErrors = { ...this.errors };
+        delete nextErrors.division;
+        if (!stillValid) delete nextErrors.responsibility_center;
+        this.$emit('update:errors', nextErrors);
+      }
+    },
     updateField(field, value) {
       this.$emit('update:form', { ...this.form, [field]: value });
       if (this.errors?.[field]) {
@@ -320,9 +409,22 @@ export default {
         this.$emit('update:errors', next);
       }
     },
-    addLine() {
+    openAddItemModal() {
+      this.newItemForm = { item_id: '', unit_of_issue: '', quantity_requested: 1, remarks: '' };
+      this.addItemError = '';
+      this.showAddItemModal = true;
+    },
+    confirmAddItem() {
+      if (!this.newItemForm.item_id) {
+        this.addItemError = 'Please select an item.';
+        return;
+      }
       const items = [...(this.form.items || []), {
-        item_id: '', unit_of_issue: '', quantity_requested: 1, quantity_issued: 0, remarks: '',
+        item_id: this.newItemForm.item_id,
+        unit_of_issue: this.newItemForm.unit_of_issue,
+        quantity_requested: this.newItemForm.quantity_requested || 0,
+        quantity_issued: 0,
+        remarks: this.newItemForm.remarks,
       }];
       this.$emit('update:form', { ...this.form, items });
       if (this.errors?.items_empty) {
@@ -330,6 +432,7 @@ export default {
         delete next.items_empty;
         this.$emit('update:errors', next);
       }
+      this.showAddItemModal = false;
     },
     removeLine(index) {
       const items = [...(this.form.items || [])];

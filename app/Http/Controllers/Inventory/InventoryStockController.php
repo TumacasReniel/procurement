@@ -61,7 +61,7 @@ class InventoryStockController extends Controller
 
     protected function resolveTab(string $tab): string
     {
-        return in_array($tab, ['stocks', 'items', 'categories', 'receivings', 'withdrawals', 'ris', 'from-procurement', 'report'], true)
+        return in_array($tab, ['stocks', 'items', 'categories', 'properties', 'receivings', 'withdrawals', 'ris', 'from-procurement', 'report'], true)
             ? $tab
             : 'items';
     }

@@ -29,12 +29,21 @@ class ProcurementRequest extends FormRequest
 
         $requiresProcurementCodes = in_array($this->input('option'), ['review', 'approve'], true);
 
+        // requested_by_id/approved_by_id are NOT NULL columns with no default, but only
+        // the initial create actually needs to set them — review/approve/edit only touch
+        // whichever fields are present in the payload. Require them on create (POST) only,
+        // so a missing field fails validation instead of a raw SQL "cannot be null" error.
+        $isCreate = $this->isMethod('post');
+
         return [
             'procurement_code_ids' => [$requiresProcurementCodes ? 'required' : 'nullable', 'array', $requiresProcurementCodes ? 'min:1' : 'min:0'],
             'procurement_code_ids.*' => ['integer', 'distinct', 'exists:procurement_codes,id'],
             'procurement_app_id' => ['nullable', 'integer', 'exists:procurement_apps,id'],
             'unit_id' => ['nullable', 'integer'],
+            'requested_by_id' => [$isCreate ? 'required' : 'nullable', 'integer', 'exists:users,id'],
+            'approved_by_id' => [$isCreate ? 'required' : 'nullable', 'integer', 'exists:users,id'],
             'items' => ['nullable', 'array'],
+            'items.*.id' => ['nullable', 'integer', 'exists:procurement_items,id'],
             'items.*.ppmp_item_id' => ['nullable', 'integer', 'exists:procurement_ppmp_items,id'],
             'items.*.total_cost' => ['nullable', 'numeric', 'min:0'],
         ];
@@ -46,6 +55,10 @@ class ProcurementRequest extends FormRequest
             'procurement_code_ids.required' => 'Select at least one PAP code before adding procurement items.',
             'procurement_code_ids.min' => 'Select at least one PAP code before adding procurement items.',
             'procurement_code_ids.*.exists' => 'One or more selected PAP codes are no longer available.',
+            'requested_by_id.required' => 'Please select who is requesting this procurement.',
+            'requested_by_id.exists' => 'The selected requester is invalid.',
+            'approved_by_id.required' => 'Please select the intended approver for this procurement.',
+            'approved_by_id.exists' => 'The selected approver is invalid.',
         ];
     }
 

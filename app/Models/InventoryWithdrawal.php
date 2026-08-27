@@ -4,17 +4,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class InventoryWithdrawal extends Model
 {
-    use HasFactory, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['inventory_id', 'quantity', 'status_id', 'requested_by_id', 'approved_by_id', 'released_at', 'remarks'])
+            ->logOnly(['inventory_id', 'quantity', 'issued_quantity', 'unit_cost', 'status_id', 'requested_by_id', 'approved_by_id', 'released_at', 'remarks'])
             ->setDescriptionForEvent(fn(string $e) => "{$e} inventory withdrawal")
             ->useLogName('Inventory')
             ->logOnlyDirty()
@@ -25,6 +26,7 @@ class InventoryWithdrawal extends Model
         'inventory_id',
         'quantity',
         'issued_quantity',
+        'unit_cost',
         'requested_by_id',
         'approved_by_id',
         'status_id',
@@ -35,6 +37,7 @@ class InventoryWithdrawal extends Model
     protected $casts = [
         'quantity'        => 'decimal:2',
         'issued_quantity' => 'decimal:2',
+        'unit_cost'       => 'decimal:4',
         'released_at'     => 'datetime',
     ];
 

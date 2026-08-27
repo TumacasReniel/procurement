@@ -1652,10 +1652,11 @@ class ProcurementPOClass
                 ['category_id' => $categoryId]
             );
 
-            $stock = InventoryStock::firstOrNew([
-                'item_id' => $invItem->id,
-                'unit_id' => $unitTypeId,
-            ]);
+            $stock = InventoryStock::where('item_id', $invItem->id)
+                ->where('unit_id', $unitTypeId)
+                ->lockForUpdate()
+                ->first()
+                ?? new InventoryStock(['item_id' => $invItem->id, 'unit_id' => $unitTypeId]);
 
             $incomingQuantity = (float) ($item->item_quantity ?? 0);
             $stock->quantity = (float) ($stock->quantity ?? 0) + $incomingQuantity;

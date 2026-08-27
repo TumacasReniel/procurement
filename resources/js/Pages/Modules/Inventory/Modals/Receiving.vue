@@ -39,6 +39,10 @@
             </select>
           </BCol>
           <BCol lg="6">
+            <InputLabel for="receiving_quantity" value="Quantity" :message="errors.quantity" />
+            <TextInput id="receiving_quantity" :model-value="form.quantity" type="number" step="0.01" min="0.01" class="form-control" :light="true" @update:modelValue="updateField('quantity', $event)" />
+          </BCol>
+          <BCol lg="6">
             <InputLabel for="receiving_approved_by_id" value="Approved By" :message="errors.approved_by_id" />
             <select id="receiving_approved_by_id" :value="form.approved_by_id" class="form-select" @change="updateField('approved_by_id', $event.target.value)">
               <option value="">Select Approver</option>

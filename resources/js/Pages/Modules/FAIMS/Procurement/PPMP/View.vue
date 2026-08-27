@@ -356,7 +356,7 @@ export default {
       const approvalStatus = String(this.ppmp.approval_status || "").trim().toLowerCase();
       const is_pending = approvalStatus === "pending" && ppmpStatus === "pending";
 
-      return (this.isPpmpCreator || this.isSameUserUnit)
+      return (this.isPpmpCreator || this.isSameUserUnit || this.isProcurementUser || this.isAdministrator)
         && this.normalizedPlanType === "PPMP"
         && (this.ppmp.can_add_items || is_pending);
     },

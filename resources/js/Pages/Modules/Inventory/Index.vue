@@ -72,7 +72,7 @@
     <!-- Module Shell -->
     <div class="inv-shell">
       <!-- Tab Navigation -->
-      <nav class="inv-tab-nav">
+      <nav class="inv-tab-nav" @wheel="onTabNavWheel">
         <button
           v-for="mod in modules"
           :key="mod.key"
@@ -81,9 +81,13 @@
           :class="{ active: activeModule === mod.key }"
           @click="activeModule = mod.key"
         >
-          <i :class="mod.icon"></i>
+          <i class="inv-tab-icon" :class="mod.icon"></i>
           <span>{{ mod.label }}</span>
-          <em class="inv-tab-count">{{ moduleMeta(mod.key) }}</em>
+          <em
+            v-if="moduleMeta(mod.key)"
+            class="inv-tab-count"
+            :class="{ 'is-empty': moduleCountIsZero(mod.key) }"
+          >{{ moduleMeta(mod.key) }}</em>
         </button>
       </nav>
 
@@ -326,7 +330,7 @@
                 <i class="ri-inbox-line"></i>
                 <p>No items yet.</p>
               </div>
-              <div v-else class="inv-grid">
+              <div v-else class="inv-grid" :class="{ 'is-dense': itemGridIsDense }">
                 <div
                   v-for="(item, idx) in sortedItemRows"
                   :key="item.id"
@@ -398,6 +402,14 @@
                     </div>
                   </div>
                 </div>
+              </div>
+              <div v-if="itemMeta && itemMeta.total" class="inv-pagination-bar">
+                <Pagination
+                  :links="itemLinks"
+                  :pagination="itemMeta"
+                  :lists="sortedItemRows.length"
+                  @fetch="fetchItems"
+                />
               </div>
             </div>
           </div>
@@ -565,6 +577,23 @@
             </div>
           </div>
 
+          <!-- Property Module -->
+          <PropertyLedger
+            v-else-if="activeModule === 'properties'"
+            :rows="propertyRows"
+            :loading="propertyLoading"
+            :meta="propertyMeta"
+            :links="propertyLinks"
+            :keyword="propertyKeyword"
+            @create="openPropertyCreate"
+            @edit="openPropertyEdit"
+            @delete="removeProperty"
+            @fetch="fetchProperties"
+            @refresh="refreshProperties"
+            @update:keyword="handlePropertyKeywordChange"
+            @update:status="handlePropertyStatusChange"
+          />
+
           <ReceivingLedger
             v-else-if="activeModule === 'receivings'"
             :rows="receivingRows"
@@ -599,6 +628,8 @@
             :meta="risMeta"
             :ris-defaults="risDefaults"
             :fund-clusters="fund_clusters"
+            :divisions="divisions"
+            :units="units"
             :links="risLinks"
             :items="itemOptionRows"
             :users="userOptions"
@@ -624,6 +655,10 @@
             :category-rows="categoryRows"
             :ris-rows="risRows"
             :ris-meta="risMeta"
+            :report-rows="reportRows"
+            :report-categories="dropdowns.reportCategories || []"
+            @create-report="openReportCreate"
+            @delete-report="removeReport"
           />
         </div>
       </div>
@@ -649,6 +684,17 @@
       :categories="categories"
       @update:form="itemForm = $event"
       @submit="saveItem"
+    />
+
+    <ItemPropertyModal
+      v-model="showPropertyModal"
+      :form="propertyForm"
+      :errors="propertyErrors"
+      :saving="saving"
+      :items="itemOptionRows"
+      @update:form="propertyForm = $event"
+      @update:errors="propertyErrors = $event"
+      @submit="savePropertyRecord"
     />
 
     <ReceivingModal
@@ -681,6 +727,8 @@
       :record="viewRecord"
       :stock-items="viewStockItems"
       :stock-items-loading="viewStockItemsLoading"
+      :item-properties="viewItemProperties"
+      :item-properties-loading="viewItemPropertiesLoading"
       :can-add-stock-item="canAddStockItemToViewedStock"
       @update:modelValue="handleViewModalVisibility"
       @add-stock-item="openStockItemCreate"
@@ -786,6 +834,134 @@
         </b-button>
       </template>
     </b-modal>
+
+    <!-- Report Modal -->
+    <b-modal
+      v-model="showReportModal"
+      title="Generate Report"
+      :size="reportModalSize"
+      centered
+      no-close-on-backdrop
+      header-class="border-0 pb-0"
+      footer-class="border-top"
+    >
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label fw-semibold"
+            >Period <span class="text-danger">*</span></label
+          >
+          <div class="row g-2">
+            <div class="col-4">
+              <select v-model="reportForm.period_type" class="form-select" @change="onReportPeriodTypeChange">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+            <template v-if="reportForm.period_type === 'daily' || reportForm.period_type === 'weekly'">
+              <div class="col-4">
+                <input type="date" v-model="reportForm.period_date" class="form-control" />
+              </div>
+            </template>
+            <template v-else-if="reportForm.period_type === 'custom'">
+              <div class="col-4">
+                <input type="date" v-model="reportForm.custom_start" class="form-control" />
+              </div>
+              <div class="col-4">
+                <input type="date" v-model="reportForm.custom_end" class="form-control" />
+              </div>
+            </template>
+            <template v-else>
+              <div class="col-4" v-if="reportForm.period_type === 'monthly'">
+                <select v-model="reportForm.period_month" class="form-select">
+                  <option v-for="m in reportMonthOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+                </select>
+              </div>
+              <div class="col-4" v-if="reportForm.period_type === 'quarterly'">
+                <select v-model="reportForm.period_quarter" class="form-select">
+                  <option :value="1">Q1 (Jan – Mar)</option>
+                  <option :value="2">Q2 (Apr – Jun)</option>
+                  <option :value="3">Q3 (Jul – Sep)</option>
+                  <option :value="4">Q4 (Oct – Dec)</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <select v-model="reportForm.period_year" class="form-select">
+                  <option v-for="y in reportYearOptions" :key="y" :value="y">{{ y }}</option>
+                </select>
+              </div>
+            </template>
+          </div>
+          <div class="form-text">{{ reportPeriodLabel }}</div>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold"
+            >Category <span class="text-danger">*</span></label
+          >
+          <select
+            v-model="reportForm.category_id"
+            class="form-select"
+            :class="{ 'is-invalid': reportErrors.category_id }"
+            @change="onReportCategoryChange"
+          >
+            <option value="">— Select —</option>
+            <option
+              v-for="cat in dropdowns.reportCategories || []"
+              :key="cat.id"
+              :value="cat.id"
+            >
+              {{ cat.name }}
+            </option>
+          </select>
+          <div v-if="reportErrors.category_id" class="invalid-feedback d-block">
+            {{
+              Array.isArray(reportErrors.category_id)
+                ? reportErrors.category_id[0]
+                : reportErrors.category_id
+            }}
+          </div>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold"
+            >Title <span class="text-danger">*</span></label
+          >
+          <select
+            v-model="reportForm.title_id"
+            class="form-select"
+            :class="{ 'is-invalid': reportErrors.title_id }"
+            :disabled="!reportForm.category_id"
+          >
+            <option value="">— Select —</option>
+            <option
+              v-for="t in availableReportTitles"
+              :key="t.id"
+              :value="t.id"
+            >
+              {{ t.name }}
+            </option>
+          </select>
+          <div v-if="reportErrors.title_id" class="invalid-feedback d-block">
+            {{
+              Array.isArray(reportErrors.title_id)
+                ? reportErrors.title_id[0]
+                : reportErrors.title_id
+            }}
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <b-button variant="light" @click="showReportModal = false">Cancel</b-button>
+        <b-button variant="primary" :disabled="saving" @click="saveReport">
+          <span v-if="saving"
+            ><span class="spinner-border spinner-border-sm me-1"></span>Generating...</span
+          >
+          <span v-else>Save</span>
+        </b-button>
+      </template>
+    </b-modal>
   </div>
 </template>
 
@@ -800,6 +976,8 @@ import ReceivingModal from "@/Pages/Modules/Inventory/Modals/Receiving.vue";
 import WithdrawModal from "@/Pages/Modules/Inventory/Modals/Withdraw.vue";
 import RecordViewModal from "@/Pages/Modules/Inventory/Modals/RecordViewModal.vue";
 import Stocks from "@/Pages/Modules/Inventory/Tabs/Stocks.vue";
+import PropertyLedger from "@/Pages/Modules/Inventory/Tabs/Property.vue";
+import ItemPropertyModal from "@/Pages/Modules/Inventory/Modals/ItemProperty.vue";
 import ReceivingLedger from "@/Pages/Modules/Inventory/Tabs/Receiving.vue";
 import WithdrawalLedger from "@/Pages/Modules/Inventory/Tabs/Withdrawal.vue";
 import ReceivedPOItems from "@/Pages/Modules/FAIMS/Procurement/Modals/ReceivedPOItems.vue";
@@ -818,6 +996,8 @@ export default {
     WithdrawModal,
     RecordViewModal,
     Stocks,
+    PropertyLedger,
+    ItemPropertyModal,
     ReceivingLedger,
     WithdrawalLedger,
     ReceivedPOItems,
@@ -835,6 +1015,9 @@ export default {
     receivings: { type: [Array, Object], default: () => [] },
     withdrawals: { type: [Array, Object], default: () => [] },
     fund_clusters: { type: Array, default: () => [] },
+    divisions: { type: Array, default: () => [] },
+    units: { type: Array, default: () => [] },
+    reports: { type: Array, default: () => [] },
     risDefaults: { type: Object, default: () => ({}) },
   },
   data() {
@@ -845,6 +1028,7 @@ export default {
       modules: [
         { key: "items", label: "Inventory", icon: "ri-store-3-line" },
         { key: "stocks", label: "Stocks", icon: "ri-stack-line" },
+        { key: "properties", label: "Property", icon: "ri-shield-star-line" },
         { key: "categories", label: "Categories", icon: "ri-price-tag-3-line" },
         { key: "receivings", label: "Receivings", icon: "ri-inbox-archive-line" },
         { key: "withdrawals", label: "Withdrawals", icon: "ri-shopping-cart-line" },
@@ -886,6 +1070,8 @@ export default {
       selectedReceivingPo: null,
       viewStockItems: [],
       viewStockItemsLoading: false,
+      viewItemProperties: [],
+      viewItemPropertiesLoading: false,
       itemKeyword: "",
       stockForm: {
         id: null,
@@ -899,6 +1085,7 @@ export default {
       receivingForm: {
         id: null,
         item_id: "",
+        quantity: "",
         approved_by_id: "",
         status_id: "",
         received_at: "",
@@ -907,6 +1094,7 @@ export default {
       withdrawalForm: {
         id: null,
         inventory_id: "",
+        quantity: "",
         requested_by_id: "",
         approved_by_id: "",
         status_id: "",
@@ -924,10 +1112,35 @@ export default {
       deletingItem: null,
       deletingItemLoading: false,
       categoriesLoading: false,
+      reportRows: [],
+      reportForm: this.defaultReportForm(),
+      reportErrors: {},
+      showReportModal: false,
       risRows: [],
       risMeta: null,
       risLinks: null,
       risLoading: false,
+      propertyRows: [],
+      propertyMeta: null,
+      propertyLinks: null,
+      propertyLoading: false,
+      propertyKeyword: "",
+      propertyStatusFilter: "",
+      propertySearchTimer: null,
+      showPropertyModal: false,
+      propertyForm: {
+        id: null,
+        inventory_item_id: "",
+        property_code: "",
+        model: "",
+        serial_no: "",
+        acquisition_date: "",
+        acquisition_cost: "",
+        depreciation_rate: "",
+        status: "active",
+        remarks: "",
+      },
+      propertyErrors: {},
       stockErrors: {},
       itemErrors: {},
       receivingErrors: {},
@@ -962,6 +1175,84 @@ export default {
       if (current < last - 2) pages.push("...");
       pages.push(last);
       return pages;
+    },
+    availableReportTitles() {
+      const categoryId = this.reportForm.category_id;
+      if (!categoryId) return [];
+      return (this.dropdowns.reportTitles || []).filter(
+        (t) => Number(t.category_id) === Number(categoryId)
+      );
+    },
+    reportYearOptions() {
+      const y = new Date().getFullYear();
+      return [y - 3, y - 2, y - 1, y, y + 1];
+    },
+    reportMonthOptions() {
+      return [
+        { value: 1, label: "January" }, { value: 2, label: "February" },
+        { value: 3, label: "March" },   { value: 4, label: "April" },
+        { value: 5, label: "May" },     { value: 6, label: "June" },
+        { value: 7, label: "July" },    { value: 8, label: "August" },
+        { value: 9, label: "September" },{ value: 10, label: "October" },
+        { value: 11, label: "November" },{ value: 12, label: "December" },
+      ];
+    },
+    reportModalSize() {
+      return ["monthly", "quarterly", "custom"].includes(this.reportForm.period_type) ? "lg" : "md";
+    },
+    reportPeriodRange() {
+      const f = this.reportForm;
+      const y = Number(f.period_year);
+      if (f.period_type === "daily") {
+        return { start: f.period_date, end: f.period_date };
+      }
+      if (f.period_type === "weekly") {
+        const d = new Date((f.period_date || this.isoDate(new Date())) + "T00:00:00");
+        const day = d.getDay(); // 0=Sun..6=Sat
+        const mondayOffset = day === 0 ? -6 : 1 - day;
+        const start = new Date(d);
+        start.setDate(d.getDate() + mondayOffset);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        return { start: this.isoDate(start), end: this.isoDate(end) };
+      }
+      if (f.period_type === "monthly") {
+        const m = Number(f.period_month) - 1;
+        return { start: this.isoDate(new Date(y, m, 1)), end: this.isoDate(new Date(y, m + 1, 0)) };
+      }
+      if (f.period_type === "quarterly") {
+        const q = Number(f.period_quarter) - 1;
+        return { start: this.isoDate(new Date(y, q * 3, 1)), end: this.isoDate(new Date(y, q * 3 + 3, 0)) };
+      }
+      if (f.period_type === "yearly") {
+        return { start: this.isoDate(new Date(y, 0, 1)), end: this.isoDate(new Date(y, 11, 31)) };
+      }
+      return { start: f.custom_start, end: f.custom_end };
+    },
+    reportPeriodLabel() {
+      const f = this.reportForm;
+      const fmt = (d) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(d + "T00:00:00"));
+      if (f.period_type === "daily") {
+        return f.period_date ? fmt(f.period_date) : "";
+      }
+      if (f.period_type === "weekly") {
+        const range = this.reportPeriodRange;
+        if (!range.start || !range.end) return "";
+        return `Week of ${fmt(range.start)} – ${fmt(range.end)}`;
+      }
+      if (f.period_type === "monthly") {
+        const m = this.reportMonthOptions.find((opt) => opt.value === Number(f.period_month));
+        return `${m?.label ?? ""} ${f.period_year}`;
+      }
+      if (f.period_type === "quarterly") {
+        return `Q${f.period_quarter} ${f.period_year}`;
+      }
+      if (f.period_type === "yearly") {
+        return `${f.period_year}`;
+      }
+      const range = this.reportPeriodRange;
+      if (!range.start || !range.end) return "";
+      return `${fmt(range.start)} – ${fmt(range.end)}`;
     },
     userOptions() {
       return this.users || [];
@@ -1086,6 +1377,11 @@ export default {
           ((left, right) => Number(right.id || 0) - Number(left.id || 0))
       );
     },
+    // Grid ("box mode") cards shrink automatically once a page has enough of them
+    // that the full-size card would waste space / force excess scrolling.
+    itemGridIsDense() {
+      return this.sortedItemRows.length > 8;
+    },
     currentRoles() {
       return Array.isArray(this.$page?.props?.roles) ? this.$page.props.roles : [];
     },
@@ -1111,6 +1407,7 @@ export default {
     ].includes(this.initialTab) ? this.initialTab : "items";
 
     this.assignPaginated("itemRows", "itemMeta", "itemLinks", this.items);
+    this.assignPaginated("stockRows", "stockMeta", "stockLinks", this.stocks);
     this.assignPaginated(
       "receivingRows",
       "receivingMeta",
@@ -1131,6 +1428,11 @@ export default {
     this.categoryRows = Array.isArray(serverCategories)
       ? serverCategories
       : serverCategories?.data || [];
+    this.reportRows = Array.isArray(this.reports?.data)
+      ? this.reports.data
+      : Array.isArray(this.reports)
+      ? this.reports
+      : [];
   },
   mounted() {
     if (this.itemRows.length === 0) this.fetchItems();
@@ -1167,7 +1469,9 @@ export default {
     activeModule(value) {
       if (value === "ris" && this.risRows.length === 0) this.fetchRis();
       if (value === "stocks" && this.stockRows.length === 0) this.fetchStocks();
+      if (value === "properties" && this.propertyRows.length === 0) this.fetchProperties();
       if (value === "categories") this.fetchCategories();
+
     },
     categorySearch() {
       this.categoryPage = 1;
@@ -1293,6 +1597,80 @@ export default {
       clearTimeout(this.risSearchTimer);
       this.risSearchTimer = setTimeout(() => this.fetchRis(), 300);
     },
+    async fetchProperties(pageUrl = "/inventory-properties") {
+      this.propertyLoading = true;
+      try {
+        const response = await axios.get(pageUrl, {
+          params: this.collectionParams({
+            keyword: this.propertyKeyword || undefined,
+            status: this.propertyStatusFilter || undefined,
+          }),
+        });
+        this.assignPaginated("propertyRows", "propertyMeta", "propertyLinks", response.data);
+      } finally {
+        this.propertyLoading = false;
+      }
+    },
+    refreshProperties() {
+      this.propertyKeyword = "";
+      this.propertyStatusFilter = "";
+      this.fetchProperties();
+    },
+    handlePropertyKeywordChange(value) {
+      this.propertyKeyword = value;
+      clearTimeout(this.propertySearchTimer);
+      this.propertySearchTimer = setTimeout(() => this.fetchProperties(), 300);
+    },
+    handlePropertyStatusChange(value) {
+      this.propertyStatusFilter = value;
+      this.fetchProperties();
+    },
+    openPropertyCreate() {
+      this.propertyForm = {
+        id: null,
+        inventory_item_id: "",
+        property_code: "",
+        model: "",
+        serial_no: "",
+        acquisition_date: "",
+        acquisition_cost: "",
+        depreciation_rate: "",
+        status: "active",
+        remarks: "",
+      };
+      this.propertyErrors = {};
+      this.showPropertyModal = true;
+    },
+    openPropertyEdit(row) {
+      this.propertyForm = {
+        id: row.id,
+        inventory_item_id: String(row.inventory_item_id || row.item_id || ""),
+        property_code: row.property_code || "",
+        model: row.model || "",
+        serial_no: row.serial_no || "",
+        acquisition_date: row.acquisition_date || "",
+        acquisition_cost: row.acquisition_cost ?? "",
+        depreciation_rate: row.depreciation_rate ?? "",
+        status: row.status || "active",
+        remarks: row.remarks || "",
+      };
+      this.propertyErrors = {};
+      this.showPropertyModal = true;
+    },
+    async savePropertyRecord() {
+      await this.submitEntity(
+        "/inventory-properties",
+        this.propertyForm,
+        "showPropertyModal",
+        "propertyErrors",
+        this.fetchProperties
+      );
+    },
+    async removeProperty(row) {
+      if (!confirm(`Delete property record "${row.property_code}"?`)) return;
+      await axios.delete(`/inventory-properties/${row.id}`);
+      this.fetchProperties();
+    },
     openRisCreate() {
       this.$refs.risLedger?.openCreate();
     },
@@ -1301,6 +1679,12 @@ export default {
         this.openStockCreate();
         return;
       }
+
+      if (this.activeModule === "properties") {
+        this.openPropertyCreate();
+        return;
+      }
+
       if (this.activeModule === "receivings") {
         this.openReceivingCreate();
         return;
@@ -1309,10 +1693,12 @@ export default {
         this.openWithdrawalCreate();
         return;
       }
+      
       if (this.activeModule === "ris") {
         this.openRisCreate();
         return;
       }
+   
       this.openItemCreate();
     },
     refreshStocks() {
@@ -1343,12 +1729,14 @@ export default {
       this.viewRecordType = type;
       this.viewRecord = row;
       this.viewStockItems = [];
+      this.viewItemProperties = [];
       this.showViewModal = true;
 
       if (type === "stock") {
         this.fetchStockItems(row.id);
       } else if (type === "item") {
         this.fetchItemStocks(row.id);
+        this.fetchItemProperties(row.id);
       }
     },
     handleViewModalVisibility(value) {
@@ -1359,6 +1747,8 @@ export default {
         this.viewRecord = null;
         this.viewStockItems = [];
         this.viewStockItemsLoading = false;
+        this.viewItemProperties = [];
+        this.viewItemPropertiesLoading = false;
       }
     },
     openReceivingPoItems(row) {
@@ -1419,6 +1809,28 @@ export default {
           Number(this.viewRecord?.id) === currentItemId
         ) {
           this.viewStockItemsLoading = false;
+        }
+      }
+    },
+    async fetchItemProperties(itemId) {
+      const currentItemId = Number(itemId);
+      this.viewItemPropertiesLoading = true;
+      try {
+        const response = await axios.get("/inventory-properties", {
+          params: { json: 1, item_id: currentItemId, count: 100 },
+        });
+        if (
+          this.viewRecordType === "item" &&
+          Number(this.viewRecord?.id) === currentItemId
+        ) {
+          this.viewItemProperties = response.data?.data || [];
+        }
+      } finally {
+        if (
+          this.viewRecordType === "item" &&
+          Number(this.viewRecord?.id) === currentItemId
+        ) {
+          this.viewItemPropertiesLoading = false;
         }
       }
     },
@@ -1486,6 +1898,7 @@ export default {
       this.receivingForm = {
         id: null,
         item_id: "",
+        quantity: "",
         approved_by_id: "",
         status_id: "",
         received_at: "",
@@ -1498,6 +1911,7 @@ export default {
       this.receivingForm = {
         id: row.id,
         item_id: String(row.item_id || ""),
+        quantity: row.quantity ?? "",
         approved_by_id: String(row.approved_by_id || ""),
         status_id: String(row.status_id || ""),
         received_at: this.toInputDateTime(row.received_at),
@@ -1510,6 +1924,7 @@ export default {
       this.withdrawalForm = {
         id: null,
         inventory_id: "",
+        quantity: "",
         requested_by_id: "",
         approved_by_id: "",
         status_id: "",
@@ -1523,6 +1938,7 @@ export default {
       this.withdrawalForm = {
         id: row.id,
         inventory_id: String(row.inventory_id || row.item_id || ""),
+        quantity: row.quantity ?? "",
         requested_by_id: String(row.requested_by_id || ""),
         approved_by_id: String(row.approved_by_id || ""),
         status_id: String(row.status_id || ""),
@@ -1801,8 +2217,103 @@ export default {
       await axios.delete(`/inventory-categories/${row.id}`);
       this.fetchCategories();
     },
+    async fetchReports() {
+      const response = await axios.get("/inventory-reports");
+      this.reportRows = Array.isArray(response.data?.data)
+        ? response.data.data
+        : Array.isArray(response.data)
+        ? response.data
+        : [];
+    },
+    defaultReportForm() {
+      const today = new Date();
+      return {
+        id: null,
+        title_id: "",
+        category_id: "",
+        period_type: "monthly",
+        period_year: today.getFullYear(),
+        period_month: today.getMonth() + 1,
+        period_quarter: Math.floor(today.getMonth() / 3) + 1,
+        period_date: this.isoDate(today),
+        custom_start: this.isoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+        custom_end: this.isoDate(today),
+      };
+    },
+    isoDate(d) {
+      return d.toISOString().slice(0, 10);
+    },
+    openReportCreate() {
+      this.reportForm = this.defaultReportForm();
+      this.reportErrors = {};
+      this.showReportModal = true;
+    },
+    onReportCategoryChange() {
+      this.reportForm.title_id = "";
+    },
+    onReportPeriodTypeChange() {
+      const today = new Date();
+      if (this.reportForm.period_type === "custom" && !this.reportForm.custom_start) {
+        this.reportForm.custom_start = this.isoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+        this.reportForm.custom_end = this.isoDate(today);
+      }
+      if (
+        (this.reportForm.period_type === "daily" || this.reportForm.period_type === "weekly") &&
+        !this.reportForm.period_date
+      ) {
+        this.reportForm.period_date = this.isoDate(today);
+      }
+    },
+    async saveReport() {
+      if (!this.reportForm.title_id) {
+        this.reportErrors = { title_id: ["Title is required."] };
+        return;
+      }
+      if (!this.reportForm.category_id) {
+        this.reportErrors = { category_id: ["Category is required."] };
+        return;
+      }
+      this.saving = true;
+      this.reportErrors = {};
+      try {
+        const range = this.reportPeriodRange;
+        await axios.post("/inventory-reports", {
+          title_id: this.reportForm.title_id,
+          category_id: this.reportForm.category_id,
+          period_type: this.reportForm.period_type,
+          period_year: this.reportForm.period_year,
+          period_month: this.reportForm.period_type === "monthly" ? this.reportForm.period_month : null,
+          period_quarter: this.reportForm.period_type === "quarterly" ? this.reportForm.period_quarter : null,
+          period_start: range.start,
+          period_end: range.end,
+          period_label: this.reportPeriodLabel,
+        });
+        this.showReportModal = false;
+        await this.fetchReports();
+      } catch (error) {
+        if (error?.response?.status === 422) {
+          this.reportErrors = error.response.data.errors || {};
+        } else {
+          this.reportErrors = { title_id: ["An error occurred. Please try again."] };
+          console.error("saveReport error:", error?.response ?? error);
+        }
+      } finally {
+        this.saving = false;
+      }
+    },
+    async removeReport(row) {
+      if (!confirm(`Delete report "${row.title}"?`)) return;
+      await axios.delete(`/inventory-reports/${row.id}`);
+      this.fetchReports();
+    },
     formatNumber(value) {
       return new Intl.NumberFormat().format(Number(value || 0));
+    },
+    onTabNavWheel(event) {
+      const el = event.currentTarget;
+      if (el.scrollWidth <= el.clientWidth) return;
+      event.preventDefault();
+      el.scrollLeft += event.deltaY;
     },
     toInputDateTime(value) {
       if (!value) return "";
@@ -1815,26 +2326,38 @@ export default {
 
       return local.toISOString().slice(0, 16);
     },
-    moduleMeta(moduleKey) {
-      if (moduleKey === "items")
-        return `${this.formatNumber(this.itemMeta?.total ?? this.itemRows.length)} items`;
-      if (moduleKey === "stocks")
-        return `${this.formatNumber(
-          this.stockMeta?.total ?? this.stockRows.length
-        )} records`;
-      if (moduleKey === "categories")
-        return `${this.formatNumber(this.categoryRows.length)} categories`;
+    moduleCount(moduleKey) {
+      if (moduleKey === "items") return this.itemMeta?.total ?? this.itemRows.length;
+      if (moduleKey === "stocks") return this.stockMeta?.total ?? this.stockRows.length;
+      if (moduleKey === "categories") return this.categoryRows.length;
+      if (moduleKey === "properties")
+        return this.propertyMeta?.total ?? this.propertyRows.length;
       if (moduleKey === "receivings")
-        return `${this.formatNumber(
-          this.receivingMeta?.total ?? this.receivingRows.length
-        )} logs`;
+        return this.receivingMeta?.total ?? this.receivingRows.length;
       if (moduleKey === "withdrawals")
-        return `${this.formatNumber(
-          this.withdrawalMeta?.total ?? this.withdrawalRows.length
-        )} logs`;
-      if (moduleKey === "ris")
-        return `${this.formatNumber(this.risMeta?.total ?? this.risRows.length)} slips`;
-      return "";
+        return this.withdrawalMeta?.total ?? this.withdrawalRows.length;
+      if (moduleKey === "ris") return this.risMeta?.total ?? this.risRows.length;
+      return null;
+    },
+    moduleCountIsZero(moduleKey) {
+      const count = this.moduleCount(moduleKey);
+      return count !== null && Number(count) === 0;
+    },
+    moduleMeta(moduleKey) {
+      const suffix = {
+        items: "items",
+        stocks: "records",
+        categories: "categories",
+        properties: "records",
+        receivings: "logs",
+        withdrawals: "logs",
+        ris: "slips",
+      }[moduleKey];
+
+      if (!suffix) return "";
+
+      const count = this.moduleCount(moduleKey);
+      return `${this.formatNumber(count)} ${suffix}`;
     },
   },
 };
@@ -2146,8 +2669,8 @@ export default {
 .inv-tab-nav {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.65rem 0.85rem;
+  gap: 0.35rem;
+  padding: 0.7rem 0.9rem;
   background: linear-gradient(180deg, #f8fbff, #f0f5ff);
   border-bottom: 1px solid var(--inv-border);
   overflow-x: auto;
@@ -2158,10 +2681,11 @@ export default {
 }
 
 .inv-tab {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.45rem 0.9rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.95rem;
   border: 1px solid transparent;
   border-radius: 12px;
   background: transparent;
@@ -2170,38 +2694,73 @@ export default {
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease,
+    box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.inv-tab-icon {
+  font-size: 0.95em;
+  opacity: 0.75;
+  transition: opacity 0.16s ease;
 }
 
 .inv-tab:hover:not(.active) {
   background: var(--inv-brand-soft);
   color: var(--inv-brand);
+  transform: translateY(-1px);
+}
+
+.inv-tab:hover:not(.active) .inv-tab-icon {
+  opacity: 1;
+}
+
+.inv-tab:active:not(.active) {
+  transform: translateY(0);
 }
 
 .inv-tab.active {
   background: linear-gradient(135deg, var(--inv-brand), var(--inv-brand-deep));
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 4px 14px rgba(75, 91, 147, 0.25);
+  box-shadow: 0 4px 14px rgba(75, 91, 147, 0.3), 0 0 0 3px rgba(75, 91, 147, 0.1);
 }
 
-.inv-tab em {
+.inv-tab.active .inv-tab-icon {
+  opacity: 1;
+}
+
+.inv-tab-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 18px;
-  padding: 0 0.35rem;
+  min-width: 24px;
+  height: 19px;
+  padding: 0 0.4rem;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--inv-brand-soft);
+  color: var(--inv-brand);
   font-style: normal;
   font-size: 0.68rem;
   font-weight: 800;
+  letter-spacing: 0.01em;
+  transition: background 0.16s ease, color 0.16s ease, opacity 0.16s ease;
 }
 
-.inv-tab.active em {
-  background: rgba(255, 255, 255, 0.2);
+.inv-tab-count.is-empty {
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--inv-muted);
+  opacity: 0.75;
+}
+
+.inv-tab.active .inv-tab-count {
+  background: rgba(255, 255, 255, 0.22);
   color: #fff;
+}
+
+.inv-tab.active .inv-tab-count.is-empty {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.85);
+  opacity: 1;
 }
 
 .inv-tab-content {
@@ -2797,6 +3356,65 @@ export default {
   color: var(--inv-muted);
   font-size: 0.8rem;
 }
+
+/* ── Dense grid: kicks in once a page has enough cards that shrinking them
+   fits more on screen and cuts down on scrolling ── */
+.inv-grid.is-dense {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+.inv-grid.is-dense .inv-stock-card-top {
+  height: 60px;
+}
+.inv-grid.is-dense .inv-stock-card-icon {
+  font-size: 1.5rem;
+}
+.inv-grid.is-dense .inv-stock-card-code {
+  font-size: 0.6rem;
+  padding: 0.12rem 0.4rem;
+  bottom: 0.4rem;
+  left: 0.45rem;
+}
+.inv-grid.is-dense .inv-stock-card-actions {
+  top: 0.4rem;
+  right: 0.4rem;
+}
+.inv-grid.is-dense .inv-stock-card-actions button {
+  width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+}
+.inv-grid.is-dense .inv-stock-card-body {
+  padding: 0.55rem 0.6rem;
+  gap: 0.4rem;
+}
+.inv-grid.is-dense .inv-stock-card-name {
+  font-size: 0.78rem;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.inv-grid.is-dense .inv-stock-card-body .mb-2 {
+  margin-bottom: 0.3rem !important;
+}
+.inv-grid.is-dense .inv-count-badge {
+  font-size: 0.65rem;
+  padding: 0.12rem 0.4rem;
+}
+.inv-grid.is-dense .inv-stock-stat {
+  padding: 0.3rem 0.3rem;
+}
+.inv-grid.is-dense .inv-stock-stat-sep {
+  height: 24px;
+}
+.inv-grid.is-dense .inv-stock-stat-val {
+  font-size: 0.8rem;
+}
+.inv-grid.is-dense .inv-stock-stat-val[style] {
+  font-size: 0.78rem !important;
+}
+.inv-grid.is-dense .inv-stock-stat-lbl {
+  font-size: 0.58rem;
+}
 .inv-custom-order-note {
   font-size: 0.72rem;
   color: var(--inv-muted);
@@ -3010,8 +3628,8 @@ export default {
 }
 
 /* ── Dark mode ──────────────────────────────────────── */
-:global([data-bs-theme="dark"]) .inventory-page,
-:global([data-layout-mode="dark"]) .inventory-page {
+:global([data-bs-theme="dark"] .inventory-page),
+:global([data-layout-mode="dark"] .inventory-page){
   --inv-surface: #111827;
   --inv-bg: #0b1220;
   --inv-border: #2e3a59;
@@ -3023,8 +3641,8 @@ export default {
     radial-gradient(circle at 88% 8%, rgba(99, 102, 241, 0.06), transparent 28%), #0b1220;
 }
 
-:global([data-bs-theme="dark"]) .inv-hero,
-:global([data-layout-mode="dark"]) .inv-hero {
+:global([data-bs-theme="dark"] .inv-hero),
+:global([data-layout-mode="dark"] .inv-hero) {
   background: radial-gradient(
       circle at 92% 12%,
       rgba(14, 165, 233, 0.18),
@@ -3034,62 +3652,62 @@ export default {
   box-shadow: 0 22px 52px rgba(0, 0, 0, 0.3);
 }
 
-:global([data-bs-theme="dark"]) .inv-shell,
-:global([data-layout-mode="dark"]) .inv-shell {
+:global([data-bs-theme="dark"] .inv-shell),
+:global([data-layout-mode="dark"] .inv-shell){
   background: #111827;
   border-color: #2e3a59;
   box-shadow: none;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab-nav,
-:global([data-layout-mode="dark"]) .inv-tab-nav {
+:global([data-bs-theme="dark"] .inv-tab-nav),
+:global([data-layout-mode="dark"] .inv-tab-nav){
   background: linear-gradient(180deg, #151e33, #111827);
   border-bottom-color: #2e3a59;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab:not(.active),
-:global([data-layout-mode="dark"]) .inv-tab:not(.active) {
+:global([data-bs-theme="dark"] .inv-tab:not(.active)),
+:global([data-layout-mode="dark"] .inv-tab:not(.active)){
   color: #9ca9c7;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab:hover:not(.active),
-:global([data-layout-mode="dark"]) .inv-tab:hover:not(.active) {
+:global([data-bs-theme="dark"] .inv-tab:hover:not(.active)),
+:global([data-layout-mode="dark"] .inv-tab:hover:not(.active)){
   background: #1a2540;
   color: #8ea0f4;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab-content > :deep(.card),
-:global([data-bs-theme="dark"]) .inv-tab-content > :deep(.ledger-card),
-:global([data-layout-mode="dark"]) .inv-tab-content > :deep(.card),
-:global([data-layout-mode="dark"]) .inv-tab-content > :deep(.ledger-card) {
+:global([data-bs-theme="dark"] .inv-tab-content > .card),
+:global([data-bs-theme="dark"] .inv-tab-content > .ledger-card),
+:global([data-layout-mode="dark"] .inv-tab-content > .card),
+:global([data-layout-mode="dark"] .inv-tab-content > .ledger-card){
   background: #111827 !important;
   border-color: #2e3a59 !important;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.card-header),
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.card-body),
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.bg-white),
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.bg-light-subtle),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.card-header),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.card-body),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.bg-white),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.bg-light-subtle) {
+:global([data-bs-theme="dark"] .inv-tab-content .card-header),
+:global([data-bs-theme="dark"] .inv-tab-content .card-body),
+:global([data-bs-theme="dark"] .inv-tab-content .bg-white),
+:global([data-bs-theme="dark"] .inv-tab-content .bg-light-subtle),
+:global([data-layout-mode="dark"] .inv-tab-content .card-header),
+:global([data-layout-mode="dark"] .inv-tab-content .card-body),
+:global([data-layout-mode="dark"] .inv-tab-content .bg-white),
+:global([data-layout-mode="dark"] .inv-tab-content .bg-light-subtle){
   background: #111827 !important;
   color: #e5e7eb !important;
   border-color: #2e3a59 !important;
 }
 
-:global([data-bs-theme="dark"]) .inv-table-wrap,
-:global([data-bs-theme="dark"]) .inv-table thead th,
-:global([data-layout-mode="dark"]) .inv-table-wrap,
-:global([data-layout-mode="dark"]) .inv-table thead th {
+:global([data-bs-theme="dark"] .inv-table-wrap),
+:global([data-bs-theme="dark"] .inv-table thead th),
+:global([data-layout-mode="dark"] .inv-table-wrap),
+:global([data-layout-mode="dark"] .inv-table thead th){
   border-color: #2e3a59 !important;
   background: #182035 !important;
   color: #dbeafe !important;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.table),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.table) {
+:global([data-bs-theme="dark"] .inv-tab-content .table),
+:global([data-layout-mode="dark"] .inv-tab-content .table){
   --bs-table-bg: #111827;
   --bs-table-color: #e5e7eb;
   --bs-table-hover-bg: #182035;
@@ -3098,69 +3716,167 @@ export default {
   background-color: #111827 !important;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.table-light th),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.table-light th) {
+:global([data-bs-theme="dark"] .inv-tab-content .table-light th),
+:global([data-layout-mode="dark"] .inv-tab-content .table-light th){
   background: #182035 !important;
   color: #dbeafe !important;
 }
 
-:global([data-bs-theme="dark"]) .item-3d-card,
-:global([data-layout-mode="dark"]) .item-3d-card {
+:global([data-bs-theme="dark"] .item-3d-card),
+:global([data-layout-mode="dark"] .item-3d-card){
   background: #111827;
   border-color: #2e3a59;
 }
 
-:global([data-bs-theme="dark"]) .item-card-icon-area,
-:global([data-layout-mode="dark"]) .item-card-icon-area {
+:global([data-bs-theme="dark"] .item-card-icon-area),
+:global([data-layout-mode="dark"] .item-card-icon-area){
   background: linear-gradient(135deg, #182035, #1a2540);
 }
 
-:global([data-bs-theme="dark"]) .item-card-content,
-:global([data-layout-mode="dark"]) .item-card-content {
+:global([data-bs-theme="dark"] .item-card-content),
+:global([data-layout-mode="dark"] .item-card-content){
   background: linear-gradient(180deg, #111827, #0f172a);
 }
 
-:global([data-bs-theme="dark"]) .item-title,
-:global([data-layout-mode="dark"]) .item-title {
+:global([data-bs-theme="dark"] .item-title),
+:global([data-layout-mode="dark"] .item-title){
   color: #f8fafc;
 }
 
-:global([data-bs-theme="dark"]) .inventory-order-controls,
-:global([data-layout-mode="dark"]) .inventory-order-controls {
+:global([data-bs-theme="dark"] .inventory-order-controls),
+:global([data-layout-mode="dark"] .inventory-order-controls){
   border-color: #2e3a59;
   background: #182035;
 }
 
-:global([data-bs-theme="dark"]) .inventory-order-btn,
-:global([data-layout-mode="dark"]) .inventory-order-btn {
+:global([data-bs-theme="dark"] .inventory-order-btn),
+:global([data-layout-mode="dark"] .inventory-order-btn){
   background: #111827;
   color: #dbeafe;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.input-group-text),
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.form-control),
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.form-select),
-:global([data-bs-theme="dark"]) .ledger-refresh-btn,
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.input-group-text),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.form-control),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.form-select),
-:global([data-layout-mode="dark"]) .ledger-refresh-btn {
+:global([data-bs-theme="dark"] .inv-action-btn),
+:global([data-layout-mode="dark"] .inv-action-btn){
+  background: #182035;
+  border-color: #2e3a59;
+  color: #dbeafe;
+}
+
+:global([data-bs-theme="dark"] .inv-pagination-bar),
+:global([data-layout-mode="dark"] .inv-pagination-bar){
+  background: #111827;
+  border-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .inv-table-row td),
+:global([data-layout-mode="dark"] .inv-table-row td){
+  border-bottom-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .inv-table-row:hover td),
+:global([data-layout-mode="dark"] .inv-table-row:hover td){
+  background: #182035;
+}
+
+:global([data-bs-theme="dark"] .inv-spinner),
+:global([data-layout-mode="dark"] .inv-spinner){
+  border-color: #2e3a59;
+  border-top-color: var(--inv-brand);
+}
+
+:global([data-bs-theme="dark"] .inv-tab-content .input-group-text),
+:global([data-bs-theme="dark"] .inv-tab-content .form-control),
+:global([data-bs-theme="dark"] .inv-tab-content .form-select),
+:global([data-bs-theme="dark"] .ledger-refresh-btn),
+:global([data-layout-mode="dark"] .inv-tab-content .input-group-text),
+:global([data-layout-mode="dark"] .inv-tab-content .form-control),
+:global([data-layout-mode="dark"] .inv-tab-content .form-select),
+:global([data-layout-mode="dark"] .ledger-refresh-btn){
   border-color: #2e3a59 !important;
   background: #182035 !important;
   color: #e5e7eb !important;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.page-link),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.page-link) {
+:global([data-bs-theme="dark"] .inv-tab-content .page-link),
+:global([data-layout-mode="dark"] .inv-tab-content .page-link){
   border-color: #2e3a59 !important;
   background: #182035 !important;
   color: #e5e7eb !important;
 }
 
-:global([data-bs-theme="dark"]) .inv-tab-content :deep(.page-item.active .page-link),
-:global([data-layout-mode="dark"]) .inv-tab-content :deep(.page-item.active .page-link) {
+:global([data-bs-theme="dark"] .inv-tab-content .page-item.active .page-link),
+:global([data-layout-mode="dark"] .inv-tab-content .page-item.active .page-link){
   border-color: #8ea0f4 !important;
   background: #8ea0f4 !important;
   color: #0f172a !important;
+}
+
+:global([data-bs-theme="dark"] .inv-module-card),
+:global([data-layout-mode="dark"] .inv-module-card){
+  background: #111827;
+  border-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .inv-module-header),
+:global([data-layout-mode="dark"] .inv-module-header){
+  background: linear-gradient(180deg, #151e33, #111827);
+  border-bottom-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .inv-search-input),
+:global([data-bs-theme="dark"] .inv-select),
+:global([data-bs-theme="dark"] .inv-icon-btn),
+:global([data-bs-theme="dark"] .inv-view-toggle button),
+:global([data-layout-mode="dark"] .inv-search-input),
+:global([data-layout-mode="dark"] .inv-select),
+:global([data-layout-mode="dark"] .inv-icon-btn),
+:global([data-layout-mode="dark"] .inv-view-toggle button){
+  background: #182035;
+  border-color: #2e3a59;
+  color: #e5e7eb;
+}
+
+:global([data-bs-theme="dark"] .inv-view-toggle),
+:global([data-layout-mode="dark"] .inv-view-toggle){
+  border-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .inv-view-toggle button.active),
+:global([data-layout-mode="dark"] .inv-view-toggle button.active){
+  background: var(--inv-brand);
+  color: #fff;
+}
+
+:global([data-bs-theme="dark"] .inv-search-input::placeholder),
+:global([data-layout-mode="dark"] .inv-search-input::placeholder){
+  color: #9ca9c7;
+}
+
+:global([data-bs-theme="dark"] .inv-grid-shell),
+:global([data-layout-mode="dark"] .inv-grid-shell){
+  background: #0b1220;
+}
+
+:global([data-bs-theme="dark"] .inv-stock-card),
+:global([data-layout-mode="dark"] .inv-stock-card){
+  background: #111827;
+  border-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .inv-stock-card-stats),
+:global([data-layout-mode="dark"] .inv-stock-card-stats){
+  background: #0b1220;
+  border-color: #2e3a59;
+}
+
+:global([data-bs-theme="dark"] .inv-count-badge),
+:global([data-bs-theme="dark"] .inv-code-chip),
+:global([data-bs-theme="dark"] .inv-stock-badge),
+:global([data-layout-mode="dark"] .inv-count-badge),
+:global([data-layout-mode="dark"] .inv-code-chip),
+:global([data-layout-mode="dark"] .inv-stock-badge){
+  background: rgba(142, 160, 244, 0.14);
+  border-color: rgba(142, 160, 244, 0.28);
+  color: #8ea0f4;
 }
 </style>

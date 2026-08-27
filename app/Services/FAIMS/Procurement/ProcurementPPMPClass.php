@@ -2351,7 +2351,8 @@ class ProcurementPPMPClass
         $user = Auth::user();
 
         $allowed = $user && (
-            $user->hasRole('BAC User')
+            $user->hasRole('Administrator')
+            || $user->hasRole('BAC User')
             || $user->hasRole('BAC Chairperson')
             || $user->hasRole('BAC Vice Chairperson')
             || $user->hasRole('BAC Member')
@@ -2386,6 +2387,7 @@ class ProcurementPPMPClass
             || $same_unit
             || $user->hasRole('Procurement Staff')
             || $user->hasRole('Procurement Officer')
+            || $user->hasRole('Administrator')
         ) {
             return;
         }

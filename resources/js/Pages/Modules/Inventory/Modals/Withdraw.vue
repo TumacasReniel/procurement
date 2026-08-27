@@ -39,6 +39,10 @@
             </select>
           </BCol>
           <BCol lg="6">
+            <InputLabel for="withdraw_quantity" value="Quantity" :message="errors.quantity" />
+            <TextInput id="withdraw_quantity" :model-value="form.quantity" type="number" step="0.01" min="0.01" class="form-control" :light="true" @update:modelValue="updateField('quantity', $event)" />
+          </BCol>
+          <BCol lg="6">
             <InputLabel for="requested_by_id" value="Requested By" :message="errors.requested_by_id" />
             <select id="requested_by_id" :value="form.requested_by_id" class="form-select" @change="updateField('requested_by_id', $event.target.value)">
               <option value="">Select Requester</option>

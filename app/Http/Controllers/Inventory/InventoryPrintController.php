@@ -6,42 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\InventoryIcs;
 use App\Models\InventoryItem;
 use App\Models\InventoryPar;
+use App\Models\InventoryReport;
 use App\Models\InventoryRis;
 use App\Models\InventoryStockAdjustment;
+use App\Services\Inventory\InventoryStockClass;
 use Illuminate\Http\Request;
 
 class InventoryPrintController extends Controller
 {
+    public function __construct(private InventoryStockClass $inventory) {}
+
     public function stockCard(InventoryItem $item)
     {
         $item->load(['category', 'stocks.unit']);
 
-        $receivings  = $item->receivings()->with('status')->orderBy('received_at')->get();
-        $withdrawals = $item->withdrawals()->with('status')->orderBy('released_at')->get();
-        $adjustments = InventoryStockAdjustment::where('item_id', $item->id)->orderBy('adjustment_date')->get();
-
-        // Build running balance ledger
-        $ledger  = collect();
-        $balance = 0;
-
-        foreach ($receivings as $r) {
-            $qty     = (float) $r->quantity;
-            $balance += $qty;
-            $ledger->push(['date' => $r->received_at, 'type' => 'Receiving', 'ref' => null, 'in' => $qty, 'out' => 0, 'balance' => $balance, 'remarks' => $r->remarks]);
-        }
-        foreach ($withdrawals as $w) {
-            $qty     = (float) $w->quantity;
-            $balance -= $qty;
-            $ledger->push(['date' => $w->released_at, 'type' => 'Withdrawal', 'ref' => null, 'in' => 0, 'out' => $qty, 'balance' => $balance, 'remarks' => $w->remarks]);
-        }
-        foreach ($adjustments as $a) {
-            $in  = in_array($a->type, ['increase', 'correction']) ? (float) $a->quantity_adjusted : 0;
-            $out = $a->type === 'decrease' ? (float) $a->quantity_adjusted : 0;
-            $balance = (float) $a->quantity_after;
-            $ledger->push(['date' => $a->adjustment_date, 'type' => 'Adjustment', 'ref' => $a->adjustment_no, 'in' => $in, 'out' => $out, 'balance' => $balance, 'remarks' => $a->reason]);
-        }
-
-        $ledger = $ledger->sortBy('date')->values();
+        $ledger = $this->inventory->stockCardLedger($item);
 
         return view('Inventory.prints.stock-card', compact('item', 'ledger'));
     }
@@ -62,6 +41,31 @@ class InventoryPrintController extends Controller
     {
         $inventory_par->load(['items.item', 'receivedBy.profile', 'issuedBy.profile', 'approvedBy.profile', 'status']);
         return view('Inventory.prints.par', ['par' => $inventory_par]);
+    }
+
+    public function report(InventoryReport $inventory_report)
+    {
+        $inventory_report->load(['title', 'category', 'creator.profile']);
+        $detail = $this->inventory->reportDetailRows($inventory_report);
+
+        $pdf = \PDF::loadView('Inventory.prints.report', [
+            'report'          => $inventory_report,
+            'kind'            => $detail['kind'],
+            'columns'         => $detail['columns'],
+            'rows'            => $detail['rows'],
+            'groups'          => $detail['groups'] ?? [],
+            'grand_total'     => $detail['grand_total'] ?? 0,
+            'category_totals' => $detail['category_totals'] ?? [],
+            'supply_officer'  => $detail['supply_officer'] ?? null,
+            'accountant'      => $detail['accountant'] ?? null,
+        ])
+            ->setPaper('A4', $detail['kind'] === 'ris_issued' ? 'legal' : 'portrait')
+            ->setOption([
+                'isPhpEnabled' => true,
+                'isRemoteEnabled' => true,
+            ]);
+
+        return $pdf->stream($inventory_report->code.'.pdf');
     }
 
     public function wasteMaterial(Request $request)

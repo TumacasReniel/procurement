@@ -3,9 +3,11 @@
 namespace App\Services\Inventory;
 
 use App\Http\Resources\Inventory\InventoryIcsResource;
+use App\Http\Resources\Inventory\InventoryItemPropertyResource;
 use App\Http\Resources\Inventory\InventoryItemResource;
 use App\Http\Resources\Inventory\InventoryParResource;
 use App\Http\Resources\Inventory\InventoryPhysicalCountResource;
+use App\Http\Resources\Inventory\InventoryReportResource;
 use App\Http\Resources\Inventory\InventoryReceivingResource;
 use App\Http\Resources\Inventory\InventoryRisResource;
 use App\Http\Resources\Inventory\InventoryStockResource;
@@ -13,6 +15,9 @@ use App\Http\Resources\Inventory\InventoryWithdrawalResource;
 use App\Models\InventoryIcs;
 use App\Models\InventoryIcsItem;
 use App\Models\InventoryItem;
+use App\Models\InventoryItemProperty;
+use App\Models\InventoryReport;
+use App\Models\InventoryReportTitle;
 use App\Models\InventoryPar;
 use App\Models\InventoryParItem;
 use App\Models\InventoryPhysicalCount;
@@ -20,11 +25,16 @@ use App\Models\InventoryPhysicalCountItem;
 use App\Models\InventoryRis;
 use App\Models\InventoryRisItem;
 use App\Models\InventoryReceiving;
+use App\Models\InventoryReceivingTransfer;
 use App\Models\InventoryStock;
 use App\Models\InventoryStockAdjustment;
+use App\Models\InventoryStockDrain;
+use App\Models\OrgChart;
+use App\Models\ProcurementNoaPo;
 use App\Models\InventoryWithdrawal;
 use App\Models\ListDropdown;
 use App\Models\ListStatus;
+use App\Models\ListUnit;
 use App\Models\UnitType;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -42,7 +52,14 @@ class InventoryStockClass
                     ->get(['id', 'name']),
                 'statuses'   => $this->inventoryStatuses(),
                 'unitTypes'  => UnitType::orderBy('name_long')->get(['id', 'name_short', 'name_long']),
+                'reportCategories' => ListDropdown::where('classification', 'Report Category')
+                    ->orderBy('name')
+                    ->get(['id', 'name']),
+                'reportTitles' => InventoryReportTitle::where('is_active', 1)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'category_id']),
             ],
+            'reports' => $this->reports(),
             'users' => User::with('profile')
                 ->get()
                 ->map(fn ($user) => [
@@ -76,6 +93,20 @@ class InventoryStockClass
             'fund_clusters' => ListDropdown::where('classification', 'Fund Cluster')
                 ->orderBy('name')
                 ->get(['id', 'name']),
+            'divisions' => ListDropdown::where('classification', 'Division')
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'units' => ListUnit::with('responsibility_center:id,list_unit_id,code')
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->get(['id', 'name', 'division_id'])
+                ->map(fn ($unit) => [
+                    'id' => $unit->id,
+                    'name' => $unit->name,
+                    'division_id' => $unit->division_id,
+                    'responsibility_center_code' => $unit->responsibility_center?->code,
+                ])
+                ->values(),
             'risDefaults' => [
                 'pending_status_id' => (string) (ListStatus::where('name', 'Pending')->where('classification', 'Inventory')->value('id') ?? ''),
                 'regional_director_id' => (string) (User::whereHasActiveRole('Regional Director')->value('id') ?? ''),
@@ -174,7 +205,16 @@ class InventoryStockClass
 
     public function saveReceiving($request): array
     {
-        $receiving = InventoryReceiving::create($request->validated());
+        $data = $request->validated();
+
+        $stock = $this->resolveReceivingStock((int) $data['item_id'], $data['stock_id'] ?? null);
+        $stock->quantity = (float) $stock->quantity + (float) $data['quantity'];
+        $stock->save();
+
+        $data['inventory_stock_id'] = $stock->id;
+        $data['unit_cost'] = $stock->unit_cost;
+
+        $receiving = InventoryReceiving::create($data);
 
         return $this->receivingResult(
             $receiving,
@@ -185,7 +225,25 @@ class InventoryStockClass
 
     public function updateReceiving($request, InventoryReceiving $receiving): array
     {
-        $receiving->update($request->validated());
+        $data = $request->validated();
+
+        // Reverse the old quantity from whichever stock row this receiving originally hit.
+        if ($receiving->inventory_stock_id) {
+            $oldStock = InventoryStock::where('id', $receiving->inventory_stock_id)->lockForUpdate()->first();
+            if ($oldStock) {
+                $oldStock->quantity = max((float) $oldStock->quantity - (float) $receiving->quantity, 0);
+                $oldStock->save();
+            }
+        }
+
+        $stock = $this->resolveReceivingStock((int) $data['item_id'], $data['stock_id'] ?? null);
+        $stock->quantity = (float) $stock->quantity + (float) $data['quantity'];
+        $stock->save();
+
+        $data['inventory_stock_id'] = $stock->id;
+        $data['unit_cost'] = $stock->unit_cost;
+
+        $receiving->update($data);
 
         return $this->receivingResult(
             $receiving,
@@ -196,10 +254,40 @@ class InventoryStockClass
 
     public function deleteReceiving(InventoryReceiving $receiving): array
     {
+        if ($receiving->inventory_stock_id) {
+            $stock = InventoryStock::where('id', $receiving->inventory_stock_id)->lockForUpdate()->first();
+            if ($stock) {
+                $stock->quantity = max((float) $stock->quantity - (float) $receiving->quantity, 0);
+                $stock->save();
+            }
+        }
+
         $id = $receiving->id;
         $receiving->delete();
 
         return $this->deleteResult($id, 'Inventory receiving deleted successfully.', "You've successfully deleted the receiving record.");
+    }
+
+    /**
+     * Resolve (or create) the InventoryStock row a manual receiving should land on:
+     * an explicit stock_id if given, else the item's highest-quantity stock row, else
+     * a brand-new one — mirroring the no-stock-row fallback used elsewhere in this class.
+     */
+    private function resolveReceivingStock(int $itemId, ?int $stockId): InventoryStock
+    {
+        $stock = $stockId
+            ? InventoryStock::where('id', $stockId)->lockForUpdate()->first()
+            : InventoryStock::where('item_id', $itemId)->orderByDesc('quantity')->lockForUpdate()->first();
+
+        if ($stock) {
+            return $stock;
+        }
+
+        return InventoryStock::create([
+            'item_id'  => $itemId,
+            'quantity' => 0,
+            'unit_id'  => UnitType::orderBy('id')->value('id') ?? 1,
+        ]);
     }
 
     public function saveWithdrawal($request): array
@@ -379,14 +467,7 @@ class InventoryStockClass
                 continue;
             }
 
-            $stock = InventoryStock::where('item_id', $risItem->item_id)
-                ->orderByDesc('quantity')
-                ->first();
-
-            if ($stock) {
-                $stock->quantity = (float) $stock->quantity + $issued;
-                $stock->save();
-            }
+            $this->restoreStock($risItem->item_id, $issued, 'ris_item', $risItem->id);
         }
 
         $ris->update(['status_id' => $cancelledId]);
@@ -406,7 +487,7 @@ class InventoryStockClass
                 continue;
             }
 
-            $this->drainStock($risItem->item_id, $remaining);
+            $this->drainStock($risItem->item_id, $remaining, 'ris_item', $risItem->id);
         }
     }
 
@@ -417,10 +498,19 @@ class InventoryStockClass
             return;
         }
 
-        $this->drainStock($withdrawal->inventory_id, $qty);
+        $value = $this->drainStock($withdrawal->inventory_id, $qty, 'withdrawal', $withdrawal->id);
+        $withdrawal->unit_cost = round($value / $qty, 4);
+        $withdrawal->save();
     }
 
-    public function drainStock(int $itemId, float $needed): void
+    /**
+     * Drain quantity from an item's stock rows oldest-first (FIFO) and record which
+     * batch(es) absorbed the deduction in inventory_stock_drains, keyed by the caller's
+     * source (e.g. a RIS line item or a withdrawal), so a later void/restore can put the
+     * exact quantity back on the exact batches instead of guessing. Returns the total
+     * value drained (sum of qty * unit_cost across the batches touched).
+     */
+    public function drainStock(int $itemId, float $needed, string $sourceType, int $sourceId): float
     {
         $stocks = InventoryStock::where('item_id', $itemId)
             ->where('quantity', '>', 0)
@@ -436,6 +526,8 @@ class InventoryStockClass
             throw new \Exception("Insufficient stock for {$name}: requested {$needed}, only {$available} on hand.");
         }
 
+        $totalValue = 0.0;
+
         foreach ($stocks as $stock) {
             if ($needed <= 0) {
                 break;
@@ -446,11 +538,60 @@ class InventoryStockClass
             $stock->quantity = $rowQty - $deduct;
             $stock->save();
             $needed -= $deduct;
+
+            InventoryStockDrain::create([
+                'inventory_stock_id' => $stock->id,
+                'item_id'            => $itemId,
+                'source_type'        => $sourceType,
+                'source_id'          => $sourceId,
+                'quantity'           => $deduct,
+                'unit_cost'          => $stock->unit_cost,
+            ]);
+
+            $totalValue += $deduct * (float) ($stock->unit_cost ?? 0);
         }
+
+        return $totalValue;
     }
 
-    protected function restoreStock(int $itemId, float $qty): void
+    /**
+     * Reverse a prior drainStock() call for the given source, restoring quantity to the
+     * exact batches it was taken from (not just "whichever stock row has the most on
+     * hand"), so cost-basis stays correct. Falls back to a best-effort restore onto the
+     * item's highest-quantity stock row only for legacy drains with no ledger rows.
+     */
+    protected function restoreStock(int $itemId, float $qty, string $sourceType, int $sourceId): void
     {
+        $drains = InventoryStockDrain::where('source_type', $sourceType)
+            ->where('source_id', $sourceId)
+            ->lockForUpdate()
+            ->get();
+
+        if ($drains->isNotEmpty()) {
+            foreach ($drains as $drain) {
+                $stock = InventoryStock::where('id', $drain->inventory_stock_id)->lockForUpdate()->first();
+
+                if ($stock) {
+                    $stock->quantity = (float) $stock->quantity + (float) $drain->quantity;
+                    $stock->save();
+                } else {
+                    // The batch itself was deleted since — recreate a minimal row so the
+                    // restored quantity isn't silently lost.
+                    InventoryStock::create([
+                        'item_id'   => $drain->item_id,
+                        'quantity'  => $drain->quantity,
+                        'unit_id'   => UnitType::orderBy('id')->value('id') ?? 1,
+                        'unit_cost' => $drain->unit_cost,
+                    ]);
+                }
+
+                $drain->delete();
+            }
+
+            return;
+        }
+
+        // No ledger entries — legacy drain from before this feature existed. Best effort.
         if ($qty <= 0) {
             return;
         }
@@ -467,7 +608,6 @@ class InventoryStockClass
             return;
         }
 
-        // No stock row left for this item — create one so the restored quantity is not lost
         InventoryStock::create([
             'item_id'  => $itemId,
             'quantity' => $qty,
@@ -524,6 +664,11 @@ class InventoryStockClass
 
     public function deleteIcs(InventoryIcs $ics): array
     {
+        $completedId = (int) ListStatus::getID('Completed', 'Inventory');
+        if ($completedId && (int) $ics->status_id === $completedId) {
+            throw new \Exception('Completed ICS records cannot be deleted.');
+        }
+
         $id = $ics->id;
         $ics->delete();
         return ['data' => ['id' => $id], 'message' => 'ICS deleted.', 'info' => null];
@@ -578,6 +723,11 @@ class InventoryStockClass
 
     public function deletePar(InventoryPar $par): array
     {
+        $completedId = (int) ListStatus::getID('Completed', 'Inventory');
+        if ($completedId && (int) $par->status_id === $completedId) {
+            throw new \Exception('Completed PAR records cannot be deleted.');
+        }
+
         $id = $par->id;
         $par->delete();
         return ['data' => ['id' => $id], 'message' => 'PAR deleted.', 'info' => null];
@@ -678,16 +828,11 @@ class InventoryStockClass
             throw new \Exception('Cancelled status not found.');
         }
 
+        // $qty is only used as a legacy fallback inside restoreStock() when no drain-ledger
+        // rows exist for this withdrawal (i.e. it was completed before this feature shipped).
         $qty = (float) $withdrawal->quantity;
 
-        $stock = InventoryStock::where('item_id', $withdrawal->inventory_id)
-            ->orderByDesc('quantity')
-            ->first();
-
-        if ($stock && $qty > 0) {
-            $stock->quantity = (float) $stock->quantity + $qty;
-            $stock->save();
-        }
+        $this->restoreStock($withdrawal->inventory_id, $qty, 'withdrawal', $withdrawal->id);
 
         $withdrawal->update(['status_id' => $cancelledId]);
 
@@ -714,12 +859,17 @@ class InventoryStockClass
         $alreadyIssued  = (float) ($withdrawal->issued_quantity ?? 0);
         $newIssued      = $alreadyIssued + $issuedQty;
 
-        $this->drainStock($withdrawal->inventory_id, $issuedQty);
+        $value = $this->drainStock($withdrawal->inventory_id, $issuedQty, 'withdrawal', $withdrawal->id);
+
+        // Running weighted-average unit cost across every partial issuance for this withdrawal.
+        $priorValue  = (float) ($withdrawal->unit_cost ?? 0) * $alreadyIssued;
+        $newUnitCost = $newIssued > 0 ? round(($priorValue + $value) / $newIssued, 4) : null;
 
         $newStatusId = $newIssued >= $totalRequested ? $completedId : $withdrawal->status_id;
 
         $withdrawal->update([
             'issued_quantity' => $newIssued,
+            'unit_cost'       => $newUnitCost,
             'status_id'       => $newStatusId,
             'remarks'         => $request->input('remarks', $withdrawal->remarks),
         ]);
@@ -734,7 +884,7 @@ class InventoryStockClass
     protected function postPhysicalCountAdjustments(InventoryPhysicalCount $count): void
     {
         foreach ($count->items()->where(DB::raw('ABS(physical_quantity - system_quantity)'), '>', 0)->get() as $line) {
-            $stock = InventoryStock::where('item_id', $line->item_id)->orderByDesc('quantity')->first();
+            $stock = InventoryStock::where('item_id', $line->item_id)->orderByDesc('quantity')->lockForUpdate()->first();
             if (! $stock) {
                 continue;
             }
@@ -759,6 +909,168 @@ class InventoryStockClass
             $stock->quantity = $physical;
             $stock->save();
         }
+    }
+
+    /**
+     * Build the running-balance stock-card ledger for one item: every receiving,
+     * withdrawal, and adjustment sorted by date, with a running quantity balance and
+     * a weighted-average unit cost carried forward (unit cost only changes on "in"
+     * transactions, per standard weighted-average costing — an "out" doesn't change
+     * the average cost of what remains).
+     */
+    public function stockCardLedger(InventoryItem $item): \Illuminate\Support\Collection
+    {
+        $receivings  = $item->receivings()->with('status')->orderBy('received_at')->get();
+        $withdrawals = $item->withdrawals()->with('status')->orderBy('released_at')->get();
+        $adjustments = InventoryStockAdjustment::where('item_id', $item->id)->with('stock')->orderBy('adjustment_date')->get();
+
+        $rows = collect();
+
+        foreach ($receivings as $r) {
+            $rows->push(['date' => $r->received_at, 'sort' => 0, 'type' => 'Receiving', 'ref' => null, 'in' => (float) $r->quantity, 'out' => 0, 'unit_cost' => $r->unit_cost !== null ? (float) $r->unit_cost : null, 'remarks' => $r->remarks]);
+        }
+        foreach ($withdrawals as $w) {
+            $rows->push(['date' => $w->released_at, 'sort' => 1, 'type' => 'Withdrawal', 'ref' => null, 'in' => 0, 'out' => (float) $w->quantity, 'unit_cost' => $w->unit_cost !== null ? (float) $w->unit_cost : null, 'remarks' => $w->remarks]);
+        }
+        foreach ($adjustments as $a) {
+            $in  = in_array($a->type, ['increase', 'correction'], true) ? (float) $a->quantity_adjusted : 0;
+            $out = $a->type === 'decrease' ? (float) $a->quantity_adjusted : 0;
+            $rows->push(['date' => $a->adjustment_date, 'sort' => 2, 'type' => 'Adjustment', 'ref' => $a->adjustment_no, 'in' => $in, 'out' => $out, 'unit_cost' => $a->stock?->unit_cost !== null ? (float) $a->stock->unit_cost : null, 'remarks' => $a->reason]);
+        }
+
+        $rows = $rows->sortBy([['date', 'asc'], ['sort', 'asc']])->values();
+
+        $balance = 0.0;
+        $avgCost = 0.0;
+
+        $ledger = collect();
+
+        foreach ($rows as $row) {
+            $in  = $row['in'];
+            $out = $row['out'];
+
+            if ($in > 0) {
+                $incomingCost = $row['unit_cost'] ?? $avgCost;
+                $avgCost = ($balance + $in) > 0
+                    ? (($balance * $avgCost) + ($in * $incomingCost)) / ($balance + $in)
+                    : $incomingCost;
+                $balance += $in;
+            } elseif ($out > 0) {
+                $balance -= $out;
+            }
+
+            $ledger->push([
+                'date'          => $row['date'],
+                'type'          => $row['type'],
+                'ref'           => $row['ref'],
+                'in'            => $in,
+                'out'           => $out,
+                'unit_cost'     => $row['unit_cost'],
+                'balance'       => $balance,
+                'balance_cost'  => $avgCost,
+                'remarks'       => $row['remarks'],
+            ]);
+        }
+
+        return $ledger;
+    }
+
+    public function procurementReceivings(Request $request)
+    {
+        $query = ProcurementNoaPo::with([
+                'iars:id,po_id,code',
+                'inventoryTransfers.inventoryItem:id,code,name',
+                'inventoryTransfers.inventoryStock:id,item_id,quantity,unit_id,unit_cost',
+                'inventoryTransfers.inventoryStock.unit:id,name_short',
+            ])
+            ->select('id', 'code', 'po_date')
+            ->whereHas('inventoryTransfers')
+            ->orderByDesc('po_date')
+            ->orderByDesc('id');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('code', 'like', "%{$search}%")
+                  ->orWhereHas('inventoryTransfers.inventoryItem', fn ($inner) =>
+                      $inner->where('name', 'like', "%{$search}%")
+                  );
+            });
+        }
+
+        if ($request->filled('status')) {
+            $status = $request->status;
+            $query->whereHas('inventoryTransfers.inventoryStock', function ($q) use ($status) {
+                if ($status === 'depleted') {
+                    $q->where('quantity', '<=', 0);
+                } elseif ($status === 'low') {
+                    $q->where('quantity', '>', 0)->where('quantity', '<', 5);
+                } elseif ($status === 'in_stock') {
+                    $q->where('quantity', '>=', 5);
+                }
+            });
+        }
+
+        return $query->paginate(10);
+    }
+
+    public function itemProperties(Request $request)
+    {
+        return InventoryItemPropertyResource::collection(
+            InventoryItemProperty::with('item:id,code,name')
+                ->when($request->filled('item_id'), fn ($q) => $q->where('inventory_item_id', $request->integer('item_id')))
+                ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
+                ->when($request->filled('keyword'), function ($q) use ($request) {
+                    $kw = '%'.trim($request->input('keyword')).'%';
+                    $q->where(function ($inner) use ($kw) {
+                        $inner->where('property_code', 'like', $kw)
+                            ->orWhere('model', 'like', $kw)
+                            ->orWhere('serial_no', 'like', $kw)
+                            ->orWhereHas('item', fn ($item) => $item->where('name', 'like', $kw)->orWhere('code', 'like', $kw));
+                    });
+                })
+                ->orderByDesc('id')
+                ->paginate(max((int) $request->input('count', 10), 1))
+        );
+    }
+
+    public function saveItemProperty(Request $request): array
+    {
+        $property = InventoryItemProperty::create($request->validated());
+
+        return $this->itemPropertyResult(
+            $property,
+            'Property record created successfully.',
+            "You've successfully added a property record."
+        );
+    }
+
+    public function updateItemProperty(Request $request, InventoryItemProperty $property): array
+    {
+        $property->update($request->validated());
+
+        return $this->itemPropertyResult(
+            $property,
+            'Property record updated successfully.',
+            "You've successfully updated the property record."
+        );
+    }
+
+    public function deleteItemProperty(InventoryItemProperty $property): array
+    {
+        $id = $property->id;
+        $property->delete();
+
+        return $this->deleteResult($id, 'Property record deleted successfully.', "You've successfully deleted the property record.");
+    }
+
+    protected function itemPropertyResult(InventoryItemProperty $property, string $message, string $info): array
+    {
+        return [
+            'data'    => new InventoryItemPropertyResource($property->load('item')),
+            'message' => $message,
+            'info'    => $info,
+        ];
     }
 
     public function categories(): \Illuminate\Database\Eloquent\Collection
@@ -805,12 +1117,275 @@ class InventoryStockClass
     public function deleteCategory(int $id): array
     {
         $category = ListDropdown::where('classification', 'Item Category')->findOrFail($id);
+
+        if (InventoryItem::where('category_id', $id)->exists()) {
+            throw new \Exception('Cannot delete a category that still has items assigned to it.');
+        }
+
         $category->delete();
 
         return [
             'data'    => ['id' => $id],
             'message' => 'Category deleted.',
             'info'    => null,
+        ];
+    }
+
+    public function reports()
+    {
+        return InventoryReportResource::collection(
+            InventoryReport::with(['title:id,name,data_source,category_id', 'category:id,name', 'creator.profile'])
+                ->orderByDesc('id')
+                ->get()
+        );
+    }
+
+    public function showReport(int $id): array
+    {
+        $report = InventoryReport::with(['title:id,name,data_source,category_id', 'category:id,name', 'creator.profile'])
+            ->findOrFail($id);
+
+        return [
+            'report' => new InventoryReportResource($report),
+            'rows'   => $this->reportDetailRows($report),
+        ];
+    }
+
+    public function reportDetailRows(InventoryReport $report): array
+    {
+        $source = $report->title?->data_source ?? InventoryReportTitle::SOURCE_NONE;
+        $start  = $report->period_start;
+        $end    = $report->period_end;
+
+        if (in_array($source, [InventoryReportTitle::SOURCE_ITEMS_RECEIVED, InventoryReportTitle::SOURCE_STOCKS_RECEIVED], true)) {
+            $categoryTotals = [];
+            $grandTotal = 0.0;
+
+            $rows = InventoryReceiving::with(['item.category', 'stock:id,description'])
+                ->when($start, fn ($q) => $q->whereDate('received_at', '>=', $start))
+                ->when($end, fn ($q) => $q->whereDate('received_at', '<=', $end))
+                ->orderBy('received_at')
+                ->get()
+                ->map(function ($r) use (&$categoryTotals, &$grandTotal) {
+                    $totalCost = (float) $r->quantity * (float) $r->unit_cost;
+                    $grandTotal += $totalCost;
+                    $categoryName = $r->item?->category?->name ?? 'Uncategorized';
+                    $categoryTotals[$categoryName] = ($categoryTotals[$categoryName] ?? 0) + $totalCost;
+
+                    return [
+                        'id'          => $r->id,
+                        'code'        => $r->item?->code,
+                        'name'        => $r->item?->name,
+                        'stock'       => $r->stock?->description,
+                        'quantity'    => (float) $r->quantity,
+                        'unit_cost'   => (float) $r->unit_cost,
+                        'total_cost'  => $totalCost,
+                        'date'        => optional($r->received_at)->format('Y-m-d'),
+                        'status'      => $r->status?->name,
+                    ];
+                })
+                ->values();
+
+            return array_merge(
+                ['kind' => 'received', 'columns' => $this->reportColumns('received'), 'rows' => $rows,
+                    'grand_total' => $grandTotal, 'category_totals' => $categoryTotals],
+                $this->reportSignatories()
+            );
+        }
+
+        if (in_array($source, [InventoryReportTitle::SOURCE_ITEMS_WITHDRAWN, InventoryReportTitle::SOURCE_STOCKS_WITHDRAWN], true)) {
+            $categoryTotals = [];
+            $grandTotal = 0.0;
+
+            $rows = InventoryWithdrawal::with(['item.category'])
+                ->when($start, fn ($q) => $q->whereDate('released_at', '>=', $start))
+                ->when($end, fn ($q) => $q->whereDate('released_at', '<=', $end))
+                ->orderBy('released_at')
+                ->get()
+                ->map(function ($w) use (&$categoryTotals, &$grandTotal) {
+                    $totalCost = (float) $w->issued_quantity * (float) $w->unit_cost;
+                    $grandTotal += $totalCost;
+                    $categoryName = $w->item?->category?->name ?? 'Uncategorized';
+                    $categoryTotals[$categoryName] = ($categoryTotals[$categoryName] ?? 0) + $totalCost;
+
+                    return [
+                        'id'               => $w->id,
+                        'code'             => $w->item?->code,
+                        'name'             => $w->item?->name,
+                        'quantity'         => (float) $w->quantity,
+                        'issued_quantity'  => (float) $w->issued_quantity,
+                        'unit_cost'        => (float) $w->unit_cost,
+                        'total_cost'       => $totalCost,
+                        'date'             => optional($w->released_at)->format('Y-m-d'),
+                        'status'           => $w->status?->name,
+                    ];
+                })
+                ->values();
+
+            return array_merge(
+                ['kind' => 'withdrawn', 'columns' => $this->reportColumns('withdrawn'), 'rows' => $rows,
+                    'grand_total' => $grandTotal, 'category_totals' => $categoryTotals],
+                $this->reportSignatories()
+            );
+        }
+
+        if ($source === InventoryReportTitle::SOURCE_RIS_ISSUED) {
+            return $this->reportRisIssuedData($start, $end);
+        }
+
+        return ['kind' => 'none', 'columns' => [], 'rows' => collect(), 'grand_total' => 0, 'category_totals' => []];
+    }
+
+    protected function reportColumns(string $kind): array
+    {
+        return $kind === 'received'
+            ? ['Code', 'Item', 'Stock', 'Quantity', 'Unit Cost', 'Total Cost', 'Date Received', 'Status']
+            : ['Code', 'Item', 'Qty Requested', 'Qty Issued', 'Unit Cost', 'Total Cost', 'Date Released', 'Status'];
+    }
+
+    /**
+     * Report of Supplies and Materials Issued (RSMI)-style data: RIS-grouped issued
+     * items with their FIFO drain unit cost, a per-category subtotal, and the
+     * Supply Officer / Chief Accountant signatories.
+     */
+    public function reportRisIssuedData($start, $end): array
+    {
+        $ris = InventoryRis::with(['items.item.category'])
+            ->when($start, fn ($q) => $q->whereDate('ris_date', '>=', $start))
+            ->when($end, fn ($q) => $q->whereDate('ris_date', '<=', $end))
+            ->orderBy('ris_no')
+            ->get();
+
+        $grandTotal = 0.0;
+        $categoryTotals = [];
+
+        $groups = $ris->map(function ($r) use (&$grandTotal, &$categoryTotals) {
+            $items = $r->items
+                ->filter(fn ($risItem) => (float) $risItem->quantity_issued > 0)
+                ->map(function ($risItem) use (&$grandTotal, &$categoryTotals) {
+                    $drains = InventoryStockDrain::where('source_type', 'ris_item')
+                        ->where('source_id', $risItem->id)
+                        ->get();
+
+                    $drainedQty = (float) $drains->sum('quantity');
+                    $drainedValue = (float) $drains->sum(fn ($d) => (float) $d->quantity * (float) $d->unit_cost);
+                    $unitCost = $drainedQty > 0 ? $drainedValue / $drainedQty : 0.0;
+                    $quantity = (float) $risItem->quantity_issued;
+                    $amount = $quantity * $unitCost;
+
+                    $grandTotal += $amount;
+                    $categoryName = $risItem->item?->category?->name ?? 'Uncategorized';
+                    $categoryTotals[$categoryName] = ($categoryTotals[$categoryName] ?? 0) + $amount;
+
+                    return [
+                        'item_no'   => $risItem->item?->code,
+                        'item_name' => $risItem->item?->name,
+                        'unit'      => $risItem->unit_of_issue,
+                        'quantity'  => $quantity,
+                        'unit_cost' => $unitCost,
+                        'amount'    => $amount,
+                    ];
+                })
+                ->values();
+
+            return [
+                'ris_no'                => $r->ris_no,
+                'responsibility_center' => $r->responsibility_center,
+                'items'                 => $items,
+            ];
+        })->filter(fn ($group) => $group['items']->isNotEmpty())->values();
+
+        return array_merge([
+            'kind'    => 'ris_issued',
+            'columns' => [],
+            'rows'    => collect(),
+            'groups'          => $groups,
+            'grand_total'     => $grandTotal,
+            'category_totals' => $categoryTotals,
+        ], $this->reportSignatories());
+    }
+
+    /**
+     * Supply Officer / Chief Accountant signatories shown on every printed/viewed
+     * inventory report, regardless of which dataset the report pulls from.
+     */
+    protected function reportSignatories(): array
+    {
+        $supplyOfficer = User::whereHasActiveRole('Supply Officer')->with('profile')->first();
+        $accountantOrgChart = OrgChart::where('designation_id', ListDropdown::getID('Chief Accountant', 'Designation'))
+            ->with('user.profile')
+            ->first();
+
+        return [
+            'supply_officer' => $supplyOfficer ? [
+                'name' => strtoupper($supplyOfficer->profile?->fullname ?? $supplyOfficer->username),
+                'role' => 'Supply Officer',
+            ] : null,
+            'accountant' => $accountantOrgChart?->user ? [
+                'name' => strtoupper($accountantOrgChart->user->profile?->fullname ?? $accountantOrgChart->user->username),
+                'role' => 'Accountant III',
+            ] : null,
+        ];
+    }
+
+    public function saveReport(Request $request): array
+    {
+        $report = InventoryReport::create([
+            'title_id'       => $request->input('title_id'),
+            'category_id'    => $request->input('category_id'),
+            'period_type'    => $request->input('period_type'),
+            'period_year'    => $request->input('period_year'),
+            'period_month'   => $request->input('period_month'),
+            'period_quarter' => $request->input('period_quarter'),
+            'period_start'   => $request->input('period_start'),
+            'period_end'     => $request->input('period_end'),
+            'period_label'   => $request->input('period_label'),
+            'created_by_id'  => Auth::id(),
+        ]);
+
+        return [
+            'data'    => new InventoryReportResource($report->load(['title:id,name,data_source,category_id', 'category:id,name', 'creator.profile'])),
+            'message' => 'Report created successfully!',
+            'info'    => "{$report->code} was added.",
+            'status'  => true,
+        ];
+    }
+
+    public function updateReport(Request $request, int $id): array
+    {
+        $report = InventoryReport::findOrFail($id);
+
+        $report->update([
+            'title_id'       => $request->input('title_id'),
+            'category_id'    => $request->input('category_id'),
+            'period_type'    => $request->input('period_type'),
+            'period_year'    => $request->input('period_year'),
+            'period_month'   => $request->input('period_month'),
+            'period_quarter' => $request->input('period_quarter'),
+            'period_start'   => $request->input('period_start'),
+            'period_end'     => $request->input('period_end'),
+            'period_label'   => $request->input('period_label'),
+        ]);
+
+        return [
+            'data'    => new InventoryReportResource($report->fresh(['title:id,name,data_source,category_id', 'category:id,name', 'creator.profile'])),
+            'message' => 'Report updated successfully!',
+            'info'    => "{$report->code} was updated.",
+            'status'  => true,
+        ];
+    }
+
+    public function deleteReport(int $id): array
+    {
+        $report = InventoryReport::findOrFail($id);
+        $code = $report->code;
+        $report->delete();
+
+        return [
+            'data'    => ['id' => $id],
+            'message' => 'Report deleted successfully!',
+            'info'    => "{$code} was removed.",
+            'status'  => true,
         ];
     }
 
@@ -837,17 +1412,13 @@ class InventoryStockClass
 
         $stock = isset($data['stock_id'])
             ? InventoryStock::find($data['stock_id'])
-            : InventoryStock::where('item_id', $data['item_id'])->orderByDesc('quantity')->first();
+            : InventoryStock::where('item_id', $data['item_id'])->orderByDesc('quantity')->lockForUpdate()->first();
 
         $before = $stock ? (float) $stock->quantity : 0;
         $qty    = (float) $data['quantity_adjusted'];
 
         $data['quantity_before'] = $before;
-        $data['quantity_after']  = match ($data['type']) {
-            'increase'   => $before + $qty,
-            'decrease'   => max($before - $qty, 0),
-            'correction' => $qty,
-        };
+        $data['quantity_after']  = $this->computeAdjustedQuantity($data['type'], $before, $qty);
 
         $adjustment = InventoryStockAdjustment::create($data);
 
@@ -874,17 +1445,13 @@ class InventoryStockClass
         if ($oldStatusId !== $approvedId) {
             $stock = isset($data['stock_id'])
                 ? InventoryStock::find($data['stock_id'])
-                : InventoryStock::where('item_id', $data['item_id'])->orderByDesc('quantity')->first();
+                : InventoryStock::where('item_id', $data['item_id'])->orderByDesc('quantity')->lockForUpdate()->first();
 
             $before = $stock ? (float) $stock->quantity : 0;
             $qty    = (float) $data['quantity_adjusted'];
 
             $data['quantity_before'] = $before;
-            $data['quantity_after']  = match ($data['type']) {
-                'increase'   => $before + $qty,
-                'decrease'   => max($before - $qty, 0),
-                'correction' => $qty,
-            };
+            $data['quantity_after']  = $this->computeAdjustedQuantity($data['type'], $before, $qty);
         }
 
         $adjustment->update($data);
@@ -917,6 +1484,21 @@ class InventoryStockClass
             'message' => 'Adjustment deleted.',
             'info'    => null,
         ];
+    }
+
+    /**
+     * @throws \Exception if a "decrease" would take more than is currently on hand —
+     *     silently clamping to 0 would misrepresent quantity_adjusted vs what actually happened.
+     */
+    private function computeAdjustedQuantity(string $type, float $before, float $qty): float
+    {
+        return match ($type) {
+            'increase' => $before + $qty,
+            'decrease' => $qty > $before
+                ? throw new \Exception("Cannot decrease by {$qty}: only {$before} on hand.")
+                : $before - $qty,
+            'correction' => $qty,
+        };
     }
 
     private function applyStockAdjustment(InventoryStockAdjustment $adj, ?InventoryStock $stock): void
