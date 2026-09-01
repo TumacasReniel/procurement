@@ -2662,7 +2662,12 @@ export default {
   border: 1px solid var(--inv-border);
   border-radius: 22px;
   background: var(--inv-surface);
-  overflow: hidden;
+  /* Was overflow: hidden — purely cosmetic (clips children to the rounded
+     corners), but it also clipped .inv-table-shell's own scroll area
+     whenever its calc(100vh - Npx) max-height guess ran taller than the
+     actual remaining space, cutting off the table with no way to reach the
+     rest. overflow: visible lets the page's normal scroll reach it instead. */
+  overflow: visible;
   box-shadow: 0 8px 32px var(--inv-shadow);
 }
 
@@ -3032,7 +3037,9 @@ export default {
   border: 1px solid var(--inv-border);
   border-radius: 20px;
   background: var(--inv-surface);
-  overflow: hidden;
+  /* Same reasoning as .inv-shell above — don't let this clip
+     .inv-table-shell's own scroll area. */
+  overflow: visible;
 }
 .inv-table-shell {
   overflow: auto;
