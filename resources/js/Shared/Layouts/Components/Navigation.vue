@@ -165,6 +165,7 @@
                                                 :src="resolveMentionAvatar(notification)"
                                                 :alt="resolveMentionActorName(notification)"
                                                 class="rounded-circle border mention-notification-avatar flex-shrink-0"
+                                                @error="setDefaultImage($event)"
                                             />
                                             <div class="flex-grow-1 mention-notification-content">
                                                 <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
@@ -172,7 +173,7 @@
                                                         <div class="mention-notification-label mb-1">
                                                             {{ resolveMentionContextLabel(notification) }}
                                                         </div>
-                                                        <div class="fw-semibold fs-13 text-truncate">
+                                                        <div class="fw-semibold fs-13 mention-notification-headline">
                                                             {{ resolveMentionHeadline(notification) }}
                                                         </div>
                                                     </div>
@@ -187,7 +188,10 @@
                                                 <div class="text-muted fs-12 mb-2 text-truncate">
                                                     {{ resolveMentionSubject(notification) }}
                                                 </div>
-                                                <p class="mb-2 fs-12 text-body mention-notification-preview">
+                                                <p
+                                                    v-if="mentionNotificationShowsPreview(notification)"
+                                                    class="mb-2 fs-12 text-body mention-notification-preview"
+                                                >
                                                     {{ truncateMentionText(notification.comment_content, 96) }}
                                                 </p>
                                                 <div class="d-flex align-items-center justify-content-between gap-2">
@@ -494,12 +498,24 @@ export default {
                 || notification?.procurement_purpose
                 || "Procurement Request";
         },
+        mentionNotificationShowsPreview(notification) {
+            // Status-change alerts already say everything in the headline/subject above —
+            // only comment/mention notifications carry a distinct message worth a preview line.
+            const systemStatusTypes = [
+                "procurement_plan_for_review",
+                "supplier_pending_approval",
+                "procurement_code_budget_request",
+            ];
+
+            return Boolean(notification?.comment_content)
+                && !systemStatusTypes.includes(notification?.notification_type);
+        },
     }
 }
 </script>
 <style scoped>
 .mention-notification-menu {
-    width: min(26rem, calc(100vw - 2rem));
+    width: min(30rem, calc(100vw - 2rem));
 }
 
 .mention-notification-scroll {
@@ -537,6 +553,14 @@ export default {
     letter-spacing: 0.01em;
     background: rgba(var(--vz-primary-rgb), 0.12);
     color: var(--vz-primary);
+}
+
+.mention-notification-headline {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.3;
 }
 
 .mention-notification-preview {

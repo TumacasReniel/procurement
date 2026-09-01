@@ -1147,6 +1147,9 @@ export default {
       const isReviewed =
         String(statusName || "").toLowerCase() === "reviewed" ||
         displayStatus === "reviewed/for submission";
+      const isApproved = [statusName, item.ppmp_status]
+        .filter(Boolean)
+        .some((status) => String(status).toLowerCase() === "approved");
       const canReview = this.hasRole("Budget Officer");
       const canSubmit = this.hasRole("Procurement Officer");
       const canSubmitForReview = this.canSubmitPendingPpmp(item);
@@ -1155,8 +1158,10 @@ export default {
         return true;
       }
 
+      // Once a Final PPMP exists for a unit/quarter, its Indicative source is
+      // superseded and should no longer show the advance/approve action.
       if (
-        (!isApp && !isSpp && item.is_final) ||
+        (!isApp && !isSpp && (isApproved || item.is_superseded_by_final)) ||
         [
           "submitted/for consolidation",
           "submitted/for implementation",
@@ -1441,7 +1446,7 @@ export default {
         return `Submitted for review by ${item.submitted_for_review_by}${submittedAt}`;
       }
 
-      if (item?.reviewed_by) {
+      if (item?.reviewed_by && !item?.is_superseded_by_final) {
         const reviewedAt = item.reviewed_at
           ? ` on ${this.formatDate(item.reviewed_at)}`
           : "";
@@ -2287,8 +2292,8 @@ export default {
   --ppmp-card-strong: #1d2942;
   --ppmp-header: linear-gradient(180deg, #172136 0%, #121b30 100%);
   --ppmp-border: rgba(170, 184, 220, 0.16);
-  --ppmp-ink: #e8edf9;
-  --ppmp-muted: #9aa8c7;
+  --ppmp-ink: #ffffff;
+  --ppmp-muted: #e2e8f0;
   --ppmp-input: #0f1728;
   --ppmp-input-hover: #1a2540;
   --ppmp-hover: rgba(142, 164, 255, 0.1);
@@ -2600,7 +2605,7 @@ export default {
 :global([data-bs-theme="dark"]) .ppmp-index-page .ppmp-table td {
   background: #212a36 !important;
   border-color: #354052 !important;
-  color: #f3f6fb !important;
+  color: #ffffff !important;
 }
 
 :global([data-bs-theme="dark"]) .ppmp-index-page .ppmp-filter-panel,
@@ -2615,7 +2620,7 @@ export default {
 :global([data-bs-theme="dark"]) .ppmp-index-page :deep(.multiselect-single-label) {
   background: #252f3d !important;
   border-color: #3a4658 !important;
-  color: #f3f6fb !important;
+  color: #ffffff !important;
 }
 
 :global([data-bs-theme="dark"]) .ppmp-index-page .ppmp-table thead,
@@ -2629,7 +2634,7 @@ export default {
 :global([data-bs-theme="dark"]) .ppmp-index-page .text-muted,
 :global([data-bs-theme="dark"]) .ppmp-index-page .ppmp-table .text-muted,
 :global([data-bs-theme="dark"]) .ppmp-index-page small {
-  color: #b8c3d6 !important;
+  color: #e2e8f0 !important;
 }
 
 :global([data-bs-theme="dark"]) .ppmp-index-page .text-body,
@@ -2638,7 +2643,7 @@ export default {
 :global([data-bs-theme="dark"]) .ppmp-index-page .fw-bold,
 :global([data-bs-theme="dark"]) .ppmp-index-page .ppmp-table div,
 :global([data-bs-theme="dark"]) .ppmp-index-page .ppmp-table span {
-  color: #f3f6fb !important;
+  color: #ffffff !important;
 }
 
 :global([data-bs-theme="dark"]) .ppmp-index-page .ppmp-table .text-primary {
@@ -2647,7 +2652,7 @@ export default {
 
 :global([data-bs-theme="dark"]) .ppmp-index-page .nav-tabs-custom .nav-link {
   background: transparent !important;
-  color: #b8c3d6 !important;
+  color: #e2e8f0 !important;
 }
 
 :global([data-bs-theme="dark"]) .ppmp-index-page .nav-tabs-custom .nav-link.active {
@@ -2744,7 +2749,7 @@ html[data-bs-theme="dark"] .ppmp-index-page .b-card,
 html[data-bs-theme="dark"] .ppmp-index-page .ppmp-list-card {
   background-color: #212a36 !important;
   border-color: #354052 !important;
-  color: #f3f6fb !important;
+  color: #ffffff !important;
 }
 
 html[data-bs-theme="dark"] .ppmp-index-page .ppmp-filter-panel,
@@ -2759,12 +2764,12 @@ html[data-bs-theme="dark"] .ppmp-index-page .multiselect-search,
 html[data-bs-theme="dark"] .ppmp-index-page .multiselect-single-label {
   background-color: #252f3d !important;
   border-color: #3a4658 !important;
-  color: #f3f6fb !important;
+  color: #ffffff !important;
 }
 
 html[data-bs-theme="dark"] .ppmp-index-page .form-control::placeholder,
 html[data-bs-theme="dark"] .ppmp-index-page .multiselect-placeholder {
-  color: #9aa8c7 !important;
+  color: #e2e8f0 !important;
   opacity: 1;
 }
 
@@ -2774,12 +2779,12 @@ html[data-bs-theme="dark"] .ppmp-index-page .table tbody,
 html[data-bs-theme="dark"] .ppmp-index-page .table tr,
 html[data-bs-theme="dark"] .ppmp-index-page .table td {
   --bs-table-bg: #212a36 !important;
-  --bs-table-color: #f3f6fb !important;
+  --bs-table-color: #ffffff !important;
   --bs-table-hover-bg: #273244 !important;
   --bs-table-hover-color: #ffffff !important;
   background-color: #212a36 !important;
   border-color: #354052 !important;
-  color: #f3f6fb !important;
+  color: #ffffff !important;
 }
 
 html[data-bs-theme="dark"] .ppmp-index-page .table-light,
@@ -2808,13 +2813,13 @@ html[data-bs-theme="dark"] .ppmp-index-page td,
 html[data-bs-theme="dark"] .ppmp-index-page th,
 html[data-bs-theme="dark"] .ppmp-index-page div,
 html[data-bs-theme="dark"] .ppmp-index-page span {
-  color: #f3f6fb !important;
+  color: #ffffff !important;
 }
 
 html[data-bs-theme="dark"] .ppmp-index-page .text-muted,
 html[data-bs-theme="dark"] .ppmp-index-page small,
 html[data-bs-theme="dark"] .ppmp-index-page p {
-  color: #b8c3d6 !important;
+  color: #e2e8f0 !important;
 }
 
 html[data-bs-theme="dark"] .ppmp-index-page .text-primary {
@@ -2835,4 +2840,30 @@ html[data-bs-theme="dark"] .ppmp-index-page .btn-primary * {
   color: #ffffff !important;
 }
 
+/* Belt-and-suspenders: the scoped :global() dark-mode rules above rely on
+   .ppmp-index-page carrying this component's data-v-* scope attribute, which
+   isn't guaranteed since that class sits on a <BRow> child component's root
+   element rather than a plain tag in this template. These plain, unscoped
+   selectors match on the real rendered class names regardless, so the header
+   subtitle / secondary table text / tab labels reliably lighten in dark mode. */
+html[data-bs-theme="dark"] .ppmp-index-page .ppmp-shell__header .text-muted,
+html[data-bs-theme="dark"] .ppmp-index-page .ppmp-shell__header p,
+html[data-bs-theme="dark"] .ppmp-index-page .ppmp-subtitle,
+html[data-bs-theme="dark"] .ppmp-index-page .ppmp-table .text-muted,
+html[data-bs-theme="dark"] .ppmp-index-page .ppmp-filter-panel .text-muted {
+  color: #e2e8f0 !important;
+}
+
+html[data-bs-theme="dark"] .ppmp-index-page .nav-tabs-custom .nav-link:not(.active) {
+  color: #e2e8f0 !important;
+}
+
+/* The "All"/"Sort" multiselects (unlike Unit/Status) always have a value
+   selected, so they render .multiselect-single-label instead of
+   .multiselect-placeholder — chain .white explicitly, matching the working
+   pattern already used for this same problem in Reports/Index.vue. */
+html[data-bs-theme="dark"] .ppmp-index-page .multiselect.white .multiselect-single-label,
+html[data-bs-theme="dark"] .ppmp-index-page .multiselect.white .multiselect-single-label-text {
+  color: #ffffff !important;
+}
 </style>

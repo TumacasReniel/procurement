@@ -2590,6 +2590,16 @@ export default {
   color: var(--proc-view-text);
 }
 
+/* bg-gradient-primary alone renders with no actual background in this app's
+   Bootstrap build (only a dark-mode override for it exists, in custom.scss) —
+   so in light mode the header had no fill at all while the rules below force
+   its text to white, making the "PR#:" label/icon invisible on the page's own
+   background. Dark mode still gets its own gradient from custom.scss, which
+   is more specific and wins over this. */
+.procurement-view-shell-header {
+  background: linear-gradient(135deg, #4a5fa7 0%, #31488f 100%) !important;
+}
+
 .procurement-view-shell-header .card-title,
 .procurement-view-shell-header .fw-bold,
 .procurement-view-shell-header .text-center,
@@ -2605,18 +2615,22 @@ export default {
   color: rgba(255, 255, 255, 0.84) !important;
 }
 
+.procurement-view-shell-header .card-title .procurement-view-pr-code,
+.procurement-view-shell-header .fw-bold.procurement-view-pr-code,
 .procurement-view-shell-header .procurement-view-pr-code {
   display: inline-block;
   margin-left: 0.45rem;
   padding: 0.14rem 0.6rem;
   border-radius: 999px;
-  background: #ffffff !important;
+  background-color: #ffffff !important;
   color: #1d4ed8 !important;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
 }
 
+[data-bs-theme="dark"] .procurement-view-shell-header .card-title .procurement-view-pr-code,
+[data-bs-theme="dark"] .procurement-view-shell-header .fw-bold.procurement-view-pr-code,
 [data-bs-theme="dark"] .procurement-view-shell-header .procurement-view-pr-code {
-  background: rgba(255, 255, 255, 0.14) !important;
+  background-color: rgba(255, 255, 255, 0.14) !important;
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: none;

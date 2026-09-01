@@ -194,9 +194,9 @@
                   &bull; {{ formatQuantity(item.quantity) }} {{ item.unit || "" }}
                   <span class="fw-semibold">{{ item.name || "-" }}</span>
                 </div>
-                <div class="text-muted small mt-1 item-description">{{ plainText(item.description) }}</div>
-                <small v-if="item.pr_no || item.ppmp_no" class="text-muted d-block mt-1">
-                  {{ [item.pr_no, item.ppmp_no].filter(Boolean).join(" / ") }}
+                <div v-if="item.description" class="text-muted small mt-1 item-description">{{ plainText(item.description) }}</div>
+                <small v-if="item.pr_no" class="text-muted d-block mt-1">
+                  {{ item.pr_no }}
                 </small>
               </td>
               <td>{{ item.recommended_mode_of_procurement || ppmp.recommended_mode_of_procurement || "-" }}</td>

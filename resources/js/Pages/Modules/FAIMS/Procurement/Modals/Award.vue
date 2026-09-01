@@ -172,12 +172,16 @@
           </b-form-checkbox>
         </div>
       </div>
+
+      <div v-if="submitError" class="alert alert-danger mt-3 mb-0">
+        {{ submitError }}
+      </div>
     </form>
 
     <template #footer>
-      <b-button @click="hide()" variant="light" block>Close</b-button>
-      <b-button @click="submit()" variant="primary" block :disabled="!canSubmit">
-        Save Bids For Award
+      <b-button @click="hide()" variant="light" block :disabled="isSubmitting">Close</b-button>
+      <b-button @click="submit()" variant="primary" block :disabled="!canSubmit || isSubmitting">
+        {{ isSubmitting ? "Saving..." : "Save Bids For Award" }}
       </b-button>
     </template>
   </b-modal>
@@ -219,6 +223,8 @@ export default {
       detailModalTitle: "",
       detailModalContent: "",
       detailModalSize: "md",
+      submitError: "",
+      isSubmitting: false,
     };
   },
 
@@ -249,6 +255,7 @@ export default {
     edit(checkedItems) {
       this.showModal = true;
       this.checked_items = checkedItems;
+      this.submitError = "";
       this.sortData();
     },
 
@@ -365,6 +372,8 @@ export default {
     },
 
     submit() {
+      this.submitError = "";
+
       const data = {
         procurement_id: this.procurement.id,
         items: this.bidsForAward,
@@ -373,14 +382,25 @@ export default {
         option: "save_bid_for_award",
       };
 
+      this.isSubmitting = true;
+
       router.post("/faims/offers/", data, {
         onSuccess: () => {
           this.$emit("update", true);
           this.hide();
         },
+        // A rejected award (e.g. a bid over the ABC, or no offer submitted) comes back
+        // as a 422 with field errors. Without this the modal used to close anyway
+        // (see the unconditional hide() this replaced) and nothing was awarded — the
+        // page just looked like the click did nothing.
+        onError: (errors) => {
+          this.submitError =
+            Object.values(errors || {})[0] || "Unable to save bids for award.";
+        },
+        onFinish: () => {
+          this.isSubmitting = false;
+        },
       });
-
-      this.hide();
     },
 
     formatCurrency(value) {

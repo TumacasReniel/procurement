@@ -1381,6 +1381,17 @@ export default {
       this.form.items = items;
     },
 
+    // Items picked from the PPMP selector carry a client-only synthetic `id`
+    // (Date.now() + ppmp_item_id) used purely for Vue keys/edit-index matching —
+    // it was never a real procurement_items row. Sending it as-is fails the
+    // backend's `exists:procurement_items,id` check ("The selected items.N.id
+    // is invalid"), so strip it back to null for any item still flagged is_new.
+    sanitizeItemsPayload(items) {
+      return (Array.isArray(items) ? items : []).map((item) =>
+        item?.is_new ? { ...item, id: null } : item
+      );
+    },
+
     submit() {
       if (!this.canCreateRequest) {
         return;
@@ -1389,6 +1400,7 @@ export default {
       this.form
         .transform((data) => ({
           ...data,
+          items: this.sanitizeItemsPayload(data.items),
           division_id: data.division_id ? Number(data.division_id) : null,
           unit_id: data.unit_id ? Number(data.unit_id) : null,
           fund_cluster_id: data.fund_cluster_id ? Number(data.fund_cluster_id) : null,
@@ -1407,27 +1419,42 @@ export default {
 
     update(data) {
       this.form.option = this.action;
-      this.form.put(`/faims/procurements/${data.id}`, {
-        onSuccess: () => {
-          localStorage.removeItem("itemsAdded");
-          this.form.reset();
-        },
-        onError: (errors) => {
-          console.error("Update failed:", errors);
-        },
-      });
+      this.form
+        .transform((formData) => ({
+          ...formData,
+          items: this.sanitizeItemsPayload(formData.items),
+        }))
+        .put(`/faims/procurements/${data.id}`, {
+          onSuccess: () => {
+            localStorage.removeItem("itemsAdded");
+            this.form.reset();
+          },
+          onError: (errors) => {
+            console.error("Update failed:", errors);
+          },
+        });
     },
 
     review(data) {
       this.applyAutomaticCurrentApp();
       this.form.option = this.action;
-      this.form.put("/faims/procurements/" + data.id);
+      this.form
+        .transform((formData) => ({
+          ...formData,
+          items: this.sanitizeItemsPayload(formData.items),
+        }))
+        .put("/faims/procurements/" + data.id);
       this.form.reset();
     },
 
     approve(data) {
       this.form.option = this.action;
-      this.form.put("/faims/procurements/" + data.id);
+      this.form
+        .transform((formData) => ({
+          ...formData,
+          items: this.sanitizeItemsPayload(formData.items),
+        }))
+        .put("/faims/procurements/" + data.id);
       this.form.reset();
     },
 

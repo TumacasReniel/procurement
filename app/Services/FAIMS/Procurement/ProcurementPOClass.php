@@ -810,7 +810,18 @@ class ProcurementPOClass
         $message = 'IAR report updated successfully!';
         $info = 'The selected IAR report has been marked as Inspected/Completed.';
 
-        if ($allIarsCompleted && $allItemsDelivered) {
+        // Once every generated IAR is Inspected/Completed and every item has been
+        // delivered, finish the job here instead of leaving the PO stuck at "Items
+        // Delivered" waiting for someone to separately click "Update Status".
+        if ($allIarsCompleted && $allItemsDelivered && $po->status?->name === 'Items Delivered') {
+            $procurement = $po->noa->procurement_bac->procurement;
+            $current_pr_status = $procurement->status_id;
+
+            $this->finalizeCompletedPurchaseOrder($po, $procurement, $current_pr_status);
+
+            $po->refresh();
+            $info = 'All generated IAR reports are now Inspected/Completed and the Purchase Order has been marked as Completed.';
+        } elseif ($allIarsCompleted && $allItemsDelivered) {
             $info = 'All generated IAR reports are now Inspected/Completed. You can now update the Purchase Order status to Completed.';
         } elseif ($allIarsCompleted) {
             $info = 'All generated IAR reports are now Inspected/Completed. Deliver the remaining items before completing the Purchase Order.';

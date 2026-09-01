@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FAIMS\Procurement;
 
+use App\Services\FAIMS\Procurement\ProcurementGate;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,6 +11,7 @@ class ReceivingRecordResource extends JsonResource
     public function toArray(Request $request): array
     {
         $po = $this->po;
+        $canReceive = app(ProcurementGate::class)->allows(ProcurementGate::RECEIVE_PO_DELIVERY);
         $procurement = $po?->noa?->procurement_quotation?->procurement;
         $supplier = $po?->noa?->procurement_quotation?->supplier;
         $monitoringItems = collect($po?->getAttribute('delivery_monitoring_items') ?? [])
@@ -59,7 +61,8 @@ class ReceivingRecordResource extends JsonResource
                 'code' => $po->code,
                 'delivery_monitoring_items' => collect($po->getAttribute('delivery_monitoring_items') ?? [])->values(),
             ] : null,
-            'can_edit_received_items' => $po
+            'can_edit_received_items' => $canReceive
+                && $po
                 && $po->iars->isEmpty()
                 && !$po->iar,
         ];

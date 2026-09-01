@@ -52,11 +52,17 @@ class ProcurementPlanForReviewNotification extends Notification
             ? 'ready for Procurement Officer submission'
             : 'now for Budget Officer review';
 
+        // $planCode (e.g. "PPMP-2026-02") already carries the plan-type prefix, so only
+        // prepend planType when the code doesn't already read that way — avoids "PPMP PPMP-2026-02".
+        $displayCode = preg_match('/^'.preg_quote($this->planType, '/').'[\s-]/i', $planCode)
+            ? $planCode
+            : "{$this->planType} {$planCode}";
+
         return [
             'type' => 'procurement_plan_for_review',
             'reason' => $this->reason,
             'target_roles' => [$this->targetRole],
-            'message' => "{$this->planType} {$planCode} is {$actionLabel}.",
+            'message' => "{$displayCode} is {$actionLabel}.",
             'procurement_plan' => [
                 'id' => $this->plan->id,
                 'plan_type' => $this->planType,

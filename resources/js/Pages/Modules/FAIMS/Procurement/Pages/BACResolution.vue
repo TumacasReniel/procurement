@@ -82,7 +82,7 @@
                   <i class="ri-printer-fill"></i>
                 </button>
                 <button
-                  v-if="list.status?.name == 'Pending' && ($page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Procurement Staff') )"
+                  v-if="list.status?.name == 'Pending' && ($page.props.roles.includes('Administrator') || $page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Procurement Staff') )"
                   @click="editBACReso(list)"
                   class="btn btn-success btn-sm"
                   v-b-tooltip.hover
@@ -91,7 +91,7 @@
                   <i class="ri-edit-2-fill"></i>
                 </button>
                 <button
-                  v-if="list.status.name == 'Pending' && ($page.props.roles.includes('Procurement Officer') || $page.props.roles.includes('Procurement Staff') )"
+                  v-if="list.status.name == 'Pending' && ($page.props.roles.includes('Administrator') || $page.props.roles.includes('BAC Chairperson') || $page.props.roles.includes('BAC Vice Chairperson') || $page.props.roles.includes('Procurement Officer'))"
                   @click="updateStatus(list)"
                   class="btn btn-warning btn-sm"
                   v-b-tooltip.hover

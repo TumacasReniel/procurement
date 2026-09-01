@@ -217,7 +217,7 @@
                   &bull; {{ formatQuantity(item.quantity) }} {{ item.unit || "" }}
                   <span class="fw-semibold">{{ item.name || "-" }}</span>
                 </div>
-                <div class="text-muted small mt-1 item-description">
+                <div v-if="item.description" class="text-muted small mt-1 item-description">
                   {{ plainText(item.description) }}
                 </div>
 
@@ -273,8 +273,8 @@
                 <small v-if="item.consolidated_count > 1" class="text-muted d-block mt-1">
                   {{ item.consolidated_count }} matching items
                 </small>
-                <small v-if="item.pr_no || item.ppmp_no" class="text-muted d-block mt-1">
-                  {{ [item.pr_no, item.ppmp_no].filter(Boolean).join(" / ") }}
+                <small v-if="item.pr_no" class="text-muted d-block mt-1">
+                  {{ item.pr_no }}
                 </small>
               </td>
 
@@ -1007,28 +1007,35 @@ export default {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 2px;
-  padding: 4px;
+  gap: 3px;
+  padding: 5px;
   border: 1px solid var(--ppmp-border, #e9ebec);
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--ppmp-surface-soft, #f8fafc);
 }
 
 .app-view-tab {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   min-height: 34px;
-  padding: 5px 11px;
+  padding: 6px 14px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
   color: var(--ppmp-muted, #6c757d);
   font-size: 12.5px;
   font-weight: 700;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-view-tab:not(.active):hover {
+  background: rgba(64, 81, 137, 0.08);
+  color: #405189;
+  transform: translateY(-1px);
 }
 
 .app-view-tab__icon {
@@ -1048,6 +1055,7 @@ export default {
   font-weight: 800;
   line-height: 1.4;
   flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .app-view-tab__badge--accent {
@@ -1058,13 +1066,13 @@ export default {
 .app-view-tab.active {
   background: var(--ppmp-surface, #ffffff);
   color: var(--ppmp-text, #212529);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
 }
 
 .app-view-tab--primary.active {
-  background: #405189;
+  background: linear-gradient(135deg, #4c5da3 0%, #333f79 100%);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(64, 81, 137, 0.28);
+  box-shadow: 0 4px 14px rgba(51, 63, 121, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .app-view-tab--primary.active .app-view-tab__badge--accent {
@@ -1077,15 +1085,23 @@ export default {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  padding: 0 4px;
+  gap: 3px;
+  padding: 0 10px;
   color: var(--ppmp-muted, #94a3b8);
   flex-shrink: 0;
   pointer-events: none;
 }
 
 .app-view-tabs__flow-arrow i {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(64, 81, 137, 0.12);
+  color: #405189;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -1093,7 +1109,7 @@ export default {
   font-size: 8px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   line-height: 1;
 }
@@ -1102,7 +1118,7 @@ export default {
 .app-view-tabs__sep {
   width: 1px;
   height: 22px;
-  background: var(--ppmp-border, #d1d5db);
+  background: linear-gradient(to bottom, transparent, var(--ppmp-border, #d1d5db), transparent);
   margin: 0 3px;
   flex-shrink: 0;
 }
@@ -1209,7 +1225,7 @@ export default {
 }
 
 [data-bs-theme="dark"] .app-view-tab--primary.active {
-  background: #4b5c96;
+  background: linear-gradient(135deg, #5768ad 0%, #3c4a8c 100%);
 }
 
 [data-bs-theme="dark"] .app-view-tab__badge--accent {

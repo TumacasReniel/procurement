@@ -91,7 +91,7 @@
                   </td>
                   <td>
                     <div class="fw-semibold">{{ item.item_name || "-" }}</div>
-                    <div class="text-muted small ppmp-selection-description" v-html="item.item_description || '-'" />
+                    <div v-if="item.item_description" class="text-muted small ppmp-selection-description" v-html="item.item_description" />
                   </td>
                   <td class="text-center">{{ formatQuantity(item.item_quantity) }}</td>
                   <td class="text-center">{{ item.unit_label || unitFromQuantityLabel(item) || "-" }}</td>

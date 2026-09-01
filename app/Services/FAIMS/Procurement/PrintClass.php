@@ -679,7 +679,9 @@ class PrintClass
                                                     'procurement_quotation.items', 'items')
                                                     ->findOrFail($id); // 
 
-        $item_nos = $notice_of_award->items->pluck('item.item.item_no');
+        // ->toArray(): the blade template runs array_slice()/end() on this for NOAs
+        // with 3+ items, which require a real array — a Collection throws a TypeError.
+        $item_nos = $notice_of_award->items->pluck('item.item.item_no')->values()->all();
 
         $total_contract_amount = $notice_of_award
                                 ->items

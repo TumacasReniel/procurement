@@ -1672,6 +1672,14 @@ export default {
   color: #94a3b8;
 }
 
+/* .employee-po-chip reads --employee-primary-strong, which dark mode
+   redefines to #111827 (near-black) for other elements — on the chip's
+   translucent background that made the PO number unreadable. */
+[data-bs-theme="dark"] .employee-detail-view .employee-po-chip {
+  background: rgba(147, 197, 253, 0.16);
+  color: #dbeafe;
+}
+
 [data-bs-theme="dark"] .employee-detail-view .employee-po-print-btn {
   color: #dbeafe;
   border-color: rgba(147, 197, 253, 0.32);
@@ -1896,6 +1904,14 @@ export default {
 
 [data-bs-theme="dark"] .employee-detail-view .employee-po-excess--empty {
   color: #94a3b8;
+}
+
+/* .employee-po-chip reads --employee-primary-strong, which dark mode
+   redefines to #111827 (near-black) for other elements — on the chip's
+   translucent background that made the PO number unreadable. */
+[data-bs-theme="dark"] .employee-detail-view .employee-po-chip {
+  background: rgba(147, 197, 253, 0.16);
+  color: #dbeafe;
 }
 
 [data-bs-theme="dark"] .employee-detail-view .employee-po-print-btn {

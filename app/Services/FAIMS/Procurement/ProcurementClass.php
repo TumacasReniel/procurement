@@ -365,10 +365,13 @@ class ProcurementClass
             $data->procurement_id = $procurement_id;
             $data->ppmp_item_id = $item['ppmp_item_id'] ?? null;
             $data->item_unit_type_id =  $item['item_unit_type_id'];
-            $data->item_name = $item['item_name'] ?? null;
+            // procurement_items.item_name is also NOT NULL.
+            $data->item_name = $item['item_name'] ?? '';
             $data->item_unit_cost = $item['item_unit_cost'];
             $data->item_quantity = $item['item_quantity'];
-            $data->item_description = $item['item_description'] ?? null;
+            // procurement_items.item_description is NOT NULL — a PPMP item with no
+            // description (or a manually-entered item that skipped it) must not pass null.
+            $data->item_description = $item['item_description'] ?? '';
             // Never trust a client-supplied total: an understated total_cost would slip
             // past the PAP budget check while the real qty x unit cost is higher.
             $data->total_cost = $this->lineTotal($item);
@@ -689,8 +692,12 @@ class ProcurementClass
 
     protected function broadcastProcurementRequestChanged(Procurement $procurement, string $action): void
     {
+        // Listeners (Index.vue/View.vue) ignore the payload and just refetch on receipt —
+        // broadcasting the full ProcurementResource (items, nested ppmp/codes relations, etc.)
+        // was pure waste and, for PRs with several items, routinely exceeded Pusher's payload
+        // size limit ("Payload too large"). Send only what broadcastOn() needs to route it.
         broadcast(new ProcurementRequestChanged(
-            (new ProcurementResource($procurement))->resolve(),
+            ['id' => $procurement->id, 'code' => $procurement->code],
             $action
         ))->toOthers();
     }

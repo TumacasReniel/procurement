@@ -62,6 +62,7 @@ class ProcurementPPMPResource extends JsonResource
             'ppmp_status' => $ppmp_status,
             'approval_status' => $approval_status,
             'is_final' => $is_final,
+            'is_superseded_by_final' => (bool) ($this->is_superseded_by_final_override ?? false),
             'is_pending_app_approval' => $approval_status === 'Submitted/For Consolidation',
             'can_submit_final' => $this->can_mark_final_ppmp($plan_name, $plan_type),
             'can_mark_as_final' => $this->can_mark_as_final($plan_name, $plan_type, $items),

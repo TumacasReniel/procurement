@@ -234,9 +234,9 @@
                   &bull; {{ formatQuantity(item.quantity) }} {{ item.unit || "" }}
                   <span class="fw-semibold">{{ item.name || "-" }}</span>
                 </div>
-                <div class="text-muted small mt-1 item-description">{{ plainText(item.description) }}</div>
-                <small v-if="item.pr_no || item.ppmp_no" class="text-muted d-block mt-1">
-                  {{ [item.pr_no, item.ppmp_no].filter(Boolean).join(" / ") }}
+                <div v-if="item.description" class="text-muted small mt-1 item-description">{{ plainText(item.description) }}</div>
+                <small v-if="item.pr_no" class="text-muted d-block mt-1">
+                  {{ item.pr_no }}
                 </small>
               </td>
 
@@ -608,6 +608,10 @@ export default {
     },
     canShowAdvanceAction() {
       if (!this.ppmp.can_submit_final) {
+        return false;
+      }
+
+      if (this.ppmp.is_superseded_by_final) {
         return false;
       }
 
@@ -1008,6 +1012,11 @@ export default {
 .ppmp-entry-cell {
   background: var(--ppmp-surface-soft, var(--bs-tertiary-bg, #f8fafc));
   color: var(--ppmp-text, var(--bs-body-color, #212529));
+}
+
+[data-bs-theme="dark"] .ppmp-document-items-table th,
+[data-bs-theme="dark"] .ppmp-document-items-table td {
+  color: #f4f7ff;
 }
 
 .plan-detail-banner__quarterly {

@@ -33,6 +33,8 @@ class ProcurementGate
 
     public const MANAGE_PO = 'manage_po';
 
+    public const RECEIVE_PO_DELIVERY = 'receive_po_delivery';
+
     /**
      * Roles permitted per action. Administrator is implicitly allowed everywhere.
      */
@@ -41,11 +43,12 @@ class ProcurementGate
         self::APPROVE_PR => ['Procurement Officer', 'Regional Director'],
         self::DELETE_PR => ['Procurement Officer'],
         self::MANAGE_RFQ => ['Procurement Officer', 'Procurement Staff', 'Supply Officer'],
-        self::EVALUATE_BIDS => ['BAC User', 'BAC Chairperson', 'BAC Vice Chairperson', 'BAC Member', 'Procurement Officer'],
-        self::CREATE_BAC_RESOLUTION => ['BAC User', 'BAC Chairperson', 'BAC Vice Chairperson', 'BAC Member', 'Procurement Officer'],
-        self::APPROVE_BAC_RESOLUTION => ['BAC Chairperson', 'BAC Vice Chairperson'],
+        self::EVALUATE_BIDS => ['BAC User', 'BAC Chairperson', 'BAC Vice Chairperson', 'BAC Member', 'Procurement Officer', 'Procurement Staff'],
+        self::CREATE_BAC_RESOLUTION => ['BAC User', 'BAC Chairperson', 'BAC Vice Chairperson', 'BAC Member', 'Procurement Officer', 'Procurement Staff'],
+        self::APPROVE_BAC_RESOLUTION => ['BAC Chairperson', 'BAC Vice Chairperson', 'Procurement Officer'],
         self::MANAGE_NOA => ['BAC User', 'BAC Chairperson', 'BAC Vice Chairperson', 'Procurement Officer'],
         self::MANAGE_PO => ['Procurement Officer', 'Procurement Staff', 'Supply Officer'],
+        self::RECEIVE_PO_DELIVERY => ['Supply Officer'],
     ];
 
     protected const MESSAGES = [
@@ -53,11 +56,22 @@ class ProcurementGate
         self::APPROVE_PR => 'Only the Procurement Officer or Regional Director can approve a purchase request.',
         self::DELETE_PR => 'Only the Procurement Officer can delete a purchase request.',
         self::MANAGE_RFQ => 'Only Procurement/Supply staff can manage Requests for Quotation.',
-        self::EVALUATE_BIDS => 'Only BAC members can evaluate bids and set awards.',
-        self::CREATE_BAC_RESOLUTION => 'Only BAC members can create a BAC resolution.',
-        self::APPROVE_BAC_RESOLUTION => 'Only the BAC Chairperson or Vice Chairperson can approve a BAC resolution.',
+        self::EVALUATE_BIDS => 'Only BAC members or Procurement staff can evaluate bids and set awards.',
+        self::CREATE_BAC_RESOLUTION => 'Only BAC members or Procurement staff can create a BAC resolution.',
+        self::APPROVE_BAC_RESOLUTION => 'Only the BAC Chairperson, Vice Chairperson, or Procurement Officer can approve a BAC resolution.',
         self::MANAGE_NOA => 'Only BAC members or the Procurement Officer can act on a Notice of Award.',
         self::MANAGE_PO => 'Only Procurement/Supply staff can act on a Purchase Order.',
+        self::RECEIVE_PO_DELIVERY => 'Only the Supply Officer can receive delivered PO items.',
+    ];
+
+    /**
+     * Actions where even Administrator does NOT get the usual blanket bypass —
+     * receiving must be logged under an actual Supply Officer account, not "whoever
+     * has admin rights", so the record of who physically received the delivery stays
+     * meaningful.
+     */
+    protected const NO_ADMIN_BYPASS = [
+        self::RECEIVE_PO_DELIVERY,
     ];
 
     public function allows(string $action): bool
@@ -68,7 +82,7 @@ class ProcurementGate
             return false;
         }
 
-        if ($user->hasRole('Administrator')) {
+        if ($user->hasRole('Administrator') && ! in_array($action, self::NO_ADMIN_BYPASS, true)) {
             return true;
         }
 

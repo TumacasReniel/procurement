@@ -574,7 +574,7 @@
     <script type="text/php">
         if ( isset($pdf) ) {
             $font = $fontMetrics->get_font("Arial, Helvetica, sans-serif", "normal");
-            $size = 12;
+            $size = 8;
             $width = $pdf->get_width();
             $height = $pdf->get_height();
             $left_margin = 24;

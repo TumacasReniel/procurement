@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Schema;
 class IAReportClass
 {
     public function __construct(
-        protected ProcurementPOClass $purchaseOrders
+        protected ProcurementPOClass $purchaseOrders,
+        protected ProcurementGate $gate
     ) {
     }
 
@@ -300,6 +301,8 @@ class IAReportClass
 
     public function receive($id, $request): array
     {
+        $this->gate->authorize(ProcurementGate::RECEIVE_PO_DELIVERY, 'delivered_items');
+
         $po = ProcurementNoaPo::with('deliveries', 'iars', 'noa.items.item.item')->findOrFail($id);
         $isEditingReceivedItems = $request->boolean('edit_received_items');
         $invoiceNo = trim((string) $request->input('invoice_no', ''));

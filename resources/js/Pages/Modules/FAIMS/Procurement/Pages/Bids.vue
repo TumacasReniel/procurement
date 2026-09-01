@@ -124,7 +124,18 @@
                       class="aob-col-check"
                       v-if="canRecommendBidForAward"
                     >
-                      Recommend Bid For Award?
+                      <div class="aob-select-all">
+                        <span class="d-flex justify-content-center">
+                          <input
+                            type="checkbox"
+                            class="form-check-input aob-award-checkbox bg-primary"
+                            :checked="isBidAllChecked(bid)"
+                            :disabled="!selectableBidItems(bid).length"
+                            @change="toggleSelectAllForBid(bid, $event.target.checked)"
+                          />
+                        </span>
+                        <span>Recommend Bid For Award?</span>
+                      </div>
                     </th>
                   </tr>
                 </thead>
@@ -1089,6 +1100,38 @@ export default {
       return this.getCheckedBidsCount(bid.items || []);
     },
 
+    // Items this supplier's checkbox could ever be enabled for — mirrors the
+    // per-row :disabled condition so "select all" never checks something a
+    // manual click couldn't.
+    selectableBidItems(bid) {
+      return (bid.items || []).filter(
+        (item, idx) =>
+          !this.isOtherSupplierChecked(idx, bid) &&
+          this.hasAwardableOffer(item) &&
+          !this.isBidPriceOverUnitCost(item)
+      );
+    },
+    isBidAllChecked(bid) {
+      const selectable = this.selectableBidItems(bid);
+
+      return selectable.length > 0 && selectable.every((item) => item.is_checked);
+    },
+    toggleSelectAllForBid(bid, checked) {
+      (bid.items || []).forEach((item, idx) => {
+        const isDisabled =
+          this.isOtherSupplierChecked(idx, bid) ||
+          !this.hasAwardableOffer(item) ||
+          this.isBidPriceOverUnitCost(item);
+
+        if (isDisabled) {
+          return;
+        }
+
+        item.is_checked = checked;
+        this.handleCheckboxChange(idx, bid);
+      });
+    },
+
     getTotalBidPrice() {
       this.form.total_bid_price = this.form.bid_price * this.form.item_quantity;
       return this.form.total_bid_price;
@@ -1513,15 +1556,21 @@ export default {
 
 [data-bs-theme="dark"] .procurement-bids-page {
   color: #e5edf7;
-  --aob-table-wrap-bg: #1b2230;
-  --aob-table-border: rgba(148, 163, 184, 0.18);
-  --aob-table-head-bg: #232c3a;
-  --aob-table-head-text: #e5edf7;
-  --aob-table-cell-bg: #1b2230;
-  --aob-table-cell-bg-alt: #202937;
-  --aob-table-cell-hover: rgba(148, 163, 184, 0.06);
-  --aob-table-text: #e5edf7;
-  --aob-table-index: #cbd5e1;
+  /* !important: a later <style scoped> block below redeclares these same custom
+     properties with light-mode values on the same .procurement-bids-page selector.
+     Vue's scoping attribute bumps that block's specificity to match this one, so
+     without !important the scoped light values win by source order and the
+     pagination footer (which only reads these vars, no hardcoded dark override)
+     stayed white in dark mode even though the table rows around it were dark. */
+  --aob-table-wrap-bg: #1b2230 !important;
+  --aob-table-border: rgba(148, 163, 184, 0.18) !important;
+  --aob-table-head-bg: #232c3a !important;
+  --aob-table-head-text: #e5edf7 !important;
+  --aob-table-cell-bg: #1b2230 !important;
+  --aob-table-cell-bg-alt: #202937 !important;
+  --aob-table-cell-hover: rgba(148, 163, 184, 0.06) !important;
+  --aob-table-text: #e5edf7 !important;
+  --aob-table-index: #cbd5e1 !important;
 }
 
 [data-bs-theme="dark"] .procurement-bids-page .aob-page-header {
@@ -1863,6 +1912,13 @@ export default {
 .aob-award-checkbox:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.aob-select-all {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .aob-cell-item {

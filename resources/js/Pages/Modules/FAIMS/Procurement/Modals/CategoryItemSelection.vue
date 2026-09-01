@@ -75,8 +75,9 @@
             <td>
               <div class="fw-semibold">{{ item.item_name || "-" }}</div>
               <div
+                v-if="item.item_description"
                 class="text-muted small ppmp-selection-description"
-                v-html="item.item_description || '-'"
+                v-html="item.item_description"
               />
             </td>
             <td>

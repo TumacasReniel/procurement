@@ -393,7 +393,14 @@ export default {
 }
 
 .purchase-order-shell {
-  overflow: hidden;
+  /* Was overflow: hidden — this component assumes it owns the full viewport
+     (heights below are 100vh-based), but it's also embedded as a nested tab
+     inside the procurement View page, which already scrolls its own content
+     (.procurement-view-shell-body). When nested, the real available height is
+     less than the 100vh math below accounts for, so overflow: hidden here was
+     clipping the table + pagination instead of leaving them reachable via that
+     outer scroll container. */
+  overflow: visible;
   background: var(--po-surface) !important;
   border: 1px solid var(--po-border) !important;
   box-shadow: none !important;
@@ -503,7 +510,11 @@ export default {
 
 .purchase-order-table-shell {
   background: transparent;
-  height: calc(100vh - 252px);
+  /* max-height, not height: this only caps the table when it's tall enough to
+     need its own scroll — it no longer forces the box (and the empty space
+     below a short list) to always be this tall, and it can never force itself
+     taller than the space the outer page scroller actually has. */
+  max-height: calc(100vh - 252px);
   overflow: auto;
 }
 
@@ -659,7 +670,7 @@ export default {
   }
 
   .purchase-order-table-shell {
-    height: calc(100vh - 270px);
+    max-height: calc(100vh - 270px);
   }
 }
 
@@ -683,7 +694,7 @@ export default {
   }
 
   .purchase-order-table-shell {
-    height: calc(100vh - 320px);
+    max-height: calc(100vh - 320px);
   }
 }
 </style>

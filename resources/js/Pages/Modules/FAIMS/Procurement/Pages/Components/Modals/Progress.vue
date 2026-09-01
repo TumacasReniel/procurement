@@ -9,33 +9,28 @@
     modal-class="progress-floating-modal"
     body-class="progress-modal-body"
   >
-    <div class="bg-primary status-flow-panel progress-modal-panel">
+    <div class="status-flow-panel progress-modal-panel">
       <div
         class="status-flow-banner-header"
         @click="toggleStatusFlow"
         style="cursor: pointer;"
       >
         <div class="d-flex align-items-center flex-wrap gap-2">
-          <i class="ri-flow-chart text-white"></i>
+          <i class="ri-flow-chart text-white status-flow-header-icon"></i>
           <span class="fw-bold text-white">Procurement Progress</span>
-          <b-badge
-            class="bg-white text-primary ms-2"
-            style="font-size: 0.75rem; padding: 0.35rem 0.65rem;"
-          >
+          <span class="status-flow-glass-badge ms-2">
             {{ procurement.status?.name || "N/A" }}
-          </b-badge>
-          <b-badge
+          </span>
+          <span
             v-if="procurement.sub_status"
-            class="bg-white text-primary ms-1"
-            style="font-size: 0.7rem; padding: 0.3rem 0.6rem;"
+            class="status-flow-glass-badge status-flow-glass-badge--sub ms-1"
           >
             {{ procurement.sub_status?.name }}
-          </b-badge>
+          </span>
         </div>
         <i
           :class="isStatusFlowCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'"
-          class="text-white"
-          style="font-size: 1.2rem;"
+          class="text-white status-flow-toggle-icon"
         ></i>
       </div>
 
@@ -156,14 +151,11 @@
           </div>
         </div>
       </div>
-     
+
     </div>
-     <div class="mt-3">
-      <span class="text-warning">Note:
-        <span class="text-info">
-           Click card status to show more details.
-        </span>
-      </span>
+     <div class="status-flow-note mt-3">
+        <i class="ri-information-line"></i>
+        <span><strong>Note:</strong> Click a card status to show more details.</span>
       </div>
   </b-modal>
 </template>
@@ -270,22 +262,61 @@ export default {
 
 :deep(.progress-floating-modal .modal-content) {
   border: 0;
-  border-radius: 18px;
+  border-radius: 20px;
   overflow: hidden;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
 }
 
 :deep(.progress-modal-body) {
   padding: 0;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, #f4f6fb 0%, #e7eaf3 100%);
 }
 
 .progress-modal-panel {
   margin-bottom: 0;
 }
 
+/* Base glass surface: rich gradient + blurred aurora blobs behind frosted cards */
 .status-flow-panel {
-  padding: 1rem 1.2rem 1.2rem;
-  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  padding: 1.1rem 1.3rem 1.3rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #4c5da3 0%, #3a4788 55%, #2f3b73 100%);
+  isolation: isolate;
+}
+
+.status-flow-panel::before,
+.status-flow-panel::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(30px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.status-flow-panel::before {
+  width: 280px;
+  height: 280px;
+  top: -120px;
+  left: -80px;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.55), transparent 70%);
+}
+
+.status-flow-panel::after {
+  width: 320px;
+  height: 320px;
+  bottom: -160px;
+  right: -100px;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.28), transparent 70%);
+}
+
+.status-flow-banner-header,
+.status-flow-banner-content,
+.status-flow-note {
+  position: relative;
+  z-index: 1;
 }
 
 .status-flow-banner-header {
@@ -296,19 +327,64 @@ export default {
   font-size: 1rem;
   margin-bottom: 0.9rem;
   padding: 0.2rem 0 0.9rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
 }
 
-.status-flow-banner-header .ri-flow-chart {
-  font-size: 1.4rem;
-  background: rgba(255, 255, 255, 0.2);
+.status-flow-header-icon {
+  font-size: 1.3rem;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   padding: 0.5rem;
   border-radius: 10px;
+  line-height: 1;
 }
 
 .status-flow-banner-header .fw-bold {
   font-size: 1.1rem;
   letter-spacing: 0.3px;
+}
+
+.status-flow-glass-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+}
+
+.status-flow-glass-badge--sub {
+  font-size: 0.7rem;
+  padding: 0.3rem 0.65rem;
+  background: rgba(251, 191, 36, 0.22);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.status-flow-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.1rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.status-flow-banner-header:hover .status-flow-toggle-icon {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .status-flow-banner-content {
@@ -329,6 +405,9 @@ export default {
   display: flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   padding: 0.45rem 0.85rem;
   border-radius: 20px;
   width: fit-content;
@@ -369,17 +448,41 @@ export default {
 }
 
 .status-flow-banner-line {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 0.15rem;
   flex-shrink: 0;
-  min-width: 15px;
+  min-width: 22px;
+}
+
+.status-flow-banner-line::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-50%);
+  z-index: 0;
+  transition: background 0.3s ease;
+}
+
+.status-flow-banner-line.connected::before {
+  background: linear-gradient(90deg, rgba(74, 222, 128, 0.75), rgba(74, 222, 128, 0.35));
+}
+
+.status-flow-banner-line.active::before {
+  background: linear-gradient(90deg, rgba(74, 222, 128, 0.6), rgba(251, 191, 36, 0.75));
 }
 
 .status-flow-banner-line i {
+  position: relative;
+  z-index: 1;
   font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.35);
   transition: all 0.3s ease;
 }
 
@@ -395,35 +498,44 @@ export default {
 }
 
 .status-flow-banner-step {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
   min-width: 96px;
   padding: 0.72rem 0.5rem;
-  border-radius: 12px;
-  border: 1px solid transparent;
-  transition: all 0.3s ease;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.16);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
   cursor: default;
 }
 
 .status-flow-banner-step:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.24);
 }
 
 .status-flow-banner-step.completed {
-  background: transparent;
-  border-color: #22c55e;
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25) inset;
+  background: linear-gradient(160deg, rgba(34, 197, 94, 0.24), rgba(34, 197, 94, 0.06));
+  border-color: rgba(74, 222, 128, 0.4);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .status-flow-banner-step.active {
-  background: rgba(251, 191, 36, 0.25);
-  box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+  background: linear-gradient(160deg, rgba(251, 191, 36, 0.34), rgba(251, 191, 36, 0.08));
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow: 0 8px 26px rgba(251, 191, 36, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .status-flow-banner-step.pending {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  opacity: 0.88;
 }
 
 .status-flow-banner-dot {
@@ -441,21 +553,21 @@ export default {
 .status-flow-banner-step.completed .status-flow-banner-dot {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 3px 10px rgba(34, 197, 94, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 3px 10px rgba(34, 197, 94, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
 
 .status-flow-banner-step.active .status-flow-banner-dot {
   background: linear-gradient(135deg, #fbbf24, #f59e0b);
   color: white;
-  box-shadow: 0 0 15px rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.4);
   animation: pulseBannerDot 1.5s ease-in-out infinite;
 }
 
 .status-flow-banner-step.pending .status-flow-banner-dot {
-  background: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.5);
-  border: 2px dashed rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.55);
+  border: 2px dashed rgba(255, 255, 255, 0.22);
 }
 
 .status-flow-banner-label {
@@ -502,7 +614,7 @@ export default {
 }
 
 .status-flow-banner-step.pending .status-flow-banner-label {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.48);
 }
 
 .status-flow-banner-step.completed .status-flow-banner-time {
@@ -515,6 +627,23 @@ export default {
 
 .status-flow-banner-time.pending {
   color: rgba(255, 255, 255, 0.42);
+}
+
+.status-flow-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(64, 81, 137, 0.06);
+  border: 1px solid rgba(64, 81, 137, 0.14);
+  color: #405189;
+  font-size: 0.82rem;
+}
+
+.status-flow-note i {
+  font-size: 1rem;
+  flex-shrink: 0;
 }
 
 @keyframes linePulse {

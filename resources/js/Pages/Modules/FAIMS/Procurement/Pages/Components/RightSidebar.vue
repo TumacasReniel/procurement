@@ -1073,7 +1073,10 @@ export default {
 .floating-comments-wrapper {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  /* Stacked above the AI assistant FAB (bottom: 100px, 52px tall) and the
+     procurement-progress pill (bottom: 24px, 64px tall) below that — this used
+     to sit at the same bottom: 24px as the progress pill and overlapped it. */
+  bottom: 164px;
   z-index: 1060;
   max-width: calc(100vw - 48px);
   max-height: calc(100dvh - 48px);

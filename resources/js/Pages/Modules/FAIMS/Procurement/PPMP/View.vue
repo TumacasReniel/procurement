@@ -83,7 +83,7 @@
               </b-button>
               <b-button
                 v-if="canCreateRevision"
-                variant="warning"
+                variant="success"
                 :disabled="createRevisionForm.processing"
                 @click="openCreateRevisionModal"
               >
@@ -435,6 +435,10 @@ export default {
         && !this.isConsolidatedToApp;
     },
     canShowAdvanceAction() {
+      if (this.ppmp.is_superseded_by_final) {
+        return false;
+      }
+
       if (this.normalizedPlanType === "APP") {
         if (this.isReviewedForSubmission && this.isProcurementOfficer) {
           return true;

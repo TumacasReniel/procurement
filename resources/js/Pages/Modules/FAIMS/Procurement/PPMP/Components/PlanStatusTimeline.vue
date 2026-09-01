@@ -563,6 +563,24 @@ export default {
   color: #cbd5e1;
 }
 
+/* .plan-status-flow__label/__actor/__time/__note fall back to light-mode
+   ink/muted colors (#1e293b / #64748b) when --ppmp-text/--ppmp-muted aren't
+   defined in this context, which read as near-invisible dark text on the
+   dark green/blue completed/active step cards. */
+[data-bs-theme="dark"] .plan-status-flow__label,
+[data-bs-theme="dark"] .plan-status-flow__actor {
+  color: #f1f5f9;
+}
+
+[data-bs-theme="dark"] .plan-status-flow__time,
+[data-bs-theme="dark"] .plan-status-flow__note {
+  color: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .plan-status-flow__time.pending {
+  color: #94a3b8;
+}
+
 [data-bs-theme="dark"] .plan-status-flow__line-bar {
   background: rgba(148, 163, 184, 0.2);
 }

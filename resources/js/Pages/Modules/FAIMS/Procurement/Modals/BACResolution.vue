@@ -199,12 +199,16 @@
       </b-col>
     </b-row>
 
+    <div v-if="Object.keys(form.errors).length" class="alert alert-danger mx-3 mb-0">
+      {{ Object.values(form.errors)[0] }}
+    </div>
+
     <template v-slot:footer>
-      <b-button @click="hide()" variant="light" class="bac-resolution-cancel-btn" block>Cancel</b-button>
-      <b-button @click="submit(form)" variant="success" v-if="editable" block
+      <b-button @click="hide()" variant="light" class="bac-resolution-cancel-btn" block :disabled="form.processing">Cancel</b-button>
+      <b-button @click="submit(form)" variant="success" v-if="editable" block :disabled="form.processing"
         >Update</b-button
       >
-      <b-button @click="submit(form)" variant="success" v-else block>Save</b-button>
+      <b-button @click="submit(form)" variant="success" v-else block :disabled="form.processing">Save</b-button>
     </template>
   </b-modal>
 </template>

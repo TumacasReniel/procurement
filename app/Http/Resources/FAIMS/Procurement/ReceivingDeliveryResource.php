@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FAIMS\Procurement;
 
+use App\Services\FAIMS\Procurement\ProcurementGate;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -9,6 +10,11 @@ class ReceivingDeliveryResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        // Receiving delivered items is a Supply Officer duty (Administrator always
+        // bypasses via ProcurementGate::allows()) — gate both actions here, once,
+        // so every screen that reads these flags stays in sync automatically.
+        $canReceive = app(ProcurementGate::class)->allows(ProcurementGate::RECEIVE_PO_DELIVERY);
+
         $procurement = $this->noa?->procurement_quotation?->procurement;
         $supplier = $this->noa?->procurement_quotation?->supplier;
         $summary = $this->getAttribute('delivery_monitoring_summary') ?? [];
@@ -73,8 +79,8 @@ class ReceivingDeliveryResource extends JsonResource
             'delivered_items_count' => (int) data_get($summary, 'delivered_items', 0),
             'partial_items_count' => (int) data_get($summary, 'partial_items', 0),
             'total_items_count' => (int) data_get($summary, 'total_items', 0),
-            'can_receive_delivery' => (int) data_get($summary, 'needs_delivery_items', 0) > 0,
-            'can_edit_received_items' => $receivedDeliveries->isNotEmpty() && $this->iars->isEmpty() && !$this->iar,
+            'can_receive_delivery' => $canReceive && (int) data_get($summary, 'needs_delivery_items', 0) > 0,
+            'can_edit_received_items' => $canReceive && $receivedDeliveries->isNotEmpty() && $this->iars->isEmpty() && !$this->iar,
             'can_generate_iar_report' => (bool) $this->getAttribute('can_generate_iar_report'),
         ];
     }

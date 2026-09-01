@@ -898,9 +898,19 @@ class ProcurementPPMPClass
         // aggregateSourceQuery() returns every PPMP row for the unit/year; keep only the
         // opened PPMP's own quarter so the aggregated view renders the record the user
         // actually opened, not some other quarter for the same unit.
+        $isSupersededByFinal = false;
+
         if ($plan_type === self::PLAN_TYPE_PPMP) {
             $openedType = $procurement->ppmp_type ?? self::PPMP_TYPE_INDICATIVE;
             $openedQuarter = (int) ($procurement->quarter ?? 0);
+
+            // Computed from the unfiltered set (all types/quarters for the unit/year) — the
+            // filter below narrows $procurements to the opened type/quarter, which would
+            // otherwise hide any Final sibling from this check.
+            $isSupersededByFinal = $openedType === self::PPMP_TYPE_INDICATIVE
+                && $procurements->contains(fn (ProcurementPpmp $p) => ($p->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) === self::PPMP_TYPE_FINAL
+                    && (int) ($p->quarter ?? 0) === $openedQuarter);
+
             $procurements = $procurements
                 ->filter(fn (ProcurementPpmp $p) => ($p->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) === $openedType
                     && (int) ($p->quarter ?? 0) === $openedQuarter)
@@ -930,6 +940,7 @@ class ProcurementPPMPClass
                     'approval_status_override' => $plan_type === self::PLAN_TYPE_SPP
                         ? $this->sppStatusForPlan($plan_names, $statuses)
                         : $this->approvalStatusForGroup($plan_names, $statuses),
+                    'is_superseded_by_final_override' => $isSupersededByFinal,
                 ]);
 
                 return (new ProcurementPPMPResource($resource))->resolve();
@@ -3597,10 +3608,35 @@ class ProcurementPPMPClass
     {
         $plan_type = $this->normalizePlanType($plan_type);
 
+        // Indicative and Final PPMPs for the same unit/quarter land in separate groups
+        // (grouped by ppmp_type below). Once a Final exists, its Indicative source is
+        // superseded and should no longer be independently actionable in the list.
+        $finalUnitQuarters = $procurements
+            ->filter(fn (ProcurementPpmp $p) => ($p->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) === self::PPMP_TYPE_FINAL)
+            ->map(fn (ProcurementPpmp $p) => $p->unit_id . '||' . ($p->quarter ?? 0))
+            ->unique()
+            ->flip();
+
         return $procurements
             ->groupBy(fn (ProcurementPpmp $p) => $p->unit_id . '||' . ($p->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) . '||' . ($p->quarter ?? 0))
-            ->map(function (Collection $unit_procurements) use ($plan_type) {
+            ->map(function (Collection $unit_procurements) use ($plan_type, $finalUnitQuarters) {
                 $current_user_id = Auth::id();
+
+                // A revision chain (createRevision keeps the same source_ppmp_id across every
+                // Final version) must only contribute its current/latest version to the group —
+                // otherwise a superseded version's stale status (e.g. "Reviewed") and items leak
+                // into the merged badge/totals alongside the version that's actually actionable.
+                $unit_procurements = $unit_procurements
+                    ->groupBy(fn ($p) => $p->source_ppmp_id ?? $p->id)
+                    ->map(fn (Collection $chain) => $chain->count() === 1
+                        ? $chain->first()
+                        : $chain
+                            ->sortBy('id')
+                            ->sortByDesc('ppmp_type_version')
+                            ->sortByDesc(fn ($p) => (int) (bool) ($p->is_current ?? false))
+                            ->first())
+                    ->values();
+
                 $representative = $unit_procurements
                     // Tie-break on id first (ascending, stable sort) so that among equally-ranked
                     // rows the oldest — the base row, not a later sibling project — wins below.
@@ -3670,8 +3706,12 @@ class ProcurementPPMPClass
                     'projects' => $projects,
                 ]);
 
+                $is_superseded_by_final = ($representative->ppmp_type ?? self::PPMP_TYPE_INDICATIVE) === self::PPMP_TYPE_INDICATIVE
+                    && $finalUnitQuarters->has($representative->unit_id . '||' . ($representative->quarter ?? 0));
+
                 $this->applyOverrides($representative, [
                     'ppmp_no_override' => $representative->code ?: $number_prefix.'-'.$year.'-01',
+                    'is_superseded_by_final_override' => $is_superseded_by_final,
                     'pr_no_override' => $pr_nos->implode(', '),
                     'plan_name_override' => $plan_type === self::PLAN_TYPE_SPP ? self::PLAN_NAME_SPP : $plan_name,
                     'ppmp_status_override' => $plan_type === self::PLAN_TYPE_SPP

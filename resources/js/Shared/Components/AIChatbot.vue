@@ -1797,4 +1797,94 @@ export default {
   background: rgba(var(--vz-primary-rgb), 0.08);
   border-color: rgba(var(--vz-primary-rgb), 0.38);
 }
+
+/* ══ Dark mode ═══════════════════════════════════════ */
+[data-bs-theme="dark"] .ai-panel {
+  background: #1b2230;
+  box-shadow: 0 32px 72px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(var(--vz-primary-rgb), 0.24);
+}
+
+[data-bs-theme="dark"] .ai-body::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+[data-bs-theme="dark"] .ai-welcome-title {
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .ai-welcome-desc {
+  color: #9fb0c7;
+}
+
+[data-bs-theme="dark"] .ai-status-pill {
+  border-color: rgba(148, 163, 184, 0.24);
+  background: #232c3a;
+  color: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .ai-suggestion {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: #232c3a;
+  color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .ai-suggestion:hover {
+  background: rgba(var(--vz-primary-rgb), 0.16);
+  border-color: rgba(var(--vz-primary-rgb), 0.5);
+}
+
+[data-bs-theme="dark"] .ai-bubble.assistant {
+  background: #232c3a;
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .ai-timestamp {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+[data-bs-theme="dark"] .ai-chips-bar {
+  border-top-color: rgba(148, 163, 184, 0.18);
+  background: #1f2937;
+}
+
+[data-bs-theme="dark"] .ai-chip-btn,
+[data-bs-theme="dark"] .ai-response-chip {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: #232c3a;
+  color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .ai-chip-btn:hover,
+[data-bs-theme="dark"] .ai-response-chip:hover {
+  background: rgba(var(--vz-primary-rgb), 0.18);
+  border-color: rgba(var(--vz-primary-rgb), 0.5);
+}
+
+[data-bs-theme="dark"] .ai-input-footer {
+  border-top-color: rgba(148, 163, 184, 0.18);
+  background: #1b2230;
+}
+
+[data-bs-theme="dark"] .ai-input-box {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: #232c3a;
+}
+
+[data-bs-theme="dark"] .ai-input-box.focused {
+  background: #1f2937;
+}
+
+[data-bs-theme="dark"] .ai-textarea {
+  color: #e5edf7;
+}
+
+[data-bs-theme="dark"] .ai-textarea::placeholder {
+  color: #64748b;
+}
+
+[data-bs-theme="dark"] .ai-footer-label {
+  color: #64748b;
+}
 </style>
