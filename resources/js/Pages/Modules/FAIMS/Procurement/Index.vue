@@ -43,7 +43,7 @@
                     </div>
                 </div>
 
-                <div class="car-body bg-white border-bottom shadow-none">
+                <div class="car-body bg-white border-bottom shadow-none procurement-toolbar-row">
                     <b-row class="mb-2 ms-1 me-1" style="margin-top: 12px">
                         <b-col lg>
                             <div class="input-group mb-1">
@@ -1391,6 +1391,14 @@ export default {
 </script>
 
 <style scoped>
+/* Keep the search/filter/calendar toolbar in view while the request list
+   below is scrolled, instead of it scrolling away with the page. */
+.procurement-toolbar-row {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
 .procurement-empty-state {
     min-height: 320px;
     display: flex;
